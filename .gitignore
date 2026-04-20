@@ -1,0 +1,8 @@
+# MCP config (contains API keys)
+.mcp.json
+
+# Claude Code user-local overrides
+.claude/settings.local.json
+
+# Ephemeral session context (codex session IDs, etc.)
+.context/
