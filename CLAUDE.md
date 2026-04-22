@@ -7,7 +7,7 @@
 - **Engine**: Cocos Creator 3.8+ (TypeScript)
 - **Platforms**: Web(H5), WeChat Mini Game, iOS, Android
 - **Architecture**: Pure client-side (MVP), with reserved backend interfaces
-- **Art Style**: Paul Klee + Machinarium aesthetic
+- **Art Style**: Arrog-inspired minimalist hand-drawn line art with restrained low-saturation color
 
 ## Source Of Truth
 
