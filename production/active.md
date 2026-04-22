@@ -20,6 +20,8 @@ Last updated: 2026-04-22
 - 实现 M30 或 M31 的 Stage 5 原型，专门测试"命名仪式"的可行性
 - 设计并实现 ToolCard 数据结构 + Journal/Toolkit UI 的最小可用版本
 - 搭建 AI 美术 LoRA / 提示词管线（统一手绘墨线 + 低饱和淡彩）
+- 生成 Stage 1 场景概念图，验证统一手绘风格能否覆盖多种谜题装置
+- 将已选中的 Stage 1 场景图落成项目内可复用美术资产
 
 ## Out Of Scope
 
@@ -54,6 +56,7 @@ Last updated: 2026-04-22
 - v1.9 spec 已近 1050 行，后续任何修改必须警惕"自我繁殖"重新启动
 - 继续改 spec 的诱惑远大于去写 Cocos 代码的诱惑——这是作者心理定势，需要用"原型验证优先"原则硬性对抗
 - 美术风格曾多次向“淡水彩氛围图”或“复杂机械插画”跑偏——后续出图必须以“线条优先、装饰减少、结构可信”为硬约束
+- 批量生图容易出现“每关概念成立，但同批次内部尺度关系和留白强度不一致”——后续需要逐关筛选与二次迭代，而不是整批直接定稿
 
 ## Next Recommended Step (immediate)
 
@@ -74,6 +77,8 @@ Last updated: 2026-04-22
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`
+- 2026-04-22 已生成 Stage 1 `M02-M10` 首轮场景概念图，并存入 `docs/design/generated-stage1-scenes/`
+- 2026-04-22 已选定并落盘 Stage 1 首批 7 张场景资产到 `assets/art/stage1-scenes/`：`M02-M08`，其中 `M07` 采用 `v1`，`M08` 采用 `v1`
 - 会话记录见 `.context/codex-session-id`（019da998-3185-7db3-9ae8-4a74a1ab7330）
 - 五阶段调性保真度审计见 `docs/design/stage-tonality-verification.md`
 - 50→33 去重过程见 `docs/design/tool-dedup-audit.md` + `docs/design/50-puzzle-comparison.md`
