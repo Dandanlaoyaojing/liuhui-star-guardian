@@ -71,7 +71,7 @@
 
 ### 2.3 33 关完整索引
 
-以下 33 关是按"玩家 A+B 正交性"（A 轴 = 手上动作，B 轴 = 系统阅读方式）从原始 50 工具清单裁定后的终版。**关卡 ID 已重新编号为 M01-M33 连续编号**。原始 50 关 ID → 新 33 关 ID 的映射见 `docs/design/stage-tonality-verification.md` 与后续裁定日志。
+以下 33 关是按"玩家 A+B 正交性"（A 轴 = 手上动作，B 轴 = 系统阅读方式）从原始 50 工具清单裁定后的终版。**关卡 ID 已重新编号为 M01-M33 连续编号**。裁定过程见 `docs/design/tool-dedup-audit.md`（删除/合并清单）+ `docs/design/50-puzzle-comparison.md`（原始 50 关定稿）；原始 50 关 ID → 新 33 关 ID 没有单独整理成映射表，而是通过重编号直接废弃旧 ID。`docs/design/stage-tonality-verification.md` 是去重前的 50-关调性审计历史档案，仍用 50-关编号，**不是映射表**。
 
 #### 第一阶段：秩序之基（M01-M10, 10 关）— 掌握不可再分的基础思维动作
 
