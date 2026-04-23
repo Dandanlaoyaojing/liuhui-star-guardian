@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-04-22
+Last updated: 2026-04-23
 
 ## Current Objective
 
@@ -36,10 +36,11 @@ Last updated: 2026-04-22
 3. **关卡数**：50 → **33 关**（10-6-7-5-5 金字塔分布），按玩家 A+B 正交性裁定。
 4. **美术设计已替换**：统一采用 Arrog 式简约手绘语言——清晰可见的墨线轮廓、低饱和淡彩、功能性简约机械、大量留白；颜色服务线条，不再使用“角色水彩 / 世界墨线 / Klee 饱和填色”的分层方案。
 5. **整体风格锚点已入库**：`docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png` 作为全项目视觉审稿与提示词对齐基准，重点学习“留白、线条、简化机械、尺度关系”，避免跑回淡水彩氛围图或复杂机械插画。
-6. **关键机制**：**认知工具册**（§6.5）—— 每关产出 ToolCard，正面感性（工具名+场景+结晶）/ 反面理性（何时使用+生活例子+常见陷阱）。
-7. **技术栈**：Cocos Creator 3.8+ / TypeScript / Dragon Bones 或 Cocos Skeleton2D（Spine Pro 已废弃）。
-8. **财务定位**：用户明确"现阶段不考虑成本" —— passion project 优先，商业账延期。
-9. **来自 Codex Round 3 的必做验证**：M01 和 Stage 5 原型必须先跑通，否则后续扩写无意义。
+6. **游戏界面参考图已入库**：2026-04-23 新增两张界面/面板参考图，定位为服务本游戏开发的通用 UI 与面板资产基准，不再按外部工具界面方向解释；文件见 `docs/design/style-references/2026-04-23-game-interface-style-reference.png` 与 `docs/design/style-references/2026-04-23-game-ui-board-style-reference.png`。
+7. **关键机制**：**认知工具册**（§6.5）—— 每关产出 ToolCard，正面感性（工具名+场景+结晶）/ 反面理性（何时使用+生活例子+常见陷阱）。
+8. **技术栈**：Cocos Creator 3.8+ / TypeScript / Dragon Bones 或 Cocos Skeleton2D（Spine Pro 已废弃）。
+9. **财务定位**：用户明确"现阶段不考虑成本" —— passion project 优先，商业账延期。
+10. **来自 Codex Round 3 的必做验证**：M01 和 Stage 5 原型必须先跑通，否则后续扩写无意义。
 
 ## Risks / Blockers
 
@@ -77,6 +78,8 @@ Last updated: 2026-04-22
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`
+- 2026-04-22 桌面截图 `截屏2026-04-22 09.43.48.png` 与已入库的 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png` 哈希一致；已补充资产副本到 `assets/art/style-references/unified-handdrawn-style-anchor.png`
+- 2026-04-23 已将新增界面参考图重命名并重新表述为游戏界面/面板参考，去除外部工具界面方向词，更新 `docs/design/game-design-spec.md`、`docs/design/style-references/README.md` 与资产路径
 - 2026-04-22 已生成 Stage 1 `M02-M10` 首轮场景概念图，并存入 `docs/design/generated-stage1-scenes/`
 - 2026-04-22 已选定并落盘 Stage 1 首批 7 张场景资产到 `assets/art/stage1-scenes/`：`M02-M08`，其中 `M07` 采用 `v1`，`M08` 采用 `v1`
 - 会话记录见 `.context/codex-session-id`（019da998-3185-7db3-9ae8-4a74a1ab7330）

@@ -34,7 +34,7 @@ For this repo, a good reframe usually distinguishes between:
 
 Example:
 
-- Surface request: "Make the cockpit search puzzle better."
+- Surface request: "Make the star-map search puzzle better."
 - Better reframe: "Is the problem discoverability, narrative clarity, pacing, or the interaction itself?"
 
 ---

@@ -478,6 +478,13 @@ class LocalStorageSync implements ICloudSync {
 - **不要误学写实金属**：机械允许有材质暗示，但不做厚重高光、真实磨损、工业渲染
 - **不要误学满屏背景**：这张图成立的关键之一是克制留白；背景只能给少量支撑线索，不能被“补满”
 
+**游戏界面 / 面板补充参考图（2026-04-23）**：见 [style-references/2026-04-23-game-interface-style-reference.png](style-references/2026-04-23-game-interface-style-reference.png)、[style-references/2026-04-23-game-ui-board-style-reference.png](style-references/2026-04-23-game-ui-board-style-reference.png) 与 [style-references/README.md](style-references/README.md)。这两张图作为**游戏界面类资产的附加基准**，适用于工具卡、菜单、日志本、空状态、关卡选择、谜题面板等 UI/面板类素材：
+- **学它的色调浓度**：暖纸白底、较深蓝灰舷窗、陶土/赭石/黄铜点色，整体更厚、更稳，但不高饱和
+- **学它的手绘 UI 线条**：面板框、仪表、卡片、拨杆、图标都要有明显手绘抖动和粗细变化，不能像规则矢量组件
+- **学它的云与天空关系**：天空有蓝灰深浅递进，云朵与背景有清楚层次，带纸面手刷质感
+- **学它的文字处理**：生成图片不烤入真实文字，只保留文字占位，真实文案交给前端/引擎文本层
+- **学它的界面克制**：模块可读、功能隐喻明确，但不把每个界面做成复杂仪器墙或通用办公工具
+
 ### 4.1.1 线条、色彩与结构的硬规则
 
 - **线条优先于上色**：任何对象在去掉颜色后也必须能靠线条成立
