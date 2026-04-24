@@ -5,6 +5,12 @@ import type {
   M01Shape,
   M01SlotDef
 } from "../levels/stage1/M01MemoryGearController.ts";
+import {
+  formatM01ColorLabel,
+  formatM01GreyboxText,
+  formatM01ShapeLabel,
+  type M01GreyboxTextOverrides
+} from "./M01GreyboxText.ts";
 
 export type M01GreyboxNodeKind = "gear" | "filter" | "fragment" | "slot" | "label";
 
@@ -39,23 +45,23 @@ export interface M01GreyboxLayout {
   slots: M01GreyboxTokenNode[];
 }
 
+export interface M01GreyboxLayoutOptions {
+  text?: M01GreyboxTextOverrides;
+}
+
 const CANVAS: M01GreyboxSize = { width: 960, height: 640 };
-const STATUS_TEXT = "M01 灰盒：插入颜色过滤器，然后把同色碎片按形状归位。";
 
-const colorLabels: Record<string, string> = {
-  red: "红",
-  blue: "蓝",
-  yellow: "黄"
-};
-
-export function buildM01GreyboxLayout(config: M01MemoryGearConfig): M01GreyboxLayout {
+export function buildM01GreyboxLayout(
+  config: M01MemoryGearConfig,
+  options: M01GreyboxLayoutOptions = {}
+): M01GreyboxLayout {
   return {
     canvas: CANVAS,
-    statusText: STATUS_TEXT,
+    statusText: formatM01GreyboxText("initialInstruction", {}, options.text),
     gear: buildGearNode(config),
-    filters: config.filters.map((filter) => buildFilterNode(filter, config)),
-    fragments: config.fragments.map(buildFragmentNode),
-    slots: config.slots.map(buildSlotNode)
+    filters: config.filters.map((filter) => buildFilterNode(filter, config, options.text)),
+    fragments: config.fragments.map((fragment) => buildFragmentNode(fragment, options.text)),
+    slots: config.slots.map((slot) => buildSlotNode(slot, options.text))
   };
 }
 
@@ -84,16 +90,21 @@ function buildGearNode(config: M01MemoryGearConfig): M01GreyboxTokenNode {
 
 function buildFilterNode(
   filter: M01FilterDef,
-  config: M01MemoryGearConfig
+  config: M01MemoryGearConfig,
+  text: M01GreyboxTextOverrides = {}
 ): M01GreyboxTokenNode {
   const fallbackY = filter.color === "red" ? 160 : filter.color === "blue" ? 80 : 0;
   const entityPosition = findEntityPosition(config, filter.entityId ?? `entity_${filter.id}`);
+  const color = formatM01ColorLabel(filter.color, text);
 
   return {
     id: filter.id,
     controllerId: filter.id,
     kind: "filter",
-    label: filter.label ?? `${colorLabels[filter.color] ?? filter.color}过滤器`,
+    label:
+      text.filterLabel !== undefined
+        ? formatM01GreyboxText("filterLabel", { color }, text)
+        : filter.label ?? formatM01GreyboxText("filterLabel", { color }, text),
     position: readPosition(entityPosition, { x: -420, y: fallbackY }),
     size: { width: 76, height: 44 },
     colorToken: filter.color,
@@ -102,12 +113,18 @@ function buildFilterNode(
   };
 }
 
-function buildFragmentNode(fragment: M01FragmentDef): M01GreyboxTokenNode {
+function buildFragmentNode(
+  fragment: M01FragmentDef,
+  text: M01GreyboxTextOverrides = {}
+): M01GreyboxTokenNode {
+  const color = formatM01ColorLabel(fragment.color, text);
+  const shape = formatM01ShapeLabel(fragment.shape, text);
+
   return {
     id: fragment.id,
     controllerId: fragment.id,
     kind: "fragment",
-    label: `${colorLabels[fragment.color] ?? fragment.color} ${fragment.shape}`,
+    label: formatM01GreyboxText("tokenLabel", { color, shape }, text),
     position: readPosition(fragment.position, { x: 0, y: 0 }),
     size: { width: 34, height: 34 },
     colorToken: fragment.color,
@@ -116,12 +133,15 @@ function buildFragmentNode(fragment: M01FragmentDef): M01GreyboxTokenNode {
   };
 }
 
-function buildSlotNode(slot: M01SlotDef): M01GreyboxTokenNode {
+function buildSlotNode(slot: M01SlotDef, text: M01GreyboxTextOverrides = {}): M01GreyboxTokenNode {
+  const color = formatM01ColorLabel(slot.accepts.color, text);
+  const shape = formatM01ShapeLabel(slot.accepts.shape, text);
+
   return {
     id: slot.id,
     controllerId: slot.id,
     kind: "slot",
-    label: `${colorLabels[slot.accepts.color] ?? slot.accepts.color} ${slot.accepts.shape}`,
+    label: formatM01GreyboxText("tokenLabel", { color, shape }, text),
     position: readPosition(slot.position, { x: 0, y: 0 }),
     size: { width: 52, height: 52 },
     colorToken: slot.accepts.color,

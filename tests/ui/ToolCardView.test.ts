@@ -32,4 +32,16 @@ describe("buildToolCardPreview", () => {
       "何时使用：整理一堆笔记不知从何下手时"
     ]);
   });
+
+  it("allows visible ToolCard preview copy to be replaced for localization", () => {
+    const preview = buildToolCardPreview(m01Card, {
+      text: {
+        unlockedSubtitle: "UNLOCKED",
+        whenToUsePrefix: "USE: {value}"
+      }
+    });
+
+    expect(preview.subtitle).toBe("UNLOCKED");
+    expect(preview.lines[2]).toBe("USE: 整理一堆笔记不知从何下手时");
+  });
 });

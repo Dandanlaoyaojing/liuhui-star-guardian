@@ -8,12 +8,12 @@ Last updated: 2026-04-24
 - **P1-a 安全原型**：M01（分类与归纳）—— 验证基础管线（Cocos Creator + Arrog 式统一手绘墨线 + 低饱和配色 + 拖拽交互 + ToolCard 产出）
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
-**当前执行焦点**：M01 第一关灰盒原型继续推进中，计划文件见 `docs/plans/2026-04-24-m01-prototype-plan.md`。当前已从“可点击验证”推进到“可完成并展示最小 ToolCard 预览”，下一步应补完成反馈/提示层，再进入首个美术切片校准。
+**当前执行焦点**：M01 第一关灰盒原型继续推进中，计划文件见 `docs/plans/2026-04-24-m01-prototype-plan.md`。当前已从“可完成并展示最小 ToolCard 预览”推进到“带提示 / 错误反馈 / 修复态的可测试灰盒”，下一步应把点击式灰盒升级为拖拽式灰盒，再进入首个美术切片校准。
 
 ## Current Phase
 
 - **Design: FROZEN at v1.9**
-- **Prototyping: M01 greybox runtime playable; completion ToolCard preview added**
+- **Prototyping: M01 greybox runtime playable; hints, error feedback, repair state, and completion ToolCard preview added**
 - **Local toolchain**: Cocos Creator 3.8.8 installed at `/Applications/CocosCreator-3.8.8.app` on 2026-04-24.
 - **Cocos project integration**: repo now has Cocos Creator 3.x project metadata (`.creator/`, `settings/v2/`, shared `profiles/v2/packages/scene.json`) and generated `.meta` files for current assets.
 - **Local editor automation**: Cocos MCP server plugin installed locally at `extensions/cocos-mcp-server/` and configured to auto-start on `127.0.0.1:3000` when Cocos opens this project.
@@ -76,9 +76,9 @@ Last updated: 2026-04-24
 ## Next Recommended Step (immediate)
 
 **继续补齐 M01 Milestone A 的“可被人测试”部分**：
-1. 补 WP4 的错误反馈 / 提示层 / 完成修复反馈，让测试者能无外部解释恢复操作。
-2. 把当前点击式灰盒升级为拖拽式灰盒，贴近 M01 计划中的“过滤器拖拽 + 吸盘分拣”。
-3. 在灰盒交互稳定后，再进入 WP6 首个美术切片校准。
+1. 把当前点击式灰盒升级为拖拽式灰盒，贴近 M01 计划中的“过滤器拖拽 + 吸盘分拣”。
+2. 在拖拽稳定后补一次 Cocos 预览实测，确认提示按钮、错误槽位描边、完成修复态和 ToolCard 预览不互相遮挡。
+3. 灰盒交互稳定后，再进入 WP6 首个美术切片校准。
 
 **当前 M01 灰盒进度**：
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
@@ -91,6 +91,8 @@ Last updated: 2026-04-24
 - 已补充最小 `ToolCardView` presenter 与完成态卡片预览：通关后场景内显示“认知工具卡已解锁 / 分类与归纳 / 智慧结晶 / 核心行动 / 何时使用”。
 - 已修正 M01 初始碎片点位，避免碎片压住匹配槽位导致点击式灰盒无法完成 18/18。
 - 已将 M01 灰盒运行期 status 本地化为中文，避免完成反馈混入英文调试文本。
+- 已补充 WP4 首段反馈层：提示按钮按上下文提示过滤器 / 可选碎片 / 目标槽位；错误放置会保留选中并标出错误槽位；完成后齿轮进入修复态并展示 ToolCard。
+- 已新增 `M01GreyboxText` 与 ToolCard preview text overrides，当前新增/触碰的可见文字均可通过 overrides 替换，后续接多语言不需要改玩法逻辑。
 
 **不再做的事**：
 - ❌ 扩写 M11-M33 的详设
@@ -106,6 +108,8 @@ Last updated: 2026-04-24
 - 2026-04-24 M01 灰盒可视化入口补强：新增运行时布局与点击会话测试，`npm test -- tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxLayout.test.ts` 成功（2 个测试文件 / 6 个测试）。
 - 2026-04-24 review 修复验证：`assets/scenes/M01Greybox.scene` 可通过 Cocos MCP 打开，`M01GreyboxRoot` 上识别到 `M01GreyboxBootstrap` 组件且无 `MissingScript`；`npm run typecheck` 成功；`npm test` 成功（11 个测试文件 / 38 个测试）。
 - 2026-04-24 下一步执行验证：新增 M01 完成态 ToolCard 预览、中文完成状态和布局防遮挡测试；`npm run typecheck` 成功；`npm test` 成功（12 个测试文件 / 43 个测试）；Cocos 预览从过滤器 -> 18 个碎片 -> 槽位完整跑通，完成画面显示中文 ToolCard 预览，浏览器与 Cocos 控制台均无 error。
+- 2026-04-24 WP4 反馈层验证：新增 M01 hint / wrong placement feedback / repair state / visible text replacement 测试；`npm run typecheck` 成功；`npm test` 成功（12 个测试文件 / 48 个测试）；Cocos 预览刷新资源后，Playwright + 本机 Chrome 点击提示按钮无 console/page error，截图见 `temp/m01-feedback-hint-click.png`。
+- 2026-04-24 WP4 review 修复验证：Level 1/2 hint 现在会让过滤器 / 可选碎片进入 `hinted` 视觉态；hint 文案改为走 `M01GreyboxText` overrides，不再被 `config.hints[].text` 绕过；`npm run typecheck` 成功；`npm test` 成功（12 个测试文件 / 49 个测试）；Cocos 预览刷新资源后，Playwright + 本机 Chrome 点击提示按钮无 console/page error，截图见 `temp/m01-feedback-hint-review-fix.png`。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

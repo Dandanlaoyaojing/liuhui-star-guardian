@@ -8,10 +8,13 @@ import { M01GreyboxSession } from "./M01GreyboxSession.ts";
 import type {
   M01GreyboxFilterPresentation,
   M01GreyboxFragmentPresentation,
-  M01GreyboxPlaceResult
+  M01GreyboxPlaceResult,
+  M01GreyboxRepairPresentation,
+  M01GreyboxSlotPresentation
 } from "./M01GreyboxSession.ts";
 import type { M01MemoryGearConfig } from "../levels/stage1/M01MemoryGearController.ts";
 import { buildToolCardPreview } from "../ui/ToolCardView.ts";
+import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 
 const { ccclass, property } = _decorator;
 
@@ -24,6 +27,8 @@ export class M01GreyboxBootstrap extends Component {
   private layout: M01GreyboxLayout | null = null;
   private greyboxRoot: Node | null = null;
   private toolCardRoot: Node | null = null;
+  private feedbackLabel: Label | null = null;
+  private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
     { node: Node; token: M01GreyboxTokenNode; graphics: Graphics }
@@ -32,14 +37,17 @@ export class M01GreyboxBootstrap extends Component {
   start(): void {
     resources.load("configs/stage1/m01-memory-gear", JsonAsset, (error, asset) => {
       if (error || !asset) {
-        this.setStatus(`Failed to load M01 config: ${error?.message ?? "unknown error"}`);
+        this.setStatus(
+          this.formatText("loadFailed", { reason: error?.message ?? "unknown error" })
+        );
         return;
       }
 
       const m01Config = asset.json as unknown as M01MemoryGearConfig;
-      this.session = M01GreyboxSession.fromConfig(m01Config);
-      this.layout = buildM01GreyboxLayout(m01Config);
+      this.session = M01GreyboxSession.fromConfig(m01Config, { text: this.text });
+      this.layout = buildM01GreyboxLayout(m01Config, { text: this.text });
       this.toolCardRoot = null;
+      this.feedbackLabel = null;
       this.renderGreybox(this.layout);
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
@@ -48,59 +56,87 @@ export class M01GreyboxBootstrap extends Component {
 
   selectFilter(filterIdOrColor: string): void {
     if (!this.session) {
-      this.setStatus("M01 is not initialized.");
+      this.setStatus(this.formatText("notInitialized"));
       return;
     }
 
     this.setStatus(this.session.activateFilter(filterIdOrColor).status);
+    this.syncFeedbackFromSession();
     this.syncVisualState();
   }
 
   selectFragment(fragmentId: string): void {
     if (!this.session) {
-      this.setStatus("M01 is not initialized.");
+      this.setStatus(this.formatText("notInitialized"));
       return;
     }
 
     this.setStatus(this.session.selectFragment(fragmentId).status);
+    this.syncFeedbackFromSession();
     this.syncVisualState();
   }
 
   placeFragment(fragmentId: string, slotId: string): void {
     if (!this.session) {
-      this.setStatus("M01 is not initialized.");
+      this.setStatus(this.formatText("notInitialized"));
       return;
     }
 
     const selected = this.session.selectFragment(fragmentId);
     if (!selected.accepted) {
       this.setStatus(selected.status);
+      this.syncFeedbackFromSession();
       this.syncVisualState();
       return;
     }
 
     const placed = this.session.placeSelectedFragment(slotId);
     this.setStatus(placed.status);
+    this.syncFeedbackFromSession();
     this.syncVisualState();
     this.handlePlaceResult(placed);
   }
 
   placeSelectedFragment(slotId: string): void {
     if (!this.session) {
-      this.setStatus("M01 is not initialized.");
+      this.setStatus(this.formatText("notInitialized"));
       return;
     }
 
     const placed = this.session.placeSelectedFragment(slotId);
     this.setStatus(placed.status);
+    this.syncFeedbackFromSession();
     this.syncVisualState();
     this.handlePlaceResult(placed);
+  }
+
+  requestHint(): void {
+    if (!this.session) {
+      this.setStatus(this.formatText("notInitialized"));
+      return;
+    }
+
+    const hint = this.session.requestHint();
+    this.setStatus(hint.text);
+    this.setFeedback(hint.text);
+    this.syncVisualState();
   }
 
   private setStatus(message: string): void {
     if (this.statusLabel) {
       this.statusLabel.string = message;
     }
+  }
+
+  private setFeedback(message: string): void {
+    if (this.feedbackLabel) {
+      this.feedbackLabel.string = message;
+    }
+  }
+
+  private syncFeedbackFromSession(): void {
+    const feedback = this.session?.getLastFeedback();
+    this.setFeedback(feedback?.message ?? "");
   }
 
   private handlePlaceResult(result: M01GreyboxPlaceResult): void {
@@ -110,6 +146,7 @@ export class M01GreyboxBootstrap extends Component {
 
     const card = this.session.getLastToolCard();
     if (card) {
+      this.setFeedback(this.formatText("repairCompleted"));
       this.renderToolCardPreview(this.greyboxRoot, card);
     }
   }
@@ -133,6 +170,8 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.statusLabel) {
       this.statusLabel = this.addStatusLabel(this.greyboxRoot);
     }
+    this.feedbackLabel = this.addFeedbackLabel(this.greyboxRoot);
+    this.addHintButton(this.greyboxRoot);
   }
 
   private addStatusLabel(parent: Node): Label {
@@ -150,12 +189,69 @@ export class M01GreyboxBootstrap extends Component {
     return label;
   }
 
+  private addFeedbackLabel(parent: Node): Label {
+    const labelNode = new Node("M01FeedbackLabel");
+    labelNode.setPosition(0, -250, 0);
+    parent.addChild(labelNode);
+
+    const transform = labelNode.addComponent(UITransform);
+    transform.setContentSize(820, 28);
+
+    const label = labelNode.addComponent(Label);
+    label.string = "";
+    label.fontSize = 16;
+    label.lineHeight = 22;
+    label.color = new Color(82, 76, 63, 255);
+    return label;
+  }
+
+  private addHintButton(parent: Node): Node {
+    const buttonNode = new Node("M01HintButton");
+    buttonNode.setPosition(412, 244, 0);
+    parent.addChild(buttonNode);
+
+    const transform = buttonNode.addComponent(UITransform);
+    transform.setContentSize(82, 34);
+
+    const graphics = buttonNode.addComponent(Graphics);
+    graphics.lineWidth = 2;
+    graphics.strokeColor = new Color(44, 43, 38, 255);
+    graphics.fillColor = new Color(239, 231, 203, 230);
+    graphics.rect(-41, -17, 82, 34);
+    graphics.fill();
+    graphics.stroke();
+
+    this.addButtonLabel(buttonNode, this.formatText("hintButton"));
+    buttonNode.on("touch-end", () => this.requestHint(), this);
+    return buttonNode;
+  }
+
+  private addButtonLabel(parent: Node, text: string): Label {
+    const labelNode = new Node("M01HintButtonLabel");
+    parent.addChild(labelNode);
+
+    const transform = labelNode.addComponent(UITransform);
+    transform.setContentSize(72, 22);
+
+    const label = labelNode.addComponent(Label);
+    label.string = text;
+    label.fontSize = 15;
+    label.lineHeight = 20;
+    label.color = new Color(43, 43, 39, 255);
+    return label;
+  }
+
   private renderToolCardPreview(parent: Node, card: ReturnType<M01GreyboxSession["getLastToolCard"]>): void {
     if (!card) {
       return;
     }
 
-    const preview = buildToolCardPreview(card);
+    const preview = buildToolCardPreview(card, {
+      text: {
+        unlockedSubtitle: this.formatText("toolCardUnlockedSubtitle"),
+        whenToUsePrefix: this.formatText("toolCardWhenToUsePrefix", { value: "{value}" })
+      }
+    });
     const cardRoot = new Node("M01ToolCardPreview");
     cardRoot.setPosition(240, -208, 0);
     parent.addChild(cardRoot);
@@ -240,7 +336,16 @@ export class M01GreyboxBootstrap extends Component {
       if (entry.token.kind === "fragment") {
         const view = this.session.getFragmentView(entry.token.controllerId);
         entry.node.active = !view.placed;
-        entry.graphics.lineWidth = view.selected ? 5 : view.interactive ? 3 : 1;
+        entry.graphics.lineWidth = view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1;
+        entry.graphics.fillColor = colorForToken(
+          entry.token.colorToken,
+          entry.token.kind,
+          view.presentation
+        );
+        drawTokenShape(entry.graphics, entry.token);
+      } else if (entry.token.kind === "slot") {
+        const view = this.session.getSlotView(entry.token.controllerId);
+        entry.graphics.lineWidth = view.presentation === "normal" ? 3 : 5;
         entry.graphics.fillColor = colorForToken(
           entry.token.colorToken,
           entry.token.kind,
@@ -249,7 +354,16 @@ export class M01GreyboxBootstrap extends Component {
         drawTokenShape(entry.graphics, entry.token);
       } else if (entry.token.kind === "filter") {
         const view = this.session.getFilterView(entry.token.controllerId);
-        entry.graphics.lineWidth = view.active ? 4 : 2;
+        entry.graphics.lineWidth = view.active || view.hinted ? 4 : 2;
+        entry.graphics.fillColor = colorForToken(
+          entry.token.colorToken,
+          entry.token.kind,
+          view.presentation
+        );
+        drawTokenShape(entry.graphics, entry.token);
+      } else if (entry.token.kind === "gear") {
+        const view = this.session.getRepairView();
+        entry.graphics.lineWidth = view.repaired ? 4 : 2;
         entry.graphics.fillColor = colorForToken(
           entry.token.colorToken,
           entry.token.kind,
@@ -258,6 +372,13 @@ export class M01GreyboxBootstrap extends Component {
         drawTokenShape(entry.graphics, entry.token);
       }
     }
+  }
+
+  private formatText(
+    key: Parameters<typeof formatM01GreyboxText>[0],
+    params: Record<string, string | number> = {}
+  ): string {
+    return formatM01GreyboxText(key, params, this.text);
   }
 }
 
@@ -326,7 +447,19 @@ function colorForToken(
   colorToken: string,
   kind: M01GreyboxTokenNode["kind"],
   presentation: M01GreyboxFragmentPresentation | M01GreyboxFilterPresentation | "normal"
+  | M01GreyboxSlotPresentation
+  | M01GreyboxRepairPresentation
 ): Color {
+  if (presentation === "error") {
+    return new Color(193, 80, 62, 132);
+  }
+  if (presentation === "hinted") {
+    return new Color(220, 184, 86, 146);
+  }
+  if (presentation === "repaired") {
+    return new Color(190, 178, 128, 176);
+  }
+
   if (kind === "gear" || colorToken === "neutral") {
     return new Color(177, 174, 153, 120);
   }

@@ -18,6 +18,26 @@ describe("buildM01GreyboxLayout", () => {
     expect(layout.statusText).toContain("插入颜色过滤器");
   });
 
+  it("allows visible greybox labels to be replaced for localization", () => {
+    const layout = buildM01GreyboxLayout(config, {
+      text: {
+        initialInstruction: "CUSTOM START",
+        colorRed: "R",
+        shapeCircle: "C",
+        filterLabel: "{color} filter",
+        tokenLabel: "{color}-{shape}"
+      }
+    });
+
+    expect(layout.statusText).toBe("CUSTOM START");
+    expect(layout.filters.find((filter) => filter.controllerId === "filter_red")?.label).toBe(
+      "R filter"
+    );
+    expect(
+      layout.fragments.find((fragment) => fragment.controllerId === "fragment_red_circle_1")?.label
+    ).toBe("R-C");
+  });
+
   it("keeps fragments, filters, and slots addressable by controller ids", () => {
     const layout = buildM01GreyboxLayout(config);
 

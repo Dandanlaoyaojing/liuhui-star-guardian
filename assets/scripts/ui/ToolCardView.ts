@@ -6,14 +6,36 @@ export interface ToolCardPreview {
   lines: string[];
 }
 
-export function buildToolCardPreview(card: ToolCard): ToolCardPreview {
+export interface ToolCardPreviewText {
+  unlockedSubtitle: string;
+  whenToUsePrefix: string;
+}
+
+export interface ToolCardPreviewOptions {
+  text?: Partial<ToolCardPreviewText>;
+}
+
+const defaultToolCardPreviewText: ToolCardPreviewText = {
+  unlockedSubtitle: "认知工具卡已解锁",
+  whenToUsePrefix: "何时使用：{value}"
+};
+
+export function buildToolCardPreview(
+  card: ToolCard,
+  options: ToolCardPreviewOptions = {}
+): ToolCardPreview {
+  const text = {
+    ...defaultToolCardPreviewText,
+    ...options.text
+  };
+
   return {
     title: card.front.toolName,
-    subtitle: "认知工具卡已解锁",
+    subtitle: text.unlockedSubtitle,
     lines: [
       card.front.wisdomCrystal,
       card.back.coreAction,
-      `何时使用：${card.back.whenToUse[0] ?? ""}`
+      text.whenToUsePrefix.replace("{value}", card.back.whenToUse[0] ?? "")
     ]
   };
 }

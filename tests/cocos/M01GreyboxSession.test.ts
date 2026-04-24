@@ -22,6 +22,18 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("allows runtime status copy to be replaced without changing gameplay logic", () => {
+    const session = M01GreyboxSession.fromConfig(config, {
+      text: {
+        filterActivated: "FILTER {color}",
+        fragmentSelected: "PICKED {color} {shape}"
+      }
+    });
+
+    expect(session.activateFilter("filter_red").status).toBe("FILTER red");
+    expect(session.selectFragment("fragment_red_circle_1").status).toBe("PICKED red circle");
+  });
+
   it("rejects selecting fragments that are hidden by the active filter", () => {
     const session = M01GreyboxSession.fromConfig(config);
 
@@ -30,6 +42,83 @@ describe("M01GreyboxSession", () => {
     expect(session.selectFragment("fragment_blue_circle_1")).toMatchObject({
       accepted: false,
       reason: "inactive_filter"
+    });
+  });
+
+  it("advances greybox hints from filters to fragments to the selected fragment target slot", () => {
+    const session = M01GreyboxSession.fromConfig(config);
+
+    expect(session.requestHint()).toMatchObject({
+      level: 1,
+      targetIds: ["filter_red", "filter_blue", "filter_yellow"]
+    });
+    expect(session.getFilterView("filter_red")).toMatchObject({
+      hinted: true,
+      presentation: "hinted"
+    });
+
+    session.activateFilter("filter_red");
+
+    expect(session.requestHint()).toMatchObject({
+      level: 2,
+      targetIds: expect.arrayContaining(["fragment_red_circle_1", "fragment_red_triangle_1"])
+    });
+    expect(session.getFragmentView("fragment_red_circle_1")).toMatchObject({
+      hinted: true,
+      presentation: "hinted"
+    });
+    expect(session.getFragmentView("fragment_blue_circle_1")).toMatchObject({
+      hinted: false,
+      presentation: "dimmed"
+    });
+
+    session.selectFragment("fragment_red_circle_1");
+
+    expect(session.requestHint()).toMatchObject({
+      level: 3,
+      targetIds: ["slot_red_circle"]
+    });
+    expect(session.getSlotView("slot_red_circle")).toMatchObject({
+      hinted: true,
+      presentation: "hinted"
+    });
+  });
+
+  it("allows hint copy to be replaced even when the config includes Chinese hint text", () => {
+    const session = M01GreyboxSession.fromConfig(config, {
+      text: {
+        hintNoFilter: "HINT FILTER",
+        hintActiveFilter: "HINT FRAGMENTS",
+        hintSelectedFragment: "HINT SLOT"
+      }
+    });
+
+    expect(session.requestHint().text).toBe("HINT FILTER");
+
+    session.activateFilter("filter_red");
+    expect(session.requestHint().text).toBe("HINT FRAGMENTS");
+
+    session.selectFragment("fragment_red_circle_1");
+    expect(session.requestHint().text).toBe("HINT SLOT");
+  });
+
+  it("exposes targeted error feedback when a selected fragment is placed in the wrong slot", () => {
+    const session = M01GreyboxSession.fromConfig(config);
+
+    session.activateFilter("filter_red");
+    session.selectFragment("fragment_red_circle_1");
+    const result = session.placeSelectedFragment("slot_red_triangle");
+
+    expect(result).toMatchObject({
+      accepted: false,
+      reason: "wrong_slot"
+    });
+    expect(session.getLastFeedback()).toMatchObject({
+      kind: "error",
+      targetIds: ["fragment_red_circle_1", "slot_red_triangle"]
+    });
+    expect(session.getSlotView("slot_red_triangle")).toMatchObject({
+      presentation: "error"
     });
   });
 
@@ -84,6 +173,10 @@ describe("M01GreyboxSession", () => {
       sortedCount: 18
     });
     expect(session.getLastToolCard()?.unlockedAt).toBe(12345);
+    expect(session.getRepairView()).toMatchObject({
+      repaired: true,
+      presentation: "repaired"
+    });
   });
 
   it("reports completion in Chinese for the runtime status label", () => {
