@@ -42,10 +42,11 @@ Last updated: 2026-04-24
 4. **美术设计已替换**：统一采用 Arrog 式简约手绘语言——清晰可见的墨线轮廓、低饱和淡彩、功能性简约机械、大量留白；颜色服务线条，不再使用“角色水彩 / 世界墨线 / Klee 饱和填色”的分层方案。
 5. **整体风格锚点已入库**：`docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png` 作为全项目视觉审稿与提示词对齐基准，重点学习“留白、线条、简化机械、尺度关系”，避免跑回淡水彩氛围图或复杂机械插画。
 6. **游戏界面参考图已入库**：2026-04-23 新增两张界面/面板参考图，定位为服务本游戏开发的通用 UI 与面板资产基准，不再按外部工具界面方向解释；文件见 `docs/design/style-references/2026-04-23-game-interface-style-reference.png` 与 `docs/design/style-references/2026-04-23-game-ui-board-style-reference.png`。
-7. **关键机制**：**认知工具册**（§6.5）—— 每关产出 ToolCard，正面感性（工具名+场景+结晶）/ 反面理性（何时使用+生活例子+常见陷阱）。
-8. **技术栈**：Cocos Creator 3.8+ / TypeScript / Dragon Bones 或 Cocos Skeleton2D（Spine Pro 已废弃）。
-9. **财务定位**：用户明确"现阶段不考虑成本" —— passion project 优先，商业账延期。
-10. **来自 Codex Round 3 的必做验证**：M01 和 Stage 5 原型必须先跑通，否则后续扩写无意义。
+7. **莱米角色参考图已入库**：2026-04-24 新增 `docs/design/style-references/2026-04-24-lemmy-rabbit-style-reference.png`，作为莱米 / 小兔子主角的造型、比例、线条和陶土红 / 灰蓝低饱和彩色块基准；资产副本见 `assets/art/style-references/lemmy-rabbit-style-reference.png`。
+8. **关键机制**：**认知工具册**（§6.5）—— 每关产出 ToolCard，正面感性（工具名+场景+结晶）/ 反面理性（何时使用+生活例子+常见陷阱）。
+9. **技术栈**：Cocos Creator 3.8+ / TypeScript / Dragon Bones 或 Cocos Skeleton2D（Spine Pro 已废弃）。
+10. **财务定位**：用户明确"现阶段不考虑成本" —— passion project 优先，商业账延期。
+11. **来自 Codex Round 3 的必做验证**：M01 和 Stage 5 原型必须先跑通，否则后续扩写无意义。
 
 ## Risks / Blockers
 
@@ -68,9 +69,9 @@ Last updated: 2026-04-24
 - 已同步 `CLAUDE.md` / `vision.md` 的受众定位：成人及青年（16+），不再使用“不限年龄”作为入口定位。
 - 已将 spec 内残留的 SpineRuntime / `resources/spine/` / Spine Pro 统一到 Dragon Bones 或 Cocos Skeleton2D。
 - 已将残留的“Klee 点彩 / 保罗·克利风格 LoRA”替换为“清晰墨线 + 低饱和淡彩 / 统一手绘线条 LoRA 或提示词管线”。
-- 已把 P1-a 验收拆成两层：先灰盒/占位美术跑通交互、胜利判定和 ToolCard；随后用三张主动参考图校准首个美术切片。
+- 已把 P1-a 验收拆成两层：先灰盒/占位美术跑通交互、胜利判定和 ToolCard；随后用四张主动参考图校准首个美术切片。
 - 当前已生成 M02-M10 概念图、落盘 M02-M08 资产，但立即原型对象是 M01；M01 除全局风格锚点外尚无明确可复用关卡资产，原型应先确认是否直接用锚点拆资产，还是先灰盒实现。
-- Stage 1 首批资产保留为备选概念 / 历史探索，不再作为生产级风格标准；正式图后续围绕三张主动参考图重新生成或精修。
+- Stage 1 首批资产保留为备选概念 / 历史探索，不再作为生产级风格标准；正式图后续围绕四张主动参考图重新生成或精修。
 
 ## Next Recommended Step (immediate)
 
@@ -87,6 +88,7 @@ Last updated: 2026-04-24
 - 已实现 `DragHandler` / `SnapZone` / `FilterSystem` 交互基础件。
 - 已落地 `assets/resources/configs/stage1/m01-memory-gear.json`，并用真实 JSON 跑通 M01 控制器、完成判定、进度持久化与 ToolCard 一次性解锁。
 - 已补充 `M01GreyboxBootstrap`，通过 Cocos `resources.load` 载入 M01 配置，避免 Creator 脚本编译不支持 JSON import attributes 的问题。
+- 已补充 `M01GreyboxLayout` / `M01GreyboxSession`，运行时生成 M01 灰盒节点，并提供首版点击式验证路径：过滤器 -> 碎片 -> 槽位。
 
 **不再做的事**：
 - ❌ 扩写 M11-M33 的详设
@@ -99,12 +101,14 @@ Last updated: 2026-04-24
 - 2026-04-24 已用 `/Applications/CocosCreator-3.8.8.app/Contents/MacOS/CocosCreator --project /Users/danmac/liuhui-star-guardian` 打开项目入口；日志显示 engine 加载成功，并注册 `web-desktop` / `web-mobile` / `ios` / `android` / `wechatgame` 等平台成功；所有当前 `assets/` 下的 PNG/JPG/JSON/TS 资源均已生成对应 `.meta` 文件。随后修正 `M01GreyboxBootstrap.ts` 的 JSON 载入方式，避免 Cocos/Babel 不支持 `import attributes` 的脚本编译错误；复测未再出现该语法错误。
 - 2026-04-24 已安装本机 Cocos MCP 插件（DaxianLee/cocos-mcp-server v1.4.0）到 `extensions/cocos-mcp-server/`，并写入本机 `.mcp.json` 的 `cocos-creator` HTTP 连接；启动 Cocos 后 `http://127.0.0.1:3000/health` 返回 `{"status":"ok","tools":157}`。
 - 2026-04-24 M01 灰盒 TypeScript 原型验证通过：`npm run typecheck` 成功；`npm test` 成功（9 个测试文件 / 30 个测试）。
+- 2026-04-24 M01 灰盒可视化入口补强：新增运行时布局与点击会话测试，`npm test -- tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxLayout.test.ts` 成功（2 个测试文件 / 6 个测试）。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`
 - 2026-04-22 桌面截图 `截屏2026-04-22 09.43.48.png` 与已入库的 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png` 哈希一致；已补充资产副本到 `assets/art/style-references/unified-handdrawn-style-anchor.png`
 - 2026-04-23 已将新增界面参考图重命名并重新表述为游戏界面/面板参考，去除外部工具界面方向词，更新 `docs/design/game-design-spec.md`、`docs/design/style-references/README.md` 与资产路径
-- 2026-04-24 已新增 M01 第一关原型项目计划：`docs/plans/2026-04-24-m01-prototype-plan.md`，明确先灰盒可玩、再按三张主动参考图做首个美术切片
+- 2026-04-24 已将新增莱米兔子图纳入主动风格参考：`docs/design/style-references/2026-04-24-lemmy-rabbit-style-reference.png`；同步资产副本 `assets/art/style-references/lemmy-rabbit-style-reference.png`
+- 2026-04-24 已新增 M01 第一关原型项目计划：`docs/plans/2026-04-24-m01-prototype-plan.md`，明确先灰盒可玩、再按四张主动参考图做首个美术切片
 - 2026-04-22 已生成 Stage 1 `M02-M10` 首轮场景概念图，并存入 `docs/design/generated-stage1-scenes/`
 - 2026-04-22 已选定并落盘 Stage 1 首批 7 张场景资产到 `assets/art/stage1-scenes/`：`M02-M08`，其中 `M07` 采用 `v1`，`M08` 采用 `v1`
 - 会话记录见 `.context/codex-session-id`（019da998-3185-7db3-9ae8-4a74a1ab7330）

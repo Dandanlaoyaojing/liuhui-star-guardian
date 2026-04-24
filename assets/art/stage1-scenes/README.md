@@ -2,7 +2,7 @@
 
 Selected scene assets from an early Stage 1 exploration pass.
 
-Status: backup concept assets only. These images can support prototype mood, level metaphor discussion, and prompt iteration, but they are not the current production style target. Future Stage 1 art should be regenerated or repainted against the three active references in `docs/design/style-references/`: the M01 hand-drawn anchor plus the two game interface / board references.
+Status: backup concept assets only. These images can support prototype mood, level metaphor discussion, and prompt iteration, but they are not the current production style target. Future Stage 1 art should be regenerated or repainted against the four active references in `docs/design/style-references/`: the M01 hand-drawn anchor, the two game interface / board references, and the Lemmy rabbit character reference.
 
 ## Selected Files
 

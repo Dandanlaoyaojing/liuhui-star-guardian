@@ -13,7 +13,7 @@ Surface request: write the project plan for the first level.
 
 Real task: turn M01 from a frozen design paragraph into an executable prototype plan that a coding session can follow without reopening broad design questions.
 
-Smallest useful outcome: a plan that gets M01 to a playable greybox first, then adds the first art-calibrated slice against the three active style references.
+Smallest useful outcome: a plan that gets M01 to a playable greybox first, then adds the first art-calibrated slice against the four active style references.
 
 This is a lake, not an ocean. It should not redesign Stage 1, expand M02-M10, or build the whole game shell beyond what M01 needs.
 
@@ -44,7 +44,7 @@ M01 succeeds if the player can understand the cognitive action through play: fir
 Use a two-layer delivery:
 
 1. **Greybox playable**: simple shapes, flat colors, no final scene art. Validate rules, input, feedback, completion, and ToolCard unlock.
-2. **Art-calibrated slice**: replace the core gear, fragments, filters, and card thumbnail with assets or paintovers aligned to the three active references.
+2. **Art-calibrated slice**: replace the core gear, fragments, filters, and card thumbnail with assets or paintovers aligned to the four active references.
 
 This keeps the prototype honest. If the classification interaction is not fun or readable in greybox, polished art will only hide the problem.
 
@@ -254,11 +254,12 @@ Acceptance:
 
 Goal: replace only the highest-signal greybox pieces with style-aligned art.
 
-Use the three active references:
+Use the four active references:
 
 - `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`
 - `docs/design/style-references/2026-04-23-game-interface-style-reference.png`
 - `docs/design/style-references/2026-04-23-game-ui-board-style-reference.png`
+- `docs/design/style-references/2026-04-24-lemmy-rabbit-style-reference.png`
 
 Art targets:
 
@@ -394,7 +395,7 @@ Done when:
 
 - M01's main gear, fragments, filters, tray, and card thumbnail are replaced or paintover-ready.
 - Readability is equal to or better than greybox.
-- Style matches the three active references.
+- Style matches the four active references.
 
 Recommended duration: 1-2 focused art / integration sessions after Milestone A.
 
@@ -418,11 +419,10 @@ M01 is done for prototype purposes when:
 - Completion produces the wisdom crystal and M01 ToolCard.
 - Local progress records completion.
 - A documented QA pass confirms the interaction is understandable.
-- The art direction path is clear: either greybox-only accepted for logic validation, or first art-calibrated slice approved against the three active references.
+- The art direction path is clear: either greybox-only accepted for logic validation, or first art-calibrated slice approved against the four active references.
 
 ---
 
 ## 14. Next Immediate Step
 
 Create the Cocos project scaffold and implement only the minimum runtime needed to load `m01-memory-gear.json` into a greybox M01 scene.
-

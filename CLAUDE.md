@@ -48,5 +48,5 @@
 Phase 1: 10 puzzles (M01-M10, "秩序之基" stage)
 
 - Core framework + puzzle engine + 6 base shaders
-- Placeholder art for prototypes; final art must be regenerated or polished against the three active style references in `docs/design/style-references/`
+- Placeholder art for prototypes; final art must be regenerated or polished against the four active style references in `docs/design/style-references/`
 - Local storage for progress

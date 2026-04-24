@@ -11,7 +11,7 @@ They are not final production assets and are no longer active style references. 
 - note where the old batch drifted too complex, too grainy, or too far from the current reference set
 - provide prompt anchors for later image iterations or manual paintovers
 
-Future Stage 1 production images should be regenerated or repainted from the three active references in `docs/design/style-references/`: the M01 hand-drawn anchor plus the two game interface / board references.
+Future Stage 1 production images should be regenerated or repainted from the four active references in `docs/design/style-references/`: the M01 hand-drawn anchor, the two game interface / board references, and the Lemmy rabbit character reference.
 
 ## Style Rules Used
 
@@ -47,4 +47,4 @@ Primary visual anchor used at generation time:
 - Keep strengthening silhouette clarity of the main device in each scene.
 - Protect the line-first look; do not let watercolor wash blur the structure.
 - Keep backgrounds sparse; do not "complete" them into busy illustrations.
-- Regenerate per level against the three active style references instead of promoting this batch directly.
+- Regenerate per level against the four active style references instead of promoting this batch directly.
