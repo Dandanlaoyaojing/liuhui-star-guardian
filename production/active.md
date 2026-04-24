@@ -8,6 +8,8 @@ Last updated: 2026-04-24
 - **P1-a 安全原型**：M01（分类与归纳）—— 验证基础管线（Cocos Creator + Arrog 式统一手绘墨线 + 低饱和配色 + 拖拽交互 + ToolCard 产出）
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
+**当前执行焦点**：已开始 M01 第一关原型计划，计划文件见 `docs/plans/2026-04-24-m01-prototype-plan.md`。第一步按该计划做灰盒可玩版本，再进入首个美术切片校准。
+
 ## Current Phase
 
 - **Design: FROZEN at v1.9**
@@ -69,7 +71,7 @@ Last updated: 2026-04-24
 
 ## Next Recommended Step (immediate)
 
-**立即开始 P0 引擎搭建 + P1-a M01 原型的 TypeScript 骨架**：
+**按 M01 计划立即开始 P0 引擎搭建 + P1-a M01 灰盒原型的 TypeScript 骨架**：
 1. 用 `npx create-cocos-project` 或手动搭建 Cocos Creator 3.8+ 项目
 2. 实现 PuzzleConfig / ToolCard 的 TypeScript 接口（按 §3.3 和 §6.5）
 3. 实现 M01 的 JSON 配置文件（按 §5.2）
@@ -88,6 +90,7 @@ Last updated: 2026-04-24
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`
 - 2026-04-22 桌面截图 `截屏2026-04-22 09.43.48.png` 与已入库的 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png` 哈希一致；已补充资产副本到 `assets/art/style-references/unified-handdrawn-style-anchor.png`
 - 2026-04-23 已将新增界面参考图重命名并重新表述为游戏界面/面板参考，去除外部工具界面方向词，更新 `docs/design/game-design-spec.md`、`docs/design/style-references/README.md` 与资产路径
+- 2026-04-24 已新增 M01 第一关原型项目计划：`docs/plans/2026-04-24-m01-prototype-plan.md`，明确先灰盒可玩、再按三张主动参考图做首个美术切片
 - 2026-04-22 已生成 Stage 1 `M02-M10` 首轮场景概念图，并存入 `docs/design/generated-stage1-scenes/`
 - 2026-04-22 已选定并落盘 Stage 1 首批 7 张场景资产到 `assets/art/stage1-scenes/`：`M02-M08`，其中 `M07` 采用 `v1`，`M08` 采用 `v1`
 - 会话记录见 `.context/codex-session-id`（019da998-3185-7db3-9ae8-4a74a1ab7330）
