@@ -10,7 +10,7 @@ describe("M01GreyboxSession", () => {
   it("lets the greybox activate a filter, select an eligible fragment, and place it in a slot", () => {
     const session = M01GreyboxSession.fromConfig(config);
 
-    expect(session.activateFilter("filter_red").status).toContain("Active filter");
+    expect(session.activateFilter("filter_red").status).toContain("已启用");
     expect(session.selectFragment("fragment_red_circle_1")).toMatchObject({
       accepted: true,
       selectedFragmentId: "fragment_red_circle_1"
@@ -84,5 +84,20 @@ describe("M01GreyboxSession", () => {
       sortedCount: 18
     });
     expect(session.getLastToolCard()?.unlockedAt).toBe(12345);
+  });
+
+  it("reports completion in Chinese for the runtime status label", () => {
+    const session = M01GreyboxSession.fromConfig(config);
+    let lastStatus = "";
+
+    for (const color of config.colors ?? []) {
+      session.activateFilter(`filter_${color}`);
+      for (const fragment of config.fragments.filter((item) => item.color === color)) {
+        session.selectFragment(fragment.id);
+        lastStatus = session.placeSelectedFragment(`slot_${fragment.color}_${fragment.shape}`).status;
+      }
+    }
+
+    expect(lastStatus).toBe("M01 已修复，认知工具卡已解锁。");
   });
 });

@@ -66,6 +66,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(x + width / 2).toBeLessThanOrEqual(480);
   });
 
+  it("renders an M01 ToolCard preview after completion", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("buildToolCardPreview");
+    expect(bootstrap).toContain("M01ToolCardPreview");
+    expect(bootstrap).toContain("renderToolCardPreview");
+  });
+
   it("has a committed M01 greybox scene that binds the bootstrap script", () => {
     const scenePath = "assets/scenes/M01Greybox.scene";
     const sceneMetaPath = "assets/scenes/M01Greybox.scene.meta";

@@ -7,9 +7,11 @@ import {
 import { M01GreyboxSession } from "./M01GreyboxSession.ts";
 import type {
   M01GreyboxFilterPresentation,
-  M01GreyboxFragmentPresentation
+  M01GreyboxFragmentPresentation,
+  M01GreyboxPlaceResult
 } from "./M01GreyboxSession.ts";
 import type { M01MemoryGearConfig } from "../levels/stage1/M01MemoryGearController.ts";
+import { buildToolCardPreview } from "../ui/ToolCardView.ts";
 
 const { ccclass, property } = _decorator;
 
@@ -21,6 +23,7 @@ export class M01GreyboxBootstrap extends Component {
   private session: M01GreyboxSession | null = null;
   private layout: M01GreyboxLayout | null = null;
   private greyboxRoot: Node | null = null;
+  private toolCardRoot: Node | null = null;
   private readonly greyboxNodes = new Map<
     string,
     { node: Node; token: M01GreyboxTokenNode; graphics: Graphics }
@@ -36,6 +39,7 @@ export class M01GreyboxBootstrap extends Component {
       const m01Config = asset.json as unknown as M01MemoryGearConfig;
       this.session = M01GreyboxSession.fromConfig(m01Config);
       this.layout = buildM01GreyboxLayout(m01Config);
+      this.toolCardRoot = null;
       this.renderGreybox(this.layout);
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
@@ -75,8 +79,10 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.setStatus(this.session.placeSelectedFragment(slotId).status);
+    const placed = this.session.placeSelectedFragment(slotId);
+    this.setStatus(placed.status);
     this.syncVisualState();
+    this.handlePlaceResult(placed);
   }
 
   placeSelectedFragment(slotId: string): void {
@@ -85,13 +91,26 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.setStatus(this.session.placeSelectedFragment(slotId).status);
+    const placed = this.session.placeSelectedFragment(slotId);
+    this.setStatus(placed.status);
     this.syncVisualState();
+    this.handlePlaceResult(placed);
   }
 
   private setStatus(message: string): void {
     if (this.statusLabel) {
       this.statusLabel.string = message;
+    }
+  }
+
+  private handlePlaceResult(result: M01GreyboxPlaceResult): void {
+    if (!result.completed || !this.session || !this.greyboxRoot || this.toolCardRoot) {
+      return;
+    }
+
+    const card = this.session.getLastToolCard();
+    if (card) {
+      this.renderToolCardPreview(this.greyboxRoot, card);
     }
   }
 
@@ -127,6 +146,58 @@ export class M01GreyboxBootstrap extends Component {
     const label = labelNode.addComponent(Label);
     label.fontSize = 18;
     label.lineHeight = 24;
+    label.color = new Color(43, 43, 39, 255);
+    return label;
+  }
+
+  private renderToolCardPreview(parent: Node, card: ReturnType<M01GreyboxSession["getLastToolCard"]>): void {
+    if (!card) {
+      return;
+    }
+
+    const preview = buildToolCardPreview(card);
+    const cardRoot = new Node("M01ToolCardPreview");
+    cardRoot.setPosition(240, -208, 0);
+    parent.addChild(cardRoot);
+    this.toolCardRoot = cardRoot;
+
+    const transform = cardRoot.addComponent(UITransform);
+    transform.setContentSize(360, 150);
+
+    const background = cardRoot.addComponent(Graphics);
+    background.lineWidth = 2;
+    background.strokeColor = new Color(44, 43, 38, 255);
+    background.fillColor = new Color(247, 244, 235, 238);
+    background.rect(-180, -75, 360, 150);
+    background.fill();
+    background.stroke();
+
+    this.addCardLabel(cardRoot, "M01ToolCardSubtitle", preview.subtitle, 0, 48, 13);
+    this.addCardLabel(cardRoot, "M01ToolCardTitle", preview.title, 0, 24, 22);
+    this.addCardLabel(cardRoot, "M01ToolCardCrystal", preview.lines[0] ?? "", 0, -8, 15);
+    this.addCardLabel(cardRoot, "M01ToolCardAction", preview.lines[1] ?? "", 0, -34, 13);
+    this.addCardLabel(cardRoot, "M01ToolCardUse", preview.lines[2] ?? "", 0, -56, 12);
+  }
+
+  private addCardLabel(
+    parent: Node,
+    name: string,
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number
+  ): Label {
+    const labelNode = new Node(name);
+    labelNode.setPosition(x, y, 0);
+    parent.addChild(labelNode);
+
+    const transform = labelNode.addComponent(UITransform);
+    transform.setContentSize(320, 24);
+
+    const label = labelNode.addComponent(Label);
+    label.string = text;
+    label.fontSize = fontSize;
+    label.lineHeight = fontSize + 5;
     label.color = new Color(43, 43, 39, 255);
     return label;
   }

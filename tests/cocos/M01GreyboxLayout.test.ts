@@ -53,4 +53,22 @@ describe("buildM01GreyboxLayout", () => {
       kind: "slot"
     });
   });
+
+  it("keeps fragments out of their matching slot click targets", () => {
+    const layout = buildM01GreyboxLayout(config);
+    const slotsByKey = new Map(
+      layout.slots.map((slot) => [`${slot.colorToken}:${slot.shapeToken}`, slot])
+    );
+
+    for (const fragment of layout.fragments) {
+      const slot = slotsByKey.get(`${fragment.colorToken}:${fragment.shapeToken}`);
+      expect(slot).toBeDefined();
+
+      const dx = fragment.position.x - (slot?.position.x ?? 0);
+      const dy = fragment.position.y - (slot?.position.y ?? 0);
+      const distance = Math.hypot(dx, dy);
+
+      expect(distance).toBeGreaterThanOrEqual(56);
+    }
+  });
 });

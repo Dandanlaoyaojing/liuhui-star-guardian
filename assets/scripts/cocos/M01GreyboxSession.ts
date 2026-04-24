@@ -92,13 +92,13 @@ export class M01GreyboxSession {
     if (!result.accepted) {
       return {
         accepted: false,
-        status: `Unknown filter: ${result.filterId}`
+        status: `未知过滤器：${result.filterId}`
       };
     }
 
     return {
       accepted: true,
-      status: `Active filter: ${result.color}. Select a matching fragment.`
+      status: `已启用 ${result.color} 过滤器。请选择同色碎片。`
     };
   }
 
@@ -109,7 +109,7 @@ export class M01GreyboxSession {
       return {
         accepted: false,
         reason: "invalid_fragment",
-        status: `Unknown fragment: ${fragmentId}`
+        status: `未知碎片：${fragmentId}`
       };
     }
 
@@ -118,7 +118,7 @@ export class M01GreyboxSession {
       return {
         accepted: false,
         reason: "inactive_filter",
-        status: `Fragment ${fragmentId} is not active for the current filter.`
+        status: `碎片 ${fragmentId} 不属于当前过滤器。`
       };
     }
 
@@ -126,7 +126,7 @@ export class M01GreyboxSession {
     return {
       accepted: true,
       selectedFragmentId: fragmentId,
-      status: `Selected ${fragment.color} ${fragment.shape}. Choose a matching slot.`
+      status: `已选择 ${fragment.color} ${fragment.shape}。请选择匹配槽位。`
     };
   }
 
@@ -140,7 +140,7 @@ export class M01GreyboxSession {
         reason: "no_selection",
         sortedCount: before.sortedCount,
         completed: false,
-        status: "Select an active fragment first."
+        status: "请先选择一个高亮碎片。"
       };
     }
 
@@ -152,7 +152,7 @@ export class M01GreyboxSession {
         selectedFragmentId,
         sortedCount: before.sortedCount,
         completed: false,
-        status: `Rejected ${selectedFragmentId}: ${result.reason}`
+        status: `无法放置 ${selectedFragmentId}：${result.reason}`
       };
     }
 
@@ -171,8 +171,8 @@ export class M01GreyboxSession {
       sortedCount: result.sortedCount,
       completed: result.completed,
       status: result.completed
-        ? "M01 repaired. ToolCard unlocked."
-        : `Sorted ${result.sortedCount} fragments.`
+        ? "M01 已修复，认知工具卡已解锁。"
+        : `已归位 ${result.sortedCount} 个碎片。`
     };
   }
 
