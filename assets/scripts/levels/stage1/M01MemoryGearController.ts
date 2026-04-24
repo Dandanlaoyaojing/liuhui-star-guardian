@@ -8,6 +8,8 @@ export type M01Shape = string;
 export interface M01FilterDef {
   id: string;
   color: M01Color;
+  label?: string;
+  entityId?: string;
 }
 
 export interface M01FragmentDef {
