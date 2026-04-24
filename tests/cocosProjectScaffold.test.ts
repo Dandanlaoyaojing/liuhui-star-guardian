@@ -51,6 +51,21 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain(" with { type:");
   });
 
+  it("keeps the runtime fallback status label inside the 960px canvas", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const positionMatch = bootstrap.match(/labelNode\.setPosition\((-?\d+),\s*(-?\d+),\s*0\)/);
+    const sizeMatch = bootstrap.match(/transform\.setContentSize\((\d+),\s*(\d+)\)/);
+
+    expect(positionMatch).not.toBeNull();
+    expect(sizeMatch).not.toBeNull();
+
+    const x = Number(positionMatch?.[1]);
+    const width = Number(sizeMatch?.[1]);
+
+    expect(x - width / 2).toBeGreaterThanOrEqual(-480);
+    expect(x + width / 2).toBeLessThanOrEqual(480);
+  });
+
   it("has a committed M01 greybox scene that binds the bootstrap script", () => {
     const scenePath = "assets/scenes/M01Greybox.scene";
     const sceneMetaPath = "assets/scenes/M01Greybox.scene.meta";

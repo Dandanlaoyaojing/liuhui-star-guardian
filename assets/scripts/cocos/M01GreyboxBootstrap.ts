@@ -118,11 +118,11 @@ export class M01GreyboxBootstrap extends Component {
 
   private addStatusLabel(parent: Node): Label {
     const labelNode = new Node("M01StatusLabel");
-    labelNode.setPosition(-430, 286, 0);
+    labelNode.setPosition(0, 286, 0);
     parent.addChild(labelNode);
 
     const transform = labelNode.addComponent(UITransform);
-    transform.setContentSize(840, 32);
+    transform.setContentSize(880, 32);
 
     const label = labelNode.addComponent(Label);
     label.fontSize = 18;

@@ -6,6 +6,7 @@
 
 # Ephemeral session context (codex session IDs, etc.)
 .context/
+.codex/
 
 node_modules/
 dist/
