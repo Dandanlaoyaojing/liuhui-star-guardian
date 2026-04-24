@@ -1,5 +1,17 @@
 # Style References
 
+## Active Art-Direction Rule
+
+Only the three images in this file are active art-direction references:
+
+1. `2026-04-22-unified-handdrawn-style-anchor.png`
+2. `2026-04-23-game-interface-style-reference.png`
+3. `2026-04-23-game-ui-board-style-reference.png`
+
+The 2026-04-23 interface and board references are now intentionally part of this game's art direction. Treat them as game interface references, not as external tool screens. They define the current target for game panels, cards, menus, journals, puzzle boards, and repair surfaces.
+
+Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch language) are backup concepts only. They may inform level metaphors and prompt wording, but future production art should be regenerated or repainted against the three active references above.
+
 ## 2026-04-23 Game Interface Style References
 
 - Game interface reference: [2026-04-23-game-interface-style-reference.png](2026-04-23-game-interface-style-reference.png)
@@ -7,11 +19,11 @@
 - Asset copies:
   - `assets/art/style-references/game-interface-style-reference.png`
   - `assets/art/style-references/game-ui-board-style-reference.png`
-- Status: active supporting style references for in-game UI, panel design, tool cards, menus, and future game interface assets
+- Status: active primary references for in-game UI, panel design, tool cards, menus, puzzle boards, and future game interface assets
 
 ### Why these references were added
 
-These two references are not a replacement for the M01 unified hand-drawn style anchor below. They extend it into **game interface and panel surfaces**:
+These two references are not a replacement for the M01 unified hand-drawn style anchor below. Together with the M01 anchor, they form the current three-image style baseline. They extend the M01 language into **game interface and panel surfaces**:
 
 - richer warm paper tone without becoming high-saturation
 - deeper blue-gray sky windows with clear cloud separation
@@ -32,7 +44,7 @@ These two references are not a replacement for the M01 unified hand-drawn style 
 ### Do Not Overfit These Traits
 
 - Do not import non-game product labels or baked-in text into final assets.
-- Do not make every game scene look like a generic app interface.
+- Do not make every game scene look like a generic app interface; translate the panel language into game-world repair surfaces.
 - Do not copy the exact five-panel layout unless the asset is actually a menu or puzzle panel.
 - Do not use the sky-window motif everywhere; use it only when it supports the scene.
 - Do not smooth the linework into polished vector UI.

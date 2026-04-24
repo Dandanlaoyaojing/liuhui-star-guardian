@@ -2,7 +2,7 @@
 
 ## Project Context
 
-**《流辉美慧号：星图守护者》** — 面向所有对思维成长感兴趣者的认知解谜游戏（不限年龄）。详见 `docs/design/vision.md`。
+**《流辉美慧号：星图守护者》** — 面向成人及青年玩家（16+）、对思维成长感兴趣者的认知解谜游戏。详见 `docs/design/vision.md`。
 
 - **Engine**: Cocos Creator 3.8+ (TypeScript)
 - **Platforms**: Web(H5), WeChat Mini Game, iOS, Android
@@ -48,5 +48,5 @@
 Phase 1: 10 puzzles (M01-M10, "秩序之基" stage)
 
 - Core framework + puzzle engine + 6 base shaders
-- Placeholder art (to be replaced with AI-generated + polished assets)
+- Placeholder art for prototypes; final art must be regenerated or polished against the three active style references in `docs/design/style-references/`
 - Local storage for progress

@@ -8,7 +8,7 @@
 
 ### 1.1 游戏定位
 
-面向**成人及青年玩家（16+）**、对思维方式本身感兴趣的认知解谜游戏。玩家扮演寓言旅者"莱米"（水彩小兔子，无年龄无性别的象征形象），驾驶飞船"流辉美慧号"穿越星海，修复 **33 颗**故障星星——但修复不是目的，而是**提炼**：把玩家生活中早已有的模糊思维直觉，唤起 → 命名 → 整理为 Ta 能随身调用的认知工具。游戏结束时，玩家带走的是一本 33 张的认知工具册，不是通关记录。本游戏不做儿童产品——认知工具对儿童过于抽象；但它也不刻意冷峻，童话意象受欢迎（《小王子》式温度），详见 §4.2《小王子》测试法。
+面向**成人及青年玩家（16+）**、对思维方式本身感兴趣的认知解谜游戏。玩家扮演寓言旅者"莱米"（统一手绘墨线小兔子，无年龄无性别的象征形象），驾驶飞船"流辉美慧号"穿越星海，修复 **33 颗**故障星星——但修复不是目的，而是**提炼**：把玩家生活中早已有的模糊思维直觉，唤起 → 命名 → 整理为 Ta 能随身调用的认知工具。游戏结束时，玩家带走的是一本 33 张的认知工具册，不是通关记录。本游戏不做儿童产品——认知工具对儿童过于抽象；但它也不刻意冷峻，童话意象受欢迎（《小王子》式温度），详见 §4.2《小王子》测试法。
 
 **为何是 33 关而非 50 关**：原始 50 工具清单在"思维工具定义层"（C 轴）可以互不相同，但按玩家视角的双轴正交性——**A 轴 = 手上动作，B 轴 = 系统阅读方式**——严苛审视，真正能给玩家带来新体验的关卡是 33 个。剩下 17 个要么 A+B 与已有关共享（只是换了工具标签），要么无法在 5 分钟交互内落地、必须靠旁白文字说教。详见《二、2.5 从 50 到 33：正交性裁定》与 `docs/design/stage-tonality-verification.md`。
 
@@ -182,7 +182,7 @@
 │  ┌─────────────────────────────────────────────┐ │
 │  │              表现层                           │ │
 │  │  ShaderLib     (星光/粒子/万花筒/概率云)     │ │
-│  │  SpineRuntime  (角色骨骼动画)                │ │
+│  │  SkeletonRuntime (Dragon Bones / Cocos骨骼)  │ │
 │  │  AudioEngine   (BGM/SFX/语音)                │ │
 │  │  CameraEffects (镜头动画)                    │ │
 │  └─────────────────────────────────────────────┘ │
@@ -257,7 +257,7 @@ liuhui-star-guardian/
 │   │   │   ├── puzzles.json
 │   │   │   └── stage1/
 │   │   ├── i18n/                   # 多语言(预留)
-│   │   ├── spine/                  # Spine动画数据
+│   │   ├── skeletons/              # Dragon Bones / Cocos骨骼动画数据
 │   │   └── audio/                  # 音频资源
 │   ├── textures/                   # 图片资源
 │   │   ├── characters/
@@ -467,7 +467,14 @@ class LocalStorageSync implements ICloudSync {
 
 **核心区分**：向 Arrog 借的不是某个单独造型，而是**"线条永远清晰存在"**这一美术底盘。允许轻微淡彩、纸张质感和局部识别色，但绝不能把画面做成软糊糊的水彩氛围插图，也不能做成繁复机械插画。线条必须从角色到设备到背景始终统一。
 
-**风格锚点参考图（2026-04-22）**：见 [style-references/2026-04-22-unified-handdrawn-style-anchor.png](style-references/2026-04-22-unified-handdrawn-style-anchor.png) 与 [style-references/README.md](style-references/README.md)。这张图从即日起作为全项目的**整体气质锚点**，后续角色、关卡装置、飞船、UI、提示词和审稿，都优先向它校准以下要素：
+**现行三张主动参考图**：从即日起，全项目美术审稿、提示词、资产重生成只以以下三张图为主动基准：
+1. [style-references/2026-04-22-unified-handdrawn-style-anchor.png](style-references/2026-04-22-unified-handdrawn-style-anchor.png) — M01 / 全局手绘锚点。
+2. [style-references/2026-04-23-game-interface-style-reference.png](style-references/2026-04-23-game-interface-style-reference.png) — 游戏界面参考。
+3. [style-references/2026-04-23-game-ui-board-style-reference.png](style-references/2026-04-23-game-ui-board-style-reference.png) — 面板 / 卡片参考。
+
+已生成的 `M01-M10` 早期场景图（当前实际为 `M02-M10` 概念图与 `M02-M08` 资产落盘）全部降级为**备选概念 / 历史探索**，只用于提示意象、构图风险和关卡语义，不再作为当前生产美术标准。后续 Stage 1 正式图会围绕上述三张主动参考图重新生成或精修。
+
+**M01 / 全局风格锚点参考图（2026-04-22）**：见 [style-references/2026-04-22-unified-handdrawn-style-anchor.png](style-references/2026-04-22-unified-handdrawn-style-anchor.png) 与 [style-references/README.md](style-references/README.md)。这张图作为全项目的**整体气质锚点**，后续角色、关卡装置、飞船、UI、提示词和审稿，都优先向它校准以下要素：
 - **学它的构图**：大面积留白，一个主装置，一个情感尺度参照（小兔子），焦点非常明确
 - **学它的线条**：轮廓始终可见，带轻微抖动与不规则，像手工墨线而不是数字硬边
 - **学它的色彩节制**：以米白、灰褐、灰蓝、陶土色为主，颜色只是轻轻落在纸上，不抢线条
@@ -478,7 +485,7 @@ class LocalStorageSync implements ICloudSync {
 - **不要误学写实金属**：机械允许有材质暗示，但不做厚重高光、真实磨损、工业渲染
 - **不要误学满屏背景**：这张图成立的关键之一是克制留白；背景只能给少量支撑线索，不能被“补满”
 
-**游戏界面 / 面板补充参考图（2026-04-23）**：见 [style-references/2026-04-23-game-interface-style-reference.png](style-references/2026-04-23-game-interface-style-reference.png)、[style-references/2026-04-23-game-ui-board-style-reference.png](style-references/2026-04-23-game-ui-board-style-reference.png) 与 [style-references/README.md](style-references/README.md)。这两张图作为**游戏界面类资产的附加基准**，适用于工具卡、菜单、日志本、空状态、关卡选择、谜题面板等 UI/面板类素材：
+**游戏界面 / 面板主动参考图（2026-04-23）**：见 [style-references/2026-04-23-game-interface-style-reference.png](style-references/2026-04-23-game-interface-style-reference.png)、[style-references/2026-04-23-game-ui-board-style-reference.png](style-references/2026-04-23-game-ui-board-style-reference.png) 与 [style-references/README.md](style-references/README.md)。这两张图是本项目 UI、面板、工具卡、日志本、菜单、关卡选择、谜题面板的**主动美术基准**，不是外部工具界面方向，也不是可有可无的补充图：
 - **学它的色调浓度**：暖纸白底、较深蓝灰舷窗、陶土/赭石/黄铜点色，整体更厚、更稳，但不高饱和
 - **学它的手绘 UI 线条**：面板框、仪表、卡片、拨杆、图标都要有明显手绘抖动和粗细变化，不能像规则矢量组件
 - **学它的云与天空关系**：天空有蓝灰深浅递进，云朵与背景有清楚层次，带纸面手刷质感
@@ -572,7 +579,7 @@ class LocalStorageSync implements ICloudSync {
 - 核心交互组件：DragHandler, SnapZone, RotateHandler, SliderControl, FilterSystem, Connector
 - 6 个基础 Shader
 - 本地存储进度
-- 占位美术（后期替换 AI 生成 + 精修的正式资产）
+- 占位美术（原型阶段优先跑通交互；正式 Stage 1 美术后续围绕三张主动参考图重新生成或精修）
 
 ### 5.2 M01：记忆齿轮的卡顿
 
@@ -917,7 +924,7 @@ interface ToolCard {
   // 正面（感性 / 情感面）
   front: {
     toolName: string;          // "分类与归纳"
-    scene: string;             // 场景剪影缩略图（墨线 + Klee 点彩）
+    scene: string;             // 场景剪影缩略图（清晰墨线 + 低饱和淡彩点染）
     wisdomCrystal: string;     // "秩序，是为相似之物找到归处。"
   };
 
@@ -992,10 +999,10 @@ interface ToolCard {
 | 阶段 | 里程碑 | 核心交付 |
 |------|--------|---------|
 | **P0: 引擎搭建** | 框架可运行 | 项目脚手架 + 核心框架层 + 占位场景 |
-| **P1-a: M01 安全原型** | Stage 1 管线验证 | M01 完整可玩（统一手绘墨线 + 低饱和淡彩 + 1 张 ToolCard 产出） |
+| **P1-a: M01 安全原型** | Stage 1 管线验证 | M01 完整可玩（先允许灰盒/占位美术跑通交互、胜利判定和 1 张 ToolCard；随后用三张主动参考图校准首个美术切片） |
 | **P1-b: Stage 5 危险原型** | Stage 5 可行性验证 | M30（概念融合熔炉）原型——Stage 5 打分最高、最典型的范式生成动作（Codex Round 4 独立评分 9/10），专门验证"命名仪式"能否产生真实认知体验；失败则 Stage 5 整体砍掉 |
 | **P2: MVP** | Stage 1 10 关可玩 | M01-M10 全部可玩 + 星图地图 + 进度存储 + 认知工具册 |
-| **P3: 美术迭代** | 视觉达标 | AI 生成 / 提示词管线（统一手绘墨线 + 低饱和淡彩）+ 精修资产替换占位 |
+| **P3: 美术迭代** | 视觉达标 | 围绕三张主动参考图重新生成 / 精修 Stage 1 正式资产（统一手绘墨线 + 低饱和淡彩 + 功能性简约机械），旧 M01-M10 生成图只作备选概念 |
 | **P4: 音频整合** | 听觉完整 | BGM + SFX + 修复动画音效 |
 | **P5: 平台导出** | 多平台 | Web + 微信小游戏 + 移动端构建测试（注：微信小游戏的成人向定位需重新评估） |
 | **P6: Stage 2 扩展** | M11-M16（6 关） | Stage 2 的 6 关 + 新交互组件 + 新 Shader |
@@ -1006,11 +1013,11 @@ interface ToolCard {
 
 ## 八、AI 美术资产生成管线（规划）
 
-MVP 阶段使用占位美术，后续按此管线替换：
+MVP 原型阶段可使用占位美术，正式资产后续按此管线替换。所有出图必须以 §4.1 的三张主动参考图为主参考，旧 `M01-M10` 生成画面只作备选概念，不作为风格标准：
 
 ```
-Midjourney (概念设计)
-    → Stable Diffusion + 保罗·克利风格 LoRA (批量生成一致风格素材)
+Midjourney / 其他图像模型 (概念设计)
+    → Stable Diffusion + 统一手绘墨线 / 低饱和淡彩 LoRA 或提示词管线
     → Photoshop/Krita (精修)
     → TexturePacker (打包精灵图)
     → Cocos Creator (导入)
@@ -1023,7 +1030,7 @@ Midjourney (概念设计)
 
 角色动画：
 ```
-概念图 → Spine Pro (骨骼绑定 + 动画) → Cocos Creator (原生支持)
+概念图 → Dragon Bones 或 Cocos Creator Skeleton2D (骨骼绑定 + 动画) → Cocos Creator
 ```
 
 ---

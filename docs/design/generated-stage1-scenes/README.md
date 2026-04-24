@@ -5,11 +5,13 @@ Generated on 2026-04-22 using Codex built-in image generation.
 ## Scope
 
 This folder contains first-pass concept images for Stage 1 scenes `M02-M10`.
-They are not final production assets. They are visual exploration outputs used to:
+They are not final production assets and are no longer active style references. They are backup visual exploration outputs used to:
 
-- lock the overall scene mood
-- test whether the new art direction holds across multiple puzzle types
+- preserve early scene-metaphor ideas
+- note where the old batch drifted too complex, too grainy, or too far from the current reference set
 - provide prompt anchors for later image iterations or manual paintovers
+
+Future Stage 1 production images should be regenerated or repainted from the three active references in `docs/design/style-references/`: the M01 hand-drawn anchor plus the two game interface / board references.
 
 ## Style Rules Used
 
@@ -23,7 +25,7 @@ All images in this batch were generated against the same shared art-direction ru
 - tiny rabbit protagonist as emotional and scale reference
 - adult fairytale tone, not childish, not sugary, not high-saturation fantasy
 
-Primary visual anchor:
+Primary visual anchor used at generation time:
 
 - [../style-references/2026-04-22-unified-handdrawn-style-anchor.png](../style-references/2026-04-22-unified-handdrawn-style-anchor.png)
 
@@ -41,7 +43,8 @@ Primary visual anchor:
 
 ## Notes For Next Iteration
 
+- Treat this folder as backup concept material, not as the target style sheet.
 - Keep strengthening silhouette clarity of the main device in each scene.
 - Protect the line-first look; do not let watercolor wash blur the structure.
 - Keep backgrounds sparse; do not "complete" them into busy illustrations.
-- If later iterations are needed, iterate per level instead of regenerating the whole batch blindly.
+- Regenerate per level against the three active style references instead of promoting this batch directly.

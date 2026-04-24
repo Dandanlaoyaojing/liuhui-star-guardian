@@ -1,6 +1,8 @@
 # Stage 1 Scene Assets
 
-Selected scene assets for early Stage 1 art direction and prototype use.
+Selected scene assets from an early Stage 1 exploration pass.
+
+Status: backup concept assets only. These images can support prototype mood, level metaphor discussion, and prompt iteration, but they are not the current production style target. Future Stage 1 art should be regenerated or repainted against the three active references in `docs/design/style-references/`: the M01 hand-drawn anchor plus the two game interface / board references.
 
 ## Selected Files
 
@@ -17,3 +19,4 @@ Selected scene assets for early Stage 1 art direction and prototype use.
 - `M07` intentionally uses `v1` per art-direction decision.
 - `M08` intentionally uses `v1` per art-direction decision.
 - `M09` and `M10` are not yet part of this selected asset set.
+- `M02-M08` are retained as backup concepts, not final art-direction baselines.
