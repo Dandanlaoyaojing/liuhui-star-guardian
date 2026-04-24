@@ -1,0 +1,19 @@
+{
+  "name": "liuhui-star-guardian",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "creator": {
+    "version": "3.8.8"
+  },
+  "uuid": "9ee4cc91-c89d-407b-a820-cea0c37afd73"
+}

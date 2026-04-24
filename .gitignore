@@ -6,3 +6,32 @@
 
 # Ephemeral session context (codex session IDs, etc.)
 .context/
+
+node_modules/
+dist/
+coverage/
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+
+# Cocos Creator generated outputs
+/library/
+/temp/
+/local/
+/build/
+/native/engine/android/**/*/assets
+
+# Local editor/tooling extensions
+/extensions/cocos-mcp-server/
+/settings/mcp-server.json
+/settings/tool-manager.json
+
+# Cocos local editor profiles are machine-specific; keep only the shared 2D scene profile.
+/profiles/*
+!/profiles/v2/
+/profiles/v2/*
+!/profiles/v2/packages/
+/profiles/v2/packages/*
+!/profiles/v2/packages/scene.json
