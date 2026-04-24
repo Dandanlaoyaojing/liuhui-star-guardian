@@ -2,15 +2,40 @@
 
 ## Active Art-Direction Rule
 
-Only the three images in this file are active art-direction references:
+Only the four images in this file are active art-direction references:
 
 1. `2026-04-22-unified-handdrawn-style-anchor.png`
 2. `2026-04-23-game-interface-style-reference.png`
 3. `2026-04-23-game-ui-board-style-reference.png`
+4. `2026-04-24-lemmy-rabbit-style-reference.png`
 
 The 2026-04-23 interface and board references are now intentionally part of this game's art direction. Treat them as game interface references, not as external tool screens. They define the current target for game panels, cards, menus, journals, puzzle boards, and repair surfaces.
 
-Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch language) are backup concepts only. They may inform level metaphors and prompt wording, but future production art should be regenerated or repainted against the three active references above.
+The 2026-04-24 rabbit reference is now the active character-shape reference for Lemmy. Use it to keep the protagonist small, hand-drawn, vulnerable, and visually unified with the low-saturation red / blue-gray palette.
+
+Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch language) are backup concepts only. They may inform level metaphors and prompt wording, but future production art should be regenerated or repainted against the four active references above.
+
+## 2026-04-24 Lemmy Rabbit Style Reference
+
+- Reference image: [2026-04-24-lemmy-rabbit-style-reference.png](2026-04-24-lemmy-rabbit-style-reference.png)
+- Asset copy: `assets/art/style-references/lemmy-rabbit-style-reference.png`
+- Status: active character reference for Lemmy / rabbit protagonist
+- Scope: Lemmy proportions, character silhouettes, face scale, red / blue-gray tinting, hand-drawn character line quality
+
+### Extract These Traits
+
+- Very small dark eye, simple head shape, and long uneven ears.
+- Thin charcoal ink contours with slight wobble and hand-made asymmetry.
+- Red and blue-gray watercolor blocks that stay inside a restrained palette.
+- Slender, vulnerable body proportion that reads as a symbolic traveler rather than a cute mascot.
+- Sparse whisker / limb marks that suggest character without over-rendering.
+
+### Do Not Overfit These Traits
+
+- Do not copy the exact pose for every appearance.
+- Do not turn Lemmy into a plush toy, chibi mascot, or high-saturation cartoon character.
+- Do not add facial detail, glossy eyes, clothing, or expression systems unless a scene specifically needs them.
+- Do not make the character linework cleaner than the machinery; the whole world should share the same hand-drawn language.
 
 ## 2026-04-23 Game Interface Style References
 
@@ -23,7 +48,7 @@ Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch langu
 
 ### Why these references were added
 
-These two references are not a replacement for the M01 unified hand-drawn style anchor below. Together with the M01 anchor, they form the current three-image style baseline. They extend the M01 language into **game interface and panel surfaces**:
+These two references are not a replacement for the M01 unified hand-drawn style anchor below or the Lemmy rabbit reference above. Together, the four active references form the current style baseline. The interface references extend the M01 language into **game interface and panel surfaces**:
 
 - richer warm paper tone without becoming high-saturation
 - deeper blue-gray sky windows with clear cloud separation
