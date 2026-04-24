@@ -2,9 +2,10 @@
 
 This folder is reserved for Cocos Creator scene assets.
 
-For the M01 greybox prototype, create a Cocos scene that attaches
-`M01GreyboxBootstrap` to a root node. An optional `Label` can be wired to
-`statusLabel`; if it is omitted, the bootstrap creates a runtime status label.
+`M01Greybox.scene` is the committed preview entry for the M01 greybox prototype.
+It attaches `M01GreyboxBootstrap` to `M01GreyboxRoot`. An optional `Label` can be
+wired to `statusLabel`; if it is omitted, the bootstrap creates a runtime status
+label.
 
 The bootstrap loads:
 

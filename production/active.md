@@ -89,6 +89,7 @@ Last updated: 2026-04-24
 - 已落地 `assets/resources/configs/stage1/m01-memory-gear.json`，并用真实 JSON 跑通 M01 控制器、完成判定、进度持久化与 ToolCard 一次性解锁。
 - 已补充 `M01GreyboxBootstrap`，通过 Cocos `resources.load` 载入 M01 配置，避免 Creator 脚本编译不支持 JSON import attributes 的问题。
 - 已补充 `M01GreyboxLayout` / `M01GreyboxSession`，运行时生成 M01 灰盒节点，并提供首版点击式验证路径：过滤器 -> 碎片 -> 槽位。
+- 已补充 `assets/scenes/M01Greybox.scene`，并修复点击放置后的视觉状态同步：激活过滤器会刷新高亮/变暗，选中碎片会加粗，归位碎片会隐藏并禁用交互。
 
 **不再做的事**：
 - ❌ 扩写 M11-M33 的详设
@@ -102,6 +103,7 @@ Last updated: 2026-04-24
 - 2026-04-24 已安装本机 Cocos MCP 插件（DaxianLee/cocos-mcp-server v1.4.0）到 `extensions/cocos-mcp-server/`，并写入本机 `.mcp.json` 的 `cocos-creator` HTTP 连接；启动 Cocos 后 `http://127.0.0.1:3000/health` 返回 `{"status":"ok","tools":157}`。
 - 2026-04-24 M01 灰盒 TypeScript 原型验证通过：`npm run typecheck` 成功；`npm test` 成功（9 个测试文件 / 30 个测试）。
 - 2026-04-24 M01 灰盒可视化入口补强：新增运行时布局与点击会话测试，`npm test -- tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxLayout.test.ts` 成功（2 个测试文件 / 6 个测试）。
+- 2026-04-24 review 修复验证：`assets/scenes/M01Greybox.scene` 可通过 Cocos MCP 打开，`M01GreyboxRoot` 上识别到 `M01GreyboxBootstrap` 组件且无 `MissingScript`；`npm run typecheck` 成功；`npm test` 成功（11 个测试文件 / 38 个测试）。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

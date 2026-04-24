@@ -33,6 +33,41 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("exposes visual state changes for filters, selected fragments, and placed fragments", () => {
+    const session = M01GreyboxSession.fromConfig(config);
+
+    session.activateFilter("filter_red");
+
+    expect(session.getFilterView("filter_red")).toMatchObject({
+      active: true,
+      presentation: "active"
+    });
+    expect(session.getFragmentView("fragment_red_circle_1")).toMatchObject({
+      interactive: true,
+      presentation: "highlighted"
+    });
+    expect(session.getFragmentView("fragment_blue_circle_1")).toMatchObject({
+      interactive: false,
+      presentation: "dimmed"
+    });
+
+    session.selectFragment("fragment_red_circle_1");
+
+    expect(session.getFragmentView("fragment_red_circle_1")).toMatchObject({
+      selected: true,
+      presentation: "selected"
+    });
+
+    session.placeSelectedFragment("slot_red_circle");
+
+    expect(session.getFragmentView("fragment_red_circle_1")).toMatchObject({
+      placed: true,
+      interactive: false,
+      presentation: "placed",
+      slotId: "slot_red_circle"
+    });
+  });
+
   it("unlocks the ToolCard once the last fragment is placed", () => {
     const session = M01GreyboxSession.fromConfig(config, { now: () => 12345 });
 

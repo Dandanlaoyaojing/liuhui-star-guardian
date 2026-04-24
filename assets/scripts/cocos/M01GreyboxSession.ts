@@ -9,6 +9,29 @@ export interface M01GreyboxSessionOptions {
   now?: () => number;
 }
 
+export type M01GreyboxFilterPresentation = "normal" | "active";
+export type M01GreyboxFragmentPresentation =
+  | "normal"
+  | "highlighted"
+  | "dimmed"
+  | "selected"
+  | "placed";
+
+export interface M01GreyboxFilterView {
+  filterId: string;
+  active: boolean;
+  presentation: M01GreyboxFilterPresentation;
+}
+
+export interface M01GreyboxFragmentView {
+  fragmentId: string;
+  selected: boolean;
+  placed: boolean;
+  interactive: boolean;
+  slotId?: string;
+  presentation: M01GreyboxFragmentPresentation;
+}
+
 export type M01GreyboxSelectResult =
   | {
       accepted: true;
@@ -155,6 +178,74 @@ export class M01GreyboxSession {
 
   getSelectedFragmentId(): string | undefined {
     return this.selectedFragmentId;
+  }
+
+  getFilterView(filterId: string): M01GreyboxFilterView {
+    const activeFilter = this.controller.getActiveFilter();
+    const active = activeFilter?.id === filterId;
+
+    return {
+      filterId,
+      active,
+      presentation: active ? "active" : "normal"
+    };
+  }
+
+  getFragmentView(fragmentId: string): M01GreyboxFragmentView {
+    const fragment = this.controller.getFragmentState(fragmentId);
+    const selected = this.selectedFragmentId === fragmentId;
+
+    if (!fragment) {
+      return {
+        fragmentId,
+        selected: false,
+        placed: false,
+        interactive: false,
+        presentation: "normal"
+      };
+    }
+
+    if (fragment.sorted) {
+      return {
+        fragmentId,
+        selected: false,
+        placed: true,
+        interactive: false,
+        slotId: fragment.slotId ?? undefined,
+        presentation: "placed"
+      };
+    }
+
+    if (selected) {
+      return {
+        fragmentId,
+        selected: true,
+        placed: false,
+        interactive: true,
+        presentation: "selected"
+      };
+    }
+
+    const activeFilter = this.controller.getActiveFilter();
+    if (!activeFilter) {
+      return {
+        fragmentId,
+        selected: false,
+        placed: false,
+        interactive: false,
+        presentation: "normal"
+      };
+    }
+
+    const interactive = this.controller.isFragmentDraggable(fragmentId);
+
+    return {
+      fragmentId,
+      selected: false,
+      placed: false,
+      interactive,
+      presentation: interactive ? "highlighted" : "dimmed"
+    };
   }
 
   getCompletionState(): M01CompletionState {

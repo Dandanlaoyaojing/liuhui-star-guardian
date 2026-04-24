@@ -5,6 +5,10 @@ import {
   type M01GreyboxTokenNode
 } from "./M01GreyboxLayout.ts";
 import { M01GreyboxSession } from "./M01GreyboxSession.ts";
+import type {
+  M01GreyboxFilterPresentation,
+  M01GreyboxFragmentPresentation
+} from "./M01GreyboxSession.ts";
 import type { M01MemoryGearConfig } from "../levels/stage1/M01MemoryGearController.ts";
 
 const { ccclass, property } = _decorator;
@@ -17,6 +21,10 @@ export class M01GreyboxBootstrap extends Component {
   private session: M01GreyboxSession | null = null;
   private layout: M01GreyboxLayout | null = null;
   private greyboxRoot: Node | null = null;
+  private readonly greyboxNodes = new Map<
+    string,
+    { node: Node; token: M01GreyboxTokenNode; graphics: Graphics }
+  >();
 
   start(): void {
     resources.load("configs/stage1/m01-memory-gear", JsonAsset, (error, asset) => {
@@ -29,6 +37,7 @@ export class M01GreyboxBootstrap extends Component {
       this.session = M01GreyboxSession.fromConfig(m01Config);
       this.layout = buildM01GreyboxLayout(m01Config);
       this.renderGreybox(this.layout);
+      this.syncVisualState();
       this.setStatus(this.layout.statusText);
     });
   }
@@ -40,6 +49,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.setStatus(this.session.activateFilter(filterIdOrColor).status);
+    this.syncVisualState();
   }
 
   selectFragment(fragmentId: string): void {
@@ -49,6 +59,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.setStatus(this.session.selectFragment(fragmentId).status);
+    this.syncVisualState();
   }
 
   placeFragment(fragmentId: string, slotId: string): void {
@@ -60,10 +71,12 @@ export class M01GreyboxBootstrap extends Component {
     const selected = this.session.selectFragment(fragmentId);
     if (!selected.accepted) {
       this.setStatus(selected.status);
+      this.syncVisualState();
       return;
     }
 
     this.setStatus(this.session.placeSelectedFragment(slotId).status);
+    this.syncVisualState();
   }
 
   placeSelectedFragment(slotId: string): void {
@@ -73,6 +86,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.setStatus(this.session.placeSelectedFragment(slotId).status);
+    this.syncVisualState();
   }
 
   private setStatus(message: string): void {
@@ -82,6 +96,7 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private renderGreybox(layout: M01GreyboxLayout): void {
+    this.greyboxNodes.clear();
     this.greyboxRoot = new Node("M01GreyboxRuntime");
     this.node.addChild(this.greyboxRoot);
 
@@ -127,9 +142,10 @@ export class M01GreyboxBootstrap extends Component {
     const graphics = node.addComponent(Graphics);
     graphics.lineWidth = token.kind === "slot" ? 3 : 2;
     graphics.strokeColor = new Color(44, 43, 38, 255);
-    graphics.fillColor = colorForToken(token.colorToken, token.kind);
+    graphics.fillColor = colorForToken(token.colorToken, token.kind, "normal");
     drawTokenShape(graphics, token);
     this.bindGreyboxInput(node, token);
+    this.greyboxNodes.set(token.controllerId, { node, token, graphics });
 
     return node;
   }
@@ -143,9 +159,38 @@ export class M01GreyboxBootstrap extends Component {
       node.on("touch-end", () => this.placeSelectedFragment(token.controllerId), this);
     }
   }
+
+  private syncVisualState(): void {
+    if (!this.session) {
+      return;
+    }
+
+    for (const entry of this.greyboxNodes.values()) {
+      if (entry.token.kind === "fragment") {
+        const view = this.session.getFragmentView(entry.token.controllerId);
+        entry.node.active = !view.placed;
+        entry.graphics.lineWidth = view.selected ? 5 : view.interactive ? 3 : 1;
+        entry.graphics.fillColor = colorForToken(
+          entry.token.colorToken,
+          entry.token.kind,
+          view.presentation
+        );
+        drawTokenShape(entry.graphics, entry.token);
+      } else if (entry.token.kind === "filter") {
+        const view = this.session.getFilterView(entry.token.controllerId);
+        entry.graphics.lineWidth = view.active ? 4 : 2;
+        entry.graphics.fillColor = colorForToken(
+          entry.token.colorToken,
+          entry.token.kind,
+          view.presentation
+        );
+        drawTokenShape(entry.graphics, entry.token);
+      }
+    }
+  }
 }
 
-function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): void {
+export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): void {
   graphics.clear();
 
   if (token.kind === "gear") {
@@ -206,12 +251,24 @@ function drawFilter(graphics: Graphics, width: number, height: number): void {
   graphics.rect(-width / 2, -height / 2, width, height);
 }
 
-function colorForToken(colorToken: string, kind: M01GreyboxTokenNode["kind"]): Color {
+function colorForToken(
+  colorToken: string,
+  kind: M01GreyboxTokenNode["kind"],
+  presentation: M01GreyboxFragmentPresentation | M01GreyboxFilterPresentation | "normal"
+): Color {
   if (kind === "gear" || colorToken === "neutral") {
     return new Color(177, 174, 153, 120);
   }
 
-  const alpha = kind === "slot" ? 72 : 180;
+  const alphaByPresentation: Record<string, number> = {
+    active: 230,
+    highlighted: 210,
+    selected: 255,
+    dimmed: 56,
+    placed: 0,
+    normal: kind === "slot" ? 72 : 180
+  };
+  const alpha = alphaByPresentation[presentation] ?? alphaByPresentation.normal;
   const colors: Record<string, [number, number, number]> = {
     red: [180, 92, 70],
     blue: [88, 119, 132],

@@ -50,4 +50,25 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).not.toContain(" with { type:");
   });
+
+  it("has a committed M01 greybox scene that binds the bootstrap script", () => {
+    const scenePath = "assets/scenes/M01Greybox.scene";
+    const sceneMetaPath = "assets/scenes/M01Greybox.scene.meta";
+    const scene = readText(scenePath);
+    const sceneJson = JSON.parse(scene) as Array<Record<string, unknown>>;
+    const rootNode = sceneJson.find((entry) => entry._id === "m01GreyboxRoot") as
+      | { _components?: Array<{ __id__?: number }> }
+      | undefined;
+    const bootstrapComponentId = rootNode?._components?.[0]?.__id__;
+    const bootstrapComponent =
+      typeof bootstrapComponentId === "number" ? sceneJson[bootstrapComponentId] : undefined;
+
+    expect(existsSync(join(projectRoot, scenePath))).toBe(true);
+    expect(existsSync(join(projectRoot, sceneMetaPath))).toBe(true);
+    expect(scene).toContain("M01Greybox");
+    expect(scene).toContain("M01GreyboxRoot");
+    expect(scene).not.toContain("MissingScript");
+    expect(rootNode?._components).toHaveLength(1);
+    expect(bootstrapComponent?.statusLabel).toBeNull();
+  });
 });
