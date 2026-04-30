@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Rebuild M01 from the old filter/slot sorter into the new greybox prototype: 12 hidden-color candidate fragments, a freely switchable three-color flashlight, target overlap evidence, weak magnetic shape snapping, and color-validated overlap reconstruction.
+**Goal:** Rebuild M01 from the old filter/slot sorter into the new greybox prototype: a configurable pool of hidden-color candidate fragments, a freely switchable three-color flashlight, target overlap evidence, weak magnetic shape snapping, and a bottom-light whole-structure validation pass.
 
 **Architecture:** Keep the existing Cocos greybox pipeline, `DragHandler`, `SnapZone`, ToolCard flow, and scene entry point. Replace the M01-specific domain model and layout semantics from filters/fragments/slots to flashlight/candidate fragments/evidence markers/puzzle board, so the old proven runtime shell can carry the new rules without becoming a new mini-engine.
 
@@ -14,7 +14,7 @@
 
 The authoritative spec is [game-design-spec.md](/Users/danmac/liuhui-star-guardian/docs/design/game-design-spec.md:592). M01 is no longer the old "filter + nine-slot classification" puzzle. The new design requires:
 
-- 12 candidate fragments, default grey/transparent, hidden base color not visible.
+- A configurable pool of candidate fragments, default grey/transparent, hidden base color not visible. First greybox should use a manageable 12-16 candidates; do not hard-code 12 into the engine.
 - Three-color flashlight: red / yellow / blue, freely switchable.
 - Flashlight reveal uses storybook pigment logic:
   - red + yellow = orange
@@ -23,8 +23,14 @@ The authoritative spec is [game-design-spec.md](/Users/danmac/liuhui-star-guardi
   - same color remains itself
 - A target evidence view that shows only overlap-region shape, target blend color, and relative position.
 - No complete final outline, no single-fragment outline, no complete seam lines, no fragment IDs, no hidden-color hints.
-- Player uses only about 5-6 of the 12 candidates.
-- Shape/edge match creates weak magnetic snap only; color correctness determines evidence completion.
+- Player uses only the subset required by the target evidence graph. The final used count is derived from the union of all `solution.fragmentIds`, not from a fixed 5-6 requirement.
+- Shape/edge match creates weak magnetic snap only; it does not reveal color correctness.
+- The central board bottom light is off while the player assembles fragments, so fragments remain grey on the board and the board cannot be used as a real-time color tester.
+- The player can click a fragment to pick it up, then click anywhere to place it. Fragments can be arranged freely in the workspace; only near a matching evidence shape should weak magnetic snap occur.
+- Once the player forms candidate pairs for every target overlap evidence marker, the bottom light automatically validates the whole hypothesis.
+- Wrong complete candidates flash the bottom light for about 2 seconds, briefly revealing the current colors, then go dark again. Correct candidates keep the light on and trigger repair.
+- After a wrong validation, snapped fragments remain moveable. The player can click any staged fragment, pick it up, place it elsewhere, or replace the staged pair for that evidence on the next snap.
+- The only tutorial affordance for the bottom light is a Machinarium-style hand-drawn note/etching: fragment pieces -> bottom light flashes -> correct stays on / wrong goes dark. Do not add a new button or explanatory UI panel.
 - Victory is all overlap evidence reconstructed, not all fragments sorted.
 
 ## Current Code To Reuse
@@ -147,10 +153,22 @@ Add tests:
 ```ts
 it("loads the new M01 overlap evidence config", () => {
   expect(config.goal.type).toBe("overlap_evidence_reconstructed");
-  expect(config.fragments).toHaveLength(12);
-  expect(config.evidence).toHaveLength(4);
-  expect(config.requiredFragments.min).toBe(5);
-  expect(config.requiredFragments.max).toBe(6);
+  expect(config.fragments.length).toBeGreaterThanOrEqual(12);
+  expect(config.fragments.length).toBeLessThanOrEqual(16);
+  expect(config.evidence.length).toBeGreaterThanOrEqual(4);
+  expect(config.evidence.length).toBeLessThanOrEqual(6);
+  expect(config.goal.params.requiredFragments).toBe("solution_defined");
+  expect(config.goal.params.validationLightSeconds).toBe(2);
+});
+
+it("derives used fragments from the configured evidence solution graph", () => {
+  const usedFragmentIds = new Set(config.evidence.flatMap((evidence) => evidence.solution.fragmentIds));
+
+  expect(usedFragmentIds.size).toBeGreaterThan(0);
+  expect(usedFragmentIds.size).toBeLessThan(config.fragments.length);
+  for (const evidence of config.evidence) {
+    expect(evidence.solution.fragmentIds).toHaveLength(2);
+  }
 });
 
 it("keeps target evidence limited to overlap hints only", () => {
@@ -209,17 +227,15 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
   flashlights: M01FlashlightDef[];
   fragments: M01CandidateFragmentDef[];
   evidence: M01OverlapEvidenceDef[];
-  requiredFragments: {
-    min: number;
-    max: number;
-  };
   goal: {
     type: "overlap_evidence_reconstructed";
     params: {
-      candidateFragments: 12;
-      requiredFragments: [5, 6];
-      evidenceCount: number;
+      candidateFragments: "config_defined";
+      recommendedCandidateRange: [12, 16];
+      requiredFragments: "solution_defined";
+      evidenceCount: [4, 6];
       maxLayersPerEvidence: 2;
+      validationLightSeconds: 2;
       baseColors: M01BaseColor[];
       blendColors: Exclude<M01BlendColor, M01BaseColor>[];
     };
@@ -241,9 +257,22 @@ Replace old fields with the new shape. Use deterministic IDs for the first greyb
   "stage": 1,
   "cognitiveSkill": "分类与归纳",
   "wisdomCrystal": "秩序，不在碎片本身，而在它们终于显现的关系里。",
-  "description": "记忆齿轮旁漂浮着 12 个灰白碎片。玩家用三色手电探测隐藏本色，再从局部交叠证据反推出应使用的碎片组合。",
+  "description": "记忆齿轮旁漂浮着一组灰白碎片。玩家用三色手电探测隐藏本色，再从局部交叠证据反推出应使用的碎片组合。",
   "colors": ["red", "yellow", "blue"],
   "blendColors": ["orange", "green", "purple"],
+  "goal": {
+    "type": "overlap_evidence_reconstructed",
+    "params": {
+      "candidateFragments": "config_defined",
+      "recommendedCandidateRange": [12, 16],
+      "requiredFragments": "solution_defined",
+      "evidenceCount": [4, 6],
+      "maxLayersPerEvidence": 2,
+      "validationLightSeconds": 2,
+      "baseColors": ["red", "yellow", "blue"],
+      "blendColors": ["orange", "green", "purple"]
+    }
+  },
   "flashlights": [
     { "id": "flashlight_red", "color": "red", "label": "红光手电", "position": { "x": -420, "y": 140 } },
     { "id": "flashlight_yellow", "color": "yellow", "label": "黄光手电", "position": { "x": -420, "y": 70 } },
@@ -273,11 +302,24 @@ Replace old fields with the new shape. Use deterministic IDs for the first greyb
       "shapeTags": ["arc_hook", "arc_socket"],
       "solution": { "fragmentIds": ["fragment_a", "fragment_b"] }
     }
-  ]
+  ],
+  "toolCard": {
+    "title": "分类与归纳",
+    "front": {
+      "toolName": "分类与归纳",
+      "scene": "灰白碎片只有在关系里才显出秩序。",
+      "wisdomCrystal": "秩序，不在碎片本身，而在它们终于显现的关系里。"
+    },
+    "back": {
+      "whenToUse": ["当线索混杂、单个特征不够可靠时"],
+      "lifeExamples": ["整理一组互相重叠但来源不同的记忆"],
+      "commonTraps": ["只按一个显眼特征分类，忽略关系中的第二维度"]
+    }
+  }
 }
 ```
 
-Add the remaining 3 evidence entries using existing first-pass pairs. Keep exactly 12 fragments.
+Add the remaining 3-5 evidence entries using first-pass pairs. Keep each evidence as exactly two fragments, avoid triple-overlap evidence, and let the final used fragment count come from the unique IDs referenced by all evidence solutions. The first greybox may use 12 candidates; the implementation must also accept a slightly larger configured candidate pool.
 
 **Step 5: Run targeted tests**
 
@@ -294,7 +336,7 @@ git commit -m "feat: define M01 overlap evidence config"
 
 ---
 
-## Task 3: Implement Evidence Reconstruction Controller
+## Task 3: Implement Candidate Structure And Bottom-Light Validation Controller
 
 **Files:**
 - Modify: `assets/scripts/levels/stage1/M01MemoryGearController.ts`
@@ -318,23 +360,53 @@ it("reveals candidate fragments without making hidden colors visible by default"
   });
 });
 
-it("accepts an overlap only when shape and blended color match evidence", () => {
+it("stages a shape-compatible overlap without completing evidence immediately", () => {
   const controller = M01MemoryGearController.fromConfig(config);
 
-  expect(controller.tryReconstructEvidence("evidence_purple_arc", ["fragment_a", "fragment_b"])).toMatchObject({
+  expect(controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])).toMatchObject({
     accepted: true,
     evidenceId: "evidence_purple_arc",
-    blendColor: "purple",
+    colorRevealed: false
+  });
+
+  expect(controller.getCompletionState().reconstructedEvidenceCount).toBe(0);
+});
+
+it("flashes the bottom light for two seconds when a complete candidate is not fully correct", () => {
+  const controller = M01MemoryGearController.fromConfig(config);
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  // Stage every other configured evidence marker with candidate pairs here so the hypothesis is complete.
+
+  expect(controller.validateCandidateStructure()).toMatchObject({
+    accepted: false,
+    reason: "wrong_blend_color",
+    bottomLight: "flash_then_off",
+    validationLightSeconds: 2,
     completed: false
   });
 });
 
-it("rejects shape-matching overlaps when hidden colors produce the wrong blend", () => {
+it("keeps the bottom light on only when all staged evidence pairs are correct", () => {
+  const controller = M01MemoryGearController.fromConfig(config);
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"]);
+  // Stage the remaining configured correct pairs here.
+
+  expect(controller.validateCandidateStructure()).toMatchObject({
+    accepted: true,
+    bottomLight: "steady_on",
+    completed: true
+  });
+});
+
+it("lets a failed staged pair be replaced by a later snap", () => {
   const controller = M01MemoryGearController.fromConfig(config);
 
-  expect(controller.tryReconstructEvidence("evidence_purple_arc", ["fragment_a", "fragment_i"])).toMatchObject({
-    accepted: false,
-    reason: "wrong_blend_color"
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+
+  expect(controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])).toMatchObject({
+    accepted: true,
+    evidenceId: "evidence_purple_arc",
+    fragmentIds: ["fragment_a", "fragment_b"]
   });
 });
 ```
@@ -343,7 +415,7 @@ it("rejects shape-matching overlaps when hidden colors produce the wrong blend",
 
 Run: `npm test -- tests/levels/stage1/M01MemoryGearController.test.ts`
 
-Expected: FAIL because evidence methods do not exist.
+Expected: FAIL because staging and bottom-light validation methods do not exist.
 
 **Step 3: Implement state and methods**
 
@@ -354,19 +426,35 @@ export type M01RevealResult =
   | { accepted: true; fragmentId: string; flashlightColor: M01BaseColor; revealedColor: M01BlendColor }
   | { accepted: false; reason: "invalid_fragment"; fragmentId: string };
 
-export type M01EvidenceResult =
+export type M01EvidenceStageResult =
   | {
       accepted: true;
       evidenceId: string;
       fragmentIds: [string, string];
-      blendColor: M01BlendColor;
-      completed: boolean;
+      colorRevealed: false;
     }
   | {
       accepted: false;
-      reason: "invalid_evidence" | "invalid_fragment" | "wrong_shape" | "wrong_blend_color" | "already_reconstructed";
+      reason: "invalid_evidence" | "invalid_fragment" | "wrong_shape";
       evidenceId: string;
       fragmentIds: string[];
+    };
+
+export type M01CandidateValidationResult =
+  | {
+      accepted: true;
+      bottomLight: "steady_on";
+      validationLightSeconds: null;
+      completed: true;
+      reconstructedEvidenceIds: string[];
+    }
+  | {
+      accepted: false;
+      reason: "incomplete_candidate" | "wrong_blend_color" | "wrong_fragment_set";
+      bottomLight: "flash_then_off";
+      validationLightSeconds: 2;
+      completed: false;
+      revealedEvidence: Array<{ evidenceId: string; actualBlendColor: M01BlendColor; expectedBlendColor: M01BlendColor }>;
     };
 ```
 
@@ -375,6 +463,7 @@ Implement controller state:
 ```ts
 private readonly evidenceById = new Map<string, M01OverlapEvidenceDef>();
 private readonly reconstructedEvidenceIds = new Set<string>();
+private readonly stagedEvidencePairs = new Map<string, [string, string]>();
 
 revealFragmentWithFlashlight(fragmentId: string, flashlightColor: M01BaseColor): M01RevealResult {
   const fragment = this.fragmentsById.get(fragmentId);
@@ -391,14 +480,25 @@ revealFragmentWithFlashlight(fragmentId: string, flashlightColor: M01BaseColor):
 }
 ```
 
-Implement `tryReconstructEvidence` by checking:
+Implement `stageEvidencePair` by checking shape only:
 
 - evidence exists
 - both fragments exist
 - pair has both required `shapeTags`
-- hidden-color blend equals `targetBlendColor`
-- mark evidence reconstructed
-- completion is all evidence reconstructed
+- store the pair in `stagedEvidencePairs`
+- if the evidence already has a staged pair, replace it with the new pair; do not reject merely because the evidence was previously staged
+- do not reveal hidden color
+- do not mark evidence reconstructed
+
+Implement `validateCandidateStructure` by checking the complete staged hypothesis:
+
+- all evidence markers have staged pairs
+- each staged pair uses exactly two fragments
+- the staged unique fragment set matches the expected solution set derived from all configured `solution.fragmentIds`
+- each staged pair blends to the evidence `targetBlendColor`
+- if anything is wrong, return `bottomLight: "flash_then_off"` and `validationLightSeconds: 2`
+- on failure, leave staged pairs and fragment positions moveable so the player can pick up, move, or replace pieces directly
+- if everything is correct, mark all evidence reconstructed, return `bottomLight: "steady_on"`, and allow ToolCard completion
 
 **Step 4: Update completion and ToolCard**
 
@@ -410,10 +510,11 @@ export interface M01CompletionState {
   reconstructedEvidenceCount: number;
   totalEvidenceCount: number;
   usedFragmentCount: number;
+  bottomLight: "off" | "flash_then_off" | "steady_on";
 }
 ```
 
-`isComplete()` should use `reconstructedEvidenceIds.size === config.evidence.length`.
+`isComplete()` should use `reconstructedEvidenceIds.size === config.evidence.length`, and evidence IDs should only enter `reconstructedEvidenceIds` after a successful bottom-light validation.
 
 **Step 5: Run tests**
 
@@ -425,7 +526,7 @@ Expected: PASS.
 
 ```bash
 git add assets/scripts/levels/stage1/M01MemoryGearController.ts tests/levels/stage1/M01MemoryGearController.test.ts
-git commit -m "feat: reconstruct M01 overlap evidence"
+git commit -m "feat: validate M01 overlap evidence structure"
 ```
 
 ---
@@ -445,8 +546,8 @@ it("builds flashlight, candidate fragment, evidence, and board nodes", () => {
   const layout = buildM01GreyboxLayout(config);
 
   expect(layout.flashlights).toHaveLength(3);
-  expect(layout.fragments).toHaveLength(12);
-  expect(layout.evidence).toHaveLength(4);
+  expect(layout.fragments).toHaveLength(config.fragments.length);
+  expect(layout.evidence).toHaveLength(config.evidence.length);
   expect(layout.board.kind).toBe("board");
   expect(layout.slots).toBeUndefined();
 });
@@ -548,6 +649,16 @@ it("weak-snaps a fragment near matching evidence shape without completing it", (
   });
 });
 
+it("does not weak-snap a shape-mismatched fragment even when it is near evidence", () => {
+  const fragment = layout.fragments.find((item) => item.controllerId === "fragment_i")!;
+  const evidence = layout.evidence.find((item) => item.controllerId === "evidence_purple_arc")!;
+
+  expect(resolveM01GreyboxDrop(layout, fragment, evidence.position)).toEqual({
+    type: "place_fragment_freely",
+    fragmentId: "fragment_i"
+  });
+});
+
 it("returns a fragment to free placement when no evidence shape is nearby", () => {
   const fragment = layout.fragments.find((item) => item.controllerId === "fragment_a")!;
 
@@ -572,11 +683,11 @@ Replace with:
 export type M01GreyboxDropAction =
   | { type: "select_flashlight"; flashlightId: string }
   | { type: "weak_snap_fragment"; fragmentId: string; evidenceId: string }
-  | { type: "place_fragment_freely"; fragmentId: string }
+  | { type: "place_fragment_freely"; fragmentId: string; position?: M01GreyboxPoint }
   | { type: "return_to_origin"; reason: "no_zone" | "wrong_token_kind" };
 ```
 
-Weak snap should use evidence bounds/tolerance from layout. It must not decide color correctness. That belongs to the session/controller after a second fragment completes an evidence pair.
+Weak snap should use evidence bounds/tolerance from layout and require shape-tag compatibility. Proximity alone must not snap, because that would erase the shape-reasoning puzzle. It must not decide color correctness; that belongs to the session/controller after a second fragment completes an evidence pair. Free placement should preserve the clicked/dropped screen position so the player can organize fragments anywhere in the workspace.
 
 **Step 4: Run drag tests**
 
@@ -593,7 +704,7 @@ git commit -m "feat: add weak magnetic evidence snapping"
 
 ---
 
-## Task 6: Update Greybox Session For Flashlight, Reveal, And Evidence Progress
+## Task 6: Update Greybox Session For Flashlight, Reveal, Staging, And Bottom-Light Validation
 
 **Files:**
 - Modify: `assets/scripts/cocos/M01GreyboxSession.ts`
@@ -620,21 +731,60 @@ it("selects a flashlight and reveals a fragment color", () => {
   });
 });
 
-it("keeps shape-only weak snaps separate from evidence completion", () => {
+it("keeps shape-only weak snaps separate from color validation", () => {
   const session = M01GreyboxSession.fromConfig(config);
 
   expect(session.weakSnapFragmentToEvidence("fragment_a", "evidence_purple_arc")).toMatchObject({
     accepted: true,
-    completedEvidenceCount: 0
+    completedEvidenceCount: 0,
+    bottomLight: "off"
   });
 });
 
-it("completes evidence only after a valid fragment pair is submitted", () => {
+it("flashes bottom light when the submitted candidate is wrong", () => {
   const session = M01GreyboxSession.fromConfig(config);
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  // Submit the remaining evidence pairs so the candidate structure is complete.
+
+  expect(session.validateCandidateStructure()).toMatchObject({
+    accepted: false,
+    bottomLight: "flash_then_off",
+    validationLightSeconds: 2,
+    completed: false
+  });
+});
+
+it("keeps bottom light steady only after the whole candidate structure is correct", () => {
+  const session = M01GreyboxSession.fromConfig(config);
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"]);
+  // Submit remaining correct configured evidence pairs here.
+
+  expect(session.validateCandidateStructure()).toMatchObject({
+    accepted: true,
+    bottomLight: "steady_on",
+    completed: true
+  });
+});
+
+it("supports click-pick and click-place so staged fragments can be corrected", () => {
+  const session = M01GreyboxSession.fromConfig(config);
+
+  expect(session.pickFragment("fragment_a")).toMatchObject({
+    accepted: true,
+    heldFragmentId: "fragment_a"
+  });
+
+  expect(session.placeHeldFragment({ x: 320, y: -180 })).toMatchObject({
+    accepted: true,
+    fragmentId: "fragment_a",
+    placement: "free"
+  });
+
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
 
   expect(session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])).toMatchObject({
     accepted: true,
-    completedEvidenceCount: 1
+    bottomLight: "off"
   });
 });
 ```
@@ -664,6 +814,20 @@ revealFragment(fragmentId: string): {
   status: string;
 }
 
+pickFragment(fragmentId: string): {
+  accepted: boolean;
+  heldFragmentId?: string;
+  status: string;
+}
+
+placeHeldFragment(position: M01GreyboxPoint): {
+  accepted: boolean;
+  fragmentId?: string;
+  placement?: "free" | "weak_snap";
+  evidenceId?: string;
+  status: string;
+}
+
 weakSnapFragmentToEvidence(fragmentId: string, evidenceId: string): {
   accepted: boolean;
   fragmentId: string;
@@ -674,8 +838,20 @@ weakSnapFragmentToEvidence(fragmentId: string, evidenceId: string): {
 
 submitEvidencePair(evidenceId: string, fragmentIds: [string, string]): {
   accepted: boolean;
+  replacedPreviousPair?: boolean;
   reason?: string;
   completedEvidenceCount: number;
+  bottomLight: "off";
+  completed: false;
+  status: string;
+}
+
+validateCandidateStructure(): {
+  accepted: boolean;
+  reason?: string;
+  completedEvidenceCount: number;
+  bottomLight: "flash_then_off" | "steady_on";
+  validationLightSeconds: 2 | null;
   completed: boolean;
   status: string;
 }
@@ -685,14 +861,19 @@ Update text keys:
 
 - `flashlightSelected`
 - `fragmentRevealed`
+- `fragmentPickedUp`
+- `fragmentPlacedFreely`
 - `weakSnapHint`
+- `candidateStructureReady`
+- `validationLightFlash`
+- `validationLightSteady`
 - `evidenceCompleted`
 - `evidenceRejected`
 - `repairCompleted`
 
 **Step 4: Preserve ToolCard unlock**
 
-When the last evidence is completed, call `completeRepairAndUnlockToolCard()` exactly once and expose `getLastToolCard()`.
+Only `validateCandidateStructure()` may complete the puzzle. When it returns steady-on success, call `completeRepairAndUnlockToolCard()` exactly once and expose `getLastToolCard()`.
 
 **Step 5: Run session tests**
 
@@ -704,7 +885,7 @@ Expected: PASS.
 
 ```bash
 git add assets/scripts/cocos/M01GreyboxSession.ts assets/scripts/cocos/M01GreyboxText.ts tests/cocos/M01GreyboxSession.test.ts
-git commit -m "feat: drive M01 flashlight evidence session"
+git commit -m "feat: drive M01 bottom-light validation session"
 ```
 
 ---
@@ -729,6 +910,8 @@ it("wires M01 flashlight and evidence actions in the Cocos bootstrap", () => {
   expect(source).toContain("selectFlashlight");
   expect(source).toContain("revealFragment");
   expect(source).toContain("submitEvidencePair");
+  expect(source).toContain("validateCandidateStructure");
+  expect(source).toContain("validationLightSeconds");
 });
 
 it("does not depend on old M01 slot placement actions", () => {
@@ -751,8 +934,9 @@ Bootstrap should render:
 
 - Gear and central board.
 - Three flashlight buttons/tokens.
-- 12 grey candidate fragments.
+- Config-defined grey candidate fragments.
 - Evidence markers as colored local overlap hints, not complete outlines.
+- A small hand-drawn note/etching near the board explaining the bottom-light validation loop without a new UI facility.
 - Optional debug text showing active flashlight and revealed color.
 
 Fragment presentation:
@@ -760,7 +944,9 @@ Fragment presentation:
 - Default: grey/transparent.
 - Revealed: temporary tint matching `revealFragment()`.
 - Weak snapped: subtle outline / low-alpha attachment line.
-- Evidence completed: overlap marker lights up in target color.
+- Board bottom light off: fragments remain grey while arranged on the board.
+- Validation flash: wrong complete candidates briefly reveal current colors, then return to grey after `validationLightSeconds`.
+- Validation steady-on: correct complete candidates keep overlap markers lit in target colors.
 
 **Step 4: Update input actions**
 
@@ -768,10 +954,13 @@ Map old actions to new session:
 
 - `select_flashlight` -> `session.selectFlashlight()`
 - dragging flashlight over fragment or clicking reveal affordance -> `session.revealFragment(fragmentId)`
+- click a fragment while none is held -> `session.pickFragment(fragmentId)`
+- click anywhere while holding a fragment -> `session.placeHeldFragment(position)`; if the position is not a valid weak snap, leave the fragment freely placed there
 - `weak_snap_fragment` -> `session.weakSnapFragmentToEvidence(fragmentId, evidenceId)`
-- when a second fragment is weak-snapped to the same evidence -> `session.submitEvidencePair(evidenceId, [firstId, secondId])`
+- when a second fragment is weak-snapped to the same evidence -> `session.submitEvidencePair(evidenceId, [firstId, secondId])`, replacing any previous pair for that evidence and still keeping the bottom light off
+- when all evidence markers have staged pairs -> `session.validateCandidateStructure()`
 
-Keep this simple in greybox: store the first weak-snapped fragment per evidence in a local `Map<string, string>`.
+Keep this simple in greybox: store the current weak-snapped fragments per evidence in a local `Map<string, string[]>`, replace the pair when the player snaps a new candidate onto the same evidence, and call validation automatically once every evidence marker has a staged pair. Do not add a button or other facility.
 
 **Step 5: Run scaffold and typecheck**
 
@@ -934,10 +1123,9 @@ Use existing Cocos preview path if running:
 - Confirm M01 scene loads.
 - Select red/yellow/blue flashlight tokens.
 - Reveal at least one hidden fragment with each light.
-- Drag two shape-compatible fragments near one evidence marker and observe weak magnetic alignment.
-- Submit a correct pair and confirm evidence marker lights up.
-- Submit a wrong-color shape-compatible pair and confirm it does not count as completed.
-- Complete all evidence markers and confirm ToolCard unlock.
+- Drag two shape-compatible fragments near one evidence marker and observe weak magnetic alignment with no color reveal.
+- Stage a wrong complete candidate structure and confirm the board bottom light flashes for about 2 seconds, briefly reveals colors, then turns off and returns fragments to grey.
+- Stage the correct complete candidate structure and confirm the board bottom light stays on, evidence markers light up, and ToolCard unlocks.
 
 **Step 3: Update active state**
 
@@ -961,7 +1149,7 @@ git commit -m "docs: record M01 overlap evidence verification"
 
 - Prefer renaming concepts in code only when the tests are already green. The first implementation can keep `FilterSystem` as the light/reveal system if that reduces churn.
 - Do not delete legacy art assets in this plan. Quarantine them through plan/build functions and active notes.
-- Keep the first evidence set small: 4 evidence markers, 12 candidates, 5-6 required fragments. Fun can be tuned after the full loop is playable.
+- Keep the first evidence set readable: 4-6 evidence markers and about 12-16 candidate fragments. The used-fragment count is not a authored min/max; it is derived from the evidence solution graph.
 - The target evidence display must never become a full answer outline. Add tests around this because future art work will be tempted to over-explain.
 
 ## Done Definition
@@ -970,7 +1158,10 @@ git commit -m "docs: record M01 overlap evidence verification"
 - All old slot/filter completion behavior is gone from the active M01 code path.
 - Player can freely select flashlight colors and reveal hidden fragment colors.
 - Shape proximity creates weak magnetic snap.
-- Wrong-color but shape-compatible pairs do not complete evidence.
-- Correct shape/color overlap pairs light evidence markers.
+- Shape mismatch near an evidence marker does not weak-snap.
+- Click-pick / click-place lets players arrange fragments anywhere and correct failed staged pairs without a reset button.
+- Fragments placed on the board remain grey while the bottom light is off.
+- Wrong complete candidate structures flash the bottom light for about 2 seconds, reveal colors briefly, then return to grey.
+- Correct complete candidate structures keep the bottom light on and light evidence markers.
 - All evidence markers completed unlocks the M01 ToolCard once.
 - `npm run typecheck`, `npm test`, and dependency audit pass or documented blockers exist.
