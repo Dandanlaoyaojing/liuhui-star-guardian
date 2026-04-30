@@ -126,13 +126,68 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
 export interface M01FragmentState extends M01CandidateFragmentDef {
   sorted: boolean;
   slotId: string | null;
+  hiddenColorVisible: boolean;
 }
+
+export type M01BottomLightState = "off" | "flash_then_off" | "steady_on";
 
 export interface M01CompletionState {
   completed: boolean;
   sortedCount: number;
   totalFragments: number;
+  reconstructedEvidenceCount: number;
+  totalEvidenceCount: number;
+  usedFragmentCount: number;
+  bottomLight: M01BottomLightState;
 }
+
+export type M01RevealResult =
+  | {
+      accepted: true;
+      fragmentId: string;
+      flashlightColor: M01BaseColor;
+      revealedColor: M01BlendColor;
+    }
+  | {
+      accepted: false;
+      reason: "invalid_fragment";
+      fragmentId: string;
+    };
+
+export type M01EvidenceStageResult =
+  | {
+      accepted: true;
+      evidenceId: string;
+      fragmentIds: [string, string];
+      colorRevealed: false;
+    }
+  | {
+      accepted: false;
+      reason: "invalid_evidence" | "invalid_fragment" | "wrong_shape";
+      evidenceId: string;
+      fragmentIds: string[];
+    };
+
+export type M01CandidateValidationResult =
+  | {
+      accepted: true;
+      bottomLight: "steady_on";
+      validationLightSeconds: null;
+      completed: true;
+      reconstructedEvidenceIds: string[];
+    }
+  | {
+      accepted: false;
+      reason: "incomplete_candidate" | "wrong_blend_color" | "wrong_fragment_set";
+      bottomLight: "flash_then_off";
+      validationLightSeconds: 2;
+      completed: false;
+      revealedEvidence: Array<{
+        evidenceId: string;
+        actualBlendColor: M01BlendColor;
+        expectedBlendColor: M01BlendColor;
+      }>;
+    };
 
 export type M01PlacementRejectReason =
   | "invalid_fragment"
@@ -191,9 +246,13 @@ export class M01MemoryGearController {
   private readonly filtersByColor = new Map<M01Color, M01FilterDef>();
   private readonly slotsById = new Map<string, M01SlotDef>();
   private readonly fragmentsById = new Map<string, M01FragmentState>();
+  private readonly evidenceById = new Map<string, M01OverlapEvidenceDef>();
+  private readonly reconstructedEvidenceIds = new Set<string>();
+  private readonly stagedEvidencePairs = new Map<string, [string, string]>();
   private activeFilter: M01FilterDef | null = null;
   private unlockedToolCard: ToolCard | null = null;
   private repairCompleted = false;
+  private bottomLight: M01BottomLightState = "off";
 
   private constructor(
     config: M01MemoryGearConfig,
@@ -217,8 +276,14 @@ export class M01MemoryGearController {
       this.fragmentsById.set(fragment.id, {
         ...fragment,
         sorted: false,
-        slotId: null
+        slotId: null,
+        hiddenColorVisible: false
       });
+    }
+
+    for (const evidence of config.evidence ?? []) {
+      this.assertUnique(this.evidenceById, evidence.id, "evidence");
+      this.evidenceById.set(evidence.id, evidence);
     }
   }
 
@@ -312,6 +377,126 @@ export class M01MemoryGearController {
     };
   }
 
+  revealFragmentWithFlashlight(
+    fragmentId: string,
+    flashlightColor: M01BaseColor
+  ): M01RevealResult {
+    const fragment = this.fragmentsById.get(fragmentId);
+    if (!fragment) {
+      return {
+        accepted: false,
+        reason: "invalid_fragment",
+        fragmentId
+      };
+    }
+
+    return {
+      accepted: true,
+      fragmentId,
+      flashlightColor,
+      revealedColor: revealM01FragmentColor(fragment, flashlightColor)
+    };
+  }
+
+  stageEvidencePair(evidenceId: string, fragmentIds: string[]): M01EvidenceStageResult {
+    const evidence = this.evidenceById.get(evidenceId);
+    if (!evidence) {
+      return {
+        accepted: false,
+        reason: "invalid_evidence",
+        evidenceId,
+        fragmentIds: [...fragmentIds]
+      };
+    }
+
+    if (fragmentIds.length !== 2) {
+      return {
+        accepted: false,
+        reason: "wrong_shape",
+        evidenceId,
+        fragmentIds: [...fragmentIds]
+      };
+    }
+
+    const fragments = fragmentIds.map((fragmentId) => this.fragmentsById.get(fragmentId));
+    if (fragments.some((fragment) => fragment === undefined)) {
+      return {
+        accepted: false,
+        reason: "invalid_fragment",
+        evidenceId,
+        fragmentIds: [...fragmentIds]
+      };
+    }
+
+    const pair = [fragmentIds[0], fragmentIds[1]] as [string, string];
+    if (!this.pairMatchesEvidenceShape(evidence, fragments as [M01FragmentState, M01FragmentState])) {
+      return {
+        accepted: false,
+        reason: "wrong_shape",
+        evidenceId,
+        fragmentIds: pair
+      };
+    }
+
+    this.stagedEvidencePairs.set(evidenceId, pair);
+
+    return {
+      accepted: true,
+      evidenceId,
+      fragmentIds: pair,
+      colorRevealed: false
+    };
+  }
+
+  validateCandidateStructure(): M01CandidateValidationResult {
+    const evidenceDefs = this.getEvidenceDefs();
+    if (
+      evidenceDefs.length === 0 ||
+      evidenceDefs.some((evidence) => !this.stagedEvidencePairs.has(evidence.id))
+    ) {
+      return this.rejectCandidateStructure("incomplete_candidate", []);
+    }
+
+    const revealedEvidence = evidenceDefs.map((evidence) => {
+      const pair = this.stagedEvidencePairs.get(evidence.id);
+      const fragments = pair?.map((fragmentId) => this.fragmentsById.get(fragmentId)) ?? [];
+      const [first, second] = fragments as [M01FragmentState | undefined, M01FragmentState | undefined];
+      const actualBlendColor =
+        first && second ? blendM01PigmentColors(first.hiddenColor, second.hiddenColor) : "red";
+
+      return {
+        evidenceId: evidence.id,
+        actualBlendColor,
+        expectedBlendColor: evidence.targetBlendColor
+      };
+    });
+
+    if (
+      revealedEvidence.some(
+        (evidence) => evidence.actualBlendColor !== evidence.expectedBlendColor
+      )
+    ) {
+      return this.rejectCandidateStructure("wrong_blend_color", revealedEvidence);
+    }
+
+    if (!this.stagedFragmentSetMatchesSolution()) {
+      return this.rejectCandidateStructure("wrong_fragment_set", revealedEvidence);
+    }
+
+    this.bottomLight = "steady_on";
+    for (const evidence of evidenceDefs) {
+      this.reconstructedEvidenceIds.add(evidence.id);
+    }
+
+    return {
+      accepted: true,
+      bottomLight: "steady_on",
+      validationLightSeconds: null,
+      completed: true,
+      reconstructedEvidenceIds: evidenceDefs.map((evidence) => evidence.id)
+    };
+  }
+
   getFragmentState(fragmentId: string): M01FragmentState | null {
     const fragment = this.fragmentsById.get(fragmentId);
     return fragment ? { ...fragment } : null;
@@ -324,11 +509,20 @@ export class M01MemoryGearController {
   getCompletionState(): M01CompletionState {
     const fragments = [...this.fragmentsById.values()];
     const sortedCount = fragments.filter((fragment) => fragment.sorted).length;
+    const evidenceDefs = this.getEvidenceDefs();
+    const completed =
+      evidenceDefs.length > 0
+        ? this.reconstructedEvidenceIds.size === evidenceDefs.length
+        : sortedCount === fragments.length;
 
     return {
-      completed: sortedCount === fragments.length,
+      completed,
       sortedCount,
-      totalFragments: fragments.length
+      totalFragments: fragments.length,
+      reconstructedEvidenceCount: this.reconstructedEvidenceIds.size,
+      totalEvidenceCount: evidenceDefs.length,
+      usedFragmentCount: this.getSolutionFragmentIds().size,
+      bottomLight: this.bottomLight
     };
   }
 
@@ -400,6 +594,75 @@ export class M01MemoryGearController {
     ).length;
 
     return placedCount >= slot.capacity;
+  }
+
+  private getEvidenceDefs(): M01OverlapEvidenceDef[] {
+    return [...this.evidenceById.values()];
+  }
+
+  private getSolutionFragmentIds(): Set<string> {
+    return new Set(
+      this.getEvidenceDefs().flatMap((evidence) => evidence.solution.fragmentIds)
+    );
+  }
+
+  private pairMatchesEvidenceShape(
+    evidence: M01OverlapEvidenceDef,
+    fragments: [M01FragmentState, M01FragmentState]
+  ): boolean {
+    const availableShapeTags = fragments.flatMap((fragment) => [
+      fragment.edgeShape,
+      ...(fragment.tags ?? [])
+    ]);
+
+    return evidence.shapeTags.every((tag) => {
+      const index = availableShapeTags.indexOf(tag);
+      if (index === -1) {
+        return false;
+      }
+
+      availableShapeTags.splice(index, 1);
+      return true;
+    });
+  }
+
+  private stagedFragmentSetMatchesSolution(): boolean {
+    const expectedFragmentIds = this.getSolutionFragmentIds();
+    const actualFragmentIds = new Set(
+      [...this.stagedEvidencePairs.values()].flatMap((fragmentIds) => fragmentIds)
+    );
+
+    if (actualFragmentIds.size !== expectedFragmentIds.size) {
+      return false;
+    }
+
+    for (const fragmentId of expectedFragmentIds) {
+      if (!actualFragmentIds.has(fragmentId)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private rejectCandidateStructure(
+    reason: "incomplete_candidate" | "wrong_blend_color" | "wrong_fragment_set",
+    revealedEvidence: Array<{
+      evidenceId: string;
+      actualBlendColor: M01BlendColor;
+      expectedBlendColor: M01BlendColor;
+    }>
+  ): M01CandidateValidationResult {
+    this.bottomLight = "flash_then_off";
+
+    return {
+      accepted: false,
+      reason,
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false,
+      revealedEvidence
+    };
   }
 
   private assertUnique<T>(map: Map<string, T>, id: string, label: string): void {

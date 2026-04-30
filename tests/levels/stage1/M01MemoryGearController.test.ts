@@ -114,6 +114,33 @@ function sortAll(controller: M01MemoryGearController, config: M01MemoryGearConfi
   }
 }
 
+const CORRECT_EVIDENCE_PAIRS: Array<[string, [string, string]]> = [
+  ["evidence_purple_arc", ["fragment_a", "fragment_b"]],
+  ["evidence_green_notch", ["fragment_c", "fragment_d"]],
+  ["evidence_orange_crescent", ["fragment_e", "fragment_f"]],
+  ["evidence_purple_branch", ["fragment_g", "fragment_h"]]
+];
+
+function stageCorrectCandidate(controller: M01MemoryGearController): void {
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS) {
+    controller.stageEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function stageWrongColorCompleteCandidate(controller: M01MemoryGearController): void {
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    controller.stageEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function stageWrongFragmentSetCompleteCandidate(controller: M01MemoryGearController): void {
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_m"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    controller.stageEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
 describe("M01MemoryGearController", () => {
   it("blends M01 base colors using storybook pigment rules", () => {
     expect(blendM01PigmentColors("red", "yellow")).toBe("orange");
@@ -193,6 +220,108 @@ describe("M01MemoryGearController", () => {
     }
   });
 
+  it("reveals candidate fragments without making hidden colors visible by default", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    const fragment = controller.getFragmentState("fragment_a");
+
+    expect(fragment?.hiddenColorVisible).toBe(false);
+    expect(controller.revealFragmentWithFlashlight("fragment_a", "blue")).toEqual({
+      accepted: true,
+      fragmentId: "fragment_a",
+      flashlightColor: "blue",
+      revealedColor: "purple"
+    });
+    expect(controller.getFragmentState("fragment_a")?.hiddenColorVisible).toBe(false);
+  });
+
+  it("stages a shape-compatible overlap without completing evidence immediately", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+
+    expect(
+      controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])
+    ).toMatchObject({
+      accepted: true,
+      evidenceId: "evidence_purple_arc",
+      colorRevealed: false
+    });
+
+    expect(controller.getCompletionState()).toMatchObject({
+      completed: false,
+      reconstructedEvidenceCount: 0,
+      totalEvidenceCount: 4,
+      bottomLight: "off"
+    });
+  });
+
+  it("flashes the bottom light for two seconds when a complete candidate is not fully correct", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    stageWrongColorCompleteCandidate(controller);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "wrong_blend_color",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+    expect(controller.getCompletionState()).toMatchObject({
+      completed: false,
+      reconstructedEvidenceCount: 0,
+      bottomLight: "flash_then_off"
+    });
+  });
+
+  it("keeps the bottom light on only when all staged evidence pairs are correct", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    stageCorrectCandidate(controller);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: true,
+      bottomLight: "steady_on",
+      completed: true,
+      reconstructedEvidenceIds: [
+        "evidence_purple_arc",
+        "evidence_green_notch",
+        "evidence_orange_crescent",
+        "evidence_purple_branch"
+      ]
+    });
+    expect(controller.isComplete()).toBe(true);
+
+    const unlock = controller.completeRepairAndUnlockToolCard();
+    expect(unlock).toMatchObject({
+      completed: true,
+      newlyUnlocked: true
+    });
+  });
+
+  it("reports wrong fragment set when a shape-compatible decoy has the right color", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    stageWrongFragmentSetCompleteCandidate(controller);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "wrong_fragment_set",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+  });
+
+  it("lets a failed staged pair be replaced by a later snap", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+
+    controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+
+    expect(
+      controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])
+    ).toMatchObject({
+      accepted: true,
+      evidenceId: "evidence_purple_arc",
+      fragmentIds: ["fragment_a", "fragment_b"]
+    });
+  });
+
   it("sorts all fragments by active color filter and unlocks the M01 ToolCard", () => {
     const config = makeConfig();
     const controller = M01MemoryGearController.fromConfig(config);
@@ -200,7 +329,7 @@ describe("M01MemoryGearController", () => {
     sortAll(controller, config);
 
     expect(controller.isComplete()).toBe(true);
-    expect(controller.getCompletionState()).toEqual({
+    expect(controller.getCompletionState()).toMatchObject({
       completed: true,
       sortedCount: 18,
       totalFragments: 18
@@ -273,7 +402,7 @@ describe("M01MemoryGearController", () => {
       }
     }
 
-    expect(controller.getCompletionState()).toEqual({
+    expect(controller.getCompletionState()).toMatchObject({
       completed: false,
       sortedCount: 9,
       totalFragments: 18
@@ -295,8 +424,10 @@ describe("M01MemoryGearController", () => {
     expect(config.goal.type).toBe("overlap_evidence_reconstructed");
     expect(controller.getCompletionState()).toMatchObject({
       completed: false,
-      sortedCount: 0,
-      totalFragments: config.fragments.length
+      reconstructedEvidenceCount: 0,
+      totalEvidenceCount: config.evidence.length,
+      usedFragmentCount: 8,
+      bottomLight: "off"
     });
     expect(controller.completeRepairAndUnlockToolCard()).toEqual({
       completed: false,

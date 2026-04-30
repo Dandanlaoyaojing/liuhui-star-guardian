@@ -81,6 +81,7 @@ Last updated: 2026-04-30
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
 - 2026-04-30 已完成新版 M01 plan 的 Task 1：在 `M01MemoryGearController` 中新增童话颜料混色 domain helper（`blendM01PigmentColors` / `revealM01FragmentColor`），覆盖红黄蓝同色与两两混合规则。
 - 2026-04-30 已完成新版 M01 plan 的 Task 2：真实 `m01-memory-gear.json` 已从旧“过滤器 + 九宫格槽位”切换为 13 个候选灰白碎片、3 个手电色、4 个两片交叠证据、`solution_defined` 使用碎片派生和 `overlap_evidence_reconstructed` 胜利目标；已提交的旧灰盒 layout/session 测试改用 `m01LegacySortConfig` 继续保护旧 runtime 壳子，不再要求真实 M01 JSON 具备旧滤镜/槽位结构。
+- 2026-04-30 已完成新版 M01 plan 的 Task 3：`M01MemoryGearController` 现在支持手电显色、证据 pair staging、失败后同 evidence replacement、底光整体验证、错误候选 2 秒闪光状态、正确候选常亮并解锁 ToolCard；旧 sort controller 路径仍保留给 legacy 灰盒壳子使用。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
 - 已实现 `DragHandler` / `SnapZone` / `FilterSystem` 交互基础件。
@@ -162,6 +163,7 @@ Last updated: 2026-04-30
 - 2026-04-29 M01 empty gear candidate：用户最终选择以 16:37 版本作为原型母版，不再继续调色 / 修线 / 重绘。当前 preferred review-only candidate 为 `docs/design/generated-m01-art-slices/m01-anchor-cleaned-v2-gear-empty-center-rich-color-candidate.png`；它保留更丰富的机械主体灰褐水彩浓淡。后续工作应只围绕该图做工程化裁切、透明化和 gameplay-scale 导入预检。`m01-anchor-cleaned-v2-gear-empty-center-rich-color-outline-tidy-candidate.png` 仅保留为后续对照，不作为当前原型推进。
 - 2026-04-30 新版 M01 Task 1 验证：先新增混色测试并确认红灯（`blendM01PigmentColors is not a function` / `revealM01FragmentColor is not a function`），随后实现最小 helper；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（1 个测试文件 / 7 个测试），`npm run typecheck` 成功。
 - 2026-04-30 新版 M01 Task 2 验证：真实 M01 JSON 已切到 `overlap_evidence_reconstructed`，新增测试覆盖候选池 12-16、证据数 4-6、solution 派生使用碎片、shape-compatible decoys、不泄露目标答案；已提交的旧九宫格 layout/session runtime 测试改用 legacy fixture。可在 clean checkout 复现的验证：`jq empty assets/resources/configs/stage1/m01-memory-gear.json` 成功；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts tests/core/PuzzleConfig.test.ts` 成功（14 个测试）；`npm test -- tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（14 个测试）；`npm run typecheck` 成功。
+- 2026-04-30 新版 M01 Task 3 验证：先新增 controller tests 并确认红灯（缺少 `stageEvidencePair` / `validateCandidateStructure` / evidence completion 字段），随后实现候选结构验证。验证：`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（17 个测试）；`npm test -- tests/core/PuzzleConfig.test.ts tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（17 个测试）；`npm run typecheck` 成功。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`
