@@ -156,6 +156,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("heldFragmentId");
     expect(bootstrap).toContain("handleFragmentClick");
     expect(bootstrap).toContain("placeHeldFragmentAt");
+    expect(bootstrap).toContain("placeHeldFragmentAtPosition");
+    expect(bootstrap).toContain("this.heldFragmentId && this.heldFragmentId !== token.controllerId");
     expect(bootstrap).toContain("tryHandleTokenClick");
   });
 

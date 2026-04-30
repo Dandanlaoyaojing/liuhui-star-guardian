@@ -633,6 +633,11 @@ export class M01GreyboxBootstrap extends Component {
       return false;
     }
 
+    if (this.heldFragmentId && this.heldFragmentId !== token.controllerId) {
+      this.placeHeldFragmentAtPosition(session.currentPosition);
+      return true;
+    }
+
     if (token.kind === "fragment") {
       this.handleFragmentClick(node, token, session.currentPosition);
       return true;
@@ -726,7 +731,7 @@ export class M01GreyboxBootstrap extends Component {
       }
 
       this.trackWeakSnappedFragment(action.evidenceId, action.fragmentId);
-      this.snapNodeToEvidence(node, action.evidenceId, dropPosition);
+      this.snapNodeToEvidence(node, token, action.evidenceId, dropPosition);
       this.heldFragmentId = undefined;
       this.clearHintTargets();
       this.trySubmitWeakSnappedEvidencePair(action.evidenceId);
@@ -778,7 +783,22 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.handleTokenDrop(entry.node, entry.token, this.eventToLocalPoint(event));
+    this.placeHeldFragmentAtPosition(this.eventToLocalPoint(event));
+  }
+
+  private placeHeldFragmentAtPosition(position: M01GreyboxPoint): void {
+    const heldFragmentId = this.heldFragmentId;
+    if (!heldFragmentId) {
+      return;
+    }
+
+    const entry = this.greyboxNodes.get(heldFragmentId);
+    if (!entry) {
+      this.heldFragmentId = undefined;
+      return;
+    }
+
+    this.handleTokenDrop(entry.node, entry.token, position);
   }
 
   private tryRevealFragmentAtPosition(
@@ -865,15 +885,18 @@ export class M01GreyboxBootstrap extends Component {
     }
   }
 
-  private snapNodeToEvidence(node: Node, evidenceId: string, fallback: M01GreyboxPoint): void {
+  private snapNodeToEvidence(
+    node: Node,
+    token: M01GreyboxTokenNode,
+    evidenceId: string,
+    fallback: M01GreyboxPoint
+  ): void {
     const evidence = this.layout?.evidence.find(
       (candidate) => candidate.controllerId === evidenceId
     );
     const position = evidence?.position ?? fallback;
     node.setPosition(position.x, position.y, 0);
-    if (this.activeDragToken) {
-      this.tokenPositions.set(this.activeDragToken.controllerId, position);
-    }
+    this.tokenPositions.set(token.controllerId, position);
   }
 
   private resetTokenNode(node: Node, token: M01GreyboxTokenNode): void {
