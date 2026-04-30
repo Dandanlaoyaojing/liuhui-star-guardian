@@ -75,7 +75,7 @@ Last updated: 2026-04-30
 
 ## Next Recommended Step (immediate)
 
-**按新版 M01 spec 重开玩法灰盒，而不是继续旧九宫格美术打磨**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1-7 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API 和 Cocos bootstrap 输入接线都已迁到新版“手电 + 证据拼接 + 底光验证”路径。下一步执行 Task 8：更新 art preview contract，停止默认加载旧九宫格 slot/filter 美术，把旧 art-preview 资产明确降级为 legacy/校准材料，避免新版 M01 灰盒继续显示过时玩法元素。
+**按新版 M01 spec 重开玩法灰盒，而不是继续旧九宫格美术打磨**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1-8 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API、Cocos bootstrap 输入接线和 legacy sorter art 隔离都已迁到新版“手电 + 证据拼接 + 底光验证”路径。下一步执行 Task 9：更新 ToolCard 与可见文本，让卡片语言和提示文案明确反映新版“关系中的分类与归纳”，而不是旧九宫格归类。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
