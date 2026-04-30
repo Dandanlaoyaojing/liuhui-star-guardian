@@ -48,6 +48,36 @@ export interface M01FragmentDef {
   position?: { x: number; y: number };
 }
 
+export interface M01FlashlightDef {
+  id: string;
+  color: M01BaseColor;
+  label?: string;
+  position?: { x: number; y: number };
+}
+
+export interface M01CandidateFragmentDef {
+  id: string;
+  hiddenColor: M01BaseColor;
+  edgeShape: string;
+  tags?: string[];
+  position?: { x: number; y: number };
+  color?: M01Color;
+  shape?: M01Shape;
+  sprite?: string;
+}
+
+export interface M01OverlapEvidenceDef {
+  id: string;
+  targetShape: string;
+  targetBlendColor: Exclude<M01BlendColor, M01BaseColor>;
+  position: { x: number; y: number };
+  tolerance: number;
+  shapeTags: string[];
+  solution: {
+    fragmentIds: [string, string];
+  };
+}
+
 export interface M01SlotDef {
   id: string;
   accepts: {
@@ -61,23 +91,31 @@ export interface M01SlotDef {
 
 export interface M01MemoryGearConfig extends PuzzleConfig {
   description?: string;
+  colors: M01BaseColor[];
+  blendColors: Exclude<M01BlendColor, M01BaseColor>[];
+  flashlights: M01FlashlightDef[];
+  fragments: M01CandidateFragmentDef[];
+  evidence: M01OverlapEvidenceDef[];
   dimensions?: string[];
-  colors?: M01Color[];
   shapes?: M01Shape[];
   tuning?: {
     greyboxFragmentCount: number;
     targetFragmentCount: number;
     note?: string;
   };
-  filters: M01FilterDef[];
-  fragments: M01FragmentDef[];
-  slots: M01SlotDef[];
+  filters?: M01FilterDef[];
+  slots?: M01SlotDef[];
   goal: {
-    type: "all_sorted";
+    type: "overlap_evidence_reconstructed";
     params: {
-      dimensions: ["color", "shape"];
-      colors: M01Color[];
-      shapes: M01Shape[];
+      candidateFragments: "config_defined";
+      recommendedCandidateRange: [12, 16];
+      requiredFragments: "solution_defined";
+      evidenceCount: [4, 6];
+      maxLayersPerEvidence: 2;
+      validationLightSeconds: 2;
+      baseColors: M01BaseColor[];
+      blendColors: Exclude<M01BlendColor, M01BaseColor>[];
     };
   };
   toolCard: ToolCardDraft;
@@ -85,7 +123,7 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
   repairSequence?: unknown;
 }
 
-export interface M01FragmentState extends M01FragmentDef {
+export interface M01FragmentState extends M01CandidateFragmentDef {
   sorted: boolean;
   slotId: string | null;
 }
@@ -163,13 +201,13 @@ export class M01MemoryGearController {
   ) {
     this.config = config;
 
-    for (const filter of config.filters) {
+    for (const filter of config.filters ?? []) {
       this.assertUnique(this.filtersById, filter.id, "filter");
       this.filtersById.set(filter.id, filter);
       this.filtersByColor.set(filter.color, filter);
     }
 
-    for (const slot of config.slots) {
+    for (const slot of config.slots ?? []) {
       this.assertUnique(this.slotsById, slot.id, "slot");
       this.slotsById.set(slot.id, slot);
     }
@@ -348,7 +386,7 @@ export class M01MemoryGearController {
     return createToolCard(this.config.toolCard, this.options.now?.());
   }
 
-  private slotAcceptsFragment(slot: M01SlotDef, fragment: M01FragmentDef): boolean {
+  private slotAcceptsFragment(slot: M01SlotDef, fragment: M01FragmentState): boolean {
     return slot.accepts.color === fragment.color && slot.accepts.shape === fragment.shape;
   }
 

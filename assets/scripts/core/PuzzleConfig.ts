@@ -54,6 +54,7 @@ export type GoalType =
   | "causal_chain"
   | "path_reverse"
   | "creative_threshold"
+  | "overlap_evidence_reconstructed"
   | "custom";
 
 export type PuzzleDimension = "color" | "shape" | (string & {});
@@ -139,6 +140,7 @@ const goalTypes: readonly GoalType[] = [
   "causal_chain",
   "path_reverse",
   "creative_threshold",
+  "overlap_evidence_reconstructed",
   "custom"
 ];
 

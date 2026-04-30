@@ -75,16 +75,12 @@ Last updated: 2026-04-30
 
 ## Next Recommended Step (immediate)
 
-**按新版 M01 spec 重开玩法灰盒，而不是继续旧九宫格美术打磨**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`：
-1. 将 `assets/resources/configs/stage1/m01-memory-gear.json` 从“过滤器 + 18/24 碎片归槽”改为“可配置候选碎片池 / solution 派生使用碎片数 / 4-6 个两片交叠证据”的数据结构；首版候选池建议 12-16 个，但 runtime 不硬编码数量。
-2. 在灰盒层补出三色手电探测：碎片默认灰白，红 / 黄 / 蓝光照射时按童话颜料逻辑显示融合色（红+黄=橘，红+蓝=紫，黄+蓝=绿，同色显示本色）。
-3. 把旧 slot drop resolver 改成拼接盘 resolver：点击碎片拾起、再次点击任意位置放下；形状/边缘/交叠轮廓接近目标证据时只触发弱磁吸，形状不匹配时即使靠近也不能吸附；拼接盘底光熄灭时碎片在盘上仍保持灰白，不做实时颜色验证。
-4. 增加底光整体验证：每个目标交叠处都有候选两片关系后自动验证；完整候选结构未全对时底光只闪亮约 2 秒并熄灭，碎片保留原位且可直接拾起/移走/替换；全对时底光保持亮起、证据点亮并计入胜利。提示方式使用《机械迷城》式手绘简笔画，不新增复杂 UI 设施。
-5. 暂停 v3 runtime sprite sheet 导入；现有 v2 / transparent / token-level art 只作为旧管线验证资产保留，后续美术需要围绕“灰白候选碎片、手电光、交叠证据图、拼接盘底光”重新生成。
+**按新版 M01 spec 重开玩法灰盒，而不是继续旧九宫格美术打磨**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1 / Task 2 已完成：童话颜料混色规则和新版真实 JSON 配置已经落地。下一步执行 Task 3：在 `M01MemoryGearController` 中实现候选交叠结构、手电显色状态、证据 pair staging、失败后可替换，以及底光整体验证；旧九宫格 runtime 测试暂时使用 legacy fixture 保护壳子能力，不再把真实 M01 JSON 当旧玩法。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
-- 2026-04-30 已启动新版 M01 plan 的 Task 1：在 `M01MemoryGearController` 中新增童话颜料混色 domain helper（`blendM01PigmentColors` / `revealM01FragmentColor`），覆盖红黄蓝同色与两两混合规则；旧九宫格排序 runtime 路径暂未改动，后续 Task 2 才切换 JSON/config 结构。
+- 2026-04-30 已完成新版 M01 plan 的 Task 1：在 `M01MemoryGearController` 中新增童话颜料混色 domain helper（`blendM01PigmentColors` / `revealM01FragmentColor`），覆盖红黄蓝同色与两两混合规则。
+- 2026-04-30 已完成新版 M01 plan 的 Task 2：真实 `m01-memory-gear.json` 已从旧“过滤器 + 九宫格槽位”切换为 13 个候选灰白碎片、3 个手电色、4 个两片交叠证据、`solution_defined` 使用碎片派生和 `overlap_evidence_reconstructed` 胜利目标；旧灰盒 layout/session/drag/art 测试改用 `m01LegacySortConfig` 继续保护旧 runtime 壳子，不再要求真实 M01 JSON 具备旧滤镜/槽位结构。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
 - 已实现 `DragHandler` / `SnapZone` / `FilterSystem` 交互基础件。
@@ -165,6 +161,7 @@ Last updated: 2026-04-30
 - 2026-04-28 贴图源复核：当前 Cocos runtime gear 仍来自 `m01-runtime-sprite-sheet-candidate-v2` 裁图，即使清理白噪点也不会变成主参考图造型。已新增直接从 cleaned-v2 主参考图裁出的对照候选 `docs/design/generated-m01-art-slices/m01-anchor-cleaned-v2-gear-composite-candidate.png`，对比图见 `temp/m01-current-v2-vs-anchor-cleaned-gear.png`。该候选中心是已完成九宫格，不应直接替换初始 gameplay 空 gear；下一步应基于 cleaned-v2 参考图重做“空心 gear / 空 tray”的贴图，而不是继续修 v2 生成资产。
 - 2026-04-29 M01 empty gear candidate：用户最终选择以 16:37 版本作为原型母版，不再继续调色 / 修线 / 重绘。当前 preferred review-only candidate 为 `docs/design/generated-m01-art-slices/m01-anchor-cleaned-v2-gear-empty-center-rich-color-candidate.png`；它保留更丰富的机械主体灰褐水彩浓淡。后续工作应只围绕该图做工程化裁切、透明化和 gameplay-scale 导入预检。`m01-anchor-cleaned-v2-gear-empty-center-rich-color-outline-tidy-candidate.png` 仅保留为后续对照，不作为当前原型推进。
 - 2026-04-30 新版 M01 Task 1 验证：先新增混色测试并确认红灯（`blendM01PigmentColors is not a function` / `revealM01FragmentColor is not a function`），随后实现最小 helper；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（1 个测试文件 / 7 个测试），`npm run typecheck` 成功。
+- 2026-04-30 新版 M01 Task 2 验证：真实 M01 JSON 已切到 `overlap_evidence_reconstructed`，新增测试覆盖候选池 12-16、证据数 4-6、solution 派生使用碎片、shape-compatible decoys、不泄露目标答案；旧九宫格 runtime 测试改用 legacy fixture。验证：`jq empty assets/resources/configs/stage1/m01-memory-gear.json` 成功；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts tests/core/PuzzleConfig.test.ts` 成功（14 个测试）；`npm test -- tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（14 个测试）；`npm test` 成功（14 个测试文件 / 77 个测试）；`npm run typecheck` 成功。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

@@ -11,6 +11,7 @@ import m01ConfigJson from "../../../assets/resources/configs/stage1/m01-memory-g
 
 const colors = ["red", "blue", "yellow"] as const;
 const shapes = ["circle", "triangle", "hexagon"] as const;
+const realM01Config = m01ConfigJson as any;
 
 function makeConfig(): M01MemoryGearConfig {
   const fragments = colors.flatMap((color) =>
@@ -93,7 +94,7 @@ function makeConfig(): M01MemoryGearConfig {
           "分类维度选错会制造假秩序；关键不是怎么分最漂亮，而是这次分类要服务什么目的。"
       }
     }
-  };
+  } as unknown as M01MemoryGearConfig;
 }
 
 function makeRealConfig(): M01MemoryGearConfig {
@@ -125,6 +126,71 @@ describe("M01MemoryGearController", () => {
   it("reveals hidden fragment color under a flashlight color", () => {
     expect(revealM01FragmentColor({ hiddenColor: "blue" }, "red")).toBe("purple");
     expect(revealM01FragmentColor({ hiddenColor: "yellow" }, "blue")).toBe("green");
+  });
+
+  it("loads the new M01 overlap evidence config", () => {
+    expect(realM01Config.goal.type).toBe("overlap_evidence_reconstructed");
+    expect(realM01Config.fragments.length).toBeGreaterThanOrEqual(12);
+    expect(realM01Config.fragments.length).toBeLessThanOrEqual(16);
+    expect(realM01Config.evidence.length).toBeGreaterThanOrEqual(4);
+    expect(realM01Config.evidence.length).toBeLessThanOrEqual(6);
+    expect(realM01Config.goal.params.requiredFragments).toBe("solution_defined");
+    expect(realM01Config.goal.params.validationLightSeconds).toBe(2);
+  });
+
+  it("derives used fragments from the configured evidence solution graph", () => {
+    const usedFragmentIds = new Set(
+      realM01Config.evidence.flatMap(
+        (evidence: { solution: { fragmentIds: string[] } }) => evidence.solution.fragmentIds
+      )
+    );
+
+    expect(usedFragmentIds.size).toBeGreaterThan(0);
+    expect(usedFragmentIds.size).toBeLessThan(realM01Config.fragments.length);
+    for (const evidence of realM01Config.evidence) {
+      expect(evidence.solution.fragmentIds).toHaveLength(2);
+    }
+  });
+
+  it("includes shape-compatible decoys without leaking target answers", () => {
+    const wrongColorDecoy = realM01Config.fragments.find(
+      (fragment: { id: string }) => fragment.id === "fragment_i"
+    );
+    const sameColorDecoy = realM01Config.fragments.find(
+      (fragment: { id: string }) => fragment.id === "fragment_m"
+    );
+
+    expect(wrongColorDecoy).toMatchObject({ hiddenColor: "yellow", edgeShape: "arc_socket" });
+    expect(sameColorDecoy).toMatchObject({ hiddenColor: "blue", edgeShape: "arc_socket" });
+    expect(
+      realM01Config.evidence.every(
+        (evidence: { solution: { fragmentIds: string[] } }) =>
+          evidence.solution.fragmentIds.length === 2
+      )
+    ).toBe(true);
+    expect(
+      realM01Config.evidence.some(
+        (evidence: { solution: { fragmentIds: string[] } }) =>
+          evidence.solution.fragmentIds.includes("fragment_i")
+      )
+    ).toBe(false);
+    expect(
+      realM01Config.evidence.some(
+        (evidence: { solution: { fragmentIds: string[] } }) =>
+          evidence.solution.fragmentIds.includes("fragment_m")
+      )
+    ).toBe(false);
+    expect(realM01Config.goal.params.requiredFragments).toBe("solution_defined");
+  });
+
+  it("keeps target evidence limited to overlap hints only", () => {
+    for (const evidence of realM01Config.evidence) {
+      expect(evidence.targetShape).toBeDefined();
+      expect(evidence.targetBlendColor).toMatch(/^(orange|green|purple)$/);
+      expect(evidence.fullOutline).toBeUndefined();
+      expect(evidence.fragmentIds).toBeUndefined();
+      expect(evidence.hiddenColorHint).toBeUndefined();
+    }
   });
 
   it("sorts all fragments by active color filter and unlocks the M01 ToolCard", () => {
@@ -215,7 +281,7 @@ describe("M01MemoryGearController", () => {
     expect(controller.getToolCardUnlock()).toBeNull();
   });
 
-  it("loads and completes the real M01 JSON through progress and ToolCard integration", () => {
+  it("loads the real overlap evidence M01 JSON without using the old sort completion path", () => {
     const config = makeRealConfig();
     const progressStore = createProgressStore({
       storage: createMemoryStorage(),
@@ -226,20 +292,17 @@ describe("M01MemoryGearController", () => {
       now: () => 12345
     });
 
-    sortAll(controller, config);
-
-    const firstUnlock = controller.completeRepairAndUnlockToolCard();
-    const secondUnlock = controller.completeRepairAndUnlockToolCard();
-
-    expect(firstUnlock).toMatchObject({
-      completed: true,
-      newlyUnlocked: true
+    expect(config.goal.type).toBe("overlap_evidence_reconstructed");
+    expect(controller.getCompletionState()).toMatchObject({
+      completed: false,
+      sortedCount: 0,
+      totalFragments: config.fragments.length
     });
-    expect(secondUnlock).toMatchObject({
-      completed: true,
-      newlyUnlocked: false
+    expect(controller.completeRepairAndUnlockToolCard()).toEqual({
+      completed: false,
+      reason: "not_complete"
     });
-    expect(progressStore.isPuzzleCompleted("m01")).toBe(true);
-    expect(progressStore.hasToolCard("m01")).toBe(true);
+    expect(progressStore.isPuzzleCompleted("m01")).toBe(false);
+    expect(progressStore.hasToolCard("m01")).toBe(false);
   });
 });

@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import m01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 import { buildM01GreyboxLayout } from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
-import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
-
-const config = m01ConfigJson as unknown as M01MemoryGearConfig;
+import { m01LegacySortConfig as config } from "./m01LegacySortConfig.ts";
 
 describe("buildM01GreyboxLayout", () => {
-  it("creates a complete visible greybox layout from the real M01 config", () => {
+  it("creates a complete visible greybox layout from a legacy sort config", () => {
     const layout = buildM01GreyboxLayout(config);
 
     expect(layout.canvas).toEqual({ width: 960, height: 640 });
@@ -15,7 +12,7 @@ describe("buildM01GreyboxLayout", () => {
     expect(layout.filters).toHaveLength(3);
     expect(layout.fragments).toHaveLength(18);
     expect(layout.slots).toHaveLength(9);
-    expect(layout.statusText).toContain("插入颜色过滤器");
+    expect(layout.statusText).toContain("拖到齿轮");
   });
 
   it("allows visible greybox labels to be replaced for localization", () => {

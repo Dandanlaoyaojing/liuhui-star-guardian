@@ -1,6 +1,6 @@
 import type {
+  M01CandidateFragmentDef,
   M01FilterDef,
-  M01FragmentDef,
   M01MemoryGearConfig,
   M01Shape,
   M01SlotDef
@@ -59,9 +59,9 @@ export function buildM01GreyboxLayout(
     canvas: CANVAS,
     statusText: formatM01GreyboxText("initialInstruction", {}, options.text),
     gear: buildGearNode(config),
-    filters: config.filters.map((filter) => buildFilterNode(filter, config, options.text)),
+    filters: (config.filters ?? []).map((filter) => buildFilterNode(filter, config, options.text)),
     fragments: config.fragments.map((fragment) => buildFragmentNode(fragment, options.text)),
-    slots: config.slots.map((slot) => buildSlotNode(slot, options.text))
+    slots: (config.slots ?? []).map((slot) => buildSlotNode(slot, options.text))
   };
 }
 
@@ -114,11 +114,13 @@ function buildFilterNode(
 }
 
 function buildFragmentNode(
-  fragment: M01FragmentDef,
+  fragment: M01CandidateFragmentDef,
   text: M01GreyboxTextOverrides = {}
 ): M01GreyboxTokenNode {
-  const color = formatM01ColorLabel(fragment.color, text);
-  const shape = formatM01ShapeLabel(fragment.shape, text);
+  const colorToken = fragment.color ?? "hidden";
+  const shapeToken = fragment.shape ?? fragment.edgeShape;
+  const color = formatM01ColorLabel(colorToken, text);
+  const shape = formatM01ShapeLabel(shapeToken, text);
 
   return {
     id: fragment.id,
@@ -127,8 +129,8 @@ function buildFragmentNode(
     label: formatM01GreyboxText("tokenLabel", { color, shape }, text),
     position: readPosition(fragment.position, { x: 0, y: 0 }),
     size: { width: 34, height: 34 },
-    colorToken: fragment.color,
-    shapeToken: fragment.shape,
+    colorToken,
+    shapeToken,
     tags: [...(fragment.tags ?? [])]
   };
 }

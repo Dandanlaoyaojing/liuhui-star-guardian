@@ -3,701 +3,230 @@
   "name": "记忆齿轮的卡顿",
   "stage": 1,
   "cognitiveSkill": "分类与归纳",
-  "wisdomCrystal": "秩序，是为相似之物找到归处。",
-  "description": "齿轮状星星被混杂的记忆碎片卡住。插入颜色过滤器，筛出同色碎片，再按颜色与形状归入中央收纳盘。",
-  "dimensions": [
-    "color",
-    "shape"
-  ],
-  "colors": [
-    "red",
-    "blue",
-    "yellow"
-  ],
-  "shapes": [
-    "circle",
-    "triangle",
-    "hexagon"
-  ],
-  "filters": [
+  "wisdomCrystal": "秩序，不在碎片本身，而在它们终于显现的关系里。",
+  "description": "记忆齿轮旁漂浮着一组灰白碎片。玩家用三色手电探测隐藏本色，再从局部交叠证据反推出应使用的碎片组合。",
+  "colors": ["red", "yellow", "blue"],
+  "blendColors": ["orange", "green", "purple"],
+  "goal": {
+    "type": "overlap_evidence_reconstructed",
+    "params": {
+      "candidateFragments": "config_defined",
+      "recommendedCandidateRange": [12, 16],
+      "requiredFragments": "solution_defined",
+      "evidenceCount": [4, 6],
+      "maxLayersPerEvidence": 2,
+      "validationLightSeconds": 2,
+      "baseColors": ["red", "yellow", "blue"],
+      "blendColors": ["orange", "green", "purple"]
+    }
+  },
+  "flashlights": [
     {
-      "id": "filter_red",
+      "id": "flashlight_red",
       "color": "red",
-      "label": "红色过滤器",
-      "entityId": "entity_filter_red"
+      "label": "红光手电",
+      "position": { "x": -420, "y": 140 }
     },
     {
-      "id": "filter_blue",
-      "color": "blue",
-      "label": "蓝色过滤器",
-      "entityId": "entity_filter_blue"
-    },
-    {
-      "id": "filter_yellow",
+      "id": "flashlight_yellow",
       "color": "yellow",
-      "label": "黄色过滤器",
-      "entityId": "entity_filter_yellow"
+      "label": "黄光手电",
+      "position": { "x": -420, "y": 70 }
+    },
+    {
+      "id": "flashlight_blue",
+      "color": "blue",
+      "label": "蓝光手电",
+      "position": { "x": -420, "y": 0 }
     }
   ],
   "fragments": [
     {
-      "id": "fragment_red_circle_1",
-      "color": "red",
-      "shape": "circle",
-      "sprite": "stage1/m01/fragments/red-circle",
-      "tags": [
-        "fragment",
-        "red",
-        "circle"
-      ],
-      "position": {
-        "x": -180,
-        "y": 92
-      }
+      "id": "fragment_a",
+      "hiddenColor": "red",
+      "edgeShape": "arc_hook",
+      "tags": ["fragment", "arc_hook"],
+      "position": { "x": -260, "y": 170 }
     },
     {
-      "id": "fragment_red_circle_2",
-      "color": "red",
-      "shape": "circle",
-      "sprite": "stage1/m01/fragments/red-circle",
-      "tags": [
-        "fragment",
-        "red",
-        "circle"
-      ],
-      "position": {
-        "x": 48,
-        "y": 130
-      }
+      "id": "fragment_b",
+      "hiddenColor": "blue",
+      "edgeShape": "arc_socket",
+      "tags": ["fragment", "arc_socket"],
+      "position": { "x": -180, "y": 170 }
     },
     {
-      "id": "fragment_red_triangle_1",
-      "color": "red",
-      "shape": "triangle",
-      "sprite": "stage1/m01/fragments/red-triangle",
-      "tags": [
-        "fragment",
-        "red",
-        "triangle"
-      ],
-      "position": {
-        "x": -78,
-        "y": 170
-      }
+      "id": "fragment_c",
+      "hiddenColor": "yellow",
+      "edgeShape": "notch_hook",
+      "tags": ["fragment", "notch_hook"],
+      "position": { "x": -100, "y": 170 }
     },
     {
-      "id": "fragment_red_triangle_2",
-      "color": "red",
-      "shape": "triangle",
-      "sprite": "stage1/m01/fragments/red-triangle",
-      "tags": [
-        "fragment",
-        "red",
-        "triangle"
-      ],
-      "position": {
-        "x": 156,
-        "y": 34
-      }
+      "id": "fragment_d",
+      "hiddenColor": "blue",
+      "edgeShape": "notch_socket",
+      "tags": ["fragment", "notch_socket"],
+      "position": { "x": -20, "y": 170 }
     },
     {
-      "id": "fragment_red_hexagon_1",
-      "color": "red",
-      "shape": "hexagon",
-      "sprite": "stage1/m01/fragments/red-hexagon",
-      "tags": [
-        "fragment",
-        "red",
-        "hexagon"
-      ],
-      "position": {
-        "x": -238,
-        "y": 18
-      }
+      "id": "fragment_e",
+      "hiddenColor": "red",
+      "edgeShape": "crescent_left",
+      "tags": ["fragment", "crescent_left"],
+      "position": { "x": 60, "y": 170 }
     },
     {
-      "id": "fragment_red_hexagon_2",
-      "color": "red",
-      "shape": "hexagon",
-      "sprite": "stage1/m01/fragments/red-hexagon",
-      "tags": [
-        "fragment",
-        "red",
-        "hexagon"
-      ],
-      "position": {
-        "x": 98,
-        "y": -122
-      }
+      "id": "fragment_f",
+      "hiddenColor": "yellow",
+      "edgeShape": "crescent_right",
+      "tags": ["fragment", "crescent_right"],
+      "position": { "x": 140, "y": 170 }
     },
     {
-      "id": "fragment_blue_circle_1",
-      "color": "blue",
-      "shape": "circle",
-      "sprite": "stage1/m01/fragments/blue-circle",
-      "tags": [
-        "fragment",
-        "blue",
-        "circle"
-      ],
-      "position": {
-        "x": -248,
-        "y": -96
-      }
+      "id": "fragment_g",
+      "hiddenColor": "red",
+      "edgeShape": "branch_left",
+      "tags": ["fragment", "branch_left"],
+      "position": { "x": 220, "y": 170 }
     },
     {
-      "id": "fragment_blue_circle_2",
-      "color": "blue",
-      "shape": "circle",
-      "sprite": "stage1/m01/fragments/blue-circle",
-      "tags": [
-        "fragment",
-        "blue",
-        "circle"
-      ],
-      "position": {
-        "x": 190,
-        "y": 112
-      }
+      "id": "fragment_h",
+      "hiddenColor": "blue",
+      "edgeShape": "branch_right",
+      "tags": ["fragment", "branch_right"],
+      "position": { "x": 300, "y": 170 }
     },
     {
-      "id": "fragment_blue_triangle_1",
-      "color": "blue",
-      "shape": "triangle",
-      "sprite": "stage1/m01/fragments/blue-triangle",
-      "tags": [
-        "fragment",
-        "blue",
-        "triangle"
-      ],
-      "position": {
-        "x": -212,
-        "y": -96
-      }
+      "id": "fragment_i",
+      "hiddenColor": "yellow",
+      "edgeShape": "arc_socket",
+      "tags": ["fragment", "arc_socket", "decoy"],
+      "position": { "x": -220, "y": -180 }
     },
     {
-      "id": "fragment_blue_triangle_2",
-      "color": "blue",
-      "shape": "triangle",
-      "sprite": "stage1/m01/fragments/blue-triangle",
-      "tags": [
-        "fragment",
-        "blue",
-        "triangle"
-      ],
-      "position": {
-        "x": 26,
-        "y": -174
-      }
+      "id": "fragment_j",
+      "hiddenColor": "red",
+      "edgeShape": "notch_socket",
+      "tags": ["fragment", "notch_socket", "decoy"],
+      "position": { "x": -120, "y": -180 }
     },
     {
-      "id": "fragment_blue_hexagon_1",
-      "color": "blue",
-      "shape": "hexagon",
-      "sprite": "stage1/m01/fragments/blue-hexagon",
-      "tags": [
-        "fragment",
-        "blue",
-        "hexagon"
-      ],
-      "position": {
-        "x": -162,
-        "y": 18
-      }
+      "id": "fragment_k",
+      "hiddenColor": "blue",
+      "edgeShape": "decoy_branch",
+      "tags": ["fragment", "decoy_branch"],
+      "position": { "x": -20, "y": -180 }
     },
     {
-      "id": "fragment_blue_hexagon_2",
-      "color": "blue",
-      "shape": "hexagon",
-      "sprite": "stage1/m01/fragments/blue-hexagon",
-      "tags": [
-        "fragment",
-        "blue",
-        "hexagon"
-      ],
-      "position": {
-        "x": 132,
-        "y": 178
-      }
+      "id": "fragment_l",
+      "hiddenColor": "yellow",
+      "edgeShape": "decoy_crescent",
+      "tags": ["fragment", "decoy_crescent"],
+      "position": { "x": 80, "y": -180 }
     },
     {
-      "id": "fragment_yellow_circle_1",
-      "color": "yellow",
-      "shape": "circle",
-      "sprite": "stage1/m01/fragments/yellow-circle",
-      "tags": [
-        "fragment",
-        "yellow",
-        "circle"
-      ],
-      "position": {
-        "x": -58,
-        "y": -104
-      }
-    },
-    {
-      "id": "fragment_yellow_circle_2",
-      "color": "yellow",
-      "shape": "circle",
-      "sprite": "stage1/m01/fragments/yellow-circle",
-      "tags": [
-        "fragment",
-        "yellow",
-        "circle"
-      ],
-      "position": {
-        "x": 214,
-        "y": -32
-      }
-    },
-    {
-      "id": "fragment_yellow_triangle_1",
-      "color": "yellow",
-      "shape": "triangle",
-      "sprite": "stage1/m01/fragments/yellow-triangle",
-      "tags": [
-        "fragment",
-        "yellow",
-        "triangle"
-      ],
-      "position": {
-        "x": -202,
-        "y": 144
-      }
-    },
-    {
-      "id": "fragment_yellow_triangle_2",
-      "color": "yellow",
-      "shape": "triangle",
-      "sprite": "stage1/m01/fragments/yellow-triangle",
-      "tags": [
-        "fragment",
-        "yellow",
-        "triangle"
-      ],
-      "position": {
-        "x": 250,
-        "y": 52
-      }
-    },
-    {
-      "id": "fragment_yellow_hexagon_1",
-      "color": "yellow",
-      "shape": "hexagon",
-      "sprite": "stage1/m01/fragments/yellow-hexagon",
-      "tags": [
-        "fragment",
-        "yellow",
-        "hexagon"
-      ],
-      "position": {
-        "x": -10,
-        "y": 206
-      }
-    },
-    {
-      "id": "fragment_yellow_hexagon_2",
-      "color": "yellow",
-      "shape": "hexagon",
-      "sprite": "stage1/m01/fragments/yellow-hexagon",
-      "tags": [
-        "fragment",
-        "yellow",
-        "hexagon"
-      ],
-      "position": {
-        "x": 168,
-        "y": -154
-      }
+      "id": "fragment_m",
+      "hiddenColor": "blue",
+      "edgeShape": "arc_socket",
+      "tags": ["fragment", "arc_socket", "decoy"],
+      "position": { "x": 180, "y": -180 }
     }
   ],
-  "slots": [
+  "evidence": [
     {
-      "id": "slot_red_circle",
-      "accepts": {
-        "color": "red",
-        "shape": "circle"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "red",
-        "circle"
-      ],
-      "position": {
-        "x": -120,
-        "y": 40
-      }
+      "id": "evidence_purple_arc",
+      "targetShape": "arc_lens",
+      "targetBlendColor": "purple",
+      "position": { "x": -90, "y": 50 },
+      "tolerance": 42,
+      "shapeTags": ["arc_hook", "arc_socket"],
+      "solution": { "fragmentIds": ["fragment_a", "fragment_b"] }
     },
     {
-      "id": "slot_red_triangle",
-      "accepts": {
-        "color": "red",
-        "shape": "triangle"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "red",
-        "triangle"
-      ],
-      "position": {
-        "x": -120,
-        "y": 0
-      }
+      "id": "evidence_green_notch",
+      "targetShape": "notch_lens",
+      "targetBlendColor": "green",
+      "position": { "x": 10, "y": 72 },
+      "tolerance": 42,
+      "shapeTags": ["notch_hook", "notch_socket"],
+      "solution": { "fragmentIds": ["fragment_c", "fragment_d"] }
     },
     {
-      "id": "slot_red_hexagon",
-      "accepts": {
-        "color": "red",
-        "shape": "hexagon"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "red",
-        "hexagon"
-      ],
-      "position": {
-        "x": -120,
-        "y": -40
-      }
+      "id": "evidence_orange_crescent",
+      "targetShape": "crescent_overlap",
+      "targetBlendColor": "orange",
+      "position": { "x": 92, "y": -18 },
+      "tolerance": 42,
+      "shapeTags": ["crescent_left", "crescent_right"],
+      "solution": { "fragmentIds": ["fragment_e", "fragment_f"] }
     },
     {
-      "id": "slot_blue_circle",
-      "accepts": {
-        "color": "blue",
-        "shape": "circle"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "blue",
-        "circle"
-      ],
-      "position": {
-        "x": 0,
-        "y": 40
-      }
-    },
-    {
-      "id": "slot_blue_triangle",
-      "accepts": {
-        "color": "blue",
-        "shape": "triangle"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "blue",
-        "triangle"
-      ],
-      "position": {
-        "x": 0,
-        "y": 0
-      }
-    },
-    {
-      "id": "slot_blue_hexagon",
-      "accepts": {
-        "color": "blue",
-        "shape": "hexagon"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "blue",
-        "hexagon"
-      ],
-      "position": {
-        "x": 0,
-        "y": -40
-      }
-    },
-    {
-      "id": "slot_yellow_circle",
-      "accepts": {
-        "color": "yellow",
-        "shape": "circle"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "yellow",
-        "circle"
-      ],
-      "position": {
-        "x": 120,
-        "y": 40
-      }
-    },
-    {
-      "id": "slot_yellow_triangle",
-      "accepts": {
-        "color": "yellow",
-        "shape": "triangle"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "yellow",
-        "triangle"
-      ],
-      "position": {
-        "x": 120,
-        "y": 0
-      }
-    },
-    {
-      "id": "slot_yellow_hexagon",
-      "accepts": {
-        "color": "yellow",
-        "shape": "hexagon"
-      },
-      "capacity": 2,
-      "tags": [
-        "slot",
-        "yellow",
-        "hexagon"
-      ],
-      "position": {
-        "x": 120,
-        "y": -40
-      }
+      "id": "evidence_purple_branch",
+      "targetShape": "branch_lens",
+      "targetBlendColor": "purple",
+      "position": { "x": -24, "y": -94 },
+      "tolerance": 42,
+      "shapeTags": ["branch_left", "branch_right"],
+      "solution": { "fragmentIds": ["fragment_g", "fragment_h"] }
     }
   ],
-  "entities": [
-    {
-      "id": "entity_memory_gear",
-      "type": "animated",
-      "sprite": "stage1/m01/gear-star-dim",
-      "position": {
-        "x": 0,
-        "y": 0
-      },
-      "scale": 1,
-      "properties": {
-        "state": "jammed",
-        "shader": "star-glow"
-      },
-      "tags": [
-        "gear",
-        "star",
-        "repair_target"
-      ]
-    },
-    {
-      "id": "entity_filter_socket",
-      "type": "slot",
-      "sprite": "stage1/m01/filter-socket",
-      "position": {
-        "x": -320,
-        "y": 110
-      },
-      "properties": {
-        "accepts": [
-          "filter_red",
-          "filter_blue",
-          "filter_yellow"
-        ],
-        "effect": "activate_color_filter"
-      },
-      "tags": [
-        "filter_socket"
-      ]
-    },
-    {
-      "id": "entity_filter_red",
-      "type": "draggable",
-      "sprite": "stage1/m01/filters/red",
-      "position": {
-        "x": -420,
-        "y": 160
-      },
-      "properties": {
-        "filterId": "filter_red",
-        "color": "red"
-      },
-      "tags": [
-        "filter",
-        "red"
-      ]
-    },
-    {
-      "id": "entity_filter_blue",
-      "type": "draggable",
-      "sprite": "stage1/m01/filters/blue",
-      "position": {
-        "x": -420,
-        "y": 80
-      },
-      "properties": {
-        "filterId": "filter_blue",
-        "color": "blue"
-      },
-      "tags": [
-        "filter",
-        "blue"
-      ]
-    },
-    {
-      "id": "entity_filter_yellow",
-      "type": "draggable",
-      "sprite": "stage1/m01/filters/yellow",
-      "position": {
-        "x": -420,
-        "y": 0
-      },
-      "properties": {
-        "filterId": "filter_yellow",
-        "color": "yellow"
-      },
-      "tags": [
-        "filter",
-        "yellow"
-      ]
-    },
-    {
-      "id": "entity_sorting_tray",
-      "type": "static",
-      "sprite": "stage1/m01/sorting-tray",
-      "position": {
-        "x": 0,
-        "y": -220
-      },
-      "properties": {
-        "slotIds": [
-          "slot_red_circle",
-          "slot_red_triangle",
-          "slot_red_hexagon",
-          "slot_blue_circle",
-          "slot_blue_triangle",
-          "slot_blue_hexagon",
-          "slot_yellow_circle",
-          "slot_yellow_triangle",
-          "slot_yellow_hexagon"
-        ]
-      },
-      "tags": [
-        "tray",
-        "snap_zone_group"
-      ]
-    }
-  ],
-  "interactions": [
-    {
-      "trigger": "drag:filter_red -> slot:entity_filter_socket",
-      "effect": "highlight:tag:red | dim:tag:!red",
-      "animation": "insert_filter"
-    },
-    {
-      "trigger": "drag:filter_blue -> slot:entity_filter_socket",
-      "effect": "highlight:tag:blue | dim:tag:!blue",
-      "animation": "insert_filter"
-    },
-    {
-      "trigger": "drag:filter_yellow -> slot:entity_filter_socket",
-      "effect": "highlight:tag:yellow | dim:tag:!yellow",
-      "animation": "insert_filter"
-    },
-    {
-      "trigger": "drag:fragment -> slot:matching_slot",
-      "condition": "fragment.color == activeFilter.color && fragment.color == slot.accepts.color && fragment.shape == slot.accepts.shape",
-      "effect": "snap:fragment | stack:slot"
-    },
-    {
-      "trigger": "drag:fragment -> slot:non_matching_slot",
-      "condition": "fragment.color != slot.accepts.color || fragment.shape != slot.accepts.shape",
-      "effect": "reject:fragment | pulse:target_slot"
-    }
-  ],
-  "goal": {
-    "type": "all_sorted",
-    "params": {
-      "dimensions": [
-        "color",
-        "shape"
-      ],
-      "colors": [
-        "red",
-        "blue",
-        "yellow"
-      ],
-      "shapes": [
-        "circle",
-        "triangle",
-        "hexagon"
-      ],
-      "fragmentCount": 18,
-      "slotCount": 9
-    }
+  "scene": {
+    "background": "stage1/m01/background-greybox",
+    "ambientAudio": "audio/ambient/stage1-memory-gear",
+    "camera": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+    "entities": [
+      {
+        "id": "entity_memory_gear",
+        "type": "animated",
+        "sprite": "stage1/m01/gear-star-dim",
+        "position": { "x": 0, "y": 0 },
+        "properties": {},
+        "tags": ["gear", "star", "repair_target"]
+      }
+    ]
   },
+  "interactions": [],
+  "goals": [
+    {
+      "type": "overlap_evidence_reconstructed",
+      "params": {
+        "candidateFragments": "config_defined",
+        "recommendedCandidateRange": [12, 16],
+        "requiredFragments": "solution_defined",
+        "evidenceCount": [4, 6],
+        "maxLayersPerEvidence": 2,
+        "validationLightSeconds": 2,
+        "baseColors": ["red", "yellow", "blue"],
+        "blendColors": ["orange", "green", "purple"]
+      }
+    }
+  ],
   "hints": [
     {
       "level": 1,
-      "delay": 12,
-      "text": "先让一种颜色变得清楚。",
-      "highlight": [
-        "entity_filter_red",
-        "entity_filter_blue",
-        "entity_filter_yellow"
-      ]
+      "delay": 30,
+      "text": "先用手电照几块碎片，记住它们在不同光下的反应。",
+      "highlight": ["flashlight_red", "flashlight_yellow", "flashlight_blue"]
     },
     {
       "level": 2,
-      "delay": 28,
-      "text": "被过滤器照亮的碎片，才是现在适合吸取的碎片。",
-      "highlight": [
-        "entity_filter_socket"
-      ]
+      "delay": 60,
+      "text": "目标图只给交叠证据，别急着找完整外轮廓。"
     },
     {
       "level": 3,
-      "delay": 45,
-      "text": "每个收纳槽同时看颜色和形状。",
-      "highlight": [
-        "entity_sorting_tray"
-      ]
+      "delay": 90,
+      "text": "底光熄灭时不能试色，要靠手电记忆和颜色推理。"
     }
   ],
-  "repairSequence": {
+  "repair": {
     "steps": [
       {
         "type": "entity_animate",
-        "params": {
-          "entityId": "entity_memory_gear",
-          "animation": "gear_rotate_restart"
-        },
-        "duration": 1.2,
+        "params": { "entityId": "entity_memory_gear", "animation": "turn" },
+        "duration": 2.5,
         "delay": 0
-      },
-      {
-        "type": "particle_burst",
-        "params": {
-          "effect": "particle-flow",
-          "origin": "entity_memory_gear",
-          "pattern": "spiral"
-        },
-        "duration": 1.6,
-        "delay": 0.4
-      },
-      {
-        "type": "entity_animate",
-        "params": {
-          "entityId": "entity_memory_gear",
-          "animation": "star_glow_restore"
-        },
-        "duration": 1.4,
-        "delay": 1.2
-      },
-      {
-        "type": "camera_zoom",
-        "params": {
-          "target": "entity_memory_gear",
-          "zoom": 0.86
-        },
-        "duration": 1,
-        "delay": 2.1
       }
     ]
   },
@@ -707,218 +236,13 @@
     "front": {
       "toolName": "分类与归纳",
       "scene": "stage1/m01/toolcards/classification-thumbnail",
-      "wisdomCrystal": "秩序，是为相似之物找到归处。"
+      "wisdomCrystal": "秩序，不在碎片本身，而在它们终于显现的关系里。"
     },
     "back": {
-      "coreAction": "在杂乱事物中找到共同属性，按属性归组。",
-      "whenToUse": [
-        "整理一堆笔记不知从何下手时",
-        "需要把大量信息压缩总结时",
-        "面对多个选项想不清它们关系时"
-      ],
-      "realLifeExamples": [
-        "整理书架：按主题、作者或使用频率归位",
-        "做年度复盘：按项目、月份或情绪线索分组"
-      ],
-      "commonTraps": "分类维度选错会制造假秩序；关键不是怎么分最漂亮，而是这次分类要服务什么目的。"
+      "coreAction": "在多维线索中找出真正起作用的分类关系。",
+      "whenToUse": ["当线索混杂、单个特征不够可靠时"],
+      "realLifeExamples": ["整理一组互相重叠但来源不同的记忆"],
+      "commonTraps": "只按一个显眼特征分类，容易忽略关系中的第二维度。"
     }
-  },
-  "scene": {
-    "background": "stage1/m01/background-greybox",
-    "ambientAudio": "audio/ambient/stage1-memory-gear",
-    "camera": {
-      "position": {
-        "x": 0,
-        "y": 0
-      },
-      "zoom": 1
-    },
-    "entities": [
-      {
-        "id": "entity_memory_gear",
-        "type": "animated",
-        "sprite": "stage1/m01/gear-star-dim",
-        "position": {
-          "x": 0,
-          "y": 0
-        },
-        "scale": 1,
-        "properties": {
-          "state": "jammed",
-          "shader": "star-glow"
-        },
-        "tags": [
-          "gear",
-          "star",
-          "repair_target"
-        ]
-      },
-      {
-        "id": "entity_filter_socket",
-        "type": "slot",
-        "sprite": "stage1/m01/filter-socket",
-        "position": {
-          "x": -320,
-          "y": 110
-        },
-        "properties": {
-          "accepts": [
-            "filter_red",
-            "filter_blue",
-            "filter_yellow"
-          ],
-          "effect": "activate_color_filter"
-        },
-        "tags": [
-          "filter_socket"
-        ]
-      },
-      {
-        "id": "entity_filter_red",
-        "type": "draggable",
-        "sprite": "stage1/m01/filters/red",
-        "position": {
-          "x": -420,
-          "y": 160
-        },
-        "properties": {
-          "filterId": "filter_red",
-          "color": "red"
-        },
-        "tags": [
-          "filter",
-          "red"
-        ]
-      },
-      {
-        "id": "entity_filter_blue",
-        "type": "draggable",
-        "sprite": "stage1/m01/filters/blue",
-        "position": {
-          "x": -420,
-          "y": 80
-        },
-        "properties": {
-          "filterId": "filter_blue",
-          "color": "blue"
-        },
-        "tags": [
-          "filter",
-          "blue"
-        ]
-      },
-      {
-        "id": "entity_filter_yellow",
-        "type": "draggable",
-        "sprite": "stage1/m01/filters/yellow",
-        "position": {
-          "x": -420,
-          "y": 0
-        },
-        "properties": {
-          "filterId": "filter_yellow",
-          "color": "yellow"
-        },
-        "tags": [
-          "filter",
-          "yellow"
-        ]
-      },
-      {
-        "id": "entity_sorting_tray",
-        "type": "static",
-        "sprite": "stage1/m01/sorting-tray",
-        "position": {
-          "x": 0,
-          "y": -220
-        },
-        "properties": {
-          "slotIds": [
-            "slot_red_circle",
-            "slot_red_triangle",
-            "slot_red_hexagon",
-            "slot_blue_circle",
-            "slot_blue_triangle",
-            "slot_blue_hexagon",
-            "slot_yellow_circle",
-            "slot_yellow_triangle",
-            "slot_yellow_hexagon"
-          ]
-        },
-        "tags": [
-          "tray",
-          "snap_zone_group"
-        ]
-      }
-    ]
-  },
-  "goals": [
-    {
-      "type": "all_sorted",
-      "params": {
-        "dimensions": [
-          "color",
-          "shape"
-        ],
-        "colors": [
-          "red",
-          "blue",
-          "yellow"
-        ],
-        "shapes": [
-          "circle",
-          "triangle",
-          "hexagon"
-        ],
-        "fragmentCount": 18,
-        "slotCount": 9
-      }
-    }
-  ],
-  "repair": {
-    "steps": [
-      {
-        "type": "entity_animate",
-        "params": {
-          "entityId": "entity_memory_gear",
-          "animation": "gear_rotate_restart"
-        },
-        "duration": 1.2,
-        "delay": 0
-      },
-      {
-        "type": "particle_burst",
-        "params": {
-          "effect": "particle-flow",
-          "origin": "entity_memory_gear",
-          "pattern": "spiral"
-        },
-        "duration": 1.6,
-        "delay": 0.4
-      },
-      {
-        "type": "entity_animate",
-        "params": {
-          "entityId": "entity_memory_gear",
-          "animation": "star_glow_restore"
-        },
-        "duration": 1.4,
-        "delay": 1.2
-      },
-      {
-        "type": "camera_zoom",
-        "params": {
-          "target": "entity_memory_gear",
-          "zoom": 0.86
-        },
-        "duration": 1,
-        "delay": 2.1
-      }
-    ]
-  },
-  "tuning": {
-    "greyboxFragmentCount": 18,
-    "targetFragmentCount": 24,
-    "note": "Greybox starts with 18 fragments; final tuned M01 may increase toward the 24-fragment spec target."
   }
 }

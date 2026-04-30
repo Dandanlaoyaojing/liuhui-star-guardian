@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import m01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 import { M01GreyboxSession } from "../../assets/scripts/cocos/M01GreyboxSession.ts";
-import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
-
-const config = m01ConfigJson as unknown as M01MemoryGearConfig;
+import { m01LegacySortConfig as config } from "./m01LegacySortConfig.ts";
 
 describe("M01GreyboxSession", () => {
   it("lets the greybox activate a filter, select an eligible fragment, and place it in a slot", () => {

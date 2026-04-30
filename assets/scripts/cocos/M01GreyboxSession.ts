@@ -173,8 +173,8 @@ export class M01GreyboxSession {
       accepted: true,
       selectedFragmentId: fragmentId,
       status: this.format("fragmentSelected", {
-        color: fragment.color,
-        shape: fragment.shape
+        color: fragment.color ?? fragment.hiddenColor,
+        shape: fragment.shape ?? fragment.edgeShape
       })
     };
   }
@@ -253,7 +253,7 @@ export class M01GreyboxSession {
       hint = {
         level: 1,
         text: this.format("hintNoFilter"),
-        targetIds: this.config.filters.map((filter) => filter.id)
+        targetIds: (this.config.filters ?? []).map((filter) => filter.id)
       };
     } else if (!this.selectedFragmentId) {
       hint = {
@@ -393,7 +393,7 @@ export class M01GreyboxSession {
       return [];
     }
 
-    const slot = this.config.slots.find((candidate) => {
+    const slot = (this.config.slots ?? []).find((candidate) => {
       return candidate.accepts.color === fragment.color && candidate.accepts.shape === fragment.shape;
     });
 

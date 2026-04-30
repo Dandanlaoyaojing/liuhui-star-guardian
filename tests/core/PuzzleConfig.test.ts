@@ -77,7 +77,7 @@ describe("validatePuzzleConfig", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.id).toBe("m01");
-      expect(result.value.goals[0]?.type).toBe("all_sorted");
+      expect(result.value.goals[0]?.type).toBe("overlap_evidence_reconstructed");
       expect(result.value.scene.entities.length).toBeGreaterThan(0);
     }
   });
