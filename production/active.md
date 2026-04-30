@@ -84,6 +84,7 @@ Last updated: 2026-04-30
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
+- 2026-04-30 已启动新版 M01 plan 的 Task 1：在 `M01MemoryGearController` 中新增童话颜料混色 domain helper（`blendM01PigmentColors` / `revealM01FragmentColor`），覆盖红黄蓝同色与两两混合规则；旧九宫格排序 runtime 路径暂未改动，后续 Task 2 才切换 JSON/config 结构。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
 - 已实现 `DragHandler` / `SnapZone` / `FilterSystem` 交互基础件。
@@ -163,6 +164,7 @@ Last updated: 2026-04-30
 - 2026-04-28 主参考图清理：新增 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor-cleaned-v1.png` 和更深补色版 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor-cleaned-v2.png`，用局部同色系补色方式处理高亮白色噪点 / 碎白斑，不覆盖原图。v2 取周围更暗的水彩邻域色填回白点，目标是保留原图水彩深浅不均、墨线和纸感，同时进一步减少看起来脏的盐粒白点；对比图见 `temp/m01-style-anchor-cleaned-v2-comparison.png`。
 - 2026-04-28 贴图源复核：当前 Cocos runtime gear 仍来自 `m01-runtime-sprite-sheet-candidate-v2` 裁图，即使清理白噪点也不会变成主参考图造型。已新增直接从 cleaned-v2 主参考图裁出的对照候选 `docs/design/generated-m01-art-slices/m01-anchor-cleaned-v2-gear-composite-candidate.png`，对比图见 `temp/m01-current-v2-vs-anchor-cleaned-gear.png`。该候选中心是已完成九宫格，不应直接替换初始 gameplay 空 gear；下一步应基于 cleaned-v2 参考图重做“空心 gear / 空 tray”的贴图，而不是继续修 v2 生成资产。
 - 2026-04-29 M01 empty gear candidate：用户最终选择以 16:37 版本作为原型母版，不再继续调色 / 修线 / 重绘。当前 preferred review-only candidate 为 `docs/design/generated-m01-art-slices/m01-anchor-cleaned-v2-gear-empty-center-rich-color-candidate.png`；它保留更丰富的机械主体灰褐水彩浓淡。后续工作应只围绕该图做工程化裁切、透明化和 gameplay-scale 导入预检。`m01-anchor-cleaned-v2-gear-empty-center-rich-color-outline-tidy-candidate.png` 仅保留为后续对照，不作为当前原型推进。
+- 2026-04-30 新版 M01 Task 1 验证：先新增混色测试并确认红灯（`blendM01PigmentColors is not a function` / `revealM01FragmentColor is not a function`），随后实现最小 helper；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（1 个测试文件 / 7 个测试），`npm run typecheck` 成功。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

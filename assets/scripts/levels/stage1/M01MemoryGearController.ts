@@ -4,6 +4,33 @@ import { createToolCard, type ToolCard, type ToolCardDraft } from "../../core/To
 
 export type M01Color = string;
 export type M01Shape = string;
+export type M01BaseColor = "red" | "yellow" | "blue";
+export type M01BlendColor = M01BaseColor | "orange" | "green" | "purple";
+
+export function blendM01PigmentColors(
+  a: M01BaseColor,
+  b: M01BaseColor
+): M01BlendColor {
+  if (a === b) {
+    return a;
+  }
+
+  const key = [a, b].sort().join("+");
+  const blends: Record<string, M01BlendColor> = {
+    "blue+red": "purple",
+    "blue+yellow": "green",
+    "red+yellow": "orange"
+  };
+
+  return blends[key];
+}
+
+export function revealM01FragmentColor(
+  fragment: { hiddenColor: M01BaseColor },
+  flashlightColor: M01BaseColor
+): M01BlendColor {
+  return blendM01PigmentColors(fragment.hiddenColor, flashlightColor);
+}
 
 export interface M01FilterDef {
   id: string;

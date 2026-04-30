@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   M01MemoryGearController,
+  blendM01PigmentColors,
+  revealM01FragmentColor,
   type M01MemoryGearConfig
 } from "../../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
 import { createMemoryStorage, createProgressStore } from "../../../assets/scripts/core/ProgressStore.ts";
@@ -112,6 +114,19 @@ function sortAll(controller: M01MemoryGearController, config: M01MemoryGearConfi
 }
 
 describe("M01MemoryGearController", () => {
+  it("blends M01 base colors using storybook pigment rules", () => {
+    expect(blendM01PigmentColors("red", "yellow")).toBe("orange");
+    expect(blendM01PigmentColors("yellow", "red")).toBe("orange");
+    expect(blendM01PigmentColors("red", "blue")).toBe("purple");
+    expect(blendM01PigmentColors("blue", "yellow")).toBe("green");
+    expect(blendM01PigmentColors("red", "red")).toBe("red");
+  });
+
+  it("reveals hidden fragment color under a flashlight color", () => {
+    expect(revealM01FragmentColor({ hiddenColor: "blue" }, "red")).toBe("purple");
+    expect(revealM01FragmentColor({ hiddenColor: "yellow" }, "blue")).toBe("green");
+  });
+
   it("sorts all fragments by active color filter and unlocks the M01 ToolCard", () => {
     const config = makeConfig();
     const controller = M01MemoryGearController.fromConfig(config);
