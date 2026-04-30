@@ -1,9 +1,13 @@
 import type { ToolCard } from "../core/ToolCard.ts";
 import {
   M01MemoryGearController,
+  type M01BaseColor,
+  type M01BlendColor,
+  type M01BottomLightState,
   type M01CompletionState,
   type M01MemoryGearConfig
 } from "../levels/stage1/M01MemoryGearController.ts";
+import type { M01GreyboxPoint } from "./M01GreyboxLayout.ts";
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 
 export interface M01GreyboxSessionOptions {
@@ -105,9 +109,14 @@ export class M01GreyboxSession {
   private readonly config: M01MemoryGearConfig;
   private readonly text: M01GreyboxTextOverrides;
   private selectedFragmentId: string | undefined;
+  private heldFragmentId: string | undefined;
+  private activeFlashlightId: string | undefined;
+  private activeFlashlightColor: M01BaseColor | undefined;
   private lastToolCard: ToolCard | undefined;
   private lastHint: M01GreyboxHint | undefined;
   private lastFeedback: M01GreyboxFeedback | undefined;
+  private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
+  private readonly stagedEvidenceIds = new Set<string>();
 
   private constructor(config: M01MemoryGearConfig, options: M01GreyboxSessionOptions = {}) {
     this.config = config;
@@ -242,6 +251,234 @@ export class M01GreyboxSession {
       status: result.completed
         ? this.format("repairCompleted")
         : this.format("sortedCount", { sortedCount: result.sortedCount })
+    };
+  }
+
+  selectFlashlight(flashlightId: string): {
+    accepted: boolean;
+    activeFlashlightId?: string;
+    activeFlashlightColor?: M01BaseColor;
+    status: string;
+  } {
+    const flashlight = this.config.flashlights.find((candidate) => candidate.id === flashlightId);
+    if (!flashlight) {
+      return {
+        accepted: false,
+        status: this.format("unknownFilter", { filterId: flashlightId })
+      };
+    }
+
+    this.activeFlashlightId = flashlight.id;
+    this.activeFlashlightColor = flashlight.color;
+    this.lastHint = undefined;
+    this.lastFeedback = undefined;
+
+    return {
+      accepted: true,
+      activeFlashlightId: flashlight.id,
+      activeFlashlightColor: flashlight.color,
+      status: this.format("flashlightSelected", { color: flashlight.color })
+    };
+  }
+
+  revealFragment(fragmentId: string): {
+    accepted: boolean;
+    fragmentId: string;
+    revealedColor?: M01BlendColor;
+    status: string;
+  } {
+    if (!this.activeFlashlightColor) {
+      return {
+        accepted: false,
+        fragmentId,
+        status: this.format("selectFragmentFirst")
+      };
+    }
+
+    const result = this.controller.revealFragmentWithFlashlight(
+      fragmentId,
+      this.activeFlashlightColor
+    );
+    if (!result.accepted) {
+      return {
+        accepted: false,
+        fragmentId,
+        status: this.format("unknownFragment", { fragmentId })
+      };
+    }
+
+    return {
+      accepted: true,
+      fragmentId,
+      revealedColor: result.revealedColor,
+      status: this.format("fragmentRevealed", {
+        fragmentId,
+        color: result.revealedColor
+      })
+    };
+  }
+
+  pickFragment(fragmentId: string): {
+    accepted: boolean;
+    heldFragmentId?: string;
+    status: string;
+  } {
+    const fragment = this.controller.getFragmentState(fragmentId);
+    if (!fragment) {
+      this.heldFragmentId = undefined;
+      return {
+        accepted: false,
+        status: this.format("unknownFragment", { fragmentId })
+      };
+    }
+
+    this.heldFragmentId = fragmentId;
+    this.selectedFragmentId = fragmentId;
+    this.lastFeedback = undefined;
+
+    return {
+      accepted: true,
+      heldFragmentId: fragmentId,
+      status: this.format("fragmentPickedUp", { fragmentId })
+    };
+  }
+
+  placeHeldFragment(position: M01GreyboxPoint): {
+    accepted: boolean;
+    fragmentId?: string;
+    placement?: "free" | "weak_snap";
+    evidenceId?: string;
+    status: string;
+  } {
+    const fragmentId = this.heldFragmentId;
+    if (!fragmentId) {
+      return {
+        accepted: false,
+        status: this.format("selectFragmentFirst")
+      };
+    }
+
+    this.heldFragmentId = undefined;
+    this.selectedFragmentId = undefined;
+
+    return {
+      accepted: true,
+      fragmentId,
+      placement: "free",
+      status: this.format("fragmentPlacedFreely", {
+        fragmentId,
+        x: position.x,
+        y: position.y
+      })
+    };
+  }
+
+  weakSnapFragmentToEvidence(fragmentId: string, evidenceId: string): {
+    accepted: boolean;
+    fragmentId: string;
+    evidenceId: string;
+    completedEvidenceCount: number;
+    bottomLight: M01BottomLightState;
+    status: string;
+  } {
+    const fragment = this.controller.getFragmentState(fragmentId);
+    const evidence = this.config.evidence.find((candidate) => candidate.id === evidenceId);
+    if (!fragment || !evidence || !this.fragmentMatchesEvidenceShape(fragment, evidenceId)) {
+      return {
+        accepted: false,
+        fragmentId,
+        evidenceId,
+        completedEvidenceCount: this.controller.getCompletionState().reconstructedEvidenceCount,
+        bottomLight: this.controller.getCompletionState().bottomLight,
+        status: this.format("evidenceRejected", { evidenceId })
+      };
+    }
+
+    const snapped = this.weakSnappedFragmentsByEvidence.get(evidence.id) ?? [];
+    this.weakSnappedFragmentsByEvidence.set(evidence.id, [...new Set([...snapped, fragmentId])]);
+    const completionState = this.controller.getCompletionState();
+
+    return {
+      accepted: true,
+      fragmentId,
+      evidenceId,
+      completedEvidenceCount: completionState.reconstructedEvidenceCount,
+      bottomLight: completionState.bottomLight,
+      status: this.format("weakSnapHint", { fragmentId, evidenceId })
+    };
+  }
+
+  submitEvidencePair(evidenceId: string, fragmentIds: [string, string]): {
+    accepted: boolean;
+    replacedPreviousPair?: boolean;
+    reason?: string;
+    completedEvidenceCount: number;
+    bottomLight: "off";
+    completed: false;
+    status: string;
+  } {
+    const replacedPreviousPair = this.stagedEvidenceIds.has(evidenceId);
+    const result = this.controller.stageEvidencePair(evidenceId, fragmentIds);
+    const completionState = this.controller.getCompletionState();
+
+    if (!result.accepted) {
+      return {
+        accepted: false,
+        replacedPreviousPair,
+        reason: result.reason,
+        completedEvidenceCount: completionState.reconstructedEvidenceCount,
+        bottomLight: "off",
+        completed: false,
+        status: this.format("evidenceRejected", { evidenceId })
+      };
+    }
+
+    this.stagedEvidenceIds.add(evidenceId);
+
+    return {
+      accepted: true,
+      replacedPreviousPair,
+      completedEvidenceCount: completionState.reconstructedEvidenceCount,
+      bottomLight: "off",
+      completed: false,
+      status: this.format("evidenceCompleted", { evidenceId })
+    };
+  }
+
+  validateCandidateStructure(): {
+    accepted: boolean;
+    reason?: string;
+    completedEvidenceCount: number;
+    bottomLight: "flash_then_off" | "steady_on";
+    validationLightSeconds: 2 | null;
+    completed: boolean;
+    status: string;
+  } {
+    const result = this.controller.validateCandidateStructure();
+    if (!result.accepted) {
+      return {
+        accepted: false,
+        reason: result.reason,
+        completedEvidenceCount: this.controller.getCompletionState().reconstructedEvidenceCount,
+        bottomLight: result.bottomLight,
+        validationLightSeconds: result.validationLightSeconds,
+        completed: result.completed,
+        status: this.format("validationLightFlash")
+      };
+    }
+
+    const completion = this.controller.completeRepairAndUnlockToolCard();
+    if (completion.completed) {
+      this.lastToolCard = completion.toolCard;
+    }
+
+    return {
+      accepted: true,
+      completedEvidenceCount: this.controller.getCompletionState().reconstructedEvidenceCount,
+      bottomLight: result.bottomLight,
+      validationLightSeconds: result.validationLightSeconds,
+      completed: result.completed,
+      status: this.format("validationLightSteady")
     };
   }
 
@@ -398,6 +635,19 @@ export class M01GreyboxSession {
     });
 
     return slot ? [slot.id] : [];
+  }
+
+  private fragmentMatchesEvidenceShape(
+    fragment: NonNullable<ReturnType<M01MemoryGearController["getFragmentState"]>>,
+    evidenceId: string
+  ): boolean {
+    const evidence = this.config.evidence.find((candidate) => candidate.id === evidenceId);
+    if (!evidence) {
+      return false;
+    }
+
+    const fragmentTags = new Set([fragment.edgeShape, ...(fragment.tags ?? [])]);
+    return evidence.shapeTags.some((tag) => fragmentTags.has(tag));
   }
 
   private format(

@@ -1,7 +1,37 @@
 import { describe, expect, it } from "vitest";
 
 import { M01GreyboxSession } from "../../assets/scripts/cocos/M01GreyboxSession.ts";
+import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
+import m01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 import { m01LegacySortConfig as config } from "./m01LegacySortConfig.ts";
+
+const realConfig = m01ConfigJson as unknown as M01MemoryGearConfig;
+const CORRECT_EVIDENCE_PAIRS: Array<[string, [string, string]]> = [
+  ["evidence_purple_arc", ["fragment_a", "fragment_b"]],
+  ["evidence_green_notch", ["fragment_c", "fragment_d"]],
+  ["evidence_orange_crescent", ["fragment_e", "fragment_f"]],
+  ["evidence_purple_branch", ["fragment_g", "fragment_h"]]
+];
+
+function submitCorrectCandidate(session: M01GreyboxSession): void {
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS) {
+    session.submitEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function submitWrongColorCompleteCandidate(session: M01GreyboxSession): void {
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    session.submitEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function submitWrongFragmentSetCompleteCandidate(session: M01GreyboxSession): void {
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_m"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    session.submitEvidencePair(evidenceId, fragmentIds);
+  }
+}
 
 describe("M01GreyboxSession", () => {
   it("lets the greybox activate a filter, select an eligible fragment, and place it in a slot", () => {
@@ -189,5 +219,90 @@ describe("M01GreyboxSession", () => {
     }
 
     expect(lastStatus).toBe("M01 已修复，认知工具卡已解锁。");
+  });
+
+  it("selects a flashlight and reveals a fragment color", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+
+    expect(session.selectFlashlight("flashlight_red")).toMatchObject({
+      accepted: true,
+      activeFlashlightColor: "red"
+    });
+
+    expect(session.revealFragment("fragment_b")).toMatchObject({
+      accepted: true,
+      fragmentId: "fragment_b",
+      revealedColor: "purple"
+    });
+  });
+
+  it("keeps shape-only weak snaps separate from color validation", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+
+    expect(session.weakSnapFragmentToEvidence("fragment_a", "evidence_purple_arc")).toMatchObject({
+      accepted: true,
+      completedEvidenceCount: 0,
+      bottomLight: "off"
+    });
+  });
+
+  it("flashes bottom light when the submitted candidate is wrong", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    submitWrongColorCompleteCandidate(session);
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "wrong_blend_color",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+  });
+
+  it("keeps bottom light steady only after the whole candidate structure is correct", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig, { now: () => 12345 });
+    submitCorrectCandidate(session);
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: true,
+      bottomLight: "steady_on",
+      completed: true
+    });
+    expect(session.getLastToolCard()?.unlockedAt).toBe(12345);
+  });
+
+  it("reports a wrong fragment set when a decoy produces the right blend color", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    submitWrongFragmentSetCompleteCandidate(session);
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "wrong_fragment_set",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+  });
+
+  it("supports click-pick and click-place so staged fragments can be corrected", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+
+    expect(session.pickFragment("fragment_a")).toMatchObject({
+      accepted: true,
+      heldFragmentId: "fragment_a"
+    });
+
+    expect(session.placeHeldFragment({ x: 320, y: -180 })).toMatchObject({
+      accepted: true,
+      fragmentId: "fragment_a",
+      placement: "free"
+    });
+
+    session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+
+    expect(session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])).toMatchObject({
+      accepted: true,
+      bottomLight: "off"
+    });
   });
 });
