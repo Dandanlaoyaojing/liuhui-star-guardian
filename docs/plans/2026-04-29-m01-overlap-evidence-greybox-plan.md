@@ -171,6 +171,12 @@ it("derives used fragments from the configured evidence solution graph", () => {
   }
 });
 
+it("includes shape-compatible color decoys without leaking target answers", () => {
+  expect(config.fragments.some((fragment) => fragment.tags?.includes("decoy"))).toBe(true);
+  expect(config.evidence.every((evidence) => evidence.solution.fragmentIds.length === 2)).toBe(true);
+  expect(config.goal.params.requiredFragments).toBe("solution_defined");
+});
+
 it("keeps target evidence limited to overlap hints only", () => {
   for (const evidence of config.evidence) {
     expect(evidence.targetShape).toBeDefined();
@@ -248,7 +254,7 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
 
 **Step 4: Update JSON config**
 
-Replace old fields with the new shape. Use deterministic IDs for the first greybox:
+Replace old fields with the new shape. Use deterministic IDs for the first greybox. This skeleton should be complete enough to paste as the initial fixture:
 
 ```json
 {
@@ -287,8 +293,8 @@ Replace old fields with the new shape. Use deterministic IDs for the first greyb
     { "id": "fragment_f", "hiddenColor": "yellow", "edgeShape": "crescent_right", "tags": ["fragment", "crescent_right"], "position": { "x": 140, "y": 170 } },
     { "id": "fragment_g", "hiddenColor": "red", "edgeShape": "branch_left", "tags": ["fragment", "branch_left"], "position": { "x": 220, "y": 170 } },
     { "id": "fragment_h", "hiddenColor": "blue", "edgeShape": "branch_right", "tags": ["fragment", "branch_right"], "position": { "x": 300, "y": 170 } },
-    { "id": "fragment_i", "hiddenColor": "yellow", "edgeShape": "decoy_arc", "tags": ["fragment", "decoy_arc"], "position": { "x": -220, "y": -180 } },
-    { "id": "fragment_j", "hiddenColor": "red", "edgeShape": "decoy_notch", "tags": ["fragment", "decoy_notch"], "position": { "x": -120, "y": -180 } },
+    { "id": "fragment_i", "hiddenColor": "yellow", "edgeShape": "arc_socket", "tags": ["fragment", "arc_socket", "decoy"], "position": { "x": -220, "y": -180 } },
+    { "id": "fragment_j", "hiddenColor": "red", "edgeShape": "notch_socket", "tags": ["fragment", "notch_socket", "decoy"], "position": { "x": -120, "y": -180 } },
     { "id": "fragment_k", "hiddenColor": "blue", "edgeShape": "decoy_branch", "tags": ["fragment", "decoy_branch"], "position": { "x": -20, "y": -180 } },
     { "id": "fragment_l", "hiddenColor": "yellow", "edgeShape": "decoy_crescent", "tags": ["fragment", "decoy_crescent"], "position": { "x": 80, "y": -180 } }
   ],
@@ -301,25 +307,54 @@ Replace old fields with the new shape. Use deterministic IDs for the first greyb
       "tolerance": 42,
       "shapeTags": ["arc_hook", "arc_socket"],
       "solution": { "fragmentIds": ["fragment_a", "fragment_b"] }
+    },
+    {
+      "id": "evidence_green_notch",
+      "targetShape": "notch_lens",
+      "targetBlendColor": "green",
+      "position": { "x": 10, "y": 72 },
+      "tolerance": 42,
+      "shapeTags": ["notch_hook", "notch_socket"],
+      "solution": { "fragmentIds": ["fragment_c", "fragment_d"] }
+    },
+    {
+      "id": "evidence_orange_crescent",
+      "targetShape": "crescent_overlap",
+      "targetBlendColor": "orange",
+      "position": { "x": 92, "y": -18 },
+      "tolerance": 42,
+      "shapeTags": ["crescent_left", "crescent_right"],
+      "solution": { "fragmentIds": ["fragment_e", "fragment_f"] }
+    },
+    {
+      "id": "evidence_purple_branch",
+      "targetShape": "branch_lens",
+      "targetBlendColor": "purple",
+      "position": { "x": -24, "y": -94 },
+      "tolerance": 42,
+      "shapeTags": ["branch_left", "branch_right"],
+      "solution": { "fragmentIds": ["fragment_g", "fragment_h"] }
     }
   ],
   "toolCard": {
-    "title": "分类与归纳",
+    "puzzleId": "m01",
+    "stage": 1,
     "front": {
       "toolName": "分类与归纳",
-      "scene": "灰白碎片只有在关系里才显出秩序。",
+      "scene": "stage1/m01/toolcards/classification-thumbnail",
       "wisdomCrystal": "秩序，不在碎片本身，而在它们终于显现的关系里。"
     },
     "back": {
+      "coreAction": "在多维线索中找出真正起作用的分类关系。",
       "whenToUse": ["当线索混杂、单个特征不够可靠时"],
-      "lifeExamples": ["整理一组互相重叠但来源不同的记忆"],
-      "commonTraps": ["只按一个显眼特征分类，忽略关系中的第二维度"]
+      "realLifeExamples": ["整理一组互相重叠但来源不同的记忆"],
+      "commonTraps": "只按一个显眼特征分类，容易忽略关系中的第二维度。"
     }
   }
 }
 ```
 
-Add the remaining 3-5 evidence entries using first-pass pairs. Keep each evidence as exactly two fragments, avoid triple-overlap evidence, and let the final used fragment count come from the unique IDs referenced by all evidence solutions. The first greybox may use 12 candidates; the implementation must also accept a slightly larger configured candidate pool.
+Keep each evidence as exactly two fragments, avoid triple-overlap evidence, and let the final used fragment count come from the unique IDs referenced by all evidence solutions. The first greybox uses 12 candidates, 4 evidence markers, and 8 solution fragments; the implementation must also accept a slightly larger configured candidate pool.
 
 **Step 5: Run targeted tests**
 
@@ -347,6 +382,26 @@ git commit -m "feat: define M01 overlap evidence config"
 Add tests:
 
 ```ts
+const CORRECT_EVIDENCE_PAIRS: Array<[string, [string, string]]> = [
+  ["evidence_purple_arc", ["fragment_a", "fragment_b"]],
+  ["evidence_green_notch", ["fragment_c", "fragment_d"]],
+  ["evidence_orange_crescent", ["fragment_e", "fragment_f"]],
+  ["evidence_purple_branch", ["fragment_g", "fragment_h"]]
+];
+
+function stageCorrectCandidate(controller: M01MemoryGearController): void {
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS) {
+    controller.stageEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function stageWrongColorCompleteCandidate(controller: M01MemoryGearController): void {
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    controller.stageEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
 it("reveals candidate fragments without making hidden colors visible by default", () => {
   const controller = M01MemoryGearController.fromConfig(config);
   const fragment = controller.getFragmentState("fragment_a");
@@ -374,8 +429,7 @@ it("stages a shape-compatible overlap without completing evidence immediately", 
 
 it("flashes the bottom light for two seconds when a complete candidate is not fully correct", () => {
   const controller = M01MemoryGearController.fromConfig(config);
-  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
-  // Stage every other configured evidence marker with candidate pairs here so the hypothesis is complete.
+  stageWrongColorCompleteCandidate(controller);
 
   expect(controller.validateCandidateStructure()).toMatchObject({
     accepted: false,
@@ -388,8 +442,7 @@ it("flashes the bottom light for two seconds when a complete candidate is not fu
 
 it("keeps the bottom light on only when all staged evidence pairs are correct", () => {
   const controller = M01MemoryGearController.fromConfig(config);
-  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"]);
-  // Stage the remaining configured correct pairs here.
+  stageCorrectCandidate(controller);
 
   expect(controller.validateCandidateStructure()).toMatchObject({
     accepted: true,
@@ -494,8 +547,9 @@ Implement `validateCandidateStructure` by checking the complete staged hypothesi
 
 - all evidence markers have staged pairs
 - each staged pair uses exactly two fragments
-- the staged unique fragment set matches the expected solution set derived from all configured `solution.fragmentIds`
 - each staged pair blends to the evidence `targetBlendColor`
+- the staged unique fragment set matches the expected solution set derived from all configured `solution.fragmentIds`
+- validation reason precedence is: `incomplete_candidate` first, then `wrong_blend_color`, then `wrong_fragment_set`; this keeps a complete shape-compatible but color-wrong decoy from being reported only as a set mismatch
 - if anything is wrong, return `bottomLight: "flash_then_off"` and `validationLightSeconds: 2`
 - on failure, leave staged pairs and fragment positions moveable so the player can pick up, move, or replace pieces directly
 - if everything is correct, mark all evidence reconstructed, return `bottomLight: "steady_on"`, and allow ToolCard completion
@@ -650,12 +704,12 @@ it("weak-snaps a fragment near matching evidence shape without completing it", (
 });
 
 it("does not weak-snap a shape-mismatched fragment even when it is near evidence", () => {
-  const fragment = layout.fragments.find((item) => item.controllerId === "fragment_i")!;
+  const fragment = layout.fragments.find((item) => item.controllerId === "fragment_k")!;
   const evidence = layout.evidence.find((item) => item.controllerId === "evidence_purple_arc")!;
 
   expect(resolveM01GreyboxDrop(layout, fragment, evidence.position)).toEqual({
     type: "place_fragment_freely",
-    fragmentId: "fragment_i"
+    fragmentId: "fragment_k"
   });
 });
 
@@ -716,6 +770,26 @@ git commit -m "feat: add weak magnetic evidence snapping"
 Add:
 
 ```ts
+const CORRECT_EVIDENCE_PAIRS: Array<[string, [string, string]]> = [
+  ["evidence_purple_arc", ["fragment_a", "fragment_b"]],
+  ["evidence_green_notch", ["fragment_c", "fragment_d"]],
+  ["evidence_orange_crescent", ["fragment_e", "fragment_f"]],
+  ["evidence_purple_branch", ["fragment_g", "fragment_h"]]
+];
+
+function submitCorrectCandidate(session: M01GreyboxSession): void {
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS) {
+    session.submitEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function submitWrongColorCompleteCandidate(session: M01GreyboxSession): void {
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    session.submitEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
 it("selects a flashlight and reveals a fragment color", () => {
   const session = M01GreyboxSession.fromConfig(config);
 
@@ -743,11 +817,11 @@ it("keeps shape-only weak snaps separate from color validation", () => {
 
 it("flashes bottom light when the submitted candidate is wrong", () => {
   const session = M01GreyboxSession.fromConfig(config);
-  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
-  // Submit the remaining evidence pairs so the candidate structure is complete.
+  submitWrongColorCompleteCandidate(session);
 
   expect(session.validateCandidateStructure()).toMatchObject({
     accepted: false,
+    reason: "wrong_blend_color",
     bottomLight: "flash_then_off",
     validationLightSeconds: 2,
     completed: false
@@ -756,8 +830,7 @@ it("flashes bottom light when the submitted candidate is wrong", () => {
 
 it("keeps bottom light steady only after the whole candidate structure is correct", () => {
   const session = M01GreyboxSession.fromConfig(config);
-  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"]);
-  // Submit remaining correct configured evidence pairs here.
+  submitCorrectCandidate(session);
 
   expect(session.validateCandidateStructure()).toMatchObject({
     accepted: true,
