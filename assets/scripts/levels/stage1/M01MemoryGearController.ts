@@ -253,6 +253,7 @@ export class M01MemoryGearController {
   private unlockedToolCard: ToolCard | null = null;
   private repairCompleted = false;
   private bottomLight: M01BottomLightState = "off";
+  private bottomLightFlashUntil: number | null = null;
 
   private constructor(
     config: M01MemoryGearConfig,
@@ -439,6 +440,10 @@ export class M01MemoryGearController {
     }
 
     this.stagedEvidencePairs.set(evidenceId, pair);
+    if (this.getCurrentBottomLight() !== "steady_on") {
+      this.bottomLight = "off";
+      this.bottomLightFlashUntil = null;
+    }
 
     return {
       accepted: true,
@@ -484,6 +489,7 @@ export class M01MemoryGearController {
     }
 
     this.bottomLight = "steady_on";
+    this.bottomLightFlashUntil = null;
     for (const evidence of evidenceDefs) {
       this.reconstructedEvidenceIds.add(evidence.id);
     }
@@ -522,7 +528,7 @@ export class M01MemoryGearController {
       reconstructedEvidenceCount: this.reconstructedEvidenceIds.size,
       totalEvidenceCount: evidenceDefs.length,
       usedFragmentCount: this.getSolutionFragmentIds().size,
-      bottomLight: this.bottomLight
+      bottomLight: this.getCurrentBottomLight()
     };
   }
 
@@ -654,6 +660,8 @@ export class M01MemoryGearController {
     }>
   ): M01CandidateValidationResult {
     this.bottomLight = "flash_then_off";
+    this.bottomLightFlashUntil =
+      this.getNow() + this.config.goal.params.validationLightSeconds * 1000;
 
     return {
       accepted: false,
@@ -663,6 +671,23 @@ export class M01MemoryGearController {
       completed: false,
       revealedEvidence
     };
+  }
+
+  private getCurrentBottomLight(): M01BottomLightState {
+    if (
+      this.bottomLight === "flash_then_off" &&
+      this.bottomLightFlashUntil !== null &&
+      this.getNow() >= this.bottomLightFlashUntil
+    ) {
+      this.bottomLight = "off";
+      this.bottomLightFlashUntil = null;
+    }
+
+    return this.bottomLight;
+  }
+
+  private getNow(): number {
+    return this.options.now?.() ?? Date.now();
   }
 
   private assertUnique<T>(map: Map<string, T>, id: string, label: string): void {

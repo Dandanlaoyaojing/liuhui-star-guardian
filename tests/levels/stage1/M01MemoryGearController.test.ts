@@ -271,6 +271,24 @@ describe("M01MemoryGearController", () => {
     });
   });
 
+  it("turns the bottom light off after the failed validation flash window", () => {
+    let now = 10_000;
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig(), {
+      now: () => now
+    });
+    stageWrongColorCompleteCandidate(controller);
+
+    controller.validateCandidateStructure();
+
+    expect(controller.getCompletionState().bottomLight).toBe("flash_then_off");
+
+    now += 1_999;
+    expect(controller.getCompletionState().bottomLight).toBe("flash_then_off");
+
+    now += 1;
+    expect(controller.getCompletionState().bottomLight).toBe("off");
+  });
+
   it("keeps the bottom light on only when all staged evidence pairs are correct", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
     stageCorrectCandidate(controller);
