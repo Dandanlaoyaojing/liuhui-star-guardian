@@ -171,9 +171,15 @@ it("derives used fragments from the configured evidence solution graph", () => {
   }
 });
 
-it("includes shape-compatible color decoys without leaking target answers", () => {
-  expect(config.fragments.some((fragment) => fragment.tags?.includes("decoy"))).toBe(true);
+it("includes shape-compatible decoys without leaking target answers", () => {
+  const wrongColorDecoy = config.fragments.find((fragment) => fragment.id === "fragment_i");
+  const sameColorDecoy = config.fragments.find((fragment) => fragment.id === "fragment_m");
+
+  expect(wrongColorDecoy).toMatchObject({ hiddenColor: "yellow", edgeShape: "arc_socket" });
+  expect(sameColorDecoy).toMatchObject({ hiddenColor: "blue", edgeShape: "arc_socket" });
   expect(config.evidence.every((evidence) => evidence.solution.fragmentIds.length === 2)).toBe(true);
+  expect(config.evidence.some((evidence) => evidence.solution.fragmentIds.includes("fragment_i"))).toBe(false);
+  expect(config.evidence.some((evidence) => evidence.solution.fragmentIds.includes("fragment_m"))).toBe(false);
   expect(config.goal.params.requiredFragments).toBe("solution_defined");
 });
 
@@ -296,7 +302,8 @@ Replace old fields with the new shape. Use deterministic IDs for the first greyb
     { "id": "fragment_i", "hiddenColor": "yellow", "edgeShape": "arc_socket", "tags": ["fragment", "arc_socket", "decoy"], "position": { "x": -220, "y": -180 } },
     { "id": "fragment_j", "hiddenColor": "red", "edgeShape": "notch_socket", "tags": ["fragment", "notch_socket", "decoy"], "position": { "x": -120, "y": -180 } },
     { "id": "fragment_k", "hiddenColor": "blue", "edgeShape": "decoy_branch", "tags": ["fragment", "decoy_branch"], "position": { "x": -20, "y": -180 } },
-    { "id": "fragment_l", "hiddenColor": "yellow", "edgeShape": "decoy_crescent", "tags": ["fragment", "decoy_crescent"], "position": { "x": 80, "y": -180 } }
+    { "id": "fragment_l", "hiddenColor": "yellow", "edgeShape": "decoy_crescent", "tags": ["fragment", "decoy_crescent"], "position": { "x": 80, "y": -180 } },
+    { "id": "fragment_m", "hiddenColor": "blue", "edgeShape": "arc_socket", "tags": ["fragment", "arc_socket", "decoy"], "position": { "x": 180, "y": -180 } }
   ],
   "evidence": [
     {
@@ -354,7 +361,7 @@ Replace old fields with the new shape. Use deterministic IDs for the first greyb
 }
 ```
 
-Keep each evidence as exactly two fragments, avoid triple-overlap evidence, and let the final used fragment count come from the unique IDs referenced by all evidence solutions. The first greybox uses 12 candidates, 4 evidence markers, and 8 solution fragments; the implementation must also accept a slightly larger configured candidate pool.
+Keep each evidence as exactly two fragments, avoid triple-overlap evidence, and let the final used fragment count come from the unique IDs referenced by all evidence solutions. The first greybox uses 13 candidates, 4 evidence markers, and 8 solution fragments; the implementation must also accept a slightly larger configured candidate pool.
 
 **Step 5: Run targeted tests**
 
@@ -397,6 +404,13 @@ function stageCorrectCandidate(controller: M01MemoryGearController): void {
 
 function stageWrongColorCompleteCandidate(controller: M01MemoryGearController): void {
   controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    controller.stageEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
+function stageWrongFragmentSetCompleteCandidate(controller: M01MemoryGearController): void {
+  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_m"]);
   for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
     controller.stageEvidencePair(evidenceId, fragmentIds);
   }
@@ -448,6 +462,19 @@ it("keeps the bottom light on only when all staged evidence pairs are correct", 
     accepted: true,
     bottomLight: "steady_on",
     completed: true
+  });
+});
+
+it("reports wrong fragment set when a shape-compatible decoy has the right color", () => {
+  const controller = M01MemoryGearController.fromConfig(config);
+  stageWrongFragmentSetCompleteCandidate(controller);
+
+  expect(controller.validateCandidateStructure()).toMatchObject({
+    accepted: false,
+    reason: "wrong_fragment_set",
+    bottomLight: "flash_then_off",
+    validationLightSeconds: 2,
+    completed: false
   });
 });
 
@@ -790,6 +817,13 @@ function submitWrongColorCompleteCandidate(session: M01GreyboxSession): void {
   }
 }
 
+function submitWrongFragmentSetCompleteCandidate(session: M01GreyboxSession): void {
+  session.submitEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_m"]);
+  for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
+    session.submitEvidencePair(evidenceId, fragmentIds);
+  }
+}
+
 it("selects a flashlight and reveals a fragment color", () => {
   const session = M01GreyboxSession.fromConfig(config);
 
@@ -836,6 +870,19 @@ it("keeps bottom light steady only after the whole candidate structure is correc
     accepted: true,
     bottomLight: "steady_on",
     completed: true
+  });
+});
+
+it("reports a wrong fragment set when a decoy produces the right blend color", () => {
+  const session = M01GreyboxSession.fromConfig(config);
+  submitWrongFragmentSetCompleteCandidate(session);
+
+  expect(session.validateCandidateStructure()).toMatchObject({
+    accepted: false,
+    reason: "wrong_fragment_set",
+    bottomLight: "flash_then_off",
+    validationLightSeconds: 2,
+    completed: false
   });
 });
 
