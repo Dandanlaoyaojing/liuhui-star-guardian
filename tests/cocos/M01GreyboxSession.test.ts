@@ -236,6 +236,50 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("returns rejections instead of throwing when new actions are sent to a legacy config", () => {
+    const session = M01GreyboxSession.fromConfig(config);
+
+    expect(session.selectFlashlight("flashlight_red")).toMatchObject({
+      accepted: false
+    });
+    expect(session.weakSnapFragmentToEvidence("fragment_red_circle_1", "evidence_missing")).toMatchObject({
+      accepted: false,
+      evidenceId: "evidence_missing"
+    });
+  });
+
+  it("advances overlap-evidence hints from flashlights to fragments and evidence", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig, {
+      text: {
+        hintNoFilter: "HINT FLASHLIGHT",
+        hintActiveFilter: "HINT OBSERVE",
+        hintSelectedFragment: "HINT EVIDENCE"
+      }
+    });
+
+    expect(session.requestHint()).toMatchObject({
+      level: 1,
+      text: "HINT FLASHLIGHT",
+      targetIds: ["flashlight_red", "flashlight_yellow", "flashlight_blue"]
+    });
+
+    session.selectFlashlight("flashlight_red");
+
+    expect(session.requestHint()).toMatchObject({
+      level: 2,
+      text: "HINT OBSERVE",
+      targetIds: expect.arrayContaining(["fragment_a", "fragment_b"])
+    });
+
+    session.pickFragment("fragment_a");
+
+    expect(session.requestHint()).toMatchObject({
+      level: 3,
+      text: "HINT EVIDENCE",
+      targetIds: ["evidence_purple_arc"]
+    });
+  });
+
   it("keeps shape-only weak snaps separate from color validation", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
 

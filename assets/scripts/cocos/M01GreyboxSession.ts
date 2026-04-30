@@ -260,7 +260,7 @@ export class M01GreyboxSession {
     activeFlashlightColor?: M01BaseColor;
     status: string;
   } {
-    const flashlight = this.config.flashlights.find((candidate) => candidate.id === flashlightId);
+    const flashlight = (this.config.flashlights ?? []).find((candidate) => candidate.id === flashlightId);
     if (!flashlight) {
       return {
         accepted: false,
@@ -382,7 +382,7 @@ export class M01GreyboxSession {
     status: string;
   } {
     const fragment = this.controller.getFragmentState(fragmentId);
-    const evidence = this.config.evidence.find((candidate) => candidate.id === evidenceId);
+    const evidence = (this.config.evidence ?? []).find((candidate) => candidate.id === evidenceId);
     if (!fragment || !evidence || !this.fragmentMatchesEvidenceShape(fragment, evidenceId)) {
       return {
         accepted: false,
@@ -483,6 +483,13 @@ export class M01GreyboxSession {
   }
 
   requestHint(): M01GreyboxHint {
+    if ((this.config.evidence ?? []).length > 0) {
+      const hint = this.requestOverlapEvidenceHint();
+      this.lastHint = hint;
+      this.lastFeedback = undefined;
+      return hint;
+    }
+
     const activeFilter = this.controller.getActiveFilter();
     let hint: M01GreyboxHint;
 
@@ -637,11 +644,49 @@ export class M01GreyboxSession {
     return slot ? [slot.id] : [];
   }
 
+  private requestOverlapEvidenceHint(): M01GreyboxHint {
+    const selectedFragmentId = this.heldFragmentId ?? this.selectedFragmentId;
+
+    if (!this.activeFlashlightColor) {
+      return {
+        level: 1,
+        text: this.format("hintNoFilter"),
+        targetIds: (this.config.flashlights ?? []).map((flashlight) => flashlight.id)
+      };
+    }
+
+    if (!selectedFragmentId) {
+      return {
+        level: 2,
+        text: this.format("hintActiveFilter"),
+        targetIds: this.config.fragments.map((fragment) => fragment.id)
+      };
+    }
+
+    return {
+      level: 3,
+      text: this.format("hintSelectedFragment"),
+      targetIds: this.findTargetEvidenceIds(selectedFragmentId)
+    };
+  }
+
+  private findTargetEvidenceIds(fragmentId: string): string[] {
+    const fragment = this.controller.getFragmentState(fragmentId);
+    if (!fragment) {
+      return [];
+    }
+
+    const fragmentTags = new Set([fragment.edgeShape, ...(fragment.tags ?? [])]);
+    return (this.config.evidence ?? [])
+      .filter((evidence) => evidence.shapeTags.some((tag) => fragmentTags.has(tag)))
+      .map((evidence) => evidence.id);
+  }
+
   private fragmentMatchesEvidenceShape(
     fragment: NonNullable<ReturnType<M01MemoryGearController["getFragmentState"]>>,
     evidenceId: string
   ): boolean {
-    const evidence = this.config.evidence.find((candidate) => candidate.id === evidenceId);
+    const evidence = (this.config.evidence ?? []).find((candidate) => candidate.id === evidenceId);
     if (!evidence) {
       return false;
     }
