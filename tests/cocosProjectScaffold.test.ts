@@ -96,6 +96,34 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("Input.EventType.MOUSE_UP");
   });
 
+  it("wires M01 flashlight and evidence actions in the Cocos bootstrap", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("layout.board");
+    expect(bootstrap).toContain("layout.flashlights");
+    expect(bootstrap).toContain("layout.evidence");
+    expect(bootstrap).toContain("select_flashlight");
+    expect(bootstrap).toContain("weak_snap_fragment");
+    expect(bootstrap).toContain("place_fragment_freely");
+    expect(bootstrap).toContain("selectFlashlight");
+    expect(bootstrap).toContain("revealFragment");
+    expect(bootstrap).toContain("pickFragment");
+    expect(bootstrap).toContain("placeHeldFragment");
+    expect(bootstrap).toContain("weakSnapFragmentToEvidence");
+    expect(bootstrap).toContain("submitEvidencePair");
+    expect(bootstrap).toContain("validateCandidateStructure");
+    expect(bootstrap).toContain("validationLightSeconds");
+  });
+
+  it("keeps M01 overlap evidence staging inside the greybox instead of adding a validation button", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("weakSnappedFragmentsByEvidence");
+    expect(bootstrap).toContain("trySubmitWeakSnappedEvidencePair");
+    expect(bootstrap).toContain("tryValidateCompleteEvidenceCandidate");
+    expect(bootstrap).not.toContain("M01ValidateButton");
+  });
+
   it("keeps the M01 art preview path optional and non-authoritative", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

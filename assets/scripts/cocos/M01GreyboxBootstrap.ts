@@ -82,6 +82,9 @@ export class M01GreyboxBootstrap extends Component {
     { node: Node; token: M01GreyboxTokenNode; graphics: Graphics; artSprite: Sprite | null }
   >();
   private readonly artPreviewFallbackUnderlayIds = new Set<string>();
+  private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
+  private readonly stagedEvidenceIds = new Set<string>();
+  private readonly tokenPositions = new Map<string, M01GreyboxPoint>();
 
   start(): void {
     resources.load("configs/stage1/m01-memory-gear", JsonAsset, (error, asset) => {
@@ -97,6 +100,9 @@ export class M01GreyboxBootstrap extends Component {
       this.layout = buildM01GreyboxLayout(m01Config, { text: this.text });
       this.toolCardRoot = null;
       this.feedbackLabel = null;
+      this.weakSnappedFragmentsByEvidence.clear();
+      this.stagedEvidenceIds.clear();
+      this.tokenPositions.clear();
       this.renderGreybox(this.layout);
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
@@ -214,14 +220,23 @@ export class M01GreyboxBootstrap extends Component {
     this.bindGlobalPointerInput();
 
     this.addShapeNode(this.greyboxRoot, layout.gear);
+    if (layout.evidence.length > 0) {
+      this.addShapeNode(this.greyboxRoot, layout.board);
+    }
     if (this.enableArtPreview) {
       this.renderStaticArtPreview(this.greyboxRoot);
+    }
+    for (const evidence of layout.evidence) {
+      this.addShapeNode(this.greyboxRoot, evidence);
     }
     for (const slot of layout.slots ?? []) {
       this.addShapeNode(this.greyboxRoot, slot);
     }
     for (const fragment of layout.fragments) {
       this.addShapeNode(this.greyboxRoot, fragment);
+    }
+    for (const flashlight of layout.flashlights) {
+      this.addShapeNode(this.greyboxRoot, flashlight);
     }
     for (const filter of layout.filters ?? []) {
       this.addShapeNode(this.greyboxRoot, filter);
@@ -371,6 +386,7 @@ export class M01GreyboxBootstrap extends Component {
     this.bindGreyboxInput(node, token);
     const artSprite = this.enableArtPreview ? this.addTokenArtSprite(node, token) : null;
     this.greyboxNodes.set(token.controllerId, { node, token, graphics, artSprite });
+    this.tokenPositions.set(token.controllerId, token.position);
 
     return node;
   }
@@ -469,7 +485,7 @@ export class M01GreyboxBootstrap extends Component {
       node.on("touch-end", () => this.placeSelectedFragment(token.controllerId), this);
     }
 
-    if (token.kind === "filter" || token.kind === "fragment") {
+    if (token.kind === "filter" || token.kind === "flashlight" || token.kind === "fragment") {
       node.on("touch-start", (event: EventTouch) => this.beginTokenDrag(event, node, token), this);
       node.on("touch-move", (event: EventTouch) => this.moveTokenDrag(event, node), this);
       node.on("touch-end", (event: EventTouch) => this.endTokenDrag(event, node, token), this);
@@ -511,6 +527,7 @@ export class M01GreyboxBootstrap extends Component {
       position
     });
     node.setPosition(position.x, position.y, 0);
+    this.tokenPositions.set(token.controllerId, position);
   }
 
   private moveActivePointerDrag(event: M01GreyboxPointerEvent): void {
@@ -532,6 +549,9 @@ export class M01GreyboxBootstrap extends Component {
     const active = this.dragState.active;
     if (active) {
       node.setPosition(active.currentPosition.x, active.currentPosition.y, 0);
+      if (this.activeDragToken) {
+        this.tokenPositions.set(this.activeDragToken.controllerId, active.currentPosition);
+      }
     }
   }
 
@@ -587,6 +607,18 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    if (action.type === "select_flashlight") {
+      this.resetTokenNode(node, token);
+      const selected = this.session.selectFlashlight(action.flashlightId);
+      const revealed = selected.accepted
+        ? this.tryRevealFragmentAtPosition(dropPosition)
+        : undefined;
+      this.setStatus(revealed?.status ?? selected.status);
+      this.syncFeedbackFromSession();
+      this.syncVisualState();
+      return;
+    }
+
     if (action.type === "place_fragment") {
       const selected = this.session.selectFragment(action.fragmentId);
       if (!selected.accepted) {
@@ -608,11 +640,164 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    if (action.type === "weak_snap_fragment") {
+      const snapped = this.session.weakSnapFragmentToEvidence(action.fragmentId, action.evidenceId);
+      this.setStatus(snapped.status);
+      this.syncFeedbackFromSession();
+      if (!snapped.accepted) {
+        this.syncVisualState();
+        this.resetTokenNode(node, token);
+        return;
+      }
+
+      this.trackWeakSnappedFragment(action.evidenceId, action.fragmentId);
+      this.snapNodeToEvidence(node, action.evidenceId, dropPosition);
+      this.trySubmitWeakSnappedEvidencePair(action.evidenceId);
+      this.tryValidateCompleteEvidenceCandidate();
+      this.syncVisualState();
+      return;
+    }
+
+    if (action.type === "place_fragment_freely") {
+      const picked = this.session.pickFragment(action.fragmentId);
+      if (!picked.accepted) {
+        this.setStatus(picked.status);
+        this.syncFeedbackFromSession();
+        this.syncVisualState();
+        this.resetTokenNode(node, token);
+        return;
+      }
+
+      this.removeWeakSnappedFragment(action.fragmentId);
+      const freePosition = action.position ?? dropPosition;
+      const placed = this.session.placeHeldFragment(freePosition);
+      this.setStatus(placed.status);
+      this.syncFeedbackFromSession();
+      this.syncVisualState();
+      node.setPosition(freePosition.x, freePosition.y, 0);
+      this.tokenPositions.set(action.fragmentId, freePosition);
+      return;
+    }
+
     this.resetTokenNode(node, token);
+  }
+
+  private tryRevealFragmentAtPosition(
+    position: M01GreyboxPoint
+  ): ReturnType<M01GreyboxSession["revealFragment"]> | undefined {
+    const fragment = this.findTokenAtPosition(this.layout?.fragments ?? [], position);
+    return fragment && this.session ? this.session.revealFragment(fragment.controllerId) : undefined;
+  }
+
+  private trackWeakSnappedFragment(evidenceId: string, fragmentId: string): void {
+    this.removeWeakSnappedFragment(fragmentId);
+    const current = this.weakSnappedFragmentsByEvidence.get(evidenceId) ?? [];
+    const next = [...current.filter((candidate) => candidate !== fragmentId), fragmentId].slice(-2);
+    this.weakSnappedFragmentsByEvidence.set(evidenceId, next);
+  }
+
+  private removeWeakSnappedFragment(fragmentId: string): void {
+    for (const [evidenceId, fragmentIds] of this.weakSnappedFragmentsByEvidence) {
+      if (!fragmentIds.includes(fragmentId)) {
+        continue;
+      }
+
+      const next = fragmentIds.filter((candidate) => candidate !== fragmentId);
+      if (next.length === 0) {
+        this.weakSnappedFragmentsByEvidence.delete(evidenceId);
+      } else {
+        this.weakSnappedFragmentsByEvidence.set(evidenceId, next);
+      }
+      this.stagedEvidenceIds.delete(evidenceId);
+    }
+  }
+
+  private trySubmitWeakSnappedEvidencePair(evidenceId: string): void {
+    if (!this.session) {
+      return;
+    }
+
+    const fragmentIds = this.weakSnappedFragmentsByEvidence.get(evidenceId);
+    if (!fragmentIds || fragmentIds.length < 2) {
+      return;
+    }
+
+    const submitted = this.session.submitEvidencePair(evidenceId, [
+      fragmentIds[0],
+      fragmentIds[1]
+    ]);
+    this.setStatus(submitted.status);
+    if (submitted.accepted) {
+      this.stagedEvidenceIds.add(evidenceId);
+    }
+  }
+
+  private tryValidateCompleteEvidenceCandidate(): void {
+    if (!this.session || !this.layout || this.layout.evidence.length === 0) {
+      return;
+    }
+
+    const allEvidenceStaged = this.layout.evidence.every((evidence) =>
+      this.stagedEvidenceIds.has(evidence.controllerId)
+    );
+    if (!allEvidenceStaged) {
+      return;
+    }
+
+    const validation = this.session.validateCandidateStructure();
+    this.setStatus(
+      validation.validationLightSeconds === null
+        ? validation.status
+        : `${validation.status} (${validation.validationLightSeconds}s)`
+    );
+    this.syncFeedbackFromSession();
+    this.renderCompletionToolCardIfAvailable(validation.completed);
+  }
+
+  private renderCompletionToolCardIfAvailable(completed: boolean): void {
+    if (!completed || !this.session || !this.greyboxRoot || this.toolCardRoot) {
+      return;
+    }
+
+    const card = this.session.getLastToolCard();
+    if (card) {
+      this.setFeedback("");
+      this.renderToolCardPreview(this.greyboxRoot, card);
+    }
+  }
+
+  private snapNodeToEvidence(node: Node, evidenceId: string, fallback: M01GreyboxPoint): void {
+    const evidence = this.layout?.evidence.find(
+      (candidate) => candidate.controllerId === evidenceId
+    );
+    const position = evidence?.position ?? fallback;
+    node.setPosition(position.x, position.y, 0);
+    if (this.activeDragToken) {
+      this.tokenPositions.set(this.activeDragToken.controllerId, position);
+    }
   }
 
   private resetTokenNode(node: Node, token: M01GreyboxTokenNode): void {
     node.setPosition(token.position.x, token.position.y, 0);
+    this.tokenPositions.set(token.controllerId, token.position);
+  }
+
+  private findTokenAtPosition(
+    tokens: M01GreyboxTokenNode[],
+    position: M01GreyboxPoint
+  ): M01GreyboxTokenNode | undefined {
+    return tokens.find((token) => {
+      const tokenPosition = this.tokenPositions.get(token.controllerId) ?? token.position;
+      const halfWidth = token.size.width / 2;
+      const halfHeight = token.size.height / 2;
+
+      return (
+        position.x >= tokenPosition.x - halfWidth &&
+        position.x <= tokenPosition.x + halfWidth &&
+        position.y >= tokenPosition.y - halfHeight &&
+        position.y <= tokenPosition.y + halfHeight
+      );
+    });
   }
 
   private pointerIdForEvent(event: M01GreyboxPointerEvent): string | number {
