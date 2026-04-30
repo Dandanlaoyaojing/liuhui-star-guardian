@@ -74,6 +74,91 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("renderToolCardPreview");
   });
 
+  it("does not leave the completion feedback label underneath the ToolCard preview", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain('this.setFeedback("");');
+    expect(bootstrap).toContain("this.renderToolCardPreview(this.greyboxRoot, card)");
+  });
+
+  it("wires the M01 greybox runtime to drag sessions and drop resolution", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("beginDragSession");
+    expect(bootstrap).toContain("moveDragSession");
+    expect(bootstrap).toContain("endDragSession");
+    expect(bootstrap).toContain("resolveM01GreyboxDrop");
+    expect(bootstrap).toContain("touch-start");
+    expect(bootstrap).toContain("touch-move");
+    expect(bootstrap).toContain("touch-end");
+    expect(bootstrap).not.toContain("\"mouse-down\"");
+    expect(bootstrap).toContain("Input.EventType.MOUSE_MOVE");
+    expect(bootstrap).toContain("Input.EventType.MOUSE_UP");
+  });
+
+  it("keeps the M01 art preview path optional and non-authoritative", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("@property({ type: Boolean })");
+    expect(bootstrap).toContain("enableArtPreview = false");
+    expect(bootstrap).toContain("buildM01GreyboxStaticArtPlan");
+    expect(bootstrap).toContain("getM01GreyboxRuntimeSpriteResourceForToken");
+    expect(bootstrap).toContain("SpriteFrame");
+    expect(bootstrap).toContain("sprite.sizeMode = Sprite.SizeMode.CUSTOM");
+    expect(bootstrap).toContain("resources.load(layer.resourcesLoadPath");
+    expect(bootstrap).toContain("resources.load(resource.resourcesLoadPath");
+    expect(bootstrap).toContain("M01ArtSprite_");
+    expect(bootstrap).toContain("M01StaticArt_");
+    expect(bootstrap).toContain("resource.displaySize ?? token.size");
+    expect(bootstrap).not.toContain("buildM01GreyboxRuntimeTransparentPlan");
+    expect(bootstrap).not.toContain("resources.load(slice.file");
+  });
+
+  it("syncs token-level art sprites with greybox presentation state", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("artSprite: Sprite | null");
+    expect(bootstrap).toContain("private syncArtSpriteState");
+    expect(bootstrap).toContain("this.syncArtSpriteState(entry.artSprite");
+    expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation)");
+    expect(bootstrap).toContain('dimmed: new Color(255, 255, 255, 56)');
+    expect(bootstrap).toContain('placed: new Color(255, 255, 255, 0)');
+  });
+
+  it("keeps greybox graphics subdued when art preview is enabled", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("applyTokenGraphicsState");
+    expect(bootstrap).toContain("colorForArtPreviewUnderlay");
+    expect(bootstrap).toContain("lineWidthForArtPreview");
+    expect(bootstrap).toContain("this.enableArtPreview");
+    expect(bootstrap).toContain("Math.min(lineWidth, token.kind === \"slot\" ? 2 : 1)");
+    expect(bootstrap).toContain("return withAlpha(color, Math.min(color.a, 36));");
+  });
+
+  it("lets art preview hide ordinary slot and gear greybox underlays by default", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("showArtPreviewDebugUnderlay = false");
+    expect(bootstrap).toContain("shouldRenderArtPreviewUnderlay");
+    expect(bootstrap).toContain("this.showArtPreviewDebugUnderlay");
+    expect(bootstrap).toContain('token.kind !== "slot" && token.kind !== "gear"');
+    expect(bootstrap).toContain('presentation !== "normal" && presentation !== "repaired"');
+    expect(bootstrap).toContain("new Color(0, 0, 0, 0)");
+  });
+
+  it("restores art preview underlays as a fallback when required art fails to load", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("artPreviewFallbackUnderlayIds");
+    expect(bootstrap).toContain("markArtPreviewUnderlayFallback(token.controllerId)");
+    expect(bootstrap).toContain("markStaticArtPreviewUnderlayFallback(layer.id)");
+    expect(bootstrap).toContain("this.artPreviewFallbackUnderlayIds.has(token.controllerId)");
+    expect(bootstrap).toContain("(this.layout.slots ?? []).map((slot) => slot.controllerId)");
+    expect(bootstrap).toContain('layerId === "nineSlotTray"');
+    expect(bootstrap).toContain("this.syncVisualState()");
+  });
+
   it("has a committed M01 greybox scene that binds the bootstrap script", () => {
     const scenePath = "assets/scenes/M01Greybox.scene";
     const sceneMetaPath = "assets/scenes/M01Greybox.scene.meta";

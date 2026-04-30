@@ -52,10 +52,10 @@ export interface M01GreyboxLayout {
   gear: M01GreyboxTokenNode;
   board: M01GreyboxTokenNode;
   flashlights: M01GreyboxTokenNode[];
-  filters: M01GreyboxTokenNode[];
+  filters?: M01GreyboxTokenNode[];
   fragments: M01GreyboxTokenNode[];
   evidence: M01GreyboxTokenNode[];
-  slots: M01GreyboxTokenNode[];
+  slots?: M01GreyboxTokenNode[];
 }
 
 export interface M01GreyboxLayoutOptions {

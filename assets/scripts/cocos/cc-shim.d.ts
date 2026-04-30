@@ -15,9 +15,26 @@ declare module "cc" {
     active: boolean;
     addChild(child: Node): void;
     addComponent<T>(component: new (...args: never[]) => T): T;
-    on(type: string, callback: () => void, target?: unknown): void;
+    on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
   }
+
+  export class EventTouch {
+    getID(): number;
+    getUILocation(): { x: number; y: number };
+  }
+
+  export const Input: {
+    EventType: {
+      MOUSE_MOVE: string;
+      MOUSE_UP: string;
+    };
+  };
+
+  export const input: {
+    on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
+    off(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
+  };
 
   export class Label extends Component {
     string: string;
@@ -27,11 +44,31 @@ declare module "cc" {
     horizontalAlign: number;
   }
 
+  export class Sprite extends Component {
+    color: Color;
+    spriteFrame: SpriteFrame | null;
+    sizeMode: Sprite.SizeMode;
+  }
+
+  export namespace Sprite {
+    export enum SizeMode {
+      CUSTOM = 0,
+      TRIMMED = 1,
+      RAW = 2
+    }
+  }
+
+  export class SpriteFrame {}
+
   export class JsonAsset {
     json: unknown;
   }
 
   export class Color {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
     constructor(r?: number, g?: number, b?: number, a?: number);
   }
 

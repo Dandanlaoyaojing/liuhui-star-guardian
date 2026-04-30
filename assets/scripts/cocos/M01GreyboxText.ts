@@ -1,5 +1,5 @@
 export const m01GreyboxDefaultText = {
-  initialInstruction: "M01 灰盒：插入颜色过滤器，然后把同色碎片按形状归位。",
+  initialInstruction: "M01 灰盒：把颜色过滤器拖到齿轮上，再拖动同色碎片归位。",
   loadFailed: "M01 配置载入失败：{reason}",
   notInitialized: "M01 尚未初始化。",
   unknownFilter: "未知过滤器：{filterId}",

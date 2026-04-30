@@ -130,6 +130,17 @@ These are hard constraints for future image generation and review:
 - Hand-drawn line quality must not be simulated through dotted fragmentation, short broken mini-strokes, or scan-like edge noise.
 - Watercolor character must come from broad overlapping washes, tonal pooling, and soft transitions inside large shapes, not from white grain or broken texture.
 
+### White Speckle Cleanup Method
+
+When an otherwise useful reference or runtime candidate has salt-like white flecks inside painted objects, do not smooth or regenerate the whole image. Use a localized same-hue fill:
+
+- detect only small high-luma, low-saturation flecks that are brighter than nearby watercolor
+- fill them with nearby same-hue watercolor colors, biased slightly darker than the local median
+- preserve the original ink contours, broad tonal pooling, uneven brush marks, and paper background
+- do not blur, airbrush, flatten, or globally denoise the asset
+
+The accepted M01 cleanup example is `2026-04-22-unified-handdrawn-style-anchor-cleaned-v2.png`. Use that method for future reference-image cleanup unless a human reviewer asks for a different treatment.
+
 ### Do Not Overfit These Traits
 
 - Do not copy the exact gear silhouette or exact puzzle layout as a template for every level.

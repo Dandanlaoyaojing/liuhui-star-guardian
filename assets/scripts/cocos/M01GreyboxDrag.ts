@@ -109,7 +109,7 @@ function resolveFragmentDrop(
   token: M01GreyboxTokenNode,
   dropPosition: M01GreyboxPoint
 ): ReturnType<typeof resolveDropResult> {
-  const hitSlots = layout.slots
+  const hitSlots = (layout.slots ?? [])
     .map((slot) => ({ slot, zone: buildSlotDropZone(slot) }))
     .filter(({ zone }) => containsPoint(zone.bounds, dropPosition));
 
