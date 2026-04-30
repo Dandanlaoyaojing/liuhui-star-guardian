@@ -75,7 +75,7 @@ Last updated: 2026-04-30
 
 ## Next Recommended Step (immediate)
 
-**按新版 M01 spec 重开玩法灰盒，而不是继续旧九宫格美术打磨**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1-8 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API、Cocos bootstrap 输入接线和 legacy sorter art 隔离都已迁到新版“手电 + 证据拼接 + 底光验证”路径。下一步执行 Task 9：更新 ToolCard 与可见文本，让卡片语言和提示文案明确反映新版“关系中的分类与归纳”，而不是旧九宫格归类。
+**按新版 M01 spec 重开玩法灰盒，而不是继续旧九宫格美术打磨**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1-9 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API、Cocos bootstrap 输入接线、legacy sorter art 隔离、ToolCard 与可见文本都已迁到新版“手电 + 证据拼接 + 底光验证 + 关系归纳”路径。下一步执行 Task 10：做完整验证与必要的 Cocos smoke，确认当前灰盒能作为下一轮视觉/玩法校准基线。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
@@ -179,6 +179,7 @@ Last updated: 2026-04-30
 - 2026-04-30 新版 M01 Task 7 验证：先新增 bootstrap scaffold 红灯，要求 `layout.board` / `layout.flashlights` / `layout.evidence` 渲染路径和 `select_flashlight` / `weak_snap_fragment` / `place_fragment_freely` action 接线；实现后 `npm test -- tests/cocosProjectScaffold.test.ts` 成功（16 个测试），`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxDrag.test.ts` 成功（37 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 92 个测试）。
 - 2026-04-30 Task 7 review 修复验证：先新增 scaffold/session 红灯，覆盖融合色 palette、局部证据 shape 绘制、新版 hint target 高亮、点击拾取/点击放置，以及弱磁吸后释放 held fragment；实现后 `npm test -- tests/cocosProjectScaffold.test.ts` 成功（19 个测试），`npm test -- tests/cocos/M01GreyboxSession.test.ts` 成功（18 个测试），`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxDrag.test.ts` 成功（41 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 96 个测试），`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 返回 0 vulnerabilities。
 - 2026-04-30 新版 M01 Task 8 验证：先新增 art tests 并确认红灯（真实 overlap evidence layout 仍加载 legacy nine-slot tray）；实现后 `npm test -- tests/cocos/M01GreyboxArt.test.ts` 成功（13 个测试），`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxArt.test.ts tests/cocos/M01GreyboxLayout.test.ts` 成功（35 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 98 个测试），`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 返回 0 vulnerabilities。
+- 2026-04-30 新版 M01 Task 9 验证：先新增 ToolCard / preview / scaffold 文案测试并确认红灯（真实 M01 ToolCard 仍是旧“多维线索分类关系”文案，灰盒默认文案仍含旧“颜色过滤器 / 收纳槽”话术）；实现后 `npm test -- tests/core/ToolCard.test.ts tests/ui/ToolCardView.test.ts tests/cocosProjectScaffold.test.ts` 成功（3 个测试文件 / 25 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 100 个测试），`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 返回 0 vulnerabilities，密钥扫描与危险 JS pattern 扫描无命中。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

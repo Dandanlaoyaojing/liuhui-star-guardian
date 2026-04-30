@@ -5,6 +5,7 @@ import {
   validateToolCard,
   type ToolCardDraft
 } from "../../assets/scripts/core/ToolCard.ts";
+import m01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 
 const m01Draft: ToolCardDraft = {
   puzzleId: "m01",
@@ -12,21 +13,26 @@ const m01Draft: ToolCardDraft = {
   front: {
     toolName: "分类与归纳",
     scene: "textures/tools/m01-card",
-    wisdomCrystal: "秩序，是为相似之物找到归处。"
+    wisdomCrystal: "秩序，不在碎片本身，而在它们终于显现的关系里。"
   },
   back: {
-    coreAction: "在杂乱事物中找到共同属性，按属性归组。",
+    coreAction: "从局部证据中找出能彼此成立的关系，再把相关碎片归成结构。",
     whenToUse: [
-      "整理一堆笔记不知从何下手时",
-      "需要把大量信息压缩总结时",
-      "面对多个选项想不清它们关系时"
+      "面对一堆线索却不知道哪些真正相关时",
+      "需要从局部证据复原整体结构时",
+      "整理材料时发现单个标签不足以分类时"
     ],
     realLifeExamples: [
-      "整理书架：按主题、作者或使用频率归位",
-      "做年度复盘：按项目、月份或情绪线索分组"
+      "做访谈分析时，把彼此能解释的片段归成同一主题",
+      "整理创作素材时，先找能互相呼应的片段，而不是按表面颜色分堆"
     ],
-    commonTraps: "分类维度选错会制造假秩序；关键是这次分类要服务什么目的。"
+    commonTraps: "只看单个碎片的表面特征，忽略它和其他碎片放在一起时才显现的关系。"
   }
+};
+
+const m01Config = m01ConfigJson as {
+  wisdomCrystal: string;
+  toolCard: ToolCardDraft;
 };
 
 describe("ToolCard helpers", () => {
@@ -56,5 +62,29 @@ describe("ToolCard helpers", () => {
     if (!result.ok) {
       expect(result.errors).toContain("back.whenToUse must include at least one entry");
     }
+  });
+
+  it("keeps the real M01 ToolCard aligned with overlap-evidence relation sorting", () => {
+    expect(m01Config.wisdomCrystal).toBe("秩序，不在碎片本身，而在它们终于显现的关系里。");
+    expect(m01Config.toolCard.front.wisdomCrystal).toBe(m01Config.wisdomCrystal);
+    expect(m01Config.toolCard.back.coreAction).toBe(
+      "从局部证据中找出能彼此成立的关系，再把相关碎片归成结构。"
+    );
+    expect(m01Config.toolCard.back.whenToUse).toEqual([
+      "面对一堆线索却不知道哪些真正相关时",
+      "需要从局部证据复原整体结构时",
+      "整理材料时发现单个标签不足以分类时"
+    ]);
+    expect(m01Config.toolCard.back.realLifeExamples).toEqual([
+      "做访谈分析时，把彼此能解释的片段归成同一主题",
+      "整理创作素材时，先找能互相呼应的片段，而不是按表面颜色分堆"
+    ]);
+    expect(m01Config.toolCard.back.commonTraps).toBe(
+      "只看单个碎片的表面特征，忽略它和其他碎片放在一起时才显现的关系。"
+    );
+
+    const card = createToolCard(m01Config.toolCard, 12345);
+
+    expect(validateToolCard(card).ok).toBe(true);
   });
 });

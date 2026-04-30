@@ -159,6 +159,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("tryHandleTokenClick");
   });
 
+  it("uses M01 overlap-evidence copy instead of old filter-slot sorter wording", () => {
+    const text = readText("assets/scripts/cocos/M01GreyboxText.ts");
+
+    expect(text).toContain("三色手电");
+    expect(text).toContain("局部交叠证据");
+    expect(text).toContain("关系");
+    expect(text).not.toContain("把颜色过滤器拖到齿轮上");
+    expect(text).not.toContain("每个收纳槽同时看颜色和形状");
+    expect(text).not.toContain("被过滤器照亮的碎片");
+  });
+
   it("keeps the M01 art preview path optional and non-authoritative", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
