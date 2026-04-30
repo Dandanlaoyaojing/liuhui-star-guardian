@@ -82,6 +82,7 @@ Last updated: 2026-04-30
 - 2026-04-30 已完成新版 M01 plan 的 Task 1：在 `M01MemoryGearController` 中新增童话颜料混色 domain helper（`blendM01PigmentColors` / `revealM01FragmentColor`），覆盖红黄蓝同色与两两混合规则。
 - 2026-04-30 已完成新版 M01 plan 的 Task 2：真实 `m01-memory-gear.json` 已从旧“过滤器 + 九宫格槽位”切换为 13 个候选灰白碎片、3 个手电色、4 个两片交叠证据、`solution_defined` 使用碎片派生和 `overlap_evidence_reconstructed` 胜利目标；已提交的旧灰盒 layout/session 测试改用 `m01LegacySortConfig` 继续保护旧 runtime 壳子，不再要求真实 M01 JSON 具备旧滤镜/槽位结构。
 - 2026-04-30 已完成新版 M01 plan 的 Task 3：`M01MemoryGearController` 现在支持手电显色、证据 pair staging、失败后同 evidence replacement、底光整体验证、错误候选 2 秒闪光状态、正确候选常亮并解锁 ToolCard；旧 sort controller 路径仍保留给 legacy 灰盒壳子使用。
+- 2026-04-30 已完成新版 M01 plan 的 Task 4：`M01GreyboxLayout` 现在为真实 M01 配置生成三色手电、灰白候选碎片、局部交叠证据节点和拼接盘；真实配置不再暴露旧九宫格 slots，legacy sort fixture 仍可返回旧 filters/slots 以保护尚未迁移的灰盒壳子测试。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
 - 已实现 `DragHandler` / `SnapZone` / `FilterSystem` 交互基础件。
@@ -164,6 +165,8 @@ Last updated: 2026-04-30
 - 2026-04-30 新版 M01 Task 1 验证：先新增混色测试并确认红灯（`blendM01PigmentColors is not a function` / `revealM01FragmentColor is not a function`），随后实现最小 helper；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（1 个测试文件 / 7 个测试），`npm run typecheck` 成功。
 - 2026-04-30 新版 M01 Task 2 验证：真实 M01 JSON 已切到 `overlap_evidence_reconstructed`，新增测试覆盖候选池 12-16、证据数 4-6、solution 派生使用碎片、shape-compatible decoys、不泄露目标答案；已提交的旧九宫格 layout/session runtime 测试改用 legacy fixture。可在 clean checkout 复现的验证：`jq empty assets/resources/configs/stage1/m01-memory-gear.json` 成功；`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts tests/core/PuzzleConfig.test.ts` 成功（14 个测试）；`npm test -- tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（14 个测试）；`npm run typecheck` 成功。
 - 2026-04-30 新版 M01 Task 3 验证：先新增 controller tests 并确认红灯（缺少 `stageEvidencePair` / `validateCandidateStructure` / evidence completion 字段），随后实现候选结构验证。验证：`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（17 个测试）；`npm test -- tests/core/PuzzleConfig.test.ts tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（17 个测试）；`npm run typecheck` 成功。
+- 2026-04-30 新版 M01 Task 3 review 修复：`rejectCandidateStructure()` 的底光闪烁现在按 `validationLightSeconds` 到期返回 `off`，`getCompletionState()` 不再无限保留 `flash_then_off`。验证：`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts` 成功（18 个测试），`npm run typecheck` 成功。
+- 2026-04-30 新版 M01 Task 4 验证：先把 layout 测试改为真实 M01 overlap evidence 配置并确认红灯（`layout.flashlights` / `layout.evidence` 不存在），随后实现新版 layout 节点。验证：`npm test -- tests/cocos/M01GreyboxLayout.test.ts` 成功（3 个测试）；`npm test -- tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxSession.test.ts tests/levels/stage1/M01MemoryGearController.test.ts tests/core/PuzzleConfig.test.ts` 成功（33 个测试）；`npm run typecheck` 成功。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

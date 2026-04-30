@@ -1,7 +1,9 @@
 import type {
   M01CandidateFragmentDef,
   M01FilterDef,
+  M01FlashlightDef,
   M01MemoryGearConfig,
+  M01OverlapEvidenceDef,
   M01Shape,
   M01SlotDef
 } from "../levels/stage1/M01MemoryGearController.ts";
@@ -12,7 +14,15 @@ import {
   type M01GreyboxTextOverrides
 } from "./M01GreyboxText.ts";
 
-export type M01GreyboxNodeKind = "gear" | "filter" | "fragment" | "slot" | "label";
+export type M01GreyboxNodeKind =
+  | "gear"
+  | "board"
+  | "flashlight"
+  | "filter"
+  | "fragment"
+  | "evidence"
+  | "slot"
+  | "label";
 
 export interface M01GreyboxPoint {
   x: number;
@@ -40,8 +50,11 @@ export interface M01GreyboxLayout {
   canvas: M01GreyboxSize;
   statusText: string;
   gear: M01GreyboxTokenNode;
+  board: M01GreyboxTokenNode;
+  flashlights: M01GreyboxTokenNode[];
   filters: M01GreyboxTokenNode[];
   fragments: M01GreyboxTokenNode[];
+  evidence: M01GreyboxTokenNode[];
   slots: M01GreyboxTokenNode[];
 }
 
@@ -55,14 +68,25 @@ export function buildM01GreyboxLayout(
   config: M01MemoryGearConfig,
   options: M01GreyboxLayoutOptions = {}
 ): M01GreyboxLayout {
-  return {
+  const filters = (config.filters ?? []).map((filter) =>
+    buildFilterNode(filter, config, options.text)
+  );
+  const slots = (config.slots ?? []).map((slot) => buildSlotNode(slot, options.text));
+  const layout = {
     canvas: CANVAS,
     statusText: formatM01GreyboxText("initialInstruction", {}, options.text),
     gear: buildGearNode(config),
-    filters: (config.filters ?? []).map((filter) => buildFilterNode(filter, config, options.text)),
+    board: buildBoardNode(),
+    flashlights: (config.flashlights ?? []).map((flashlight) =>
+      buildFlashlightNode(flashlight, options.text)
+    ),
     fragments: config.fragments.map((fragment) => buildFragmentNode(fragment, options.text)),
-    slots: (config.slots ?? []).map((slot) => buildSlotNode(slot, options.text))
+    evidence: (config.evidence ?? []).map((evidence) => buildEvidenceNode(evidence, options.text)),
+    ...(filters.length > 0 ? { filters } : {}),
+    ...(slots.length > 0 ? { slots } : {})
   };
+
+  return layout as M01GreyboxLayout;
 }
 
 function buildGearNode(config: M01MemoryGearConfig): M01GreyboxTokenNode {
@@ -85,6 +109,39 @@ function buildGearNode(config: M01MemoryGearConfig): M01GreyboxTokenNode {
     colorToken: "neutral",
     shapeToken: "gear",
     tags: ["gear", "repair_target"]
+  };
+}
+
+function buildBoardNode(): M01GreyboxTokenNode {
+  return {
+    id: "m01_overlap_board",
+    controllerId: "m01_overlap_board",
+    kind: "board",
+    label: "拼接盘",
+    position: { x: 0, y: 0 },
+    size: { width: 320, height: 320 },
+    colorToken: "neutral",
+    shapeToken: "board",
+    tags: ["board", "assembly_board", "bottom_light"]
+  };
+}
+
+function buildFlashlightNode(
+  flashlight: M01FlashlightDef,
+  text: M01GreyboxTextOverrides = {}
+): M01GreyboxTokenNode {
+  const color = formatM01ColorLabel(flashlight.color, text);
+
+  return {
+    id: flashlight.id,
+    controllerId: flashlight.id,
+    kind: "flashlight",
+    label: flashlight.label ?? `${color}手电`,
+    position: readPosition(flashlight.position, { x: -420, y: 0 }),
+    size: { width: 76, height: 44 },
+    colorToken: flashlight.color,
+    shapeToken: "flashlight",
+    tags: ["flashlight", flashlight.color]
   };
 }
 
@@ -117,7 +174,7 @@ function buildFragmentNode(
   fragment: M01CandidateFragmentDef,
   text: M01GreyboxTextOverrides = {}
 ): M01GreyboxTokenNode {
-  const colorToken = fragment.color ?? "hidden";
+  const colorToken = fragment.hiddenColor ? "hidden" : (fragment.color ?? "hidden");
   const shapeToken = fragment.shape ?? fragment.edgeShape;
   const color = formatM01ColorLabel(colorToken, text);
   const shape = formatM01ShapeLabel(shapeToken, text);
@@ -131,7 +188,28 @@ function buildFragmentNode(
     size: { width: 34, height: 34 },
     colorToken,
     shapeToken,
-    tags: [...(fragment.tags ?? [])]
+    tags: ["candidate_fragment", ...(fragment.tags ?? [])]
+  };
+}
+
+function buildEvidenceNode(
+  evidence: M01OverlapEvidenceDef,
+  text: M01GreyboxTextOverrides = {}
+): M01GreyboxTokenNode {
+  const color = formatM01ColorLabel(evidence.targetBlendColor, text);
+  const shape = formatM01ShapeLabel(evidence.targetShape, text);
+  const size = Math.max(evidence.tolerance * 2, 52);
+
+  return {
+    id: evidence.id,
+    controllerId: evidence.id,
+    kind: "evidence",
+    label: formatM01GreyboxText("tokenLabel", { color, shape }, text),
+    position: readPosition(evidence.position, { x: 0, y: 0 }),
+    size: { width: size, height: size },
+    colorToken: evidence.targetBlendColor,
+    shapeToken: evidence.targetShape,
+    tags: ["overlap_evidence", ...evidence.shapeTags]
   };
 }
 
@@ -164,7 +242,8 @@ function readPosition(value: unknown, fallback: M01GreyboxPoint): M01GreyboxPoin
 }
 
 function findEntityPosition(config: M01MemoryGearConfig, entityId: string): unknown {
-  const entity = config.entities?.find((candidate) => {
+  const entities = config.entities ?? config.scene.entities;
+  const entity = entities?.find((candidate) => {
     return isRecord(candidate) && candidate.id === entityId;
   });
 
