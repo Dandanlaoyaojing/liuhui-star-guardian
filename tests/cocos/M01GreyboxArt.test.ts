@@ -14,15 +14,19 @@ import {
   getM01GreyboxRuntimeTransparentResource,
   M01_GREYBOX_ART_ASSET_ROOT,
   M01_GREYBOX_ART_PREVIEW_RESOURCES,
+  M01_GREYBOX_ART_SOURCE_SHEET,
   M01_GREYBOX_ART_SLICES,
   M01_GREYBOX_RUNTIME_FILTER_RESOURCES,
   M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES,
   M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES
 } from "../../assets/scripts/cocos/M01GreyboxArt.ts";
 import { buildM01GreyboxLayout } from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
+import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
+import realM01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 import { m01LegacySortConfig as config } from "./m01LegacySortConfig.ts";
 
 const projectRoot = process.cwd();
+const realM01Config = realM01ConfigJson as unknown as M01MemoryGearConfig;
 
 function readPngSize(path: string): { width: number; height: number } {
   const bytes = readFileSync(join(projectRoot, path));
@@ -386,6 +390,19 @@ describe("M01 greybox art slices", () => {
     });
   });
 
+  it("quarantines legacy sorter token art away from the new overlap evidence greybox", () => {
+    const layout = buildM01GreyboxLayout(realM01Config);
+    const plan = buildM01GreyboxTokenArtPlan(layout);
+
+    expect(M01_GREYBOX_ART_SOURCE_SHEET).toContain("candidate-v2");
+    expect(plan.enabledByDefault).toBe(false);
+    expect(plan.tokens.every((token) => token.role !== "fragment_token")).toBe(true);
+    expect(plan.tokens.every((token) => token.role !== "filter_token")).toBe(true);
+    expect(plan.tokens.map((token) => token.role)).toEqual(["repair_object_token"]);
+    expect(getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[0])).toBeUndefined();
+    expect(getM01GreyboxRuntimeSpriteResourceForToken(layout.flashlights[0])).toBeUndefined();
+  });
+
   it("builds a static gameplay art plan without fragment or filter composite sheets", () => {
     const plan = buildM01GreyboxStaticArtPlan();
 
@@ -402,5 +419,13 @@ describe("M01 greybox art slices", () => {
     });
     expect(plan.layers.map((layer) => layer.id)).not.toContain("memoryFragments");
     expect(plan.layers.map((layer) => layer.id)).not.toContain("colorFilters");
+  });
+
+  it("does not attach the legacy nine-slot tray to the new overlap evidence greybox", () => {
+    const layout = buildM01GreyboxLayout(realM01Config);
+    const plan = buildM01GreyboxStaticArtPlan(layout);
+
+    expect(plan.enabledByDefault).toBe(false);
+    expect(plan.layers).toEqual([]);
   });
 });

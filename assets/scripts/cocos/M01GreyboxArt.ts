@@ -385,7 +385,16 @@ export function buildM01GreyboxRuntimeTransparentPlan(): M01GreyboxArtPreviewPla
   };
 }
 
-export function buildM01GreyboxStaticArtPlan(): M01GreyboxArtPreviewPlan {
+export function buildM01GreyboxStaticArtPlan(
+  layout?: M01GreyboxLayout
+): M01GreyboxArtPreviewPlan {
+  if (layout && layout.evidence.length > 0) {
+    return {
+      enabledByDefault: false,
+      layers: []
+    };
+  }
+
   const tray = getM01GreyboxRuntimeTransparentResource("nineSlotTray");
 
   return {

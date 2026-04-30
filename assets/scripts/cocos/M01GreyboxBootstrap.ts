@@ -238,7 +238,7 @@ export class M01GreyboxBootstrap extends Component {
       this.addShapeNode(this.greyboxRoot, layout.board);
     }
     if (this.enableArtPreview) {
-      this.renderStaticArtPreview(this.greyboxRoot);
+      this.renderStaticArtPreview(this.greyboxRoot, layout);
     }
     for (const evidence of layout.evidence) {
       this.addShapeNode(this.greyboxRoot, evidence);
@@ -468,8 +468,8 @@ export class M01GreyboxBootstrap extends Component {
     return sprite;
   }
 
-  private renderStaticArtPreview(parent: Node): void {
-    const plan = buildM01GreyboxStaticArtPlan();
+  private renderStaticArtPreview(parent: Node, layout: M01GreyboxLayout): void {
+    const plan = buildM01GreyboxStaticArtPlan(layout);
     for (const layer of plan.layers) {
       const layerNode = new Node(`M01StaticArt_${layer.id}`);
       layerNode.setPosition(layer.position.x, layer.position.y, 0);
