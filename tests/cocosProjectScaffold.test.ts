@@ -124,6 +124,41 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("M01ValidateButton");
   });
 
+  it("renders M01 overlap evidence with blend colors and local evidence shapes", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("purple: [");
+    expect(bootstrap).toContain("green: [");
+    expect(bootstrap).toContain("orange: [");
+    expect(bootstrap).toContain('token.shapeToken === "arc_lens"');
+    expect(bootstrap).toContain('token.shapeToken === "notch_lens"');
+    expect(bootstrap).toContain('token.shapeToken === "crescent_overlap"');
+    expect(bootstrap).toContain('token.shapeToken === "branch_lens"');
+    expect(bootstrap).toContain("drawArcLens");
+    expect(bootstrap).toContain("drawNotchLens");
+    expect(bootstrap).toContain("drawCrescentOverlap");
+    expect(bootstrap).toContain("drawBranchLens");
+  });
+
+  it("highlights M01 flashlight and evidence hint targets in the bootstrap", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("hintedTargetIds");
+    expect(bootstrap).toContain("this.hintedTargetIds = new Set(hint.targetIds)");
+    expect(bootstrap).toContain('entry.token.kind === "flashlight"');
+    expect(bootstrap).toContain('entry.token.kind === "evidence"');
+  });
+
+  it("supports M01 click-pick and click-place alongside drag placement", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("CLICK_DRAG_THRESHOLD");
+    expect(bootstrap).toContain("heldFragmentId");
+    expect(bootstrap).toContain("handleFragmentClick");
+    expect(bootstrap).toContain("placeHeldFragmentAt");
+    expect(bootstrap).toContain("tryHandleTokenClick");
+  });
+
   it("keeps the M01 art preview path optional and non-authoritative", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

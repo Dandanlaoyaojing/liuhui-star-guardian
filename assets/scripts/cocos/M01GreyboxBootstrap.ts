@@ -45,6 +45,7 @@ import {
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 
 const { ccclass, property } = _decorator;
+const CLICK_DRAG_THRESHOLD = 6;
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
@@ -74,8 +75,10 @@ export class M01GreyboxBootstrap extends Component {
   private feedbackLabel: Label | null = null;
   private activeDragNode: Node | null = null;
   private activeDragToken: M01GreyboxTokenNode | null = null;
+  private heldFragmentId: string | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
+  private suppressNextRootClick = false;
   private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
@@ -85,6 +88,7 @@ export class M01GreyboxBootstrap extends Component {
   private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
   private readonly stagedEvidenceIds = new Set<string>();
   private readonly tokenPositions = new Map<string, M01GreyboxPoint>();
+  private hintedTargetIds = new Set<string>();
 
   start(): void {
     resources.load("configs/stage1/m01-memory-gear", JsonAsset, (error, asset) => {
@@ -103,6 +107,8 @@ export class M01GreyboxBootstrap extends Component {
       this.weakSnappedFragmentsByEvidence.clear();
       this.stagedEvidenceIds.clear();
       this.tokenPositions.clear();
+      this.hintedTargetIds.clear();
+      this.heldFragmentId = undefined;
       this.renderGreybox(this.layout);
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
@@ -122,6 +128,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.setStatus(this.session.activateFilter(filterIdOrColor).status);
+    this.clearHintTargets();
     this.syncFeedbackFromSession();
     this.syncVisualState();
   }
@@ -133,6 +140,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.setStatus(this.session.selectFragment(fragmentId).status);
+    this.clearHintTargets();
     this.syncFeedbackFromSession();
     this.syncVisualState();
   }
@@ -153,6 +161,7 @@ export class M01GreyboxBootstrap extends Component {
 
     const placed = this.session.placeSelectedFragment(slotId);
     this.setStatus(placed.status);
+    this.clearHintTargets();
     this.syncFeedbackFromSession();
     this.syncVisualState();
     this.handlePlaceResult(placed);
@@ -166,6 +175,7 @@ export class M01GreyboxBootstrap extends Component {
 
     const placed = this.session.placeSelectedFragment(slotId);
     this.setStatus(placed.status);
+    this.clearHintTargets();
     this.syncFeedbackFromSession();
     this.syncVisualState();
     this.handlePlaceResult(placed);
@@ -178,6 +188,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     const hint = this.session.requestHint();
+    this.hintedTargetIds = new Set(hint.targetIds);
     this.setStatus(hint.text);
     this.setFeedback(hint.text);
     this.syncVisualState();
@@ -217,6 +228,9 @@ export class M01GreyboxBootstrap extends Component {
     this.artPreviewFallbackUnderlayIds.clear();
     this.greyboxRoot = new Node("M01GreyboxRuntime");
     this.node.addChild(this.greyboxRoot);
+    const rootTransform = this.greyboxRoot.addComponent(UITransform);
+    rootTransform.setContentSize(layout.canvas.width, layout.canvas.height);
+    this.greyboxRoot.on("touch-end", (event: EventTouch) => this.placeHeldFragmentAt(event), this);
     this.bindGlobalPointerInput();
 
     this.addShapeNode(this.greyboxRoot, layout.gear);
@@ -578,7 +592,14 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    if (this.tryHandleTokenClick(node, token, transition.outcome.session)) {
+      this.suppressRootClickOnce();
+      this.clearActiveDrag();
+      return;
+    }
+
     this.handleTokenDrop(node, token, transition.outcome.session.currentPosition);
+    this.suppressRootClickOnce();
     this.clearActiveDrag();
   }
 
@@ -594,6 +615,57 @@ export class M01GreyboxBootstrap extends Component {
     this.activeDragToken = null;
   }
 
+  private suppressRootClickOnce(): void {
+    this.suppressNextRootClick = true;
+    setTimeout(() => {
+      this.suppressNextRootClick = false;
+    }, 0);
+  }
+
+  private tryHandleTokenClick(
+    node: Node,
+    token: M01GreyboxTokenNode,
+    session: NonNullable<ReturnType<typeof endDragSession>["outcome"]["session"]>
+  ): boolean {
+    const movedSquared =
+      session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
+    if (movedSquared > CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD) {
+      return false;
+    }
+
+    if (token.kind === "fragment") {
+      this.handleFragmentClick(node, token, session.currentPosition);
+      return true;
+    }
+
+    return false;
+  }
+
+  private handleFragmentClick(
+    node: Node,
+    token: M01GreyboxTokenNode,
+    position: M01GreyboxPoint
+  ): void {
+    if (!this.session) {
+      this.resetTokenNode(node, token);
+      return;
+    }
+
+    const picked = this.session.pickFragment(token.controllerId);
+    this.setStatus(picked.status);
+    this.clearHintTargets();
+    this.syncFeedbackFromSession();
+    this.syncVisualState();
+    if (!picked.accepted) {
+      this.resetTokenNode(node, token);
+      return;
+    }
+
+    this.heldFragmentId = token.controllerId;
+    node.setPosition(position.x, position.y, 0);
+    this.tokenPositions.set(token.controllerId, position);
+  }
+
   private handleTokenDrop(node: Node, token: M01GreyboxTokenNode, dropPosition: M01GreyboxPoint): void {
     if (!this.layout || !this.session) {
       this.resetTokenNode(node, token);
@@ -603,6 +675,7 @@ export class M01GreyboxBootstrap extends Component {
     const action = resolveM01GreyboxDrop(this.layout, token, dropPosition);
     if (action.type === "activate_filter") {
       this.resetTokenNode(node, token);
+      this.clearHintTargets();
       this.selectFilter(action.filterId);
       return;
     }
@@ -614,6 +687,7 @@ export class M01GreyboxBootstrap extends Component {
         ? this.tryRevealFragmentAtPosition(dropPosition)
         : undefined;
       this.setStatus(revealed?.status ?? selected.status);
+      this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
       return;
@@ -631,6 +705,7 @@ export class M01GreyboxBootstrap extends Component {
 
       const placed = this.session.placeSelectedFragment(action.slotId);
       this.setStatus(placed.status);
+      this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
       this.handlePlaceResult(placed);
@@ -652,6 +727,8 @@ export class M01GreyboxBootstrap extends Component {
 
       this.trackWeakSnappedFragment(action.evidenceId, action.fragmentId);
       this.snapNodeToEvidence(node, action.evidenceId, dropPosition);
+      this.heldFragmentId = undefined;
+      this.clearHintTargets();
       this.trySubmitWeakSnappedEvidencePair(action.evidenceId);
       this.tryValidateCompleteEvidenceCandidate();
       this.syncVisualState();
@@ -672,6 +749,8 @@ export class M01GreyboxBootstrap extends Component {
       const freePosition = action.position ?? dropPosition;
       const placed = this.session.placeHeldFragment(freePosition);
       this.setStatus(placed.status);
+      this.heldFragmentId = undefined;
+      this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
       node.setPosition(freePosition.x, freePosition.y, 0);
@@ -680,6 +759,26 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.resetTokenNode(node, token);
+  }
+
+  private placeHeldFragmentAt(event: M01GreyboxPointerEvent): void {
+    if (this.suppressNextRootClick) {
+      this.suppressNextRootClick = false;
+      return;
+    }
+
+    const heldFragmentId = this.heldFragmentId;
+    if (!heldFragmentId) {
+      return;
+    }
+
+    const entry = this.greyboxNodes.get(heldFragmentId);
+    if (!entry) {
+      this.heldFragmentId = undefined;
+      return;
+    }
+
+    this.handleTokenDrop(entry.node, entry.token, this.eventToLocalPoint(event));
   }
 
   private tryRevealFragmentAtPosition(
@@ -782,6 +881,10 @@ export class M01GreyboxBootstrap extends Component {
     this.tokenPositions.set(token.controllerId, token.position);
   }
 
+  private clearHintTargets(): void {
+    this.hintedTargetIds.clear();
+  }
+
   private findTokenAtPosition(
     tokens: M01GreyboxTokenNode[],
     position: M01GreyboxPoint
@@ -856,6 +959,15 @@ export class M01GreyboxBootstrap extends Component {
           view.repaired ? 4 : 2
         );
         this.syncArtSpriteState(entry.artSprite, view.presentation);
+      } else if (entry.token.kind === "flashlight" || entry.token.kind === "evidence") {
+        const hinted = this.hintedTargetIds.has(entry.token.controllerId);
+        this.applyTokenGraphicsState(
+          entry.graphics,
+          entry.token,
+          hinted ? "hinted" : "normal",
+          hinted ? 5 : entry.token.kind === "evidence" ? 3 : 2
+        );
+        this.syncArtSpriteState(entry.artSprite, hinted ? "hinted" : "normal");
       }
     }
   }
@@ -902,6 +1014,14 @@ export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): 
 
   if (token.kind === "gear") {
     drawGear(graphics, token.size.width / 2);
+  } else if (token.shapeToken === "arc_lens") {
+    drawArcLens(graphics, token.size.width, token.size.height);
+  } else if (token.shapeToken === "notch_lens") {
+    drawNotchLens(graphics, token.size.width, token.size.height);
+  } else if (token.shapeToken === "crescent_overlap") {
+    drawCrescentOverlap(graphics, token.size.width, token.size.height);
+  } else if (token.shapeToken === "branch_lens") {
+    drawBranchLens(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "triangle") {
     drawTriangle(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "hexagon") {
@@ -958,6 +1078,61 @@ function drawFilter(graphics: Graphics, width: number, height: number): void {
   graphics.rect(-width / 2, -height / 2, width, height);
 }
 
+function drawArcLens(graphics: Graphics, width: number, height: number): void {
+  graphics.moveTo(-width / 2, 0);
+  graphics.lineTo(-width / 5, height / 3);
+  graphics.lineTo(width / 2, height / 6);
+  graphics.lineTo(width / 5, -height / 3);
+  graphics.close();
+}
+
+function drawNotchLens(graphics: Graphics, width: number, height: number): void {
+  graphics.moveTo(-width / 2, -height / 3);
+  graphics.lineTo(-width / 8, -height / 3);
+  graphics.lineTo(0, -height / 2);
+  graphics.lineTo(width / 8, -height / 3);
+  graphics.lineTo(width / 2, -height / 3);
+  graphics.lineTo(width / 2, height / 3);
+  graphics.lineTo(-width / 2, height / 3);
+  graphics.close();
+}
+
+function drawCrescentOverlap(graphics: Graphics, width: number, height: number): void {
+  const outerRadius = Math.min(width, height) / 2;
+  const innerRadius = outerRadius * 0.72;
+
+  for (let i = 0; i <= 8; i += 1) {
+    const angle = -Math.PI * 0.68 + (Math.PI * 1.36 * i) / 8;
+    const x = Math.cos(angle) * outerRadius;
+    const y = Math.sin(angle) * outerRadius;
+    if (i === 0) {
+      graphics.moveTo(x, y);
+    } else {
+      graphics.lineTo(x, y);
+    }
+  }
+
+  for (let i = 8; i >= 0; i -= 1) {
+    const angle = -Math.PI * 0.52 + (Math.PI * 1.04 * i) / 8;
+    graphics.lineTo(Math.cos(angle) * innerRadius + width * 0.14, Math.sin(angle) * innerRadius);
+  }
+  graphics.close();
+}
+
+function drawBranchLens(graphics: Graphics, width: number, height: number): void {
+  const stem = width * 0.12;
+  graphics.moveTo(-stem, -height / 2);
+  graphics.lineTo(stem, -height / 2);
+  graphics.lineTo(stem, -height / 8);
+  graphics.lineTo(width / 2, height / 5);
+  graphics.lineTo(width / 3, height / 2);
+  graphics.lineTo(0, height / 8);
+  graphics.lineTo(-width / 3, height / 2);
+  graphics.lineTo(-width / 2, height / 5);
+  graphics.lineTo(-stem, -height / 8);
+  graphics.close();
+}
+
 function colorForToken(
   colorToken: string,
   kind: M01GreyboxTokenNode["kind"],
@@ -989,7 +1164,10 @@ function colorForToken(
   const colors: Record<string, [number, number, number]> = {
     red: [180, 92, 70],
     blue: [88, 119, 132],
-    yellow: [188, 158, 87]
+    yellow: [188, 158, 87],
+    purple: [139, 105, 156],
+    green: [92, 145, 112],
+    orange: [199, 126, 75]
   };
   const [r, g, b] = colors[colorToken] ?? [160, 154, 132];
 

@@ -87,6 +87,7 @@ Last updated: 2026-04-30
 - 2026-04-30 已完成新版 M01 plan 的 Task 6：`M01GreyboxSession` 现在支持选择手电、显色观察、点击拾起/自由放置、弱磁吸提示、证据 pair 暂存/替换、底光整体验证和成功后 ToolCard 解锁；旧 filter/slot session API 保留给 legacy 灰盒壳子。
 - 2026-04-30 Task 6 review 修复：新版 session API 对 legacy config 改为返回拒绝而不是访问缺失数组崩溃；真实 overlap-evidence 配置的提示流改为手电 -> 候选碎片 -> 形状兼容证据。
 - 2026-04-30 已完成新版 M01 plan 的 Task 7：`M01GreyboxBootstrap` 现在会渲染新版拼接盘、证据点、候选碎片和三色手电；拖拽手电会进入 `selectFlashlight()`，落在碎片上会尝试 `revealFragment()`；碎片可自由放置，形状匹配证据时弱磁吸，第二个碎片吸上同一证据后自动 `submitEvidencePair()`，全部证据 staged 后自动 `validateCandidateStructure()`，不新增单独校验按钮。
+- 2026-04-30 Task 7 review 修复：证据点现在使用紫 / 绿 / 橘融合色，而不是灰色 fallback；`arc_lens` / `notch_lens` / `crescent_overlap` / `branch_lens` 有独立简笔局部形状；新版 hint 可高亮手电和证据点；碎片支持点击拾起并点击拼接盘任意位置放下，仍保留拖拽路径。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
 - 已实现 `DragHandler` / `SnapZone` / `FilterSystem` 交互基础件。
@@ -175,6 +176,7 @@ Last updated: 2026-04-30
 - 2026-04-30 新版 M01 Task 6 验证：先新增 session tests 并确认红灯（`selectFlashlight` / `revealFragment` / `submitEvidencePair` / `pickFragment` 等方法不存在），随后实现新版 session API。验证：`npm test -- tests/cocos/M01GreyboxSession.test.ts` 成功（15 个测试）；`npm test -- tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxDrag.test.ts tests/cocos/M01GreyboxLayout.test.ts tests/levels/stage1/M01MemoryGearController.test.ts` 成功（40 个测试）；`npm run typecheck` 成功。
 - 2026-04-30 Task 6 review 修复验证：新增 session tests 并确认红灯（legacy config 下 `selectFlashlight` 抛 TypeError；真实配置 hint targetIds 为空），随后修复数组兼容和新版 hint 分支。验证：`npm test -- tests/cocos/M01GreyboxSession.test.ts` 成功（17 个测试）；`npm test -- tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxDrag.test.ts tests/cocos/M01GreyboxLayout.test.ts tests/levels/stage1/M01MemoryGearController.test.ts` 成功（42 个测试）；`npm run typecheck` 成功。
 - 2026-04-30 新版 M01 Task 7 验证：先新增 bootstrap scaffold 红灯，要求 `layout.board` / `layout.flashlights` / `layout.evidence` 渲染路径和 `select_flashlight` / `weak_snap_fragment` / `place_fragment_freely` action 接线；实现后 `npm test -- tests/cocosProjectScaffold.test.ts` 成功（16 个测试），`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxDrag.test.ts` 成功（37 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 92 个测试）。
+- 2026-04-30 Task 7 review 修复验证：先新增 scaffold/session 红灯，覆盖融合色 palette、局部证据 shape 绘制、新版 hint target 高亮、点击拾取/点击放置，以及弱磁吸后释放 held fragment；实现后 `npm test -- tests/cocosProjectScaffold.test.ts` 成功（19 个测试），`npm test -- tests/cocos/M01GreyboxSession.test.ts` 成功（18 个测试），`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts tests/cocos/M01GreyboxDrag.test.ts` 成功（41 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 96 个测试），`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 返回 0 vulnerabilities。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

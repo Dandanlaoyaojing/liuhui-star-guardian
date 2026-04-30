@@ -349,4 +349,19 @@ describe("M01GreyboxSession", () => {
       bottomLight: "off"
     });
   });
+
+  it("releases the held fragment after a weak snap placement", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+
+    session.selectFlashlight("flashlight_red");
+    session.pickFragment("fragment_a");
+    expect(session.weakSnapFragmentToEvidence("fragment_a", "evidence_purple_arc")).toMatchObject({
+      accepted: true
+    });
+
+    expect(session.requestHint()).toMatchObject({
+      level: 2,
+      targetIds: expect.arrayContaining(["fragment_b"])
+    });
+  });
 });

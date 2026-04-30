@@ -396,6 +396,8 @@ export class M01GreyboxSession {
 
     const snapped = this.weakSnappedFragmentsByEvidence.get(evidence.id) ?? [];
     this.weakSnappedFragmentsByEvidence.set(evidence.id, [...new Set([...snapped, fragmentId])]);
+    this.heldFragmentId = undefined;
+    this.selectedFragmentId = undefined;
     const completionState = this.controller.getCompletionState();
 
     return {
