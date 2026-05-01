@@ -13,6 +13,7 @@
 #   CODEX_MODEL          - codex model to use (default: codex default)
 #   CODEX_SANDBOX        - sandbox mode (default: workspace-write)
 #   CODEX_VERBOSE        - set to 1 to include command execution output (default: 0)
+#   CODEX_DANGEROUS_RUN  - set to 1 only when an external sandbox already exists
 
 set -euo pipefail
 
@@ -58,7 +59,11 @@ if [[ "$is_review_prompt" == "1" ]]; then
 fi
 
 # build codex arguments
-codex_args=(exec --json --dangerously-bypass-approvals-and-sandbox -s "$CODEX_SANDBOX")
+CODEX_DANGEROUS_RUN="${CODEX_DANGEROUS_RUN:-0}"
+codex_args=(exec --json -s "$CODEX_SANDBOX")
+if [[ "$CODEX_DANGEROUS_RUN" == "1" ]]; then
+    codex_args=(exec --json --dangerously-bypass-approvals-and-sandbox)
+fi
 [[ -n "$CODEX_MODEL" ]] && codex_args+=(-m "$CODEX_MODEL")
 if [[ "$is_review_prompt" == "1" ]]; then
     codex_args+=(-c "features.multi_agent=true")
@@ -84,7 +89,25 @@ if [[ "$CODEX_VERBOSE" != "0" && "$CODEX_VERBOSE" != "1" ]]; then
     CODEX_VERBOSE=0
 fi
 
-printf '%s' "$prompt" | codex "${codex_args[@]}" 2>/dev/null | while IFS= read -r line; do
+result_emitted=0
+codex_status=0
+codex_stream_dir=$(mktemp -d)
+codex_stream_fifo="$codex_stream_dir/codex.jsonl"
+codex_stderr="$codex_stream_dir/codex.stderr"
+mkfifo "$codex_stream_fifo"
+
+cleanup_stream() {
+    rm -rf "$codex_stream_dir"
+}
+
+trap cleanup_stream EXIT
+
+(
+    printf '%s' "$prompt" | codex "${codex_args[@]}" >"$codex_stream_fifo" 2>"$codex_stderr"
+) &
+codex_pid=$!
+
+while IFS= read -r line; do
     echo "$line" | jq -c --argjson verbose "$CODEX_VERBOSE" '
         if .type == "item.completed" then
             if .item.type == "agent_message" then
@@ -99,7 +122,22 @@ printf '%s' "$prompt" | codex "${codex_args[@]}" 2>/dev/null | while IFS= read -
         else empty
         end
     ' 2>/dev/null || true
-done || true
+    if [[ "$line" == *'"type":"turn.completed"'* ]]; then
+        result_emitted=1
+    fi
+done < "$codex_stream_fifo"
 
-# emit fallback result event if codex exited without turn.completed
-echo '{"type":"result","result":""}'
+wait "$codex_pid"
+codex_status=$?
+
+if [[ "$codex_status" -ne 0 ]]; then
+    if [[ -s "$codex_stderr" ]]; then
+        cat "$codex_stderr" >&2
+    fi
+    echo "error: codex exited with status $codex_status" >&2
+    exit "$codex_status"
+fi
+
+if [[ "$result_emitted" -eq 0 ]]; then
+    echo '{"type":"result","result":""}'
+fi

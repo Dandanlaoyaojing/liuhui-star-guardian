@@ -48,3 +48,5 @@ Completion note:
 - Selected checkpoint: failed bottom-light validation now briefly reveals the staged fragments' true colors, then returns them to grey after the 2-second flash window.
 - File scope: `assets/scripts/cocos/M01GreyboxSession.ts`, `assets/scripts/cocos/M01GreyboxBootstrap.ts`, `tests/cocos/M01GreyboxSession.test.ts`, `tests/cocosProjectScaffold.test.ts`, `production/active.md`.
 - Verification evidence: `npm test -- tests/cocos/M01GreyboxSession.test.ts`, `npm test -- tests/cocosProjectScaffold.test.ts`, `npm run typecheck`, `npm test`, and `git diff --check` all passed; `curl -I http://127.0.0.1:7456/` returned `HTTP/1.1 200 OK`.
+- Commit hash: `3fae4a2`
+- Remaining dirty files: `profiles/v2/packages/scene.json`

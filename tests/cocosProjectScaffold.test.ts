@@ -246,8 +246,9 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("view.observedColor");
     expect(bootstrap).toContain("colorTokenOverride");
     expect(bootstrap).toContain("colorForToken(colorTokenOverride ?? token.colorToken");
-    expect(bootstrap).toContain("observedColorResetTimeouts");
-    expect(bootstrap).toContain("this.observedColorResetTimeouts.push");
+    expect(bootstrap).toContain("ObservedResetScheduler");
+    expect(bootstrap).toContain("observedColorResetScheduler");
+    expect(bootstrap).toContain("this.observedColorResetScheduler.schedule");
     expect(bootstrap).toContain("scheduleObservedColorReset");
     expect(bootstrap).toContain("clearObservedColorReset");
     expect(bootstrap).toContain("M01_OBSERVED_REVEAL_MS");

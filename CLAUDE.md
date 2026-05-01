@@ -18,9 +18,16 @@
 ## Shared Workflow
 
 - Follow `docs/ai-workflow.md` for the common execution flow.
+- Follow `docs/ai-autonomous-checkpoint-loop.md` when the user asks to keep moving autonomously with prompts like "继续下一步", "开始下一步工作", or "自己 review 一下".
 - Before substantial work, read `production/active.md` if it exists.
 - For substantial work, keep `production/active.md` updated with the current objective, scope, decisions, blockers, and next step.
 - Use `production/active.md` as the cross-session artifact, not chat memory.
+
+## Automation
+
+- The repo ships a project-local `.ralphex/config` that routes Ralphex task/review execution through `.ralphex/bin/codex-as-claude.sh`.
+- Default automation runs should keep `CODEX_SANDBOX=workspace-write`; only set `CODEX_DANGEROUS_RUN=1` when an external sandbox already exists and the operator explicitly intends that mode.
+- `.ralphex/progress/`, `.ralphex/worktrees/`, `.ralphex/agents/`, and `.ralphex/prompts/` are local runtime state. Do not treat them as source-of-truth docs.
 
 ## Core Rules
 

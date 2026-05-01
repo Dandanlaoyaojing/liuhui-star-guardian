@@ -356,6 +356,29 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("treats a moved staged fragment as unstaged before validation", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    submitCorrectCandidate(session);
+
+    expect(session.pickFragment("fragment_a")).toMatchObject({
+      accepted: true,
+      heldFragmentId: "fragment_a"
+    });
+    expect(session.placeHeldFragment({ x: 320, y: -180 })).toMatchObject({
+      accepted: true,
+      fragmentId: "fragment_a",
+      placement: "free"
+    });
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "incomplete_candidate",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+  });
+
   it("reveals staged fragment base colors only during the failed bottom-light flash window", () => {
     let now = 1_000;
     const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });

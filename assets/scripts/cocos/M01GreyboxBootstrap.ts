@@ -46,6 +46,7 @@ import {
   buildM01GreyboxStaticArtPlan,
   getM01GreyboxRuntimeSpriteResourceForToken
 } from "./M01GreyboxArt.ts";
+import { ObservedResetScheduler } from "./ObservedResetScheduler.ts";
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 
 const { ccclass, property } = _decorator;
@@ -84,7 +85,9 @@ export class M01GreyboxBootstrap extends Component {
   private activeFlashlightId: string | undefined;
   private activeFlashlightColor: M01BaseColor | undefined;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
-  private observedColorResetTimeouts: ReturnType<typeof setTimeout>[] = [];
+  private readonly observedColorResetScheduler = new ObservedResetScheduler(() => {
+    this.syncVisualState();
+  });
   private heldFragmentId: string | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
@@ -96,7 +99,6 @@ export class M01GreyboxBootstrap extends Component {
   >();
   private readonly artPreviewFallbackUnderlayIds = new Set<string>();
   private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
-  private readonly stagedEvidenceIds = new Set<string>();
   private readonly tokenPositions = new Map<string, M01GreyboxPoint>();
   private hintedTargetIds = new Set<string>();
 
@@ -115,7 +117,6 @@ export class M01GreyboxBootstrap extends Component {
       this.toolCardRoot = null;
       this.feedbackLabel = null;
       this.weakSnappedFragmentsByEvidence.clear();
-      this.stagedEvidenceIds.clear();
       this.tokenPositions.clear();
       this.hintedTargetIds.clear();
       this.heldFragmentId = undefined;
@@ -960,8 +961,9 @@ export class M01GreyboxBootstrap extends Component {
       } else {
         this.weakSnappedFragmentsByEvidence.set(evidenceId, next);
       }
-      this.stagedEvidenceIds.delete(evidenceId);
     }
+
+    this.session?.unstageFragment(fragmentId);
   }
 
   private trySubmitWeakSnappedEvidencePair(evidenceId: string): void {
@@ -979,9 +981,6 @@ export class M01GreyboxBootstrap extends Component {
       fragmentIds[1]
     ]);
     this.setStatus(submitted.status);
-    if (submitted.accepted) {
-      this.stagedEvidenceIds.add(evidenceId);
-    }
   }
 
   private tryValidateCompleteEvidenceCandidate(): void {
@@ -989,9 +988,7 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const allEvidenceStaged = this.layout.evidence.every((evidence) =>
-      this.stagedEvidenceIds.has(evidence.controllerId)
-    );
+    const allEvidenceStaged = this.session.areAllEvidenceStaged();
     if (!allEvidenceStaged) {
       return;
     }
@@ -1035,26 +1032,15 @@ export class M01GreyboxBootstrap extends Component {
   private scheduleObservedColorReset(
     revealed: ReturnType<M01GreyboxSession["revealFragment"]> | undefined
   ): void {
-    this.clearObservedColorReset();
     if (!revealed?.accepted) {
       return;
     }
 
-    const timeout = setTimeout(() => {
-      this.observedColorResetTimeouts = this.observedColorResetTimeouts.filter(
-        (candidate) => candidate !== timeout
-      );
-      this.syncVisualState();
-    }, M01_OBSERVED_REVEAL_MS);
-    this.observedColorResetTimeouts.push(timeout);
+    this.observedColorResetScheduler.schedule(revealed.fragmentId, M01_OBSERVED_REVEAL_MS);
   }
 
   private clearObservedColorReset(): void {
-    for (const timeout of this.observedColorResetTimeouts) {
-      clearTimeout(timeout);
-    }
-
-    this.observedColorResetTimeouts = [];
+    this.observedColorResetScheduler.clearAll();
   }
 
   private renderCompletionToolCardIfAvailable(completed: boolean): void {

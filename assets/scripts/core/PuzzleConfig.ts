@@ -285,6 +285,8 @@ function validateGoals(value: unknown, errors: string[]): void {
       errors.push(`${path}.params must be an object`);
     } else if (goal.type === "all_sorted") {
       validateAllSortedGoalParams(goal.params, path, errors);
+    } else if (goal.type === "overlap_evidence_reconstructed") {
+      validateOverlapEvidenceGoalParams(goal.params, path, errors);
     }
     requireOptionalString(goal, "customScript", errors, `${path}.customScript`);
   });
@@ -309,6 +311,34 @@ function validateAllSortedGoalParams(
   }
   if (params.entityTag !== undefined && !isNonEmptyString(params.entityTag)) {
     errors.push(`${path}.params.entityTag must be a non-empty string`);
+  }
+}
+
+function validateOverlapEvidenceGoalParams(
+  params: Record<string, unknown>,
+  path: string,
+  errors: string[]
+): void {
+  if (params.candidateFragments !== "config_defined") {
+    errors.push(`${path}.params.candidateFragments must equal "config_defined"`);
+  }
+  if (params.requiredFragments !== "solution_defined") {
+    errors.push(`${path}.params.requiredFragments must equal "solution_defined"`);
+  }
+  validateNumberTuple(params.recommendedCandidateRange, `${path}.params.recommendedCandidateRange`, errors);
+  validateNumberTuple(params.evidenceCount, `${path}.params.evidenceCount`, errors);
+
+  if (!isFiniteNumber(params.maxLayersPerEvidence) || params.maxLayersPerEvidence < 1) {
+    errors.push(`${path}.params.maxLayersPerEvidence must be a positive finite number`);
+  }
+  if (!isFiniteNumber(params.validationLightSeconds) || params.validationLightSeconds <= 0) {
+    errors.push(`${path}.params.validationLightSeconds must be a positive finite number`);
+  }
+  if (!isNonEmptyStringArray(params.baseColors)) {
+    errors.push(`${path}.params.baseColors must be a non-empty string array`);
+  }
+  if (!Array.isArray(params.blendColors) || params.blendColors.length < 2 || !isStringArray(params.blendColors)) {
+    errors.push(`${path}.params.blendColors must contain at least two entries`);
   }
 }
 
@@ -445,4 +475,16 @@ function isStringArray(value: unknown): value is string[] {
 
 function isNonEmptyStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+}
+
+function validateNumberTuple(value: unknown, path: string, errors: string[]): void {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    !isFiniteNumber(value[0]) ||
+    !isFiniteNumber(value[1]) ||
+    value[0] > value[1]
+  ) {
+    errors.push(`${path} must be a [min, max] tuple`);
+  }
 }

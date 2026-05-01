@@ -124,8 +124,6 @@ export class M01GreyboxSession {
     string,
     { color: M01BlendColor; expiresAt: number }
   >();
-  private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
-  private readonly stagedEvidenceIds = new Set<string>();
 
   private constructor(config: M01MemoryGearConfig, options: M01GreyboxSessionOptions = {}) {
     this.config = config;
@@ -348,6 +346,7 @@ export class M01GreyboxSession {
       };
     }
 
+    this.controller.unstageFragment(fragmentId);
     this.heldFragmentId = fragmentId;
     this.selectedFragmentId = fragmentId;
     this.observedFragmentColors.delete(fragmentId);
@@ -412,8 +411,6 @@ export class M01GreyboxSession {
       };
     }
 
-    const snapped = this.weakSnappedFragmentsByEvidence.get(evidence.id) ?? [];
-    this.weakSnappedFragmentsByEvidence.set(evidence.id, [...new Set([...snapped, fragmentId])]);
     this.heldFragmentId = undefined;
     this.selectedFragmentId = undefined;
     this.observedFragmentColors.delete(fragmentId);
@@ -438,7 +435,7 @@ export class M01GreyboxSession {
     completed: false;
     status: string;
   } {
-    const replacedPreviousPair = this.stagedEvidenceIds.has(evidenceId);
+    const replacedPreviousPair = this.controller.isEvidenceStaged(evidenceId);
     const result = this.controller.stageEvidencePair(evidenceId, fragmentIds);
     const completionState = this.controller.getCompletionState();
 
@@ -454,9 +451,6 @@ export class M01GreyboxSession {
       };
     }
 
-    this.stagedEvidenceIds.add(evidenceId);
-    this.weakSnappedFragmentsByEvidence.set(evidenceId, [...fragmentIds]);
-
     return {
       accepted: true,
       replacedPreviousPair,
@@ -465,6 +459,19 @@ export class M01GreyboxSession {
       completed: false,
       status: this.format("evidenceCompleted", { evidenceId })
     };
+  }
+
+  unstageFragment(fragmentId: string): string[] {
+    return this.controller.unstageFragment(fragmentId);
+  }
+
+  isEvidenceStaged(evidenceId: string): boolean {
+    return this.controller.isEvidenceStaged(evidenceId);
+  }
+
+  areAllEvidenceStaged(): boolean {
+    const evidence = this.config.evidence ?? [];
+    return evidence.length > 0 && evidence.every((candidate) => this.controller.isEvidenceStaged(candidate.id));
   }
 
   validateCandidateStructure(): {
@@ -698,10 +705,7 @@ export class M01GreyboxSession {
       return undefined;
     }
 
-    const isStaged = [...this.weakSnappedFragmentsByEvidence.values()].some((fragmentIds) =>
-      fragmentIds.includes(fragmentId)
-    );
-    if (!isStaged) {
+    if (!this.controller.isFragmentStaged(fragmentId)) {
       return undefined;
     }
 

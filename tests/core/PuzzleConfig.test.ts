@@ -82,6 +82,42 @@ describe("validatePuzzleConfig", () => {
     }
   });
 
+  it("rejects overlap-evidence goals with malformed params", () => {
+    const invalidConfig = structuredClone(m01Config) as typeof m01Config;
+    invalidConfig.goals[0] = {
+      ...invalidConfig.goals[0],
+      params: {
+        ...invalidConfig.goals[0]?.params,
+        validationLightSeconds: 0,
+        baseColors: [],
+        blendColors: ["orange"],
+        recommendedCandidateRange: [16],
+        evidenceCount: [4]
+      }
+    };
+
+    const result = validatePuzzleConfig(invalidConfig);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContain(
+        "goals[0].params.validationLightSeconds must be a positive finite number"
+      );
+      expect(result.errors).toContain(
+        "goals[0].params.baseColors must be a non-empty string array"
+      );
+      expect(result.errors).toContain(
+        "goals[0].params.blendColors must contain at least two entries"
+      );
+      expect(result.errors).toContain(
+        "goals[0].params.recommendedCandidateRange must be a [min, max] tuple"
+      );
+      expect(result.errors).toContain(
+        "goals[0].params.evidenceCount must be a [min, max] tuple"
+      );
+    }
+  });
+
   it("rejects configs with missing required scene data", () => {
     const invalidConfig = {
       ...validM01LikeConfig,

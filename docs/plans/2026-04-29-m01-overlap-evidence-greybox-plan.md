@@ -1,5 +1,8 @@
 # M01 Overlap Evidence Greybox Implementation Plan
 
+Status: implemented on branch `codex/m01-drag-greybox`
+Historical note: Tasks 1-10 were completed during the 2026-04-30 to 2026-05-01 M01 first-preview push. Use `docs/plans/2026-05-01-m01-first-preview-ralphex.md` and `production/active.md` for follow-on polish instead of re-executing this plan from the top.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Rebuild M01 from the old filter/slot sorter into the new greybox prototype: a configurable pool of hidden-color candidate fragments, a freely switchable three-color flashlight, target overlap evidence, weak magnetic shape snapping, and a bottom-light whole-structure validation pass.
@@ -56,7 +59,7 @@ The authoritative spec is [game-design-spec.md](/Users/danmac/liuhui-star-guardi
 
 ---
 
-## Task 1: Add M01 Color Blending Domain Rules
+## Task 1: Add M01 Color Blending Domain Rules (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/levels/stage1/M01MemoryGearController.ts`
@@ -138,7 +141,7 @@ git commit -m "test: add M01 pigment blending rules"
 
 ---
 
-## Task 2: Replace M01 Config Shape With Candidate Fragments And Evidence
+## Task 2: Replace M01 Config Shape With Candidate Fragments And Evidence (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/resources/configs/stage1/m01-memory-gear.json`
@@ -378,7 +381,7 @@ git commit -m "feat: define M01 overlap evidence config"
 
 ---
 
-## Task 3: Implement Candidate Structure And Bottom-Light Validation Controller
+## Task 3: Implement Candidate Structure And Bottom-Light Validation Controller (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/levels/stage1/M01MemoryGearController.ts`
@@ -612,7 +615,7 @@ git commit -m "feat: validate M01 overlap evidence structure"
 
 ---
 
-## Task 4: Rebuild Greybox Layout For Flashlight And Evidence
+## Task 4: Rebuild Greybox Layout For Flashlight And Evidence (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/cocos/M01GreyboxLayout.ts`
@@ -699,7 +702,7 @@ git commit -m "feat: layout M01 overlap evidence greybox"
 
 ---
 
-## Task 5: Replace Drop Resolution With Weak Magnetic Evidence Snapping
+## Task 5: Replace Drop Resolution With Weak Magnetic Evidence Snapping (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/cocos/M01GreyboxDrag.ts`
@@ -785,7 +788,7 @@ git commit -m "feat: add weak magnetic evidence snapping"
 
 ---
 
-## Task 6: Update Greybox Session For Flashlight, Reveal, Staging, And Bottom-Light Validation
+## Task 6: Update Greybox Session For Flashlight, Reveal, Staging, And Bottom-Light Validation (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/cocos/M01GreyboxSession.ts`
@@ -1010,7 +1013,7 @@ git commit -m "feat: drive M01 bottom-light validation session"
 
 ---
 
-## Task 7: Adapt Bootstrap Rendering And Input Wiring
+## Task 7: Adapt Bootstrap Rendering And Input Wiring (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/cocos/M01GreyboxBootstrap.ts`
@@ -1101,7 +1104,7 @@ git commit -m "feat: render M01 overlap evidence greybox"
 
 ---
 
-## Task 8: Update Art Preview Contract To Stop Loading Old Slot/Filter Art By Default
+## Task 8: Update Art Preview Contract To Stop Loading Old Slot/Filter Art By Default (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/scripts/cocos/M01GreyboxArt.ts`
@@ -1154,7 +1157,7 @@ git commit -m "chore: quarantine legacy M01 sorter art"
 
 ---
 
-## Task 9: Update ToolCard And Visible Text
+## Task 9: Update ToolCard And Visible Text (completed 2026-04-30)
 
 **Files:**
 - Modify: `assets/resources/configs/stage1/m01-memory-gear.json`
@@ -1213,7 +1216,7 @@ git commit -m "docs: update M01 tool card copy"
 
 ---
 
-## Task 10: Full Verification And Manual Cocos Smoke
+## Task 10: Full Verification And Manual Cocos Smoke (completed 2026-04-30 and 2026-05-01)
 
 **Files:**
 - No source changes expected unless verification finds a bug.

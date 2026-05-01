@@ -271,6 +271,19 @@ describe("M01MemoryGearController", () => {
     });
   });
 
+  it("rejects validation while the candidate is still incomplete", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"]);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "incomplete_candidate",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+  });
+
   it("turns the bottom light off after the failed validation flash window", () => {
     let now = 10_000;
     const controller = M01MemoryGearController.fromConfig(makeRealConfig(), {
@@ -337,6 +350,22 @@ describe("M01MemoryGearController", () => {
       accepted: true,
       evidenceId: "evidence_purple_arc",
       fragmentIds: ["fragment_a", "fragment_b"]
+    });
+  });
+
+  it("removes staged evidence when a fragment is moved away again", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    stageCorrectCandidate(controller);
+
+    expect(controller.unstageFragment("fragment_a")).toEqual(["evidence_purple_arc"]);
+    expect(controller.isEvidenceStaged("evidence_purple_arc")).toBe(false);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "incomplete_candidate",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
     });
   });
 
@@ -428,7 +457,7 @@ describe("M01MemoryGearController", () => {
     expect(controller.getToolCardUnlock()).toBeNull();
   });
 
-  it("loads the real overlap evidence M01 JSON without using the old sort completion path", () => {
+  it("completes and persists the real overlap evidence M01 JSON", () => {
     const config = makeRealConfig();
     const progressStore = createProgressStore({
       storage: createMemoryStorage(),
@@ -447,11 +476,26 @@ describe("M01MemoryGearController", () => {
       usedFragmentCount: 8,
       bottomLight: "off"
     });
-    expect(controller.completeRepairAndUnlockToolCard()).toEqual({
-      completed: false,
-      reason: "not_complete"
+
+    stageCorrectCandidate(controller);
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: true,
+      completed: true,
+      bottomLight: "steady_on"
     });
-    expect(progressStore.isPuzzleCompleted("m01")).toBe(false);
-    expect(progressStore.hasToolCard("m01")).toBe(false);
+
+    const firstUnlock = controller.completeRepairAndUnlockToolCard();
+    const secondUnlock = controller.completeRepairAndUnlockToolCard();
+
+    expect(firstUnlock).toMatchObject({
+      completed: true,
+      newlyUnlocked: true
+    });
+    expect(secondUnlock).toMatchObject({
+      completed: true,
+      newlyUnlocked: false
+    });
+    expect(progressStore.isPuzzleCompleted("m01")).toBe(true);
+    expect(progressStore.hasToolCard("m01")).toBe(true);
   });
 });

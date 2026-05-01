@@ -439,6 +439,7 @@ export class M01MemoryGearController {
       };
     }
 
+    this.invalidateValidatedStructure();
     this.stagedEvidencePairs.set(evidenceId, pair);
     if (this.getCurrentBottomLight() !== "steady_on") {
       this.bottomLight = "off";
@@ -451,6 +452,39 @@ export class M01MemoryGearController {
       fragmentIds: pair,
       colorRevealed: false
     };
+  }
+
+  unstageFragment(fragmentId: string): string[] {
+    const removedEvidenceIds: string[] = [];
+
+    for (const [evidenceId, pair] of this.stagedEvidencePairs) {
+      if (!pair.includes(fragmentId)) {
+        continue;
+      }
+
+      this.stagedEvidencePairs.delete(evidenceId);
+      removedEvidenceIds.push(evidenceId);
+    }
+
+    if (removedEvidenceIds.length > 0) {
+      this.invalidateValidatedStructure();
+      this.bottomLight = "off";
+      this.bottomLightFlashUntil = null;
+    }
+
+    return removedEvidenceIds;
+  }
+
+  isEvidenceStaged(evidenceId: string): boolean {
+    return this.stagedEvidencePairs.has(evidenceId);
+  }
+
+  isFragmentStaged(fragmentId: string): boolean {
+    return [...this.stagedEvidencePairs.values()].some((pair) => pair.includes(fragmentId));
+  }
+
+  getStagedEvidenceIds(): string[] {
+    return [...this.stagedEvidencePairs.keys()];
   }
 
   validateCandidateStructure(): M01CandidateValidationResult {
@@ -688,6 +722,14 @@ export class M01MemoryGearController {
 
   private getNow(): number {
     return this.options.now?.() ?? Date.now();
+  }
+
+  private invalidateValidatedStructure(): void {
+    if (this.repairCompleted) {
+      return;
+    }
+
+    this.reconstructedEvidenceIds.clear();
   }
 
   private assertUnique<T>(map: Map<string, T>, id: string, label: string): void {
