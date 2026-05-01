@@ -43,6 +43,7 @@ export interface M01GreyboxFragmentView {
   interactive: boolean;
   slotId?: string;
   observedColor?: M01BlendColor;
+  validationColor?: M01BaseColor;
   presentation: M01GreyboxFragmentPresentation;
 }
 
@@ -454,6 +455,7 @@ export class M01GreyboxSession {
     }
 
     this.stagedEvidenceIds.add(evidenceId);
+    this.weakSnappedFragmentsByEvidence.set(evidenceId, [...fragmentIds]);
 
     return {
       accepted: true,
@@ -559,6 +561,7 @@ export class M01GreyboxSession {
     const fragment = this.controller.getFragmentState(fragmentId);
     const selected = this.selectedFragmentId === fragmentId;
     const observedColor = this.getObservedFragmentColor(fragmentId);
+    const validationColor = this.getValidationFlashFragmentColor(fragmentId);
 
     if (!fragment) {
       return {
@@ -591,6 +594,18 @@ export class M01GreyboxSession {
         hinted: false,
         interactive: true,
         presentation: "selected"
+      };
+    }
+
+    if (validationColor) {
+      return {
+        fragmentId,
+        selected: false,
+        placed: false,
+        hinted: false,
+        interactive: false,
+        validationColor,
+        presentation: "highlighted"
       };
     }
 
@@ -676,6 +691,21 @@ export class M01GreyboxSession {
     }
 
     return observed.color;
+  }
+
+  private getValidationFlashFragmentColor(fragmentId: string): M01BaseColor | undefined {
+    if (this.controller.getCompletionState().bottomLight !== "flash_then_off") {
+      return undefined;
+    }
+
+    const isStaged = [...this.weakSnappedFragmentsByEvidence.values()].some((fragmentIds) =>
+      fragmentIds.includes(fragmentId)
+    );
+    if (!isStaged) {
+      return undefined;
+    }
+
+    return this.controller.getFragmentState(fragmentId)?.hiddenColor;
   }
 
   private findTargetSlotIds(fragmentId: string): string[] {

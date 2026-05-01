@@ -253,6 +253,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("M01_OBSERVED_REVEAL_MS");
   });
 
+  it("uses failed-validation flash colors when redrawing staged M01 fragments", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("view.validationColor");
+    expect(bootstrap).toContain("view.validationColor ?? view.observedColor");
+  });
+
   it("keeps greybox graphics subdued when art preview is enabled", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

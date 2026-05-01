@@ -1139,7 +1139,7 @@ export class M01GreyboxBootstrap extends Component {
           entry.token,
           view.presentation,
           view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1,
-          view.observedColor
+          view.validationColor ?? view.observedColor
         );
         this.syncArtSpriteState(entry.artSprite, view.presentation);
       } else if (entry.token.kind === "slot") {

@@ -356,6 +356,37 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("reveals staged fragment base colors only during the failed bottom-light flash window", () => {
+    let now = 1_000;
+    const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });
+    submitWrongColorCompleteCandidate(session);
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      bottomLight: "flash_then_off"
+    });
+
+    expect(session.getFragmentView("fragment_a")).toMatchObject({
+      validationColor: "red",
+      presentation: "highlighted"
+    });
+    expect(session.getFragmentView("fragment_i")).toMatchObject({
+      validationColor: "yellow",
+      presentation: "highlighted"
+    });
+    expect(session.getFragmentView("fragment_k")).toMatchObject({
+      presentation: "normal"
+    });
+    expect(session.getFragmentView("fragment_k")).not.toHaveProperty("validationColor");
+
+    now += 2_000;
+
+    expect(session.getFragmentView("fragment_a")).toMatchObject({
+      presentation: "normal"
+    });
+    expect(session.getFragmentView("fragment_a")).not.toHaveProperty("validationColor");
+  });
+
   it("keeps bottom light steady only after the whole candidate structure is correct", () => {
     const session = M01GreyboxSession.fromConfig(realConfig, { now: () => 12345 });
     submitCorrectCandidate(session);
