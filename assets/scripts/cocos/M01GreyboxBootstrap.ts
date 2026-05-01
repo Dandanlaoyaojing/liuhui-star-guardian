@@ -84,7 +84,7 @@ export class M01GreyboxBootstrap extends Component {
   private activeFlashlightId: string | undefined;
   private activeFlashlightColor: M01BaseColor | undefined;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
-  private observedColorResetTimeout: ReturnType<typeof setTimeout> | undefined;
+  private observedColorResetTimeouts: ReturnType<typeof setTimeout>[] = [];
   private heldFragmentId: string | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
@@ -1040,19 +1040,21 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.observedColorResetTimeout = setTimeout(() => {
-      this.observedColorResetTimeout = undefined;
+    const timeout = setTimeout(() => {
+      this.observedColorResetTimeouts = this.observedColorResetTimeouts.filter(
+        (candidate) => candidate !== timeout
+      );
       this.syncVisualState();
     }, M01_OBSERVED_REVEAL_MS);
+    this.observedColorResetTimeouts.push(timeout);
   }
 
   private clearObservedColorReset(): void {
-    if (this.observedColorResetTimeout === undefined) {
-      return;
+    for (const timeout of this.observedColorResetTimeouts) {
+      clearTimeout(timeout);
     }
 
-    clearTimeout(this.observedColorResetTimeout);
-    this.observedColorResetTimeout = undefined;
+    this.observedColorResetTimeouts = [];
   }
 
   private renderCompletionToolCardIfAvailable(completed: boolean): void {
