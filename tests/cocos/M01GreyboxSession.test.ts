@@ -236,6 +236,32 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("shows an observed blend color only before a fragment is moved to assembly", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+
+    session.selectFlashlight("flashlight_red");
+    session.revealFragment("fragment_b");
+
+    expect(session.getFragmentView("fragment_b")).toMatchObject({
+      observedColor: "purple",
+      presentation: "highlighted"
+    });
+
+    session.pickFragment("fragment_b");
+
+    expect(session.getFragmentView("fragment_b")).toMatchObject({
+      presentation: "selected"
+    });
+    expect(session.getFragmentView("fragment_b")).not.toHaveProperty("observedColor");
+
+    session.weakSnapFragmentToEvidence("fragment_b", "evidence_purple_arc");
+
+    expect(session.getFragmentView("fragment_b")).toMatchObject({
+      presentation: "normal"
+    });
+    expect(session.getFragmentView("fragment_b")).not.toHaveProperty("observedColor");
+  });
+
   it("returns rejections instead of throwing when new actions are sent to a legacy config", () => {
     const session = M01GreyboxSession.fromConfig(config);
 

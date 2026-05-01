@@ -533,9 +533,10 @@ export class M01GreyboxBootstrap extends Component {
     graphics: Graphics,
     token: M01GreyboxTokenNode,
     presentation: M01GreyboxPresentation,
-    lineWidth: number
+    lineWidth: number,
+    colorTokenOverride?: string
   ): void {
-    const color = colorForToken(token.colorToken, token.kind, presentation);
+    const color = colorForToken(colorTokenOverride ?? token.colorToken, token.kind, presentation);
     const renderUnderlay =
       !this.enableArtPreview ||
       shouldRenderArtPreviewUnderlay(
@@ -1108,7 +1109,8 @@ export class M01GreyboxBootstrap extends Component {
           entry.graphics,
           entry.token,
           view.presentation,
-          view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1
+          view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1,
+          view.observedColor
         );
         this.syncArtSpriteState(entry.artSprite, view.presentation);
       } else if (entry.token.kind === "slot") {

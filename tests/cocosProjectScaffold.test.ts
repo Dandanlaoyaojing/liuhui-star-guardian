@@ -240,6 +240,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain('placed: new Color(255, 255, 255, 0)');
   });
 
+  it("uses observed flashlight blend colors when redrawing M01 fragments", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("view.observedColor");
+    expect(bootstrap).toContain("colorTokenOverride");
+    expect(bootstrap).toContain("colorForToken(colorTokenOverride ?? token.colorToken");
+  });
+
   it("keeps greybox graphics subdued when art preview is enabled", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

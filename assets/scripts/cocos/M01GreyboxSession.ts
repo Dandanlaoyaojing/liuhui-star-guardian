@@ -40,6 +40,7 @@ export interface M01GreyboxFragmentView {
   hinted: boolean;
   interactive: boolean;
   slotId?: string;
+  observedColor?: M01BlendColor;
   presentation: M01GreyboxFragmentPresentation;
 }
 
@@ -115,6 +116,7 @@ export class M01GreyboxSession {
   private lastToolCard: ToolCard | undefined;
   private lastHint: M01GreyboxHint | undefined;
   private lastFeedback: M01GreyboxFeedback | undefined;
+  private readonly observedFragmentColors = new Map<string, M01BlendColor>();
   private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
   private readonly stagedEvidenceIds = new Set<string>();
 
@@ -270,6 +272,7 @@ export class M01GreyboxSession {
 
     this.activeFlashlightId = flashlight.id;
     this.activeFlashlightColor = flashlight.color;
+    this.observedFragmentColors.clear();
     this.lastHint = undefined;
     this.lastFeedback = undefined;
 
@@ -307,6 +310,8 @@ export class M01GreyboxSession {
       };
     }
 
+    this.observedFragmentColors.set(fragmentId, result.revealedColor);
+
     return {
       accepted: true,
       fragmentId,
@@ -334,6 +339,7 @@ export class M01GreyboxSession {
 
     this.heldFragmentId = fragmentId;
     this.selectedFragmentId = fragmentId;
+    this.observedFragmentColors.delete(fragmentId);
     this.lastFeedback = undefined;
 
     return {
@@ -360,6 +366,7 @@ export class M01GreyboxSession {
 
     this.heldFragmentId = undefined;
     this.selectedFragmentId = undefined;
+    this.observedFragmentColors.delete(fragmentId);
 
     return {
       accepted: true,
@@ -398,6 +405,7 @@ export class M01GreyboxSession {
     this.weakSnappedFragmentsByEvidence.set(evidence.id, [...new Set([...snapped, fragmentId])]);
     this.heldFragmentId = undefined;
     this.selectedFragmentId = undefined;
+    this.observedFragmentColors.delete(fragmentId);
     const completionState = this.controller.getCompletionState();
 
     return {
@@ -540,6 +548,7 @@ export class M01GreyboxSession {
   getFragmentView(fragmentId: string): M01GreyboxFragmentView {
     const fragment = this.controller.getFragmentState(fragmentId);
     const selected = this.selectedFragmentId === fragmentId;
+    const observedColor = this.observedFragmentColors.get(fragmentId);
 
     if (!fragment) {
       return {
@@ -577,6 +586,18 @@ export class M01GreyboxSession {
 
     const activeFilter = this.controller.getActiveFilter();
     if (!activeFilter) {
+      if (observedColor) {
+        return {
+          fragmentId,
+          selected: false,
+          placed: false,
+          hinted: false,
+          interactive: true,
+          observedColor,
+          presentation: "highlighted"
+        };
+      }
+
       return {
         fragmentId,
         selected: false,
