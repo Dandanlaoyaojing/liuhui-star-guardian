@@ -192,6 +192,7 @@ Last updated: 2026-05-01
 - 2026-05-01 M01 手电观察显色 polish 验证：先新增 session / scaffold 红灯，要求手电照到候选碎片后 `getFragmentView()` 暴露 `observedColor` 并让 Bootstrap 使用融合色重绘；拾起或弱磁吸进入拼接流程时立即清除 observed color，保证拼接盘仍保持灰白、防止逐片试色。验证：`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（42 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 104 个测试）。
 - 2026-05-01 M01 手电显色 review 修复：观察显色不再永久留在观察区；`observedColor` 现在以 `M01_OBSERVED_REVEAL_MS = 2000` 作为短暂窗口，过期后 session 自动清除，Bootstrap 也会安排超时重绘，避免画面停在旧融合色。验证：`npm test -- tests/cocos/M01GreyboxSession.test.ts tests/cocosProjectScaffold.test.ts` 成功（43 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 105 个测试）。
 - 2026-05-01 M01 连续手电照射 polish：Bootstrap 的观察显色重绘不再只有一个可被覆盖的 timeout；每次成功照射都会登记独立短定时器，保证连续扫过多块碎片时，每块碎片按自己的 2 秒窗口熄灭。验证：`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（43 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 105 个测试）。
+- 2026-05-01 AI workflow 更新：新增 `docs/ai-autonomous-checkpoint-loop.md`，把当前“执行 checkpoint → 验证 → 自审 → 修复 → 记录 → 提交 → 下一步”的 bounded Ralph loop 固化为 repo-local 工作协议；`docs/ai-workflow.md` 新增入口说明，后续用户说“继续下一步 / 自己 review 一下”时应按该循环自主推进，直到遇到产品决策、工具阻塞或验证不明确。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

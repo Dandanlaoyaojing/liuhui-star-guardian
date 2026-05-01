@@ -187,3 +187,23 @@ At the end of substantial work:
 3. Leave the next step obvious for the next session.
 
 Good handoff beats perfect memory.
+
+---
+
+## 11. Run The Autonomous Checkpoint Loop
+
+When the user says "继续下一步", "开始下一步工作", "继续修", "自己 review 一下", or an equivalent instruction to keep moving, use the repo-local autonomous loop in `docs/ai-autonomous-checkpoint-loop.md`.
+
+In short:
+
+1. pick one bounded checkpoint from `production/active.md` or the active plan
+2. reframe the task and scope
+3. use TDD for behavior changes
+4. verify with the strongest relevant commands
+5. review the just-made diff
+6. fix valid findings
+7. update the handoff
+8. commit and push only scoped files
+9. continue if the next checkpoint is clear, or stop if a product decision or blocker appears
+
+This keeps progress file-driven and review-driven instead of relying on chat memory.
