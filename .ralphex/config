@@ -12,6 +12,9 @@ claude_args =
 external_review_tool = none
 finalize_enabled = false
 
-# ralphex supports overriding these via env when running:
+# The wrapper defaults to CODEX_SANDBOX=workspace-write. Override only for
+# intentionally isolated experiments.
+#
+# ralphex also supports overriding these via env when running:
 # CODEX_MODEL=gpt-5.4
 # CODEX_SANDBOX=workspace-write

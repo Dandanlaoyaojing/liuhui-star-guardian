@@ -194,6 +194,7 @@ Last updated: 2026-05-01
 - 2026-05-01 M01 连续手电照射 polish：Bootstrap 的观察显色重绘不再只有一个可被覆盖的 timeout；每次成功照射都会登记独立短定时器，保证连续扫过多块碎片时，每块碎片按自己的 2 秒窗口熄灭。验证：`npm test -- tests/cocosProjectScaffold.test.ts tests/cocos/M01GreyboxSession.test.ts` 成功（43 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 105 个测试）。
 - 2026-05-01 AI workflow 更新：新增 `docs/ai-autonomous-checkpoint-loop.md`，把当前“执行 checkpoint → 验证 → 自审 → 修复 → 记录 → 提交 → 下一步”的 bounded Ralph loop 固化为 repo-local 工作协议；`docs/ai-workflow.md` 新增入口说明，后续用户说“继续下一步 / 自己 review 一下”时应按该循环自主推进，直到遇到产品决策、工具阻塞或验证不明确。
 - 2026-05-01 ralphex Codex wrapper 试运行：已通过 Homebrew 安装 `ralphex v1.0.1`；默认 Claude Code 路径因 CLI 未登录失败。随后接入官方 `codex-as-claude.sh` wrapper，并在 `/private/tmp/ralphex-smoke` 玩具 repo 中用 `CODEX_SANDBOX=workspace-write CODEX_MODEL=gpt-5.4 ralphex --tasks-only --max-iterations=1` 成功执行单任务 plan，产生 `feat: create smoke marker` 与 `move completed plan` 两个提交。项目内新增 `.ralphex/config` 指向本地 wrapper，暂时关闭 external review / finalize，作为后续小范围真实 plan 试跑入口。
+- 2026-05-01 ralphex wrapper 安全修复：`codex-as-claude.sh` 的默认 `CODEX_SANDBOX` 已从官方脚本的 `danger-full-access` 改为 `workspace-write`，避免直接运行项目内 `ralphex` 时默认给 Codex 全量非沙盒权限。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`

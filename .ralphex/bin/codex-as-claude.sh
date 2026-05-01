@@ -11,7 +11,7 @@
 #
 # environment variables:
 #   CODEX_MODEL          - codex model to use (default: codex default)
-#   CODEX_SANDBOX        - sandbox mode (default: danger-full-access)
+#   CODEX_SANDBOX        - sandbox mode (default: workspace-write)
 #   CODEX_VERBOSE        - set to 1 to include command execution output (default: 0)
 
 set -euo pipefail
@@ -45,7 +45,7 @@ fi
 
 # configurable via environment
 CODEX_MODEL="${CODEX_MODEL:-}"
-CODEX_SANDBOX="${CODEX_SANDBOX:-danger-full-access}"
+CODEX_SANDBOX="${CODEX_SANDBOX:-workspace-write}"
 
 is_review_prompt=0
 if [[ "$prompt" == *"<<<RALPHEX:REVIEW_DONE>>>"* ]]; then
