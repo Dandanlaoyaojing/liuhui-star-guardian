@@ -127,8 +127,10 @@ while IFS= read -r line; do
     fi
 done < "$codex_stream_fifo"
 
+set +e
 wait "$codex_pid"
 codex_status=$?
+set -e
 
 if [[ "$codex_status" -ne 0 ]]; then
     if [[ -s "$codex_stderr" ]]; then
