@@ -174,6 +174,12 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("colorForBottomLightFill");
     expect(bootstrap).toContain('bottomLight === "steady_on"');
     expect(bootstrap).toContain('bottomLight === "flash_then_off"');
+    expect(bootstrap).toContain("validationLightResetTimeout");
+    expect(bootstrap).toContain("scheduleValidationLightReset");
+    expect(bootstrap).toContain("clearValidationLightReset");
+    expect(bootstrap).toContain("validation.validationLightSeconds");
+    expect(bootstrap).toContain("setTimeout(() =>");
+    expect(bootstrap).toContain("clearTimeout(this.validationLightResetTimeout)");
   });
 
   it("uses M01 overlap-evidence copy instead of old filter-slot sorter wording", () => {

@@ -83,6 +83,7 @@ export class M01GreyboxBootstrap extends Component {
   private flashlightBeamGraphics: Graphics | null = null;
   private activeFlashlightId: string | undefined;
   private activeFlashlightColor: M01BaseColor | undefined;
+  private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private heldFragmentId: string | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
@@ -126,6 +127,7 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   onDestroy(): void {
+    this.clearValidationLightReset();
     this.unbindGlobalPointerInput();
     this.dragState = {};
     this.clearActiveDrag();
@@ -996,7 +998,33 @@ export class M01GreyboxBootstrap extends Component {
         : `${validation.status} (${validation.validationLightSeconds}s)`
     );
     this.syncFeedbackFromSession();
+    this.scheduleValidationLightReset(validation.validationLightSeconds, validation.completed);
     this.renderCompletionToolCardIfAvailable(validation.completed);
+  }
+
+  private scheduleValidationLightReset(
+    validationLightSeconds: number | null,
+    completed: boolean
+  ): void {
+    this.clearValidationLightReset();
+    if (validationLightSeconds === null || completed) {
+      return;
+    }
+
+    const delayMs = Math.max(0, validationLightSeconds * 1000);
+    this.validationLightResetTimeout = setTimeout(() => {
+      this.validationLightResetTimeout = undefined;
+      this.syncVisualState();
+    }, delayMs);
+  }
+
+  private clearValidationLightReset(): void {
+    if (this.validationLightResetTimeout === undefined) {
+      return;
+    }
+
+    clearTimeout(this.validationLightResetTimeout);
+    this.validationLightResetTimeout = undefined;
   }
 
   private renderCompletionToolCardIfAvailable(completed: boolean): void {
