@@ -1,0 +1,17 @@
+# Project-local ralphex config.
+#
+# We use Codex as the task/review executor instead of Claude Code. The wrapper
+# translates `codex exec --json` events into the Claude-compatible stream-json
+# format ralphex expects.
+
+claude_command = ./.ralphex/bin/codex-as-claude.sh
+claude_args =
+
+# Keep the first repo trial intentionally conservative. Full multi-agent review
+# can be enabled after a real project plan smoke passes.
+external_review_tool = none
+finalize_enabled = false
+
+# ralphex supports overriding these via env when running:
+# CODEX_MODEL=gpt-5.4
+# CODEX_SANDBOX=workspace-write

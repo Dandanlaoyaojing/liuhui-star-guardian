@@ -8,6 +8,12 @@
 .context/
 .codex/
 
+# ralphex runtime state is local; keep only checked-in config and wrappers.
+.ralphex/progress/
+.ralphex/worktrees/
+.ralphex/agents/
+.ralphex/prompts/
+
 node_modules/
 dist/
 coverage/
