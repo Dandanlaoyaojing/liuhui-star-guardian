@@ -161,6 +161,21 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("tryHandleTokenClick");
   });
 
+  it("renders M01 flashlight beam, validation bottom light, and sketch hint note", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("M01FlashlightBeam");
+    expect(bootstrap).toContain("M01BottomLight");
+    expect(bootstrap).toContain("M01BottomLightNote");
+    expect(bootstrap).toContain("drawFlashlightBeam");
+    expect(bootstrap).toContain("drawBottomLight");
+    expect(bootstrap).toContain("drawBottomLightHintNote");
+    expect(bootstrap).toContain("colorForBeam");
+    expect(bootstrap).toContain("colorForBottomLightFill");
+    expect(bootstrap).toContain('bottomLight === "steady_on"');
+    expect(bootstrap).toContain('bottomLight === "flash_then_off"');
+  });
+
   it("uses M01 overlap-evidence copy instead of old filter-slot sorter wording", () => {
     const text = readText("assets/scripts/cocos/M01GreyboxText.ts");
 

@@ -36,7 +36,11 @@ import type {
   M01GreyboxRepairPresentation,
   M01GreyboxSlotPresentation
 } from "./M01GreyboxSession.ts";
-import type { M01MemoryGearConfig } from "../levels/stage1/M01MemoryGearController.ts";
+import type {
+  M01BaseColor,
+  M01BottomLightState,
+  M01MemoryGearConfig
+} from "../levels/stage1/M01MemoryGearController.ts";
 import { buildToolCardPreview } from "../ui/ToolCardView.ts";
 import {
   buildM01GreyboxStaticArtPlan,
@@ -75,6 +79,10 @@ export class M01GreyboxBootstrap extends Component {
   private feedbackLabel: Label | null = null;
   private activeDragNode: Node | null = null;
   private activeDragToken: M01GreyboxTokenNode | null = null;
+  private bottomLightGraphics: Graphics | null = null;
+  private flashlightBeamGraphics: Graphics | null = null;
+  private activeFlashlightId: string | undefined;
+  private activeFlashlightColor: M01BaseColor | undefined;
   private heldFragmentId: string | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
@@ -109,6 +117,8 @@ export class M01GreyboxBootstrap extends Component {
       this.tokenPositions.clear();
       this.hintedTargetIds.clear();
       this.heldFragmentId = undefined;
+      this.activeFlashlightId = undefined;
+      this.activeFlashlightColor = undefined;
       this.renderGreybox(this.layout);
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
@@ -233,9 +243,12 @@ export class M01GreyboxBootstrap extends Component {
     this.greyboxRoot.on("touch-end", (event: EventTouch) => this.placeHeldFragmentAt(event), this);
     this.bindGlobalPointerInput();
 
+    this.addBottomLightNode(this.greyboxRoot, layout);
+    this.addFlashlightBeamNode(this.greyboxRoot, layout);
     this.addShapeNode(this.greyboxRoot, layout.gear);
     if (layout.evidence.length > 0) {
       this.addShapeNode(this.greyboxRoot, layout.board);
+      this.addBottomLightHintNote(this.greyboxRoot);
     }
     if (this.enableArtPreview) {
       this.renderStaticArtPreview(this.greyboxRoot, layout);
@@ -261,6 +274,115 @@ export class M01GreyboxBootstrap extends Component {
     }
     this.feedbackLabel = this.addFeedbackLabel(this.greyboxRoot);
     this.addHintButton(this.greyboxRoot);
+  }
+
+  private addBottomLightNode(parent: Node, layout: M01GreyboxLayout): Node {
+    const lightNode = new Node("M01BottomLight");
+    const boardPosition = layout.board.position;
+    lightNode.setPosition(boardPosition.x, boardPosition.y, 0);
+    parent.addChild(lightNode);
+
+    const transform = lightNode.addComponent(UITransform);
+    transform.setContentSize(layout.board.size.width + 48, layout.board.size.height + 48);
+
+    this.bottomLightGraphics = lightNode.addComponent(Graphics);
+    this.drawBottomLight("off");
+    return lightNode;
+  }
+
+  private addFlashlightBeamNode(parent: Node, layout: M01GreyboxLayout): Node {
+    const beamNode = new Node("M01FlashlightBeam");
+    parent.addChild(beamNode);
+
+    const transform = beamNode.addComponent(UITransform);
+    transform.setContentSize(layout.canvas.width, layout.canvas.height);
+
+    this.flashlightBeamGraphics = beamNode.addComponent(Graphics);
+    this.drawFlashlightBeam();
+    return beamNode;
+  }
+
+  private addBottomLightHintNote(parent: Node): Node {
+    const noteNode = new Node("M01BottomLightNote");
+    noteNode.setPosition(-372, -218, 0);
+    parent.addChild(noteNode);
+
+    const transform = noteNode.addComponent(UITransform);
+    transform.setContentSize(144, 82);
+
+    const graphics = noteNode.addComponent(Graphics);
+    drawBottomLightHintNote(graphics);
+    return noteNode;
+  }
+
+  private drawBottomLight(state: M01BottomLightState): void {
+    if (!this.bottomLightGraphics) {
+      return;
+    }
+
+    const graphics = this.bottomLightGraphics;
+    graphics.clear();
+    graphics.lineWidth = state === "off" ? 1.5 : 3;
+    graphics.fillColor = colorForBottomLightFill(state);
+    graphics.strokeColor = colorForBottomLightStroke(state);
+    graphics.circle(0, 0, state === "off" ? 152 : 170);
+    graphics.fill();
+    graphics.stroke();
+
+    if (state === "off") {
+      return;
+    }
+
+    graphics.lineWidth = state === "flash_then_off" ? 2 : 2.5;
+    graphics.strokeColor = colorForBottomLightRay(state);
+    for (let i = 0; i < 12; i += 1) {
+      const angle = (Math.PI * 2 * i) / 12;
+      const inner = state === "flash_then_off" ? 112 : 98;
+      const outer = state === "flash_then_off" ? 186 : 176;
+      graphics.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      graphics.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+    }
+    graphics.stroke();
+  }
+
+  private drawFlashlightBeam(): void {
+    if (!this.flashlightBeamGraphics) {
+      return;
+    }
+
+    const graphics = this.flashlightBeamGraphics;
+    graphics.clear();
+    if (!this.layout || !this.activeFlashlightId || !this.activeFlashlightColor) {
+      return;
+    }
+
+    const flashlight = this.layout.flashlights.find(
+      (candidate) => candidate.controllerId === this.activeFlashlightId
+    );
+    if (!flashlight) {
+      return;
+    }
+
+    const source = this.tokenPositions.get(flashlight.controllerId) ?? flashlight.position;
+    const target = this.layout.board.position;
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const length = Math.max(Math.hypot(dx, dy), 1);
+    const normalX = -dy / length;
+    const normalY = dx / length;
+    const nearWidth = 24;
+    const farWidth = 170;
+
+    graphics.fillColor = colorForBeam(this.activeFlashlightColor);
+    graphics.strokeColor = colorForBeamStroke(this.activeFlashlightColor);
+    graphics.lineWidth = 1.5;
+    graphics.moveTo(source.x + normalX * nearWidth, source.y + normalY * nearWidth);
+    graphics.lineTo(target.x + normalX * farWidth, target.y + normalY * farWidth);
+    graphics.lineTo(target.x - normalX * farWidth, target.y - normalY * farWidth);
+    graphics.lineTo(source.x - normalX * nearWidth, source.y - normalY * nearWidth);
+    graphics.close();
+    graphics.fill();
+    graphics.stroke();
   }
 
   private addStatusLabel(parent: Node): Label {
@@ -688,6 +810,10 @@ export class M01GreyboxBootstrap extends Component {
     if (action.type === "select_flashlight") {
       this.resetTokenNode(node, token);
       const selected = this.session.selectFlashlight(action.flashlightId);
+      if (selected.accepted) {
+        this.activeFlashlightId = selected.activeFlashlightId;
+        this.activeFlashlightColor = selected.activeFlashlightColor;
+      }
       const revealed = selected.accepted
         ? this.tryRevealFragmentAtPosition(dropPosition)
         : undefined;
@@ -945,6 +1071,7 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    const bottomLight = this.session.getCompletionState().bottomLight;
     for (const entry of this.greyboxNodes.values()) {
       if (entry.token.kind === "fragment") {
         const view = this.session.getFragmentView(entry.token.controllerId);
@@ -984,15 +1111,21 @@ export class M01GreyboxBootstrap extends Component {
         this.syncArtSpriteState(entry.artSprite, view.presentation);
       } else if (entry.token.kind === "flashlight" || entry.token.kind === "evidence") {
         const hinted = this.hintedTargetIds.has(entry.token.controllerId);
+        const evidenceLit =
+          entry.token.kind === "evidence" &&
+          (bottomLight === "steady_on" || bottomLight === "flash_then_off");
+        const presentation = hinted ? "hinted" : evidenceLit ? "highlighted" : "normal";
         this.applyTokenGraphicsState(
           entry.graphics,
           entry.token,
-          hinted ? "hinted" : "normal",
-          hinted ? 5 : entry.token.kind === "evidence" ? 3 : 2
+          presentation,
+          hinted ? 5 : evidenceLit ? 4 : entry.token.kind === "evidence" ? 3 : 2
         );
-        this.syncArtSpriteState(entry.artSprite, hinted ? "hinted" : "normal");
+        this.syncArtSpriteState(entry.artSprite, presentation);
       }
     }
+    this.drawBottomLight(bottomLight);
+    this.drawFlashlightBeam();
   }
 
   private markArtPreviewUnderlayFallback(controllerId: string): void {
@@ -1154,6 +1287,121 @@ function drawBranchLens(graphics: Graphics, width: number, height: number): void
   graphics.lineTo(-width / 2, height / 5);
   graphics.lineTo(-stem, -height / 8);
   graphics.close();
+}
+
+function drawBottomLightHintNote(graphics: Graphics): void {
+  graphics.clear();
+  graphics.lineWidth = 1.5;
+  graphics.fillColor = new Color(244, 235, 201, 226);
+  graphics.strokeColor = new Color(72, 67, 55, 180);
+  graphics.rect(-72, -41, 144, 82);
+  graphics.fill();
+  graphics.stroke();
+
+  graphics.lineWidth = 1.25;
+  graphics.strokeColor = new Color(72, 67, 55, 150);
+  graphics.moveTo(-60, 24);
+  graphics.lineTo(-48, 30);
+  graphics.lineTo(-38, 20);
+  graphics.lineTo(-50, 14);
+  graphics.close();
+  graphics.stroke();
+
+  drawNoteArrow(graphics, -28, 20, 2, 20);
+  drawNoteLightBulb(graphics, 22, 20, false);
+  drawNoteArrow(graphics, 42, 4, 42, -16);
+  drawNoteLightBulb(graphics, 22, -24, true);
+
+  graphics.lineWidth = 1;
+  graphics.strokeColor = new Color(72, 67, 55, 96);
+  graphics.moveTo(-60, -26);
+  graphics.lineTo(-36, -30);
+  graphics.moveTo(-58, -14);
+  graphics.lineTo(-42, -10);
+}
+
+function drawNoteArrow(
+  graphics: Graphics,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number
+): void {
+  graphics.lineWidth = 1.25;
+  graphics.strokeColor = new Color(72, 67, 55, 150);
+  graphics.moveTo(fromX, fromY);
+  graphics.lineTo(toX, toY);
+  graphics.lineTo(toX - 7, toY + 4);
+  graphics.moveTo(toX, toY);
+  graphics.lineTo(toX - 7, toY - 4);
+  graphics.stroke();
+}
+
+function drawNoteLightBulb(graphics: Graphics, x: number, y: number, lit: boolean): void {
+  graphics.lineWidth = lit ? 2 : 1.25;
+  graphics.fillColor = lit ? new Color(221, 181, 91, 94) : new Color(171, 164, 142, 48);
+  graphics.strokeColor = lit ? new Color(164, 124, 48, 174) : new Color(72, 67, 55, 128);
+  graphics.circle(x, y, lit ? 17 : 12);
+  graphics.fill();
+  graphics.stroke();
+  if (!lit) {
+    return;
+  }
+
+  graphics.lineWidth = 1.25;
+  graphics.strokeColor = new Color(164, 124, 48, 132);
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (Math.PI * 2 * i) / 8;
+    graphics.moveTo(x + Math.cos(angle) * 21, y + Math.sin(angle) * 21);
+    graphics.lineTo(x + Math.cos(angle) * 29, y + Math.sin(angle) * 29);
+  }
+  graphics.stroke();
+}
+
+function colorForBeam(color: M01BaseColor): Color {
+  const colors: Record<M01BaseColor, Color> = {
+    red: new Color(215, 88, 72, 46),
+    yellow: new Color(226, 188, 88, 54),
+    blue: new Color(82, 132, 188, 48)
+  };
+
+  return colors[color];
+}
+
+function colorForBeamStroke(color: M01BaseColor): Color {
+  const colors: Record<M01BaseColor, Color> = {
+    red: new Color(185, 82, 66, 72),
+    yellow: new Color(190, 148, 48, 76),
+    blue: new Color(66, 108, 156, 72)
+  };
+
+  return colors[color];
+}
+
+function colorForBottomLightFill(state: M01BottomLightState): Color {
+  const colors: Record<M01BottomLightState, Color> = {
+    off: new Color(96, 92, 82, 18),
+    flash_then_off: new Color(224, 157, 77, 86),
+    steady_on: new Color(208, 185, 106, 112)
+  };
+
+  return colors[state];
+}
+
+function colorForBottomLightStroke(state: M01BottomLightState): Color {
+  const colors: Record<M01BottomLightState, Color> = {
+    off: new Color(74, 69, 58, 38),
+    flash_then_off: new Color(196, 92, 66, 132),
+    steady_on: new Color(142, 128, 62, 156)
+  };
+
+  return colors[state];
+}
+
+function colorForBottomLightRay(state: M01BottomLightState): Color {
+  return state === "flash_then_off"
+    ? new Color(216, 105, 70, 112)
+    : new Color(194, 168, 76, 122);
 }
 
 function colorForToken(

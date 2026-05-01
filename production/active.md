@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 ## Current Objective
 
@@ -89,6 +89,7 @@ Last updated: 2026-04-30
 - 2026-04-30 已完成新版 M01 plan 的 Task 7：`M01GreyboxBootstrap` 现在会渲染新版拼接盘、证据点、候选碎片和三色手电；拖拽手电会进入 `selectFlashlight()`，落在碎片上会尝试 `revealFragment()`；碎片可自由放置，形状匹配证据时弱磁吸，第二个碎片吸上同一证据后自动 `submitEvidencePair()`，全部证据 staged 后自动 `validateCandidateStructure()`，不新增单独校验按钮。
 - 2026-04-30 Task 7 review 修复：证据点现在使用紫 / 绿 / 橘融合色，而不是灰色 fallback；`arc_lens` / `notch_lens` / `crescent_overlap` / `branch_lens` 有独立简笔局部形状；新版 hint 可高亮手电和证据点；碎片支持点击拾起并点击拼接盘任意位置放下，仍保留拖拽路径。
 - 2026-04-30 Task 10 preview 修复：重启 Cocos preview 后发现 `/` 默认加载 `current_scene` 会进入空场景，改用 `?scene=a2135734-fc11-4a0e-926d-40bc2301a752` 可直接加载 M01；交互 smoke 发现“手持第二片点击已吸附证据点”会误拾取第一片，现已让 held fragment 点击优先放置，并修正弱磁吸后的 `tokenPositions` 缓存。
+- 2026-05-01 表现层 polish：`M01GreyboxBootstrap` 已新增手电光束、拼接盘底光（off / flash_then_off / steady_on）、底光状态下 evidence 局部点亮，以及无文字的机械城式简笔提示纸条；当前只补灰盒表现，不改变证据 pair staging 或胜利判定规则。
 - 2026-04-30 已完成新版 M01 plan 的 Task 8：旧九宫格 sorter art 已隔离为 legacy / calibration 资产；真实 overlap evidence layout 不再挂载旧红蓝黄碎片 sprite、旧滤镜 sprite 或九宫格托盘静态 layer，仅保留无害的齿轮 art token 候选。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
@@ -183,6 +184,7 @@ Last updated: 2026-04-30
 - 2026-04-30 新版 M01 Task 9 验证：先新增 ToolCard / preview / scaffold 文案测试并确认红灯（真实 M01 ToolCard 仍是旧“多维线索分类关系”文案，灰盒默认文案仍含旧“颜色过滤器 / 收纳槽”话术）；实现后 `npm test -- tests/core/ToolCard.test.ts tests/ui/ToolCardView.test.ts tests/cocosProjectScaffold.test.ts` 成功（3 个测试文件 / 25 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 100 个测试），`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 返回 0 vulnerabilities，密钥扫描与危险 JS pattern 扫描无命中。
 - 2026-04-30 新版 M01 Task 10 自动验证：`npm run typecheck` 成功；`npm test` 成功（14 个测试文件 / 100 个测试）；`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 返回 0 vulnerabilities。Cocos preview smoke 尝试：`http://127.0.0.1:7456/` 外壳返回 200，并生成截图 `temp/m01-task10-preview-initial.png`；但浏览器实际加载 runtime 时 `/scripting/polyfills/bundle.js` 与 `/preview-app/index.js` 返回 500，页面停在 “Get http://127.0.0.1:7456/preview-app/index.js failed!”。因此尚未完成手电选择、碎片显色、弱磁吸、错误底光 2 秒熄灭、正确通关 ToolCard 解锁的浏览器交互 smoke。剩余 blocker：需刷新 / 重启 Cocos Creator preview 服务后重试；美术资产仍需后续补正式灰白碎片、手电光束和证据 marker。
 - 2026-04-30 新版 M01 Task 10 preview 复验：已按用户授权重启 Cocos Creator / preview 服务。`http://127.0.0.1:7456/` 外壳 200 且 runtime 资源不再 500；默认 `/` 会因 `current_scene` 为空而显示黑场，使用 `http://127.0.0.1:7456/?scene=a2135734-fc11-4a0e-926d-40bc2301a752` 可进入 `M01Greybox`。Playwright + 本机 Chrome 完成 smoke：选择红光手电，按 `fragment_a/b/c/d/e/f/g/h` 点击拾起并点击对应 evidence 放置，四个证据均 staged，最终 status = “底光保持亮起，结构成立。”，ToolCard 标题 = “分类与归纳”，console/page error = 0，截图见 `temp/m01-task10-click-place-complete-fixed-restart.png`。该轮还修复了点击放置第二片时误拾取已吸附第一片的问题；验证：`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 100 个测试）。
+- 2026-05-01 M01 表现层 polish 验证：先新增 scaffold 红灯，要求 `M01GreyboxBootstrap` 渲染手电光束、拼接盘底光、底光简笔提示和验证态 evidence 点亮；实现后 `npm test -- tests/cocosProjectScaffold.test.ts` 成功（21 个测试），`npm run typecheck` 成功，`npm test` 成功（14 个测试文件 / 101 个测试）。
 - Spec 收口到 v1.9（2026-04-20），Codex Round 3 审阅完成，诊断记入 §七 路线图 + §十 风险表
 - 2026-04-22 已将美术主轴改为 Arrog 式统一手绘墨线 + 低饱和淡彩，并落盘到 `docs/design/game-design-spec.md` §4
 - 2026-04-22 已将整体风格参考图入库到 `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png`，并补充提炼规则到 `docs/design/style-references/README.md`
