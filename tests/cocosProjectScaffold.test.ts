@@ -140,6 +140,24 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("drawBranchLens");
   });
 
+  it("renders M01 candidate fragments as hidden-color shape-specific grey pieces", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain('token.shapeToken === "arc_hook"');
+    expect(bootstrap).toContain('token.shapeToken === "arc_socket"');
+    expect(bootstrap).toContain('token.shapeToken === "notch_hook"');
+    expect(bootstrap).toContain('token.shapeToken === "notch_socket"');
+    expect(bootstrap).toContain('token.shapeToken === "crescent_left"');
+    expect(bootstrap).toContain('token.shapeToken === "crescent_right"');
+    expect(bootstrap).toContain('token.shapeToken === "branch_left"');
+    expect(bootstrap).toContain('token.shapeToken === "branch_right"');
+    expect(bootstrap).toContain("drawArcFragment");
+    expect(bootstrap).toContain("drawNotchFragment");
+    expect(bootstrap).toContain("drawCrescentFragment");
+    expect(bootstrap).toContain("drawBranchFragment");
+    expect(bootstrap).toContain('hidden: [');
+  });
+
   it("highlights M01 flashlight and evidence hint targets in the bootstrap", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

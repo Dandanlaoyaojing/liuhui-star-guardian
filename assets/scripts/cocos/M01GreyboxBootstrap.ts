@@ -1206,6 +1206,22 @@ export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): 
     drawCrescentOverlap(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "branch_lens") {
     drawBranchLens(graphics, token.size.width, token.size.height);
+  } else if (token.shapeToken === "arc_hook") {
+    drawArcFragment(graphics, token.size.width, token.size.height, "hook");
+  } else if (token.shapeToken === "arc_socket") {
+    drawArcFragment(graphics, token.size.width, token.size.height, "socket");
+  } else if (token.shapeToken === "notch_hook") {
+    drawNotchFragment(graphics, token.size.width, token.size.height, "hook");
+  } else if (token.shapeToken === "notch_socket") {
+    drawNotchFragment(graphics, token.size.width, token.size.height, "socket");
+  } else if (token.shapeToken === "crescent_left") {
+    drawCrescentFragment(graphics, token.size.width, token.size.height, "left");
+  } else if (token.shapeToken === "crescent_right") {
+    drawCrescentFragment(graphics, token.size.width, token.size.height, "right");
+  } else if (token.shapeToken === "branch_left") {
+    drawBranchFragment(graphics, token.size.width, token.size.height, "left");
+  } else if (token.shapeToken === "branch_right") {
+    drawBranchFragment(graphics, token.size.width, token.size.height, "right");
   } else if (token.shapeToken === "triangle") {
     drawTriangle(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "hexagon") {
@@ -1314,6 +1330,82 @@ function drawBranchLens(graphics: Graphics, width: number, height: number): void
   graphics.lineTo(-width / 3, height / 2);
   graphics.lineTo(-width / 2, height / 5);
   graphics.lineTo(-stem, -height / 8);
+  graphics.close();
+}
+
+function drawArcFragment(
+  graphics: Graphics,
+  width: number,
+  height: number,
+  side: "hook" | "socket"
+): void {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const curve = side === "hook" ? 0.18 : -0.18;
+  graphics.moveTo(-halfWidth * 0.86, halfHeight * 0.22);
+  graphics.lineTo(-halfWidth * 0.4, halfHeight * 0.72);
+  graphics.lineTo(halfWidth * 0.66, halfHeight * 0.54);
+  graphics.lineTo(halfWidth * 0.86, -halfHeight * 0.1);
+  graphics.lineTo(halfWidth * curve, -halfHeight * 0.72);
+  graphics.lineTo(-halfWidth * 0.78, -halfHeight * 0.52);
+  graphics.close();
+}
+
+function drawNotchFragment(
+  graphics: Graphics,
+  width: number,
+  height: number,
+  side: "hook" | "socket"
+): void {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const notch = side === "hook" ? -0.32 : 0.32;
+  graphics.moveTo(-halfWidth * 0.82, halfHeight * 0.66);
+  graphics.lineTo(halfWidth * 0.72, halfHeight * 0.58);
+  graphics.lineTo(halfWidth * 0.82, -halfHeight * 0.48);
+  graphics.lineTo(halfWidth * 0.16, -halfHeight * 0.68);
+  graphics.lineTo(halfWidth * notch, -halfHeight * 0.32);
+  graphics.lineTo(-halfWidth * 0.14, -halfHeight * 0.68);
+  graphics.lineTo(-halfWidth * 0.78, -halfHeight * 0.46);
+  graphics.close();
+}
+
+function drawCrescentFragment(
+  graphics: Graphics,
+  width: number,
+  height: number,
+  side: "left" | "right"
+): void {
+  const direction = side === "left" ? -1 : 1;
+  const radius = Math.min(width, height) / 2;
+  graphics.moveTo(direction * -radius * 0.15, radius * 0.76);
+  for (let i = 1; i <= 7; i += 1) {
+    const angle = Math.PI * 0.72 - (Math.PI * 1.44 * i) / 7;
+    graphics.lineTo(direction * Math.cos(angle) * radius, Math.sin(angle) * radius);
+  }
+  graphics.lineTo(direction * radius * 0.08, -radius * 0.5);
+  graphics.lineTo(direction * radius * 0.54, 0);
+  graphics.close();
+}
+
+function drawBranchFragment(
+  graphics: Graphics,
+  width: number,
+  height: number,
+  side: "left" | "right"
+): void {
+  const direction = side === "left" ? -1 : 1;
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  graphics.moveTo(direction * -halfWidth * 0.2, -halfHeight * 0.78);
+  graphics.lineTo(direction * halfWidth * 0.24, -halfHeight * 0.7);
+  graphics.lineTo(direction * halfWidth * 0.2, -halfHeight * 0.12);
+  graphics.lineTo(direction * halfWidth * 0.82, halfHeight * 0.16);
+  graphics.lineTo(direction * halfWidth * 0.54, halfHeight * 0.72);
+  graphics.lineTo(direction * halfWidth * 0.04, halfHeight * 0.28);
+  graphics.lineTo(direction * -halfWidth * 0.48, halfHeight * 0.72);
+  graphics.lineTo(direction * -halfWidth * 0.76, halfHeight * 0.18);
+  graphics.lineTo(direction * -halfWidth * 0.22, -halfHeight * 0.12);
   graphics.close();
 }
 
@@ -1461,6 +1553,7 @@ function colorForToken(
   };
   const alpha = alphaByPresentation[presentation] ?? alphaByPresentation.normal;
   const colors: Record<string, [number, number, number]> = {
+    hidden: [182, 180, 166],
     red: [180, 92, 70],
     blue: [88, 119, 132],
     yellow: [188, 158, 87],
