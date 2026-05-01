@@ -10,6 +10,8 @@ import {
 import type { M01GreyboxPoint } from "./M01GreyboxLayout.ts";
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 
+export const M01_OBSERVED_REVEAL_MS = 2_000;
+
 export interface M01GreyboxSessionOptions {
   now?: () => number;
   text?: M01GreyboxTextOverrides;
@@ -109,6 +111,7 @@ export class M01GreyboxSession {
   private readonly controller: M01MemoryGearController;
   private readonly config: M01MemoryGearConfig;
   private readonly text: M01GreyboxTextOverrides;
+  private readonly now: () => number;
   private selectedFragmentId: string | undefined;
   private heldFragmentId: string | undefined;
   private activeFlashlightId: string | undefined;
@@ -116,7 +119,10 @@ export class M01GreyboxSession {
   private lastToolCard: ToolCard | undefined;
   private lastHint: M01GreyboxHint | undefined;
   private lastFeedback: M01GreyboxFeedback | undefined;
-  private readonly observedFragmentColors = new Map<string, M01BlendColor>();
+  private readonly observedFragmentColors = new Map<
+    string,
+    { color: M01BlendColor; expiresAt: number }
+  >();
   private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
   private readonly stagedEvidenceIds = new Set<string>();
 
@@ -124,6 +130,7 @@ export class M01GreyboxSession {
     this.config = config;
     this.controller = M01MemoryGearController.fromConfig(config, options);
     this.text = options.text ?? {};
+    this.now = options.now ?? Date.now;
   }
 
   static fromConfig(
@@ -310,7 +317,10 @@ export class M01GreyboxSession {
       };
     }
 
-    this.observedFragmentColors.set(fragmentId, result.revealedColor);
+    this.observedFragmentColors.set(fragmentId, {
+      color: result.revealedColor,
+      expiresAt: this.now() + M01_OBSERVED_REVEAL_MS
+    });
 
     return {
       accepted: true,
@@ -548,7 +558,7 @@ export class M01GreyboxSession {
   getFragmentView(fragmentId: string): M01GreyboxFragmentView {
     const fragment = this.controller.getFragmentState(fragmentId);
     const selected = this.selectedFragmentId === fragmentId;
-    const observedColor = this.observedFragmentColors.get(fragmentId);
+    const observedColor = this.getObservedFragmentColor(fragmentId);
 
     if (!fragment) {
       return {
@@ -652,6 +662,20 @@ export class M01GreyboxSession {
 
   getLastToolCard(): ToolCard | undefined {
     return this.lastToolCard;
+  }
+
+  private getObservedFragmentColor(fragmentId: string): M01BlendColor | undefined {
+    const observed = this.observedFragmentColors.get(fragmentId);
+    if (!observed) {
+      return undefined;
+    }
+
+    if (observed.expiresAt <= this.now()) {
+      this.observedFragmentColors.delete(fragmentId);
+      return undefined;
+    }
+
+    return observed.color;
   }
 
   private findTargetSlotIds(fragmentId: string): string[] {

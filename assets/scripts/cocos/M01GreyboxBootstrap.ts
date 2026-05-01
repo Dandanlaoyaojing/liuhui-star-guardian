@@ -28,7 +28,7 @@ import {
   type M01GreyboxPoint,
   type M01GreyboxTokenNode
 } from "./M01GreyboxLayout.ts";
-import { M01GreyboxSession } from "./M01GreyboxSession.ts";
+import { M01_OBSERVED_REVEAL_MS, M01GreyboxSession } from "./M01GreyboxSession.ts";
 import type {
   M01GreyboxFilterPresentation,
   M01GreyboxFragmentPresentation,
@@ -84,6 +84,7 @@ export class M01GreyboxBootstrap extends Component {
   private activeFlashlightId: string | undefined;
   private activeFlashlightColor: M01BaseColor | undefined;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
+  private observedColorResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private heldFragmentId: string | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
@@ -128,6 +129,7 @@ export class M01GreyboxBootstrap extends Component {
 
   onDestroy(): void {
     this.clearValidationLightReset();
+    this.clearObservedColorReset();
     this.unbindGlobalPointerInput();
     this.dragState = {};
     this.clearActiveDrag();
@@ -816,6 +818,7 @@ export class M01GreyboxBootstrap extends Component {
       if (selected.accepted) {
         this.activeFlashlightId = selected.activeFlashlightId;
         this.activeFlashlightColor = selected.activeFlashlightColor;
+        this.clearObservedColorReset();
       }
       const revealed = selected.accepted
         ? this.tryRevealFragmentAtPosition(dropPosition)
@@ -824,6 +827,7 @@ export class M01GreyboxBootstrap extends Component {
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
+      this.scheduleObservedColorReset(revealed);
       return;
     }
 
@@ -1026,6 +1030,29 @@ export class M01GreyboxBootstrap extends Component {
 
     clearTimeout(this.validationLightResetTimeout);
     this.validationLightResetTimeout = undefined;
+  }
+
+  private scheduleObservedColorReset(
+    revealed: ReturnType<M01GreyboxSession["revealFragment"]> | undefined
+  ): void {
+    this.clearObservedColorReset();
+    if (!revealed?.accepted) {
+      return;
+    }
+
+    this.observedColorResetTimeout = setTimeout(() => {
+      this.observedColorResetTimeout = undefined;
+      this.syncVisualState();
+    }, M01_OBSERVED_REVEAL_MS);
+  }
+
+  private clearObservedColorReset(): void {
+    if (this.observedColorResetTimeout === undefined) {
+      return;
+    }
+
+    clearTimeout(this.observedColorResetTimeout);
+    this.observedColorResetTimeout = undefined;
   }
 
   private renderCompletionToolCardIfAvailable(completed: boolean): void {

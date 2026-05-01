@@ -246,6 +246,10 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("view.observedColor");
     expect(bootstrap).toContain("colorTokenOverride");
     expect(bootstrap).toContain("colorForToken(colorTokenOverride ?? token.colorToken");
+    expect(bootstrap).toContain("observedColorResetTimeout");
+    expect(bootstrap).toContain("scheduleObservedColorReset");
+    expect(bootstrap).toContain("clearObservedColorReset");
+    expect(bootstrap).toContain("M01_OBSERVED_REVEAL_MS");
   });
 
   it("keeps greybox graphics subdued when art preview is enabled", () => {

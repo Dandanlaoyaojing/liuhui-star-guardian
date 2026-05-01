@@ -262,6 +262,33 @@ describe("M01GreyboxSession", () => {
     expect(session.getFragmentView("fragment_b")).not.toHaveProperty("observedColor");
   });
 
+  it("expires observed flashlight colors after a short reveal window", () => {
+    let now = 1_000;
+    const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });
+
+    session.selectFlashlight("flashlight_red");
+    session.revealFragment("fragment_b");
+
+    expect(session.getFragmentView("fragment_b")).toMatchObject({
+      observedColor: "purple",
+      presentation: "highlighted"
+    });
+
+    now += 1_999;
+
+    expect(session.getFragmentView("fragment_b")).toMatchObject({
+      observedColor: "purple",
+      presentation: "highlighted"
+    });
+
+    now += 1;
+
+    expect(session.getFragmentView("fragment_b")).toMatchObject({
+      presentation: "normal"
+    });
+    expect(session.getFragmentView("fragment_b")).not.toHaveProperty("observedColor");
+  });
+
   it("returns rejections instead of throwing when new actions are sent to a legacy config", () => {
     const session = M01GreyboxSession.fromConfig(config);
 
