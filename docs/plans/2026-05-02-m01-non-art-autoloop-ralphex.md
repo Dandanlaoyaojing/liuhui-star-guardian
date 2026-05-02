@@ -48,10 +48,10 @@ Expected commit:
 
 ### Task 2: Add A Real-Input M01 Preview Smoke
 
-- [ ] extend or add an M01 preview smoke that drives at least one real browser input path through the Cocos canvas
-- [ ] keep the existing failed-validation smoke coverage intact while recording any stability blocker precisely
-- [ ] update `production/active.md` with the new smoke path and fresh verification evidence
-- [ ] verify with `node --check` for changed scripts, `npm run smoke:m01-preview`, any new smoke command, and `git diff --check`
+- [x] extend or add an M01 preview smoke that drives at least one real browser input path through the Cocos canvas
+- [x] keep the existing failed-validation smoke coverage intact while recording any stability blocker precisely
+- [x] update `production/active.md` with the new smoke path and fresh verification evidence
+- [x] verify with `node --check` for changed scripts, `npm run smoke:m01-preview`, any new smoke command, and `git diff --check`
 
 Reframe:
 - `npm run smoke:m01-preview` currently proves runtime freshness and failed validation by using runtime APIs.
