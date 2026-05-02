@@ -25,14 +25,26 @@ export type M01GreyboxRuntimeFragmentId =
   | "yellow_circle"
   | "yellow_triangle"
   | "yellow_hexagon";
+export type M01GreyboxRuntimeHiddenFragmentId =
+  | "hidden_circle"
+  | "hidden_triangle"
+  | "hidden_hexagon";
+export type M01GreyboxRuntimeEvidenceSpriteId =
+  | "evidence_purple_circle_triangle"
+  | "evidence_green_triangle_hexagon"
+  | "evidence_orange_hexagon_hexagon"
+  | "evidence_purple_hexagon_circle";
 export type M01GreyboxRuntimeFilterId = "red" | "blue" | "yellow";
 export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeFragmentId
+  | M01GreyboxRuntimeHiddenFragmentId
+  | M01GreyboxRuntimeEvidenceSpriteId
   | M01GreyboxRuntimeFilterId
   | "gearStar";
 export type M01GreyboxRuntimeSpriteRole =
   | "fragment_token"
   | "filter_token"
+  | "evidence_marker_token"
   | "repair_object_token";
 
 export interface M01GreyboxArtSlice {
@@ -140,7 +152,7 @@ function transparentResourceLoadPath(filename: string): `${string}/spriteFrame` 
 }
 
 function runtimeSpriteResourceLoadPath(
-  folder: "fragments" | "filters",
+  folder: "fragments" | "filters" | "hidden-fragments" | "evidence-markers",
   filename: string
 ): `${string}/spriteFrame` {
   return `art/stage1-m01/runtime-sprites/${folder}/${filename.replace(/\.png$/, "")}/spriteFrame`;
@@ -227,6 +239,40 @@ function runtimeFilterResource(
   };
 }
 
+function runtimeHiddenFragmentResource(
+  id: M01GreyboxRuntimeHiddenFragmentId,
+  filename: string
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/hidden-fragments/${filename}`;
+
+  return {
+    id,
+    role: "fragment_token",
+    file,
+    sourceFile: `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-memory-fragments-slice-transparent.png`,
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
+    runtimeStatus: "isolated_candidate"
+  };
+}
+
+function runtimeEvidenceResource(
+  id: M01GreyboxRuntimeEvidenceSpriteId,
+  filename: string
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/evidence-markers/${filename}`;
+
+  return {
+    id,
+    role: "evidence_marker_token",
+    file,
+    sourceFile: "assets/resources/configs/stage1/m01-memory-gear.json",
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("evidence-markers", filename),
+    runtimeStatus: "isolated_candidate"
+  };
+}
+
 function runtimeGearResource(): M01GreyboxRuntimeSpriteResource {
   const filename = "m01-gear-star-slice-transparent.png";
   const file = `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/${filename}`;
@@ -300,6 +346,31 @@ export const M01_GREYBOX_RUNTIME_FILTER_RESOURCES: M01GreyboxRuntimeSpriteResour
   runtimeFilterResource("yellow", "m01-filter-yellow.png")
 ];
 
+export const M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeHiddenFragmentResource("hidden_circle", "m01-fragment-hidden-circle.png"),
+  runtimeHiddenFragmentResource("hidden_triangle", "m01-fragment-hidden-triangle.png"),
+  runtimeHiddenFragmentResource("hidden_hexagon", "m01-fragment-hidden-hexagon.png")
+];
+
+export const M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeEvidenceResource(
+    "evidence_purple_circle_triangle",
+    "m01-evidence-purple-circle-triangle.png"
+  ),
+  runtimeEvidenceResource(
+    "evidence_green_triangle_hexagon",
+    "m01-evidence-green-triangle-hexagon.png"
+  ),
+  runtimeEvidenceResource(
+    "evidence_orange_hexagon_hexagon",
+    "m01-evidence-orange-hexagon-hexagon.png"
+  ),
+  runtimeEvidenceResource(
+    "evidence_purple_hexagon_circle",
+    "m01-evidence-purple-hexagon-circle.png"
+  )
+];
+
 export const M01_GREYBOX_RUNTIME_OBJECT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
   runtimeGearResource()
 ];
@@ -324,8 +395,26 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
   token: M01GreyboxTokenNode
 ): M01GreyboxRuntimeSpriteResource | undefined {
   if (token.kind === "fragment") {
+    if (token.colorToken === "hidden") {
+      return M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES.find(
+        (resource) => resource.id === `hidden_${token.shapeToken}`
+      );
+    }
+
     return M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES.find(
       (resource) => resource.id === `${token.colorToken}_${token.shapeToken}`
+    );
+  }
+
+  if (token.kind === "evidence") {
+    const sourceShapeSignature = readEvidenceSourceShapeSignature(token.tags);
+
+    if (!sourceShapeSignature) {
+      return undefined;
+    }
+
+    return M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES.find(
+      (resource) => resource.id === `evidence_${token.colorToken}_${sourceShapeSignature}`
     );
   }
 
@@ -415,7 +504,7 @@ export function buildM01GreyboxStaticArtPlan(
 }
 
 export function buildM01GreyboxTokenArtPlan(layout: M01GreyboxLayout): M01GreyboxTokenArtPlan {
-  const tokens = [layout.gear, ...layout.fragments, ...(layout.filters ?? [])]
+  const tokens = [layout.gear, ...layout.fragments, ...layout.evidence, ...(layout.filters ?? [])]
     .map((token): M01GreyboxTokenArtLayer | undefined => {
       const resource = getM01GreyboxRuntimeSpriteResourceForToken(token);
       if (!resource) {
@@ -436,4 +525,20 @@ export function buildM01GreyboxTokenArtPlan(layout: M01GreyboxLayout): M01Greybo
     enabledByDefault: false,
     tokens
   };
+}
+
+function readEvidenceSourceShapeSignature(tags: string[]): string | undefined {
+  const sourceShapes = tags
+    .filter((tag) => tag.startsWith("source-shape:"))
+    .map((tag) => tag.slice("source-shape:".length));
+
+  if (sourceShapes.length >= 2) {
+    return sourceShapes.join("_");
+  }
+
+  const fallbackShapes = tags
+    .filter((tag) => tag.startsWith("shape:"))
+    .map((tag) => tag.slice("shape:".length));
+
+  return fallbackShapes.length >= 2 ? fallbackShapes.slice(0, 2).join("_") : undefined;
 }

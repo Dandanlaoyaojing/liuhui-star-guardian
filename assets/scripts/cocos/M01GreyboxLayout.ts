@@ -199,6 +199,9 @@ function buildEvidenceNode(
   const color = formatM01ColorLabel(evidence.targetBlendColor, text);
   const shape = formatM01ShapeLabel(evidence.targetShape, text);
   const size = Math.max(evidence.tolerance * 2, 52);
+  const sourceShapeTags = (evidence.generatedOverlap?.sourceShapes ?? []).map(
+    (sourceShape) => `source-shape:${sourceShape}`
+  );
 
   return {
     id: evidence.id,
@@ -209,7 +212,7 @@ function buildEvidenceNode(
     size: { width: size, height: size },
     colorToken: evidence.targetBlendColor,
     shapeToken: evidence.targetShape,
-    tags: ["overlap_evidence", ...evidence.shapeTags]
+    tags: ["overlap_evidence", ...sourceShapeTags, ...evidence.shapeTags]
   };
 }
 
