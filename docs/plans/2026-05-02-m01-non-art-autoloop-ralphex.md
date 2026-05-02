@@ -81,10 +81,10 @@ Expected commit:
 
 ### Task 3: Strengthen Gameplay State Regression Coverage
 
-- [ ] identify the highest-risk uncovered M01 interaction lifecycle gap by reading current tests
-- [ ] add focused regression coverage, changing production code only if a real gap is found
-- [ ] update `production/active.md` with the new coverage and why this gap was chosen
-- [ ] verify with targeted tests, `npm run typecheck`, `npm test`, and `git diff --check`
+- [x] identify the highest-risk uncovered M01 interaction lifecycle gap by reading current tests
+- [x] add focused regression coverage, changing production code only if a real gap is found
+- [x] update `production/active.md` with the new coverage and why this gap was chosen
+- [x] verify with targeted tests, `npm run typecheck`, `npm test`, and `git diff --check`
 
 Reframe:
 - User-facing M01 behavior depends on several fragile state transitions: held fragment follows pointer until second click, touch/mouse global move paths, flashlight beam movement reveals fragments continuously, staged evidence unstages when fragments move away, and failed validation resets color reveal state.

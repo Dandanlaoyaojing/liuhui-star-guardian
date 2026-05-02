@@ -430,6 +430,51 @@ describe("M01GreyboxSession", () => {
     expect(session.getFragmentView("fragment_circle_red_1")).not.toHaveProperty("validationColor");
   });
 
+  it("clears failed-validation flash state as soon as the wrong evidence pair is corrected", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    submitWrongColorCompleteCandidate(session);
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "wrong_blend_color",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+    expect(session.getFragmentView("fragment_circle_red_1")).toMatchObject({
+      validationColor: "red",
+      presentation: "highlighted"
+    });
+
+    expect(
+      session.submitEvidencePair("evidence_purple_upper_left", [
+        "fragment_circle_red_1",
+        "fragment_triangle_blue_1"
+      ])
+    ).toMatchObject({
+      accepted: true,
+      replacedPreviousPair: true,
+      bottomLight: "off",
+      completed: false
+    });
+
+    expect(session.getCompletionState()).toMatchObject({
+      completed: false,
+      bottomLight: "off"
+    });
+    expect(session.getFragmentView("fragment_circle_red_1")).toMatchObject({
+      presentation: "normal"
+    });
+    expect(session.getFragmentView("fragment_circle_red_1")).not.toHaveProperty("validationColor");
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: true,
+      bottomLight: "steady_on",
+      completed: true,
+      validationLightSeconds: null
+    });
+  });
+
   it("keeps bottom light steady only after the whole candidate structure is correct", () => {
     const session = M01GreyboxSession.fromConfig(realConfig, { now: () => 12345 });
     submitCorrectCandidate(session);
