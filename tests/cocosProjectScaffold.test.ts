@@ -200,8 +200,25 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("flashlightBeamAnchor");
     expect(bootstrap).toContain("flashlightBeamLit");
     expect(bootstrap).toContain('token.kind === "flashlight"');
+    expect(bootstrap).toContain("if (this.flashlightBeamLit) {\n        this.releaseHeldFlashlightAfterBeamGesture();");
+    expect(bootstrap).toContain("if (selected.accepted) {\n        this.releaseHeldFlashlightAfterBeamGesture();");
     expect(bootstrap).toContain("Input.EventType.MOUSE_DOWN");
     expect(bootstrap).toContain("Input.EventType.TOUCH_START");
+  });
+
+  it("suspends held flashlight follow and beam state when a fragment press begins", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("private suspendHeldFlashlightInteraction(): void");
+    expect(bootstrap).toContain("private releaseHeldFlashlightAfterBeamGesture(): void");
+    expect(bootstrap).toContain('if (hitToken?.kind === "fragment") {');
+    expect(bootstrap).toContain("this.suspendHeldFlashlightInteraction();");
+    expect(bootstrap).toContain("if (this.flashlightBeamGesturePointerId !== undefined) {\n      this.releaseHeldFlashlightAfterBeamGesture();");
+    expect(bootstrap).toContain("this.flashlightBeamGesturePointerId = undefined;");
+    expect(bootstrap).toContain("this.flashlightBeamLit = false;");
+    expect(bootstrap).toContain("this.flashlightBeamAnchor = undefined;");
+    expect(bootstrap).toContain("this.flashlightBeamTarget = undefined;");
+    expect(bootstrap).toContain("this.drawFlashlightBeam();");
   });
 
   it("lets player input adjust the M01 flashlight beam reach", () => {
@@ -239,6 +256,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.tokenPositions.set(heldFragmentId, position)");
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.width');
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height');
+  });
+
+  it("keeps fragment drags alive when mouse move and mouse up finish outside the token node", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("private pointerIdForActiveDragEvent(event: M01GreyboxPointerEvent): string | number");
+    expect(bootstrap).toContain('if (pointerId === "mouse" && this.dragState.active) {');
+    expect(bootstrap).toContain("pointerId: this.pointerIdForActiveDragEvent(event)");
   });
 
   it("renders M01 flashlight beam, validation bottom light, and sketch hint note", () => {

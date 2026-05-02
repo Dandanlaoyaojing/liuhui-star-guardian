@@ -40,16 +40,16 @@
 
 ### Task 1: Fix Held-Flashlight State Before Fragment Drags
 
-- [ ] Read the sources of truth and reproduce the current strict smoke failure with `npm run smoke:m01-preview:input`, capturing the relevant snapshot.
-- [ ] Add or strengthen a focused test in `tests/cocosProjectScaffold.test.ts` or another existing M01 interaction test so the code must clear, suspend, or ignore held-flashlight follow/beam state when a fragment press begins.
-- [ ] Run the focused test and confirm it fails for the intended missing lifecycle guard.
-- [ ] Implement the smallest `M01GreyboxBootstrap.ts` fix so pressing or dragging a fragment cannot be treated as continued held-flashlight movement or beam gesture.
-- [ ] Verify focused tests with `npm test -- tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeScript.test.ts`.
-- [ ] Run `npm run typecheck`.
-- [ ] Run `npm test`.
-- [ ] Run `git diff --check`.
-- [ ] Refresh Cocos preview with `npm run smoke:m01-preview-refresh`.
-- [ ] Run `npm run smoke:m01-preview:input` and require `realInput.usedFallback = false`.
-- [ ] Update `production/active.md` with the root cause, fix, verification evidence, and next recommended step.
-- [ ] Self-review the diff for accidental gameplay-rule changes, stale flashlight state cleanup gaps, tests that only check strings, and accidental generated/editor files.
+- [x] Read the sources of truth and reproduce the current strict smoke failure with `npm run smoke:m01-preview:input`, capturing the relevant snapshot.
+- [x] Add or strengthen a focused test in `tests/cocosProjectScaffold.test.ts` or another existing M01 interaction test so the code must clear, suspend, or ignore held-flashlight follow/beam state when a fragment press begins.
+- [x] Run the focused test and confirm it fails for the intended missing lifecycle guard.
+- [x] Implement the smallest `M01GreyboxBootstrap.ts` fix so pressing or dragging a fragment cannot be treated as continued held-flashlight movement or beam gesture.
+- [x] Verify focused tests with `npm test -- tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeScript.test.ts`.
+- [x] Run `npm run typecheck`.
+- [x] Run `npm test`.
+- [x] Run `git diff --check`.
+- [x] Refresh Cocos preview with `npm run smoke:m01-preview-refresh`.
+- [x] Run `npm run smoke:m01-preview:input` and require `realInput.usedFallback = false`.
+- [x] Update `production/active.md` with the root cause, fix, verification evidence, and next recommended step.
+- [x] Self-review the diff for accidental gameplay-rule changes, stale flashlight state cleanup gaps, tests that only check strings, and accidental generated/editor files.
 - [ ] Commit and push only scoped files with a focused message.

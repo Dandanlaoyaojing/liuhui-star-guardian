@@ -800,6 +800,10 @@ export class M01GreyboxBootstrap extends Component {
       [...(this.layout?.fragments ?? []), ...(this.layout?.flashlights ?? [])],
       position
     );
+    if (hitToken?.kind === "fragment") {
+      this.suspendHeldFlashlightInteraction();
+      return;
+    }
     this.suppressHeldFlashlightFollow = Boolean(
       hitToken && hitToken.controllerId !== this.heldFlashlightId
     );
@@ -813,7 +817,9 @@ export class M01GreyboxBootstrap extends Component {
     if (token.kind === "flashlight" && token.controllerId === this.heldFlashlightId) {
       return;
     }
-    if (token.kind !== "flashlight") {
+    if (token.kind === "fragment") {
+      this.suspendHeldFlashlightInteraction();
+    } else if (token.kind !== "flashlight") {
       this.heldFlashlightId = undefined;
       this.heldFlashlightPointerId = undefined;
       this.suppressHeldFlashlightFollow = false;
@@ -950,7 +956,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.dragState = moveDragSession(this.dragState, {
-      pointerId: this.pointerIdForEvent(event),
+      pointerId: this.pointerIdForActiveDragEvent(event),
       position: this.eventToLocalPoint(event)
     });
 
@@ -971,7 +977,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     if (this.flashlightBeamGesturePointerId !== undefined) {
-      this.flashlightBeamGesturePointerId = undefined;
+      this.releaseHeldFlashlightAfterBeamGesture();
     }
     this.suppressHeldFlashlightFollow = false;
   }
@@ -984,13 +990,16 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     if (this.flashlightBeamGesturePointerId !== undefined) {
-      this.flashlightBeamGesturePointerId = undefined;
+      this.releaseHeldFlashlightAfterBeamGesture();
     }
     this.suppressHeldFlashlightFollow = false;
   }
 
   private endTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
     if (token.kind === "flashlight" && token.controllerId === this.heldFlashlightId) {
+      if (this.flashlightBeamLit) {
+        this.releaseHeldFlashlightAfterBeamGesture();
+      }
       this.clearActiveDrag();
       return;
     }
@@ -1000,7 +1009,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     const transition = endDragSession(this.dragState, {
-      pointerId: this.pointerIdForEvent(event),
+      pointerId: this.pointerIdForActiveDragEvent(event),
       position: this.eventToLocalPoint(event)
     });
     this.dragState = transition.state;
@@ -1027,7 +1036,7 @@ export class M01GreyboxBootstrap extends Component {
       this.clearActiveDrag();
       return;
     }
-    const transition = cancelDragSession(this.dragState, this.pointerIdForEvent(event));
+    const transition = cancelDragSession(this.dragState, this.pointerIdForActiveDragEvent(event));
     this.dragState = transition.state;
     this.resetTokenNode(node, token);
     this.clearActiveDrag();
@@ -1036,6 +1045,22 @@ export class M01GreyboxBootstrap extends Component {
   private clearActiveDrag(): void {
     this.activeDragNode = null;
     this.activeDragToken = null;
+  }
+
+  private suspendHeldFlashlightInteraction(): void {
+    this.releaseHeldFlashlightAfterBeamGesture();
+    this.flashlightBeamTarget = undefined;
+    this.drawFlashlightBeam();
+  }
+
+  private releaseHeldFlashlightAfterBeamGesture(): void {
+    this.heldFlashlightId = undefined;
+    this.heldFlashlightPointerId = undefined;
+    this.flashlightBeamAnchor = undefined;
+    this.flashlightBeamGesturePointerId = undefined;
+    this.flashlightBeamLit = false;
+    this.suppressHeldFlashlightFollow = false;
+    this.drawFlashlightBeam();
   }
 
   private suppressRootClickOnce(): void {
@@ -1171,6 +1196,9 @@ export class M01GreyboxBootstrap extends Component {
       this.syncFeedbackFromSession();
       this.syncVisualState();
       this.scheduleObservedColorReset(revealed);
+      if (selected.accepted) {
+        this.releaseHeldFlashlightAfterBeamGesture();
+      }
       return;
     }
 
@@ -1491,6 +1519,15 @@ export class M01GreyboxBootstrap extends Component {
 
   private pointerIdForEvent(event: M01GreyboxPointerEvent): string | number {
     return event.getID?.() ?? "mouse";
+  }
+
+  private pointerIdForActiveDragEvent(event: M01GreyboxPointerEvent): string | number {
+    const pointerId = this.pointerIdForEvent(event);
+    if (pointerId === "mouse" && this.dragState.active) {
+      return this.dragState.active.pointerId;
+    }
+
+    return pointerId;
   }
 
   private eventToLocalPoint(event: M01GreyboxPointerEvent): M01GreyboxPoint {
