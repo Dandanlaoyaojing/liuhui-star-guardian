@@ -14,7 +14,7 @@
       <polygon points="344,162 368,120.431 416,120.431 440,162 416,203.569 368,203.569" />
     </clipPath>
     <clipPath id="clip-lower-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" />
+      <polygon points="376,226 400,184.431 448,184.431 472,226 448,267.569 400,267.569" />
     </clipPath>
 
     <pattern id="paper-tooth" width="32" height="32" patternUnits="userSpaceOnUse">
@@ -68,8 +68,8 @@
     <use href="#std-triangle" transform="translate(252 158)" />
     <use href="#std-triangle" transform="translate(350 158)" />
     <use href="#std-hexagon" transform="translate(392 162)" />
-    <use href="#std-hexagon" transform="translate(396 226)" />
-    <use href="#std-circle" transform="translate(330 238)" />
+    <use href="#std-hexagon" transform="translate(424 226)" />
+    <use href="#std-circle" transform="translate(364 260)" />
   </g>
 
   <g id="piece-wash-overlays" fill="#fff5d9" fill-opacity="0.18" stroke="none">
@@ -77,8 +77,8 @@
     <use href="#std-triangle" transform="translate(252 158) scale(0.78)" />
     <use href="#std-triangle" transform="translate(350 158) scale(0.78)" />
     <use href="#std-hexagon" transform="translate(392 162) scale(0.78)" />
-    <use href="#std-hexagon" transform="translate(396 226) scale(0.78)" />
-    <use href="#std-circle" transform="translate(330 238) scale(0.78)" />
+    <use href="#std-hexagon" transform="translate(424 226) scale(0.78)" />
+    <use href="#std-circle" transform="translate(364 260) scale(0.78)" />
   </g>
 
   <g id="true-overlap-colors"
@@ -86,8 +86,8 @@
      stroke-width="1.25" stroke-linejoin="round">
     <polygon points="252,116.431 204,199.569 300,199.569" fill="url(#muted-purple-wash)" clip-path="url(#clip-left-circle)" />
     <polygon points="344,162 368,120.431 416,120.431 440,162 416,203.569 368,203.569" fill="url(#muted-green-wash)" clip-path="url(#clip-right-triangle)" />
-    <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" fill="url(#muted-orange-wash)" clip-path="url(#clip-top-hexagon)" />
-    <circle cx="330" cy="238" r="48" fill="url(#muted-purple-wash)" clip-path="url(#clip-lower-hexagon)" />
+    <polygon points="376,226 400,184.431 448,184.431 472,226 448,267.569 400,267.569" fill="url(#muted-orange-wash)" clip-path="url(#clip-top-hexagon)" />
+    <circle cx="364" cy="260" r="48" fill="url(#muted-purple-wash)" clip-path="url(#clip-lower-hexagon)" />
   </g>
 
   <g id="ink-linework-overlays"
@@ -97,16 +97,16 @@
     <use href="#std-triangle" transform="translate(252 158)" />
     <use href="#std-triangle" transform="translate(350 158)" />
     <use href="#std-hexagon" transform="translate(392 162)" />
-    <use href="#std-hexagon" transform="translate(396 226)" />
-    <use href="#std-circle" transform="translate(330 238)" />
+    <use href="#std-hexagon" transform="translate(424 226)" />
+    <use href="#std-circle" transform="translate(364 260)" />
   </g>
 
   <g id="dry-brush-detail" fill="none" stroke="#514a3b" stroke-opacity="0.18" stroke-width="1" stroke-linecap="round">
     <path d="M158 141 C174 137, 188 138, 205 142" />
     <path d="M223 169 C240 176, 258 177, 276 172" />
     <path d="M318 147 C338 140, 360 141, 378 149" />
-    <path d="M370 212 C386 208, 406 209, 424 215" />
-    <path d="M299 249 C316 256, 339 255, 356 248" />
+    <path d="M398 212 C414 208, 434 209, 452 215" />
+    <path d="M333 271 C350 278, 373 277, 390 270" />
   </g>
 
   <g id="bottom-standard-piece-check" transform="translate(126 376)"

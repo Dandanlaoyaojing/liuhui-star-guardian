@@ -12,6 +12,141 @@ function readText(path: string): string {
   return readFileSync(join(projectRoot, path), "utf8");
 }
 
+type SvgPoint = { x: number; y: number };
+type SvgPiece = { id: string; kind: "circle" | "triangle" | "hexagon"; x: number; y: number };
+
+function parseM01TargetPieces(svg: string): SvgPiece[] {
+  const standardPiecesMatch = svg.match(/<g id="standard-pieces"[.\s\S]*?<\/g>/);
+  if (!standardPiecesMatch) {
+    return [];
+  }
+
+  return [...standardPiecesMatch[0].matchAll(/<use href="#std-(circle|triangle|hexagon)" transform="translate\(([-0-9.]+) ([-0-9.]+)\)" \/>/g)].map(
+    (match, index) => {
+      return {
+        id: `${match[1]}_${index}`,
+        kind: match[1] as SvgPiece["kind"],
+        x: Number(match[2]),
+        y: Number(match[3])
+      };
+    }
+  );
+}
+
+function m01SvgPiecePolygon(piece: SvgPiece): SvgPoint[] {
+  const radius = 48;
+  const halfHeight = 41.569;
+
+  if (piece.kind === "circle") {
+    return Array.from({ length: 96 }, (_, index) => {
+      const angle = (Math.PI * 2 * index) / 96;
+      return {
+        x: piece.x + Math.cos(angle) * radius,
+        y: piece.y + Math.sin(angle) * radius
+      };
+    });
+  }
+
+  if (piece.kind === "triangle") {
+    return [
+      { x: piece.x, y: piece.y - halfHeight },
+      { x: piece.x - radius, y: piece.y + halfHeight },
+      { x: piece.x + radius, y: piece.y + halfHeight }
+    ];
+  }
+
+  return [
+    { x: piece.x - radius, y: piece.y },
+    { x: piece.x - radius / 2, y: piece.y - halfHeight },
+    { x: piece.x + radius / 2, y: piece.y - halfHeight },
+    { x: piece.x + radius, y: piece.y },
+    { x: piece.x + radius / 2, y: piece.y + halfHeight },
+    { x: piece.x - radius / 2, y: piece.y + halfHeight }
+  ];
+}
+
+function polygonArea(points: SvgPoint[]): number {
+  return Math.abs(
+    points.reduce((sum, point, index) => {
+      const next = points[(index + 1) % points.length];
+      return sum + point.x * next.y - next.x * point.y;
+    }, 0) / 2
+  );
+}
+
+function polygonOrientation(points: SvgPoint[]): number {
+  const signedArea = points.reduce((sum, point, index) => {
+    const next = points[(index + 1) % points.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0);
+  return signedArea >= 0 ? 1 : -1;
+}
+
+function clipPolygon(subject: SvgPoint[], clip: SvgPoint[]): SvgPoint[] {
+  const orientation = polygonOrientation(clip);
+  let output = subject;
+
+  for (let index = 0; index < clip.length; index += 1) {
+    const start = clip[index];
+    const end = clip[(index + 1) % clip.length];
+    const input = output;
+    output = [];
+    if (input.length === 0) {
+      break;
+    }
+
+    let previous = input[input.length - 1];
+    for (const current of input) {
+      const currentInside = isInside(current, start, end, orientation);
+      const previousInside = isInside(previous, start, end, orientation);
+
+      if (currentInside) {
+        if (!previousInside) {
+          output.push(intersection(previous, current, start, end));
+        }
+        output.push(current);
+      } else if (previousInside) {
+        output.push(intersection(previous, current, start, end));
+      }
+
+      previous = current;
+    }
+  }
+
+  return output;
+}
+
+function isInside(point: SvgPoint, start: SvgPoint, end: SvgPoint, orientation: number): boolean {
+  const cross = (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
+  return orientation * cross >= -0.0001;
+}
+
+function intersection(firstStart: SvgPoint, firstEnd: SvgPoint, secondStart: SvgPoint, secondEnd: SvgPoint): SvgPoint {
+  const firstDx = firstEnd.x - firstStart.x;
+  const firstDy = firstEnd.y - firstStart.y;
+  const secondDx = secondEnd.x - secondStart.x;
+  const secondDy = secondEnd.y - secondStart.y;
+  const denominator = firstDx * secondDy - firstDy * secondDx;
+
+  if (Math.abs(denominator) < 0.0001) {
+    return firstEnd;
+  }
+
+  const ratio =
+    ((secondStart.x - firstStart.x) * secondDy - (secondStart.y - firstStart.y) * secondDx) /
+    denominator;
+
+  return {
+    x: firstStart.x + firstDx * ratio,
+    y: firstStart.y + firstDy * ratio
+  };
+}
+
+function overlapArea(first: SvgPiece, second: SvgPiece): number {
+  const overlap = clipPolygon(m01SvgPiecePolygon(first), m01SvgPiecePolygon(second));
+  return overlap.length >= 3 ? polygonArea(overlap) : 0;
+}
+
 describe("Cocos Creator project scaffold", () => {
   it("has the Cocos Creator 3.x project metadata that lets the editor identify the repo", () => {
     expect(existsSync(join(projectRoot, ".creator/default-meta.json"))).toBe(true);
@@ -208,6 +343,29 @@ describe("Cocos Creator project scaffold", () => {
     expect(artCandidate).not.toContain("feDisplacementMap");
     expect(artCandidate).not.toContain('<g id="standard-pieces" filter=');
     expect(artCandidate).not.toContain('<g id="true-overlap-colors" filter=');
+  });
+
+  it("keeps M01 target art from showing uncolored accidental overlaps", () => {
+    const artCandidate = readText(
+      "docs/design/generated-m01-art-slices/m01-target-standard-piece-art-candidate.svg"
+    );
+    const pieces = parseM01TargetPieces(artCandidate);
+    const intendedPairs = new Set(["0:1", "2:3", "3:4", "4:5"]);
+
+    expect(pieces).toHaveLength(6);
+
+    for (let firstIndex = 0; firstIndex < pieces.length; firstIndex += 1) {
+      for (let secondIndex = firstIndex + 1; secondIndex < pieces.length; secondIndex += 1) {
+        const area = overlapArea(pieces[firstIndex], pieces[secondIndex]);
+        const pairKey = `${firstIndex}:${secondIndex}`;
+
+        if (intendedPairs.has(pairKey)) {
+          expect(area, `${pairKey} should visibly overlap`).toBeGreaterThan(450);
+        } else {
+          expect(area, `${pairKey} should not create uncolored overlap`).toBeLessThan(30);
+        }
+      }
+    }
   });
 
   it("lets the M01 flashlight beam roam with the pointer over the fragment pool", () => {
