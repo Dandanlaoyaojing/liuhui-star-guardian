@@ -185,7 +185,7 @@ function buildFragmentNode(
     kind: "fragment",
     label: formatM01GreyboxText("tokenLabel", { color, shape }, text),
     position: readPosition(fragment.position, { x: 0, y: 0 }),
-    size: { width: 34, height: 34 },
+    size: { width: 48, height: 48 },
     colorToken,
     shapeToken,
     tags: ["candidate_fragment", ...(fragment.tags ?? [])]

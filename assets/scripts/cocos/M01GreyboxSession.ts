@@ -392,6 +392,7 @@ export class M01GreyboxSession {
 
   weakSnapFragmentToEvidence(fragmentId: string, evidenceId: string): {
     accepted: boolean;
+    reason?: "invalid_evidence" | "invalid_fragment" | "wrong_shape";
     fragmentId: string;
     evidenceId: string;
     completedEvidenceCount: number;
@@ -401,8 +402,14 @@ export class M01GreyboxSession {
     const fragment = this.controller.getFragmentState(fragmentId);
     const evidence = (this.config.evidence ?? []).find((candidate) => candidate.id === evidenceId);
     if (!fragment || !evidence || !this.fragmentMatchesEvidenceShape(fragment, evidenceId)) {
+      const reason = !fragment
+        ? "invalid_fragment"
+        : !evidence
+          ? "invalid_evidence"
+          : "wrong_shape";
       return {
         accepted: false,
+        reason,
         fragmentId,
         evidenceId,
         completedEvidenceCount: this.controller.getCompletionState().reconstructedEvidenceCount,

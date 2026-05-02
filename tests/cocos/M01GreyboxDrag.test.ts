@@ -20,40 +20,44 @@ describe("resolveM01GreyboxDrop", () => {
     });
   });
 
-  it("weak-snaps a fragment near matching evidence shape without completing it", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_a");
-    const evidence = layout.evidence.find((item) => item.controllerId === "evidence_purple_arc");
+  it("weak-snaps a shape-compatible fragment near a generated overlap target without completing it", () => {
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
+    const evidence = layout.evidence.find(
+      (item) => item.controllerId === "evidence_purple_upper_left"
+    );
 
     expect(fragment).toBeDefined();
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position)).toEqual({
       type: "weak_snap_fragment",
-      fragmentId: "fragment_a",
-      evidenceId: "evidence_purple_arc"
+      fragmentId: "fragment_triangle_red_1",
+      evidenceId: "evidence_purple_upper_left"
     });
   });
 
-  it("does not weak-snap a shape-mismatched fragment even when it is near evidence", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_k");
-    const evidence = layout.evidence.find((item) => item.controllerId === "evidence_purple_arc");
+  it("does not weak-snap a shape that cannot produce the generated overlap target", () => {
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_hexagon_red_1");
+    const evidence = layout.evidence.find(
+      (item) => item.controllerId === "evidence_purple_upper_left"
+    );
 
     expect(fragment).toBeDefined();
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_k",
+      fragmentId: "fragment_hexagon_red_1",
       position: evidence!.position
     });
   });
 
   it("returns a fragment to free placement when no evidence shape is nearby", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_a");
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_circle_red_1");
     const position = { x: 420, y: -260 };
 
     expect(fragment).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_a",
+      fragmentId: "fragment_circle_red_1",
       position
     });
   });

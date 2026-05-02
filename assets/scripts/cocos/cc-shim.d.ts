@@ -22,12 +22,17 @@ declare module "cc" {
   export class EventTouch {
     getID(): number;
     getUILocation(): { x: number; y: number };
+    getScrollY?(): number;
   }
 
   export const Input: {
     EventType: {
       MOUSE_MOVE: string;
       MOUSE_UP: string;
+      MOUSE_WHEEL: string;
+      TOUCH_MOVE: string;
+      TOUCH_END: string;
+      TOUCH_CANCEL: string;
     };
   };
 

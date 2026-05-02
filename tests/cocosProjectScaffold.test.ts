@@ -94,6 +94,9 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("\"mouse-down\"");
     expect(bootstrap).toContain("Input.EventType.MOUSE_MOVE");
     expect(bootstrap).toContain("Input.EventType.MOUSE_UP");
+    expect(bootstrap).toContain("Input.EventType.TOUCH_MOVE");
+    expect(bootstrap).toContain("Input.EventType.TOUCH_END");
+    expect(bootstrap).toContain("Input.EventType.TOUCH_CANCEL");
   });
 
   it("wires M01 flashlight and evidence actions in the Cocos bootstrap", () => {
@@ -124,38 +127,58 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("M01ValidateButton");
   });
 
-  it("renders M01 overlap evidence with blend colors and local evidence shapes", () => {
+  it("renders M01 overlap evidence as a colored reference diagram", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("purple: [");
     expect(bootstrap).toContain("green: [");
     expect(bootstrap).toContain("orange: [");
-    expect(bootstrap).toContain('token.shapeToken === "arc_lens"');
-    expect(bootstrap).toContain('token.shapeToken === "notch_lens"');
-    expect(bootstrap).toContain('token.shapeToken === "crescent_overlap"');
-    expect(bootstrap).toContain('token.shapeToken === "branch_lens"');
-    expect(bootstrap).toContain("drawArcLens");
-    expect(bootstrap).toContain("drawNotchLens");
-    expect(bootstrap).toContain("drawCrescentOverlap");
-    expect(bootstrap).toContain("drawBranchLens");
+    expect(bootstrap).toContain('token.shapeToken === "triangle"');
+    expect(bootstrap).toContain('token.shapeToken === "hexagon"');
+    expect(bootstrap).not.toContain('token.shapeToken === "arc_lens"');
+    expect(bootstrap).not.toContain('token.shapeToken === "notch_lens"');
+    expect(bootstrap).not.toContain('token.shapeToken === "crescent_overlap"');
+    expect(bootstrap).not.toContain('token.shapeToken === "branch_lens"');
   });
 
-  it("renders M01 candidate fragments as hidden-color shape-specific grey pieces", () => {
+  it("renders M01 candidate fragments as hidden-color fixed-shape grey pieces", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain('token.shapeToken === "arc_hook"');
-    expect(bootstrap).toContain('token.shapeToken === "arc_socket"');
-    expect(bootstrap).toContain('token.shapeToken === "notch_hook"');
-    expect(bootstrap).toContain('token.shapeToken === "notch_socket"');
-    expect(bootstrap).toContain('token.shapeToken === "crescent_left"');
-    expect(bootstrap).toContain('token.shapeToken === "crescent_right"');
-    expect(bootstrap).toContain('token.shapeToken === "branch_left"');
-    expect(bootstrap).toContain('token.shapeToken === "branch_right"');
-    expect(bootstrap).toContain("drawArcFragment");
-    expect(bootstrap).toContain("drawNotchFragment");
-    expect(bootstrap).toContain("drawCrescentFragment");
-    expect(bootstrap).toContain("drawBranchFragment");
+    expect(bootstrap).toContain('token.shapeToken === "triangle"');
+    expect(bootstrap).toContain('token.shapeToken === "hexagon"');
+    expect(bootstrap).not.toContain('token.shapeToken === "arc_hook"');
+    expect(bootstrap).not.toContain('token.shapeToken === "arc_socket"');
+    expect(bootstrap).not.toContain('token.shapeToken === "notch_hook"');
+    expect(bootstrap).not.toContain('token.shapeToken === "notch_socket"');
+    expect(bootstrap).not.toContain('token.shapeToken === "crescent_left"');
+    expect(bootstrap).not.toContain('token.shapeToken === "crescent_right"');
+    expect(bootstrap).not.toContain('token.shapeToken === "branch_left"');
+    expect(bootstrap).not.toContain('token.shapeToken === "branch_right"');
     expect(bootstrap).toContain('hidden: [');
+  });
+
+  it("lets the M01 flashlight beam roam with the pointer over the fragment pool", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("flashlightBeamTarget");
+    expect(bootstrap).toContain("flashlightBeamReach");
+    expect(bootstrap).toContain("setFlashlightBeamReach");
+    expect(bootstrap).toContain("moveFlashlightBeamWithPointer");
+    expect(bootstrap).toContain("scanFlashlightBeamAtTarget");
+    expect(bootstrap).toContain("this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget)");
+    expect(bootstrap).toContain("getFlashlightBeamTarget");
+    expect(bootstrap).toContain("getFlashlightBeamReach");
+    expect(bootstrap).toContain("if (this.flashlightBeamTarget)");
+    expect(bootstrap).toContain("this.layout.fragments");
+    expect(bootstrap).not.toContain("const target = this.layout.board.position");
+  });
+
+  it("lets player input adjust the M01 flashlight beam reach", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("Input.EventType.MOUSE_WHEEL");
+    expect(bootstrap).toContain("adjustFlashlightBeamReach");
+    expect(bootstrap).toContain("event.getScrollY?.()");
   });
 
   it("highlights M01 flashlight and evidence hint targets in the bootstrap", () => {
@@ -172,11 +195,15 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain("CLICK_DRAG_THRESHOLD");
     expect(bootstrap).toContain("heldFragmentId");
+    expect(bootstrap).toContain("heldPointerId");
+    expect(bootstrap).toContain("moveHeldFragmentWithPointer");
     expect(bootstrap).toContain("handleFragmentClick");
     expect(bootstrap).toContain("placeHeldFragmentAt");
     expect(bootstrap).toContain("placeHeldFragmentAtPosition");
     expect(bootstrap).toContain("this.heldFragmentId && this.heldFragmentId !== token.controllerId");
     expect(bootstrap).toContain("tryHandleTokenClick");
+    expect(bootstrap).toContain("this.heldPointerId !== this.pointerIdForEvent(event)");
+    expect(bootstrap).toContain("this.tokenPositions.set(heldFragmentId, position)");
   });
 
   it("renders M01 flashlight beam, validation bottom light, and sketch hint note", () => {

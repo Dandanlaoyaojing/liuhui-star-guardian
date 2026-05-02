@@ -33,4 +33,34 @@ describe("buildM01GreyboxLayout", () => {
       expect(evidence.tags).not.toContain("complete_outline");
     }
   });
+
+  it("keeps candidate fragments as a compact bottom-floor pool", () => {
+    const layout = buildM01GreyboxLayout(config);
+
+    expect(layout.fragments.every((fragment) => fragment.position.y <= -210)).toBe(true);
+    expect(Math.max(...layout.fragments.map((fragment) => fragment.position.y))).toBeLessThan(
+      layout.board.position.y - layout.board.size.height / 2
+    );
+  });
+
+  it("uses only circle, triangle, and hexagon as fragment display shapes", () => {
+    const layout = buildM01GreyboxLayout(config);
+    const shapes = new Set(layout.fragments.map((fragment) => fragment.shapeToken));
+
+    expect([...shapes].sort()).toEqual(["circle", "hexagon", "triangle"]);
+    expect(layout.fragments.every((fragment) => fragment.size.width === 48)).toBe(true);
+    expect(layout.fragments.every((fragment) => fragment.size.height === 48)).toBe(true);
+  });
+
+  it("keeps target evidence as a separate colored reference diagram above the floor pool", () => {
+    const layout = buildM01GreyboxLayout(config);
+
+    expect(layout.evidence.every((evidence) => evidence.position.y > -170)).toBe(true);
+    expect(layout.evidence.map((evidence) => evidence.colorToken)).toEqual([
+      "purple",
+      "green",
+      "orange",
+      "purple"
+    ]);
+  });
 });

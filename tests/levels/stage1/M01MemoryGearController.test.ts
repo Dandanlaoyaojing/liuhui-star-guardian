@@ -115,10 +115,10 @@ function sortAll(controller: M01MemoryGearController, config: M01MemoryGearConfi
 }
 
 const CORRECT_EVIDENCE_PAIRS: Array<[string, [string, string]]> = [
-  ["evidence_purple_arc", ["fragment_a", "fragment_b"]],
-  ["evidence_green_notch", ["fragment_c", "fragment_d"]],
-  ["evidence_orange_crescent", ["fragment_e", "fragment_f"]],
-  ["evidence_purple_branch", ["fragment_g", "fragment_h"]]
+  ["evidence_purple_upper_left", ["fragment_circle_red_1", "fragment_triangle_blue_1"]],
+  ["evidence_green_upper_right", ["fragment_triangle_yellow_1", "fragment_hexagon_blue_1"]],
+  ["evidence_orange_lower_right", ["fragment_hexagon_red_1", "fragment_hexagon_yellow_1"]],
+  ["evidence_purple_lower_left", ["fragment_hexagon_red_2", "fragment_circle_blue_1"]]
 ];
 
 function stageCorrectCandidate(controller: M01MemoryGearController): void {
@@ -128,14 +128,20 @@ function stageCorrectCandidate(controller: M01MemoryGearController): void {
 }
 
 function stageWrongColorCompleteCandidate(controller: M01MemoryGearController): void {
-  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+  controller.stageEvidencePair("evidence_purple_upper_left", [
+    "fragment_circle_red_1",
+    "fragment_triangle_yellow_2"
+  ]);
   for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
     controller.stageEvidencePair(evidenceId, fragmentIds);
   }
 }
 
 function stageWrongFragmentSetCompleteCandidate(controller: M01MemoryGearController): void {
-  controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_m"]);
+  controller.stageEvidencePair("evidence_purple_upper_left", [
+    "fragment_circle_red_2",
+    "fragment_triangle_blue_1"
+  ]);
   for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
     controller.stageEvidencePair(evidenceId, fragmentIds);
   }
@@ -179,16 +185,43 @@ describe("M01MemoryGearController", () => {
     }
   });
 
-  it("includes shape-compatible decoys without leaking target answers", () => {
+  it("keeps candidate fragments limited to circle, triangle, and hexagon shapes", () => {
+    const allowedShapes = new Set(["circle", "triangle", "hexagon"]);
+    const colorsByShape = new Map<string, Set<string>>();
+
+    for (const fragment of realM01Config.fragments) {
+      const shape = fragment.shape ?? fragment.edgeShape;
+      expect(allowedShapes.has(shape)).toBe(true);
+      expect(fragment.edgeShape).toBe(shape);
+      const colors = colorsByShape.get(shape) ?? new Set<string>();
+      colors.add(fragment.hiddenColor);
+      colorsByShape.set(shape, colors);
+    }
+
+    expect([...colorsByShape.keys()].sort()).toEqual(["circle", "hexagon", "triangle"]);
+    for (const colorsForShape of colorsByShape.values()) {
+      expect(colorsForShape.size).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("includes same-shape different-color decoys without leaking target answers", () => {
     const wrongColorDecoy = realM01Config.fragments.find(
-      (fragment: { id: string }) => fragment.id === "fragment_i"
+      (fragment: { id: string }) => fragment.id === "fragment_triangle_yellow_2"
     );
-    const sameColorDecoy = realM01Config.fragments.find(
-      (fragment: { id: string }) => fragment.id === "fragment_m"
+    const sameShapeDecoy = realM01Config.fragments.find(
+      (fragment: { id: string }) => fragment.id === "fragment_circle_red_2"
     );
 
-    expect(wrongColorDecoy).toMatchObject({ hiddenColor: "yellow", edgeShape: "arc_socket" });
-    expect(sameColorDecoy).toMatchObject({ hiddenColor: "blue", edgeShape: "arc_socket" });
+    expect(wrongColorDecoy).toMatchObject({
+      hiddenColor: "yellow",
+      edgeShape: "triangle",
+      shape: "triangle"
+    });
+    expect(sameShapeDecoy).toMatchObject({
+      hiddenColor: "red",
+      edgeShape: "circle",
+      shape: "circle"
+    });
     expect(
       realM01Config.evidence.every(
         (evidence: { solution: { fragmentIds: string[] } }) =>
@@ -198,13 +231,13 @@ describe("M01MemoryGearController", () => {
     expect(
       realM01Config.evidence.some(
         (evidence: { solution: { fragmentIds: string[] } }) =>
-          evidence.solution.fragmentIds.includes("fragment_i")
+          evidence.solution.fragmentIds.includes("fragment_triangle_yellow_2")
       )
     ).toBe(false);
     expect(
       realM01Config.evidence.some(
         (evidence: { solution: { fragmentIds: string[] } }) =>
-          evidence.solution.fragmentIds.includes("fragment_m")
+          evidence.solution.fragmentIds.includes("fragment_circle_red_2")
       )
     ).toBe(false);
     expect(realM01Config.goal.params.requiredFragments).toBe("solution_defined");
@@ -214,6 +247,13 @@ describe("M01MemoryGearController", () => {
     for (const evidence of realM01Config.evidence) {
       expect(evidence.targetShape).toBeDefined();
       expect(evidence.targetBlendColor).toMatch(/^(orange|green|purple)$/);
+      expect(evidence.shapeTags).toEqual(
+        evidence.generatedOverlap.sourceShapes.map((shape: string) => `shape:${shape}`)
+      );
+      expect(evidence.generatedOverlap).toMatchObject({
+        areaRatio: expect.any(Number),
+        offset: { x: expect.any(Number), y: expect.any(Number) }
+      });
       expect(evidence.fullOutline).toBeUndefined();
       expect(evidence.fragmentIds).toBeUndefined();
       expect(evidence.hiddenColorHint).toBeUndefined();
@@ -222,26 +262,29 @@ describe("M01MemoryGearController", () => {
 
   it("reveals candidate fragments without making hidden colors visible by default", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
-    const fragment = controller.getFragmentState("fragment_a");
+    const fragment = controller.getFragmentState("fragment_circle_red_1");
 
     expect(fragment?.hiddenColorVisible).toBe(false);
-    expect(controller.revealFragmentWithFlashlight("fragment_a", "blue")).toEqual({
+    expect(controller.revealFragmentWithFlashlight("fragment_circle_red_1", "blue")).toEqual({
       accepted: true,
-      fragmentId: "fragment_a",
+      fragmentId: "fragment_circle_red_1",
       flashlightColor: "blue",
       revealedColor: "purple"
     });
-    expect(controller.getFragmentState("fragment_a")?.hiddenColorVisible).toBe(false);
+    expect(controller.getFragmentState("fragment_circle_red_1")?.hiddenColorVisible).toBe(false);
   });
 
-  it("stages a shape-compatible overlap without completing evidence immediately", () => {
+  it("stages shape-compatible fixed-shape fragments against a generated overlap target without completing evidence immediately", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
 
     expect(
-      controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])
+      controller.stageEvidencePair("evidence_purple_upper_left", [
+        "fragment_circle_red_1",
+        "fragment_triangle_blue_1"
+      ])
     ).toMatchObject({
       accepted: true,
-      evidenceId: "evidence_purple_arc",
+      evidenceId: "evidence_purple_upper_left",
       colorRevealed: false
     });
 
@@ -273,7 +316,10 @@ describe("M01MemoryGearController", () => {
 
   it("rejects validation while the candidate is still incomplete", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
-    controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"]);
+    controller.stageEvidencePair("evidence_purple_upper_left", [
+      "fragment_circle_red_1",
+      "fragment_triangle_blue_1"
+    ]);
 
     expect(controller.validateCandidateStructure()).toMatchObject({
       accepted: false,
@@ -311,10 +357,10 @@ describe("M01MemoryGearController", () => {
       bottomLight: "steady_on",
       completed: true,
       reconstructedEvidenceIds: [
-        "evidence_purple_arc",
-        "evidence_green_notch",
-        "evidence_orange_crescent",
-        "evidence_purple_branch"
+        "evidence_purple_upper_left",
+        "evidence_green_upper_right",
+        "evidence_orange_lower_right",
+        "evidence_purple_lower_left"
       ]
     });
     expect(controller.isComplete()).toBe(true);
@@ -326,9 +372,37 @@ describe("M01MemoryGearController", () => {
     });
   });
 
-  it("reports wrong fragment set when a shape-compatible decoy has the right color", () => {
+  it("reports wrong fragment set when a decoy pair produces the right blend color", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
     stageWrongFragmentSetCompleteCandidate(controller);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      reason: "wrong_fragment_set",
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 2,
+      completed: false
+    });
+  });
+
+  it("rejects correct colors when the pair is assigned to the wrong generated overlap target", () => {
+    const controller = M01MemoryGearController.fromConfig(makeRealConfig());
+    controller.stageEvidencePair("evidence_purple_upper_left", [
+      "fragment_circle_red_2",
+      "fragment_triangle_blue_1"
+    ]);
+    controller.stageEvidencePair("evidence_green_upper_right", [
+      "fragment_triangle_yellow_1",
+      "fragment_hexagon_blue_1"
+    ]);
+    controller.stageEvidencePair("evidence_orange_lower_right", [
+      "fragment_hexagon_red_1",
+      "fragment_hexagon_yellow_1"
+    ]);
+    controller.stageEvidencePair("evidence_purple_lower_left", [
+      "fragment_hexagon_red_2",
+      "fragment_circle_blue_1"
+    ]);
 
     expect(controller.validateCandidateStructure()).toMatchObject({
       accepted: false,
@@ -342,14 +416,20 @@ describe("M01MemoryGearController", () => {
   it("lets a failed staged pair be replaced by a later snap", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
 
-    controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_i"]);
+    controller.stageEvidencePair("evidence_purple_upper_left", [
+      "fragment_circle_red_1",
+      "fragment_triangle_yellow_2"
+    ]);
 
     expect(
-      controller.stageEvidencePair("evidence_purple_arc", ["fragment_a", "fragment_b"])
+      controller.stageEvidencePair("evidence_purple_upper_left", [
+        "fragment_circle_red_1",
+        "fragment_triangle_blue_1"
+      ])
     ).toMatchObject({
       accepted: true,
-      evidenceId: "evidence_purple_arc",
-      fragmentIds: ["fragment_a", "fragment_b"]
+      evidenceId: "evidence_purple_upper_left",
+      fragmentIds: ["fragment_circle_red_1", "fragment_triangle_blue_1"]
     });
   });
 
@@ -357,8 +437,10 @@ describe("M01MemoryGearController", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
     stageCorrectCandidate(controller);
 
-    expect(controller.unstageFragment("fragment_a")).toEqual(["evidence_purple_arc"]);
-    expect(controller.isEvidenceStaged("evidence_purple_arc")).toBe(false);
+    expect(controller.unstageFragment("fragment_circle_red_1")).toEqual([
+      "evidence_purple_upper_left"
+    ]);
+    expect(controller.isEvidenceStaged("evidence_purple_upper_left")).toBe(false);
 
     expect(controller.validateCandidateStructure()).toMatchObject({
       accepted: false,

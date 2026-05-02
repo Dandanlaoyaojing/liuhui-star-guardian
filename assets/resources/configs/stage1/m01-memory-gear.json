@@ -42,133 +42,170 @@
   ],
   "fragments": [
     {
-      "id": "fragment_a",
+      "id": "fragment_circle_red_1",
       "hiddenColor": "red",
-      "edgeShape": "arc_hook",
-      "tags": ["fragment", "arc_hook"],
-      "position": { "x": -260, "y": 170 }
+      "shape": "circle",
+      "edgeShape": "circle",
+      "tags": ["fragment", "shape:circle"],
+      "position": { "x": -300, "y": -238 }
     },
     {
-      "id": "fragment_b",
+      "id": "fragment_circle_blue_1",
       "hiddenColor": "blue",
-      "edgeShape": "arc_socket",
-      "tags": ["fragment", "arc_socket"],
-      "position": { "x": -180, "y": 170 }
+      "shape": "circle",
+      "edgeShape": "circle",
+      "tags": ["fragment", "shape:circle"],
+      "position": { "x": -242, "y": -238 }
     },
     {
-      "id": "fragment_c",
+      "id": "fragment_circle_yellow_1",
       "hiddenColor": "yellow",
-      "edgeShape": "notch_hook",
-      "tags": ["fragment", "notch_hook"],
-      "position": { "x": -100, "y": 170 }
+      "shape": "circle",
+      "edgeShape": "circle",
+      "tags": ["fragment", "shape:circle", "decoy"],
+      "position": { "x": -184, "y": -238 }
     },
     {
-      "id": "fragment_d",
-      "hiddenColor": "blue",
-      "edgeShape": "notch_socket",
-      "tags": ["fragment", "notch_socket"],
-      "position": { "x": -20, "y": 170 }
-    },
-    {
-      "id": "fragment_e",
+      "id": "fragment_circle_red_2",
       "hiddenColor": "red",
-      "edgeShape": "crescent_left",
-      "tags": ["fragment", "crescent_left"],
-      "position": { "x": 60, "y": 170 }
+      "shape": "circle",
+      "edgeShape": "circle",
+      "tags": ["fragment", "shape:circle", "decoy"],
+      "position": { "x": -126, "y": -238 }
     },
     {
-      "id": "fragment_f",
+      "id": "fragment_triangle_blue_1",
+      "hiddenColor": "blue",
+      "shape": "triangle",
+      "edgeShape": "triangle",
+      "tags": ["fragment", "shape:triangle"],
+      "position": { "x": -68, "y": -238 }
+    },
+    {
+      "id": "fragment_triangle_yellow_1",
       "hiddenColor": "yellow",
-      "edgeShape": "crescent_right",
-      "tags": ["fragment", "crescent_right"],
-      "position": { "x": 140, "y": 170 }
+      "shape": "triangle",
+      "edgeShape": "triangle",
+      "tags": ["fragment", "shape:triangle"],
+      "position": { "x": -10, "y": -238 }
     },
     {
-      "id": "fragment_g",
+      "id": "fragment_triangle_red_1",
       "hiddenColor": "red",
-      "edgeShape": "branch_left",
-      "tags": ["fragment", "branch_left"],
-      "position": { "x": 220, "y": 170 }
+      "shape": "triangle",
+      "edgeShape": "triangle",
+      "tags": ["fragment", "shape:triangle", "decoy"],
+      "position": { "x": 48, "y": -238 }
     },
     {
-      "id": "fragment_h",
-      "hiddenColor": "blue",
-      "edgeShape": "branch_right",
-      "tags": ["fragment", "branch_right"],
-      "position": { "x": 300, "y": 170 }
-    },
-    {
-      "id": "fragment_i",
+      "id": "fragment_triangle_yellow_2",
       "hiddenColor": "yellow",
-      "edgeShape": "arc_socket",
-      "tags": ["fragment", "arc_socket", "decoy"],
-      "position": { "x": -220, "y": -180 }
+      "shape": "triangle",
+      "edgeShape": "triangle",
+      "tags": ["fragment", "shape:triangle", "decoy"],
+      "position": { "x": 106, "y": -238 }
     },
     {
-      "id": "fragment_j",
+      "id": "fragment_hexagon_blue_1",
+      "hiddenColor": "blue",
+      "shape": "hexagon",
+      "edgeShape": "hexagon",
+      "tags": ["fragment", "shape:hexagon"],
+      "position": { "x": 164, "y": -238 }
+    },
+    {
+      "id": "fragment_hexagon_red_1",
       "hiddenColor": "red",
-      "edgeShape": "notch_socket",
-      "tags": ["fragment", "notch_socket", "decoy"],
-      "position": { "x": -120, "y": -180 }
+      "shape": "hexagon",
+      "edgeShape": "hexagon",
+      "tags": ["fragment", "shape:hexagon"],
+      "position": { "x": 222, "y": -238 }
     },
     {
-      "id": "fragment_k",
-      "hiddenColor": "blue",
-      "edgeShape": "decoy_branch",
-      "tags": ["fragment", "decoy_branch"],
-      "position": { "x": -20, "y": -180 }
-    },
-    {
-      "id": "fragment_l",
+      "id": "fragment_hexagon_yellow_1",
       "hiddenColor": "yellow",
-      "edgeShape": "decoy_crescent",
-      "tags": ["fragment", "decoy_crescent"],
-      "position": { "x": 80, "y": -180 }
+      "shape": "hexagon",
+      "edgeShape": "hexagon",
+      "tags": ["fragment", "shape:hexagon"],
+      "position": { "x": 280, "y": -238 }
     },
     {
-      "id": "fragment_m",
+      "id": "fragment_hexagon_red_2",
+      "hiddenColor": "red",
+      "shape": "hexagon",
+      "edgeShape": "hexagon",
+      "tags": ["fragment", "shape:hexagon"],
+      "position": { "x": 338, "y": -238 }
+    },
+    {
+      "id": "fragment_hexagon_blue_2",
       "hiddenColor": "blue",
-      "edgeShape": "arc_socket",
-      "tags": ["fragment", "arc_socket", "decoy"],
-      "position": { "x": 180, "y": -180 }
+      "shape": "hexagon",
+      "edgeShape": "hexagon",
+      "tags": ["fragment", "shape:hexagon", "decoy"],
+      "position": { "x": 396, "y": -238 }
     }
   ],
   "evidence": [
     {
-      "id": "evidence_purple_arc",
-      "targetShape": "arc_lens",
+      "id": "evidence_purple_upper_left",
+      "targetShape": "generated_overlap",
       "targetBlendColor": "purple",
-      "position": { "x": -90, "y": 50 },
+      "position": { "x": -136, "y": 94 },
       "tolerance": 42,
-      "shapeTags": ["arc_hook", "arc_socket"],
-      "solution": { "fragmentIds": ["fragment_a", "fragment_b"] }
+      "shapeTags": ["shape:circle", "shape:triangle"],
+      "generatedOverlap": {
+        "areaRatio": 0.38,
+        "offset": { "x": 18, "y": -10 },
+        "rotation": 12,
+        "sourceShapes": ["circle", "triangle"]
+      },
+      "solution": { "fragmentIds": ["fragment_circle_red_1", "fragment_triangle_blue_1"] }
     },
     {
-      "id": "evidence_green_notch",
-      "targetShape": "notch_lens",
+      "id": "evidence_green_upper_right",
+      "targetShape": "generated_overlap",
       "targetBlendColor": "green",
-      "position": { "x": 10, "y": 72 },
+      "position": { "x": 34, "y": 86 },
       "tolerance": 42,
-      "shapeTags": ["notch_hook", "notch_socket"],
-      "solution": { "fragmentIds": ["fragment_c", "fragment_d"] }
+      "shapeTags": ["shape:triangle", "shape:hexagon"],
+      "generatedOverlap": {
+        "areaRatio": 0.32,
+        "offset": { "x": -14, "y": 16 },
+        "rotation": -18,
+        "sourceShapes": ["triangle", "hexagon"]
+      },
+      "solution": { "fragmentIds": ["fragment_triangle_yellow_1", "fragment_hexagon_blue_1"] }
     },
     {
-      "id": "evidence_orange_crescent",
-      "targetShape": "crescent_overlap",
+      "id": "evidence_orange_lower_right",
+      "targetShape": "generated_overlap",
       "targetBlendColor": "orange",
-      "position": { "x": 92, "y": -18 },
+      "position": { "x": 114, "y": -54 },
       "tolerance": 42,
-      "shapeTags": ["crescent_left", "crescent_right"],
-      "solution": { "fragmentIds": ["fragment_e", "fragment_f"] }
+      "shapeTags": ["shape:hexagon", "shape:hexagon"],
+      "generatedOverlap": {
+        "areaRatio": 0.45,
+        "offset": { "x": 8, "y": 12 },
+        "rotation": 24,
+        "sourceShapes": ["hexagon", "hexagon"]
+      },
+      "solution": { "fragmentIds": ["fragment_hexagon_red_1", "fragment_hexagon_yellow_1"] }
     },
     {
-      "id": "evidence_purple_branch",
-      "targetShape": "branch_lens",
+      "id": "evidence_purple_lower_left",
+      "targetShape": "generated_overlap",
       "targetBlendColor": "purple",
-      "position": { "x": -24, "y": -94 },
+      "position": { "x": -82, "y": -78 },
       "tolerance": 42,
-      "shapeTags": ["branch_left", "branch_right"],
-      "solution": { "fragmentIds": ["fragment_g", "fragment_h"] }
+      "shapeTags": ["shape:hexagon", "shape:circle"],
+      "generatedOverlap": {
+        "areaRatio": 0.28,
+        "offset": { "x": -20, "y": -8 },
+        "rotation": -9,
+        "sourceShapes": ["hexagon", "circle"]
+      },
+      "solution": { "fragmentIds": ["fragment_hexagon_red_2", "fragment_circle_blue_1"] }
     }
   ],
   "scene": {

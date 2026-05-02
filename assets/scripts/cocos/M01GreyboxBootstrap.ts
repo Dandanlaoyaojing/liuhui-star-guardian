@@ -51,9 +51,11 @@ import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01Greybox
 
 const { ccclass, property } = _decorator;
 const CLICK_DRAG_THRESHOLD = 6;
+const DEFAULT_FLASHLIGHT_BEAM_REACH = 170;
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
+  getScrollY?: () => number;
 };
 type M01GreyboxPresentation =
   | M01GreyboxFragmentPresentation
@@ -84,11 +86,14 @@ export class M01GreyboxBootstrap extends Component {
   private flashlightBeamGraphics: Graphics | null = null;
   private activeFlashlightId: string | undefined;
   private activeFlashlightColor: M01BaseColor | undefined;
+  private flashlightBeamTarget: M01GreyboxPoint | undefined;
+  private flashlightBeamReach = DEFAULT_FLASHLIGHT_BEAM_REACH;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private readonly observedColorResetScheduler = new ObservedResetScheduler(() => {
     this.syncVisualState();
   });
   private heldFragmentId: string | undefined;
+  private heldPointerId: string | number | undefined;
   private dragState: DragState = {};
   private globalPointerInputBound = false;
   private suppressNextRootClick = false;
@@ -120,8 +125,11 @@ export class M01GreyboxBootstrap extends Component {
       this.tokenPositions.clear();
       this.hintedTargetIds.clear();
       this.heldFragmentId = undefined;
+      this.heldPointerId = undefined;
       this.activeFlashlightId = undefined;
       this.activeFlashlightColor = undefined;
+      this.flashlightBeamTarget = undefined;
+      this.flashlightBeamReach = DEFAULT_FLASHLIGHT_BEAM_REACH;
       this.renderGreybox(this.layout);
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
@@ -207,6 +215,11 @@ export class M01GreyboxBootstrap extends Component {
     this.setStatus(hint.text);
     this.setFeedback(hint.text);
     this.syncVisualState();
+  }
+
+  setFlashlightBeamReach(reach: number): void {
+    this.flashlightBeamReach = Math.max(24, Math.min(260, reach));
+    this.drawFlashlightBeam();
   }
 
   private setStatus(message: string): void {
@@ -369,14 +382,14 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     const source = this.tokenPositions.get(flashlight.controllerId) ?? flashlight.position;
-    const target = this.layout.board.position;
+    const target = this.getFlashlightBeamTarget();
     const dx = target.x - source.x;
     const dy = target.y - source.y;
     const length = Math.max(Math.hypot(dx, dy), 1);
     const normalX = -dy / length;
     const normalY = dx / length;
     const nearWidth = 24;
-    const farWidth = 170;
+    const farWidth = this.getFlashlightBeamReach();
 
     graphics.fillColor = colorForBeam(this.activeFlashlightColor);
     graphics.strokeColor = colorForBeamStroke(this.activeFlashlightColor);
@@ -388,6 +401,28 @@ export class M01GreyboxBootstrap extends Component {
     graphics.close();
     graphics.fill();
     graphics.stroke();
+  }
+
+  private getFlashlightBeamTarget(): M01GreyboxPoint {
+    if (this.flashlightBeamTarget) {
+      return this.flashlightBeamTarget;
+    }
+
+    if (!this.layout || this.layout.fragments.length === 0) {
+      return { x: 0, y: -238 };
+    }
+
+    const positions = this.layout.fragments.map((fragment) => {
+      return this.tokenPositions.get(fragment.controllerId) ?? fragment.position;
+    });
+    const x = positions.reduce((sum, position) => sum + position.x, 0) / positions.length;
+    const y = positions.reduce((sum, position) => sum + position.y, 0) / positions.length;
+
+    return { x, y };
+  }
+
+  private getFlashlightBeamReach(): number {
+    return this.flashlightBeamReach;
   }
 
   private addStatusLabel(parent: Node): Label {
@@ -642,6 +677,10 @@ export class M01GreyboxBootstrap extends Component {
 
     input.on(Input.EventType.MOUSE_MOVE, this.moveActivePointerDrag, this);
     input.on(Input.EventType.MOUSE_UP, this.endActivePointerDrag, this);
+    input.on(Input.EventType.MOUSE_WHEEL, this.adjustFlashlightBeamReach, this);
+    input.on(Input.EventType.TOUCH_MOVE, this.moveActivePointerDrag, this);
+    input.on(Input.EventType.TOUCH_END, this.endActivePointerDrag, this);
+    input.on(Input.EventType.TOUCH_CANCEL, this.cancelActivePointerDrag, this);
     this.globalPointerInputBound = true;
   }
 
@@ -652,6 +691,10 @@ export class M01GreyboxBootstrap extends Component {
 
     input.off(Input.EventType.MOUSE_MOVE, this.moveActivePointerDrag, this);
     input.off(Input.EventType.MOUSE_UP, this.endActivePointerDrag, this);
+    input.off(Input.EventType.MOUSE_WHEEL, this.adjustFlashlightBeamReach, this);
+    input.off(Input.EventType.TOUCH_MOVE, this.moveActivePointerDrag, this);
+    input.off(Input.EventType.TOUCH_END, this.endActivePointerDrag, this);
+    input.off(Input.EventType.TOUCH_CANCEL, this.cancelActivePointerDrag, this);
     this.globalPointerInputBound = false;
   }
 
@@ -675,7 +718,38 @@ export class M01GreyboxBootstrap extends Component {
   private moveActivePointerDrag(event: M01GreyboxPointerEvent): void {
     if (this.activeDragNode) {
       this.moveTokenDrag(event, this.activeDragNode);
+      return;
     }
+
+    this.moveFlashlightBeamWithPointer(event);
+    this.moveHeldFragmentWithPointer(event);
+  }
+
+  private moveFlashlightBeamWithPointer(event: M01GreyboxPointerEvent): void {
+    if (!this.activeFlashlightId || !this.activeFlashlightColor) {
+      return;
+    }
+
+    this.flashlightBeamTarget = this.eventToLocalPoint(event);
+    const revealed = this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget);
+    if (revealed) {
+      return;
+    }
+
+    this.drawFlashlightBeam();
+  }
+
+  private adjustFlashlightBeamReach(event: M01GreyboxPointerEvent): void {
+    if (!this.activeFlashlightId || !this.activeFlashlightColor) {
+      return;
+    }
+
+    const scrollY = event.getScrollY?.() ?? 0;
+    if (scrollY === 0) {
+      return;
+    }
+
+    this.setFlashlightBeamReach(this.flashlightBeamReach + Math.sign(scrollY) * 16);
   }
 
   private moveTokenDrag(event: M01GreyboxPointerEvent, node: Node): void {
@@ -700,6 +774,12 @@ export class M01GreyboxBootstrap extends Component {
   private endActivePointerDrag(event: M01GreyboxPointerEvent): void {
     if (this.activeDragNode && this.activeDragToken) {
       this.endTokenDrag(event, this.activeDragNode, this.activeDragToken);
+    }
+  }
+
+  private cancelActivePointerDrag(event: M01GreyboxPointerEvent): void {
+    if (this.activeDragNode && this.activeDragToken) {
+      this.cancelTokenDrag(event, this.activeDragNode, this.activeDragToken);
     }
   }
 
@@ -767,7 +847,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     if (token.kind === "fragment") {
-      this.handleFragmentClick(node, token, session.currentPosition);
+      this.handleFragmentClick(node, token, session.currentPosition, session.pointerId);
       return true;
     }
 
@@ -777,7 +857,8 @@ export class M01GreyboxBootstrap extends Component {
   private handleFragmentClick(
     node: Node,
     token: M01GreyboxTokenNode,
-    position: M01GreyboxPoint
+    position: M01GreyboxPoint,
+    pointerId: string | number
   ): void {
     if (!this.session) {
       this.resetTokenNode(node, token);
@@ -795,6 +876,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.heldFragmentId = token.controllerId;
+    this.heldPointerId = pointerId;
     node.setPosition(position.x, position.y, 0);
     this.tokenPositions.set(token.controllerId, position);
   }
@@ -819,6 +901,7 @@ export class M01GreyboxBootstrap extends Component {
       if (selected.accepted) {
         this.activeFlashlightId = selected.activeFlashlightId;
         this.activeFlashlightColor = selected.activeFlashlightColor;
+        this.flashlightBeamTarget = dropPosition;
         this.clearObservedColorReset();
       }
       const revealed = selected.accepted
@@ -867,6 +950,7 @@ export class M01GreyboxBootstrap extends Component {
       this.trackWeakSnappedFragment(action.evidenceId, action.fragmentId);
       this.snapNodeToEvidence(node, token, action.evidenceId, dropPosition);
       this.heldFragmentId = undefined;
+      this.heldPointerId = undefined;
       this.clearHintTargets();
       this.trySubmitWeakSnappedEvidencePair(action.evidenceId);
       this.tryValidateCompleteEvidenceCandidate();
@@ -889,6 +973,7 @@ export class M01GreyboxBootstrap extends Component {
       const placed = this.session.placeHeldFragment(freePosition);
       this.setStatus(placed.status);
       this.heldFragmentId = undefined;
+      this.heldPointerId = undefined;
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
@@ -914,10 +999,29 @@ export class M01GreyboxBootstrap extends Component {
     const entry = this.greyboxNodes.get(heldFragmentId);
     if (!entry) {
       this.heldFragmentId = undefined;
+      this.heldPointerId = undefined;
       return;
     }
 
     this.placeHeldFragmentAtPosition(this.eventToLocalPoint(event));
+  }
+
+  private moveHeldFragmentWithPointer(event: M01GreyboxPointerEvent): void {
+    const heldFragmentId = this.heldFragmentId;
+    if (!heldFragmentId || this.heldPointerId !== this.pointerIdForEvent(event)) {
+      return;
+    }
+
+    const entry = this.greyboxNodes.get(heldFragmentId);
+    if (!entry) {
+      this.heldFragmentId = undefined;
+      this.heldPointerId = undefined;
+      return;
+    }
+
+    const position = this.eventToLocalPoint(event);
+    entry.node.setPosition(position.x, position.y, 0);
+    this.tokenPositions.set(heldFragmentId, position);
   }
 
   private placeHeldFragmentAtPosition(position: M01GreyboxPoint): void {
@@ -929,6 +1033,7 @@ export class M01GreyboxBootstrap extends Component {
     const entry = this.greyboxNodes.get(heldFragmentId);
     if (!entry) {
       this.heldFragmentId = undefined;
+      this.heldPointerId = undefined;
       return;
     }
 
@@ -940,6 +1045,20 @@ export class M01GreyboxBootstrap extends Component {
   ): ReturnType<M01GreyboxSession["revealFragment"]> | undefined {
     const fragment = this.findTokenAtPosition(this.layout?.fragments ?? [], position);
     return fragment && this.session ? this.session.revealFragment(fragment.controllerId) : undefined;
+  }
+
+  private scanFlashlightBeamAtTarget(position: M01GreyboxPoint): boolean {
+    const revealed = this.tryRevealFragmentAtPosition(position);
+    if (!revealed) {
+      return false;
+    }
+
+    this.setStatus(revealed.status);
+    this.clearHintTargets();
+    this.syncFeedbackFromSession();
+    this.syncVisualState();
+    this.scheduleObservedColorReset(revealed);
+    return revealed.accepted;
   }
 
   private trackWeakSnappedFragment(evidenceId: string, fragmentId: string): void {
@@ -1215,30 +1334,8 @@ export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): 
 
   if (token.kind === "gear") {
     drawGear(graphics, token.size.width / 2);
-  } else if (token.shapeToken === "arc_lens") {
-    drawArcLens(graphics, token.size.width, token.size.height);
-  } else if (token.shapeToken === "notch_lens") {
-    drawNotchLens(graphics, token.size.width, token.size.height);
-  } else if (token.shapeToken === "crescent_overlap") {
-    drawCrescentOverlap(graphics, token.size.width, token.size.height);
-  } else if (token.shapeToken === "branch_lens") {
-    drawBranchLens(graphics, token.size.width, token.size.height);
-  } else if (token.shapeToken === "arc_hook") {
-    drawArcFragment(graphics, token.size.width, token.size.height, "hook");
-  } else if (token.shapeToken === "arc_socket") {
-    drawArcFragment(graphics, token.size.width, token.size.height, "socket");
-  } else if (token.shapeToken === "notch_hook") {
-    drawNotchFragment(graphics, token.size.width, token.size.height, "hook");
-  } else if (token.shapeToken === "notch_socket") {
-    drawNotchFragment(graphics, token.size.width, token.size.height, "socket");
-  } else if (token.shapeToken === "crescent_left") {
-    drawCrescentFragment(graphics, token.size.width, token.size.height, "left");
-  } else if (token.shapeToken === "crescent_right") {
-    drawCrescentFragment(graphics, token.size.width, token.size.height, "right");
-  } else if (token.shapeToken === "branch_left") {
-    drawBranchFragment(graphics, token.size.width, token.size.height, "left");
-  } else if (token.shapeToken === "branch_right") {
-    drawBranchFragment(graphics, token.size.width, token.size.height, "right");
+  } else if (token.shapeToken === "generated_overlap") {
+    drawGeneratedOverlap(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "triangle") {
     drawTriangle(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "hexagon") {
@@ -1295,134 +1392,14 @@ function drawFilter(graphics: Graphics, width: number, height: number): void {
   graphics.rect(-width / 2, -height / 2, width, height);
 }
 
-function drawArcLens(graphics: Graphics, width: number, height: number): void {
-  graphics.moveTo(-width / 2, 0);
-  graphics.lineTo(-width / 5, height / 3);
-  graphics.lineTo(width / 2, height / 6);
-  graphics.lineTo(width / 5, -height / 3);
-  graphics.close();
-}
-
-function drawNotchLens(graphics: Graphics, width: number, height: number): void {
-  graphics.moveTo(-width / 2, -height / 3);
-  graphics.lineTo(-width / 8, -height / 3);
-  graphics.lineTo(0, -height / 2);
-  graphics.lineTo(width / 8, -height / 3);
-  graphics.lineTo(width / 2, -height / 3);
-  graphics.lineTo(width / 2, height / 3);
-  graphics.lineTo(-width / 2, height / 3);
-  graphics.close();
-}
-
-function drawCrescentOverlap(graphics: Graphics, width: number, height: number): void {
-  const outerRadius = Math.min(width, height) / 2;
-  const innerRadius = outerRadius * 0.72;
-
-  for (let i = 0; i <= 8; i += 1) {
-    const angle = -Math.PI * 0.68 + (Math.PI * 1.36 * i) / 8;
-    const x = Math.cos(angle) * outerRadius;
-    const y = Math.sin(angle) * outerRadius;
-    if (i === 0) {
-      graphics.moveTo(x, y);
-    } else {
-      graphics.lineTo(x, y);
-    }
-  }
-
-  for (let i = 8; i >= 0; i -= 1) {
-    const angle = -Math.PI * 0.52 + (Math.PI * 1.04 * i) / 8;
-    graphics.lineTo(Math.cos(angle) * innerRadius + width * 0.14, Math.sin(angle) * innerRadius);
-  }
-  graphics.close();
-}
-
-function drawBranchLens(graphics: Graphics, width: number, height: number): void {
-  const stem = width * 0.12;
-  graphics.moveTo(-stem, -height / 2);
-  graphics.lineTo(stem, -height / 2);
-  graphics.lineTo(stem, -height / 8);
-  graphics.lineTo(width / 2, height / 5);
-  graphics.lineTo(width / 3, height / 2);
-  graphics.lineTo(0, height / 8);
-  graphics.lineTo(-width / 3, height / 2);
-  graphics.lineTo(-width / 2, height / 5);
-  graphics.lineTo(-stem, -height / 8);
-  graphics.close();
-}
-
-function drawArcFragment(
-  graphics: Graphics,
-  width: number,
-  height: number,
-  side: "hook" | "socket"
-): void {
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
-  const curve = side === "hook" ? 0.18 : -0.18;
-  graphics.moveTo(-halfWidth * 0.86, halfHeight * 0.22);
-  graphics.lineTo(-halfWidth * 0.4, halfHeight * 0.72);
-  graphics.lineTo(halfWidth * 0.66, halfHeight * 0.54);
-  graphics.lineTo(halfWidth * 0.86, -halfHeight * 0.1);
-  graphics.lineTo(halfWidth * curve, -halfHeight * 0.72);
-  graphics.lineTo(-halfWidth * 0.78, -halfHeight * 0.52);
-  graphics.close();
-}
-
-function drawNotchFragment(
-  graphics: Graphics,
-  width: number,
-  height: number,
-  side: "hook" | "socket"
-): void {
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
-  const notch = side === "hook" ? -0.32 : 0.32;
-  graphics.moveTo(-halfWidth * 0.82, halfHeight * 0.66);
-  graphics.lineTo(halfWidth * 0.72, halfHeight * 0.58);
-  graphics.lineTo(halfWidth * 0.82, -halfHeight * 0.48);
-  graphics.lineTo(halfWidth * 0.16, -halfHeight * 0.68);
-  graphics.lineTo(halfWidth * notch, -halfHeight * 0.32);
-  graphics.lineTo(-halfWidth * 0.14, -halfHeight * 0.68);
-  graphics.lineTo(-halfWidth * 0.78, -halfHeight * 0.46);
-  graphics.close();
-}
-
-function drawCrescentFragment(
-  graphics: Graphics,
-  width: number,
-  height: number,
-  side: "left" | "right"
-): void {
-  const direction = side === "left" ? -1 : 1;
+function drawGeneratedOverlap(graphics: Graphics, width: number, height: number): void {
   const radius = Math.min(width, height) / 2;
-  graphics.moveTo(direction * -radius * 0.15, radius * 0.76);
-  for (let i = 1; i <= 7; i += 1) {
-    const angle = Math.PI * 0.72 - (Math.PI * 1.44 * i) / 7;
-    graphics.lineTo(direction * Math.cos(angle) * radius, Math.sin(angle) * radius);
-  }
-  graphics.lineTo(direction * radius * 0.08, -radius * 0.5);
-  graphics.lineTo(direction * radius * 0.54, 0);
-  graphics.close();
-}
-
-function drawBranchFragment(
-  graphics: Graphics,
-  width: number,
-  height: number,
-  side: "left" | "right"
-): void {
-  const direction = side === "left" ? -1 : 1;
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
-  graphics.moveTo(direction * -halfWidth * 0.2, -halfHeight * 0.78);
-  graphics.lineTo(direction * halfWidth * 0.24, -halfHeight * 0.7);
-  graphics.lineTo(direction * halfWidth * 0.2, -halfHeight * 0.12);
-  graphics.lineTo(direction * halfWidth * 0.82, halfHeight * 0.16);
-  graphics.lineTo(direction * halfWidth * 0.54, halfHeight * 0.72);
-  graphics.lineTo(direction * halfWidth * 0.04, halfHeight * 0.28);
-  graphics.lineTo(direction * -halfWidth * 0.48, halfHeight * 0.72);
-  graphics.lineTo(direction * -halfWidth * 0.76, halfHeight * 0.18);
-  graphics.lineTo(direction * -halfWidth * 0.22, -halfHeight * 0.12);
+  graphics.moveTo(-radius * 0.7, radius * 0.2);
+  graphics.lineTo(-radius * 0.2, radius * 0.72);
+  graphics.lineTo(radius * 0.58, radius * 0.42);
+  graphics.lineTo(radius * 0.72, -radius * 0.18);
+  graphics.lineTo(radius * 0.18, -radius * 0.68);
+  graphics.lineTo(-radius * 0.6, -radius * 0.46);
   graphics.close();
 }
 

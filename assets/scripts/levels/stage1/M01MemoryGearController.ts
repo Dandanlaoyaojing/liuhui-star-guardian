@@ -73,6 +73,12 @@ export interface M01OverlapEvidenceDef {
   position: { x: number; y: number };
   tolerance: number;
   shapeTags: string[];
+  generatedOverlap?: {
+    areaRatio: number;
+    offset: { x: number; y: number };
+    rotation?: number;
+    sourceShapes?: M01Shape[];
+  };
   solution: {
     fragmentIds: [string, string];
   };
@@ -667,17 +673,9 @@ export class M01MemoryGearController {
   }
 
   private stagedFragmentSetMatchesSolution(): boolean {
-    const expectedFragmentIds = this.getSolutionFragmentIds();
-    const actualFragmentIds = new Set(
-      [...this.stagedEvidencePairs.values()].flatMap((fragmentIds) => fragmentIds)
-    );
-
-    if (actualFragmentIds.size !== expectedFragmentIds.size) {
-      return false;
-    }
-
-    for (const fragmentId of expectedFragmentIds) {
-      if (!actualFragmentIds.has(fragmentId)) {
+    for (const evidence of this.getEvidenceDefs()) {
+      const stagedPair = this.stagedEvidencePairs.get(evidence.id);
+      if (!stagedPair || !sameUnorderedPair(stagedPair, evidence.solution.fragmentIds)) {
         return false;
       }
     }
@@ -737,4 +735,8 @@ export class M01MemoryGearController {
       throw new Error(`Duplicate M01 ${label} id: ${id}`);
     }
   }
+}
+
+function sameUnorderedPair(a: [string, string], b: [string, string]): boolean {
+  return (a[0] === b[0] && a[1] === b[1]) || (a[0] === b[1] && a[1] === b[0]);
 }

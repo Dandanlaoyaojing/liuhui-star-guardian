@@ -91,7 +91,8 @@ Last updated: 2026-05-01
 - 2026-04-30 Task 10 preview 修复：重启 Cocos preview 后发现 `/` 默认加载 `current_scene` 会进入空场景，改用 `?scene=a2135734-fc11-4a0e-926d-40bc2301a752` 可直接加载 M01；交互 smoke 发现“手持第二片点击已吸附证据点”会误拾取第一片，现已让 held fragment 点击优先放置，并修正弱磁吸后的 `tokenPositions` 缓存。
 - 2026-05-01 表现层 polish：`M01GreyboxBootstrap` 已新增手电光束、拼接盘底光（off / flash_then_off / steady_on）、底光状态下 evidence 局部点亮，以及无文字的机械城式简笔提示纸条；当前只补灰盒表现，不改变证据 pair staging 或胜利判定规则。
 - 2026-05-01 表现层 polish review 修复：底光失败闪烁现在会按 `validationLightSeconds` 设置一次视觉复位 timeout，超时后重新读取 controller completion state 并重绘；组件销毁时清理 timeout，避免错误候选后画面一直停在亮起状态。
-- 2026-05-01 碎片表现 polish：候选碎片常态仍使用 `hidden` 灰白色，不泄露红黄蓝本色；但 `arc_hook/socket`、`notch_hook/socket`、`crescent_left/right`、`branch_left/right` 已改为各自的简笔边缘轮廓，不再全部落回圆形占位，方便玩家做形状/边缘推理。
+- 2026-05-01 M01 机制口径修正：根据用户澄清，候选碎片外形收敛为圆 / 三角 / 六边形三类固定形状，同形状保留不同隐藏底色以制造推理必要性；真实配置改为底部碎片池，目标图显示系统预生成的两两交叠证据（含局部轮廓、目标融合色、相对位置、生成面积/偏移），玩家要反推每个证据对应的具体形状与底色碎片。弱吸附仍受固定形状组合与目标交叠区域约束，最终验证要求每个 evidence 的 staged pair 精确匹配该 evidence 的 `solution.fragmentIds`，避免只凑齐全局碎片集合也过关。
+- 2026-05-01 M01 手感口径修正：碎片选中后会跟随未离屏的鼠标 / 手指移动，再次点击屏幕任意位置放下，保留屏幕任意位置自由分类；三色手电改为可游动光束，移动光束时会持续扫描底部碎片并触发短暂显色；全局触摸 move/end/cancel 已接入同一套 held-fragment 跟随逻辑，cancel 走取消路径而不是误放置；鼠标滚轮可调节光束 reach。光束只用于扫描底部碎片，不照拼接盘。验证：`npm test -- tests/levels/stage1/M01MemoryGearController.test.ts tests/cocos/M01GreyboxLayout.test.ts tests/cocos/M01GreyboxDrag.test.ts tests/cocos/M01GreyboxSession.test.ts tests/cocosProjectScaffold.test.ts` 成功（5 个测试文件 / 81 个测试）；`npm run typecheck` 成功；`npm test` 成功（15 个测试文件 / 121 个测试）。
 - 2026-04-30 已完成新版 M01 plan 的 Task 8：旧九宫格 sorter art 已隔离为 legacy / calibration 资产；真实 overlap evidence layout 不再挂载旧红蓝黄碎片 sprite、旧滤镜 sprite 或九宫格托盘静态 layer，仅保留无害的齿轮 art token 候选。
 - 已建立 Cocos 3.8.8 项目元数据与 TypeScript/Vitest 验证脚手架。
 - 已实现 `PuzzleConfig` / `GoalEvaluator` / `ProgressStore` / `ToolCard` 核心契约。
