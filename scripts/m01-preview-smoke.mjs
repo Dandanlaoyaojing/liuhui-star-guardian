@@ -688,7 +688,7 @@ async function main() {
   const realInputPlan = buildRealInputPlan(config);
   const expectedNodeIds = [
     ...config.fragments.map((fragment) => fragment.id),
-    ...config.evidence.map((evidence) => evidence.id)
+    "m01_reference_complete_pattern"
   ];
   const consoleMessages = [];
   const pageErrors = [];

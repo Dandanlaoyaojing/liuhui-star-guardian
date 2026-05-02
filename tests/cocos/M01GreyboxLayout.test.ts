@@ -66,7 +66,7 @@ describe("buildM01GreyboxLayout", () => {
       shapeToken: "reference_pattern"
     });
     expect(layout.referencePattern?.tags).toEqual(
-      expect.arrayContaining(["complete_pattern", "target_pattern"])
+      expect.arrayContaining(["complete_pattern", "target_pattern", "standard_piece_geometry"])
     );
     expect(layout.evidence.every((evidence) => evidence.tags.includes("snap_zone"))).toBe(true);
     expect(

@@ -146,7 +146,11 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain("layout.referenceEvidence");
     expect(bootstrap).toContain("layout.referencePattern");
-    expect(bootstrap).toContain("drawReferencePattern");
+    expect(bootstrap).toContain("drawStandardReferencePattern");
+    expect(bootstrap).toContain("STANDARD_REFERENCE_TARGET_PIECES");
+    expect(bootstrap).toContain("REFERENCE_STANDARD_PIECE_SIZE = 48");
+    expect(bootstrap).toContain("clipConvexPolygon");
+    expect(bootstrap).toContain("} else {\n      for (const evidence of layout.referenceEvidence)");
     expect(bootstrap).toContain("layout.evidence");
     expect(bootstrap).toContain("purple: [");
     expect(bootstrap).toContain("green: [");

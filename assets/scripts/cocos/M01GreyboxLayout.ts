@@ -133,7 +133,7 @@ function buildReferencePatternNode(
     },
     colorToken: "neutral",
     shapeToken: "reference_pattern",
-    tags: ["reference_evidence", "complete_pattern", "target_pattern"]
+    tags: ["reference_evidence", "complete_pattern", "target_pattern", "standard_piece_geometry"]
   };
 }
 

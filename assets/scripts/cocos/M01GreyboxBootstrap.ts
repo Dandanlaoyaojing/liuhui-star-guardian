@@ -296,9 +296,10 @@ export class M01GreyboxBootstrap extends Component {
     }
     if (layout.referencePattern) {
       this.addShapeNode(this.greyboxRoot, layout.referencePattern);
-    }
-    for (const evidence of layout.referenceEvidence) {
-      this.addShapeNode(this.greyboxRoot, evidence);
+    } else {
+      for (const evidence of layout.referenceEvidence) {
+        this.addShapeNode(this.greyboxRoot, evidence);
+      }
     }
     for (const slot of layout.slots ?? []) {
       this.addShapeNode(this.greyboxRoot, slot);
@@ -1651,7 +1652,8 @@ export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): 
   } else if (token.shapeToken === "generated_overlap") {
     drawGeneratedOverlap(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "reference_pattern") {
-    drawReferencePattern(graphics, token.size.width, token.size.height);
+    drawStandardReferencePattern(graphics, token.size.width, token.size.height);
+    return;
   } else if (token.shapeToken === "triangle") {
     drawTriangle(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "hexagon") {
@@ -1719,26 +1721,234 @@ function drawGeneratedOverlap(graphics: Graphics, width: number, height: number)
   graphics.close();
 }
 
-function drawReferencePattern(graphics: Graphics, width: number, height: number): void {
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
+type ReferenceShape = "circle" | "triangle" | "hexagon";
 
-  graphics.moveTo(-halfWidth * 0.82, halfHeight * 0.32);
-  graphics.lineTo(-halfWidth * 0.34, halfHeight * 0.78);
-  graphics.lineTo(halfWidth * 0.18, halfHeight * 0.66);
-  graphics.lineTo(halfWidth * 0.76, halfHeight * 0.24);
-  graphics.lineTo(halfWidth * 0.66, -halfHeight * 0.36);
-  graphics.lineTo(halfWidth * 0.12, -halfHeight * 0.72);
-  graphics.lineTo(-halfWidth * 0.48, -halfHeight * 0.58);
-  graphics.lineTo(-halfWidth * 0.72, -halfHeight * 0.08);
+interface ReferencePiece {
+  id: string;
+  shape: ReferenceShape;
+  center: M01GreyboxPoint;
+}
+
+const REFERENCE_STANDARD_PIECE_SIZE = 48;
+const REFERENCE_CIRCLE_SEGMENTS = 40;
+const STANDARD_REFERENCE_TARGET_PIECES: ReferencePiece[] = [
+  { id: "circle_left", shape: "circle", center: { x: -62, y: 24 } },
+  { id: "triangle_left", shape: "triangle", center: { x: -34, y: 22 } },
+  { id: "triangle_right", shape: "triangle", center: { x: 4, y: 22 } },
+  { id: "hexagon_top", shape: "hexagon", center: { x: 28, y: 20 } },
+  { id: "hexagon_lower", shape: "hexagon", center: { x: 30, y: -18 } },
+  { id: "circle_lower", shape: "circle", center: { x: -4, y: -18 } }
+];
+const STANDARD_REFERENCE_OVERLAPS: Array<{
+  firstId: string;
+  secondId: string;
+  color: Color;
+}> = [
+  { firstId: "circle_left", secondId: "triangle_left", color: new Color(139, 105, 156, 210) },
+  { firstId: "triangle_right", secondId: "hexagon_top", color: new Color(92, 145, 112, 210) },
+  { firstId: "hexagon_top", secondId: "hexagon_lower", color: new Color(199, 126, 75, 218) },
+  { firstId: "hexagon_lower", secondId: "circle_lower", color: new Color(139, 105, 156, 210) }
+];
+
+function drawStandardReferencePattern(graphics: Graphics, width: number, height: number): void {
+  const frameWidth = width;
+  const frameHeight = height;
+
+  graphics.lineWidth = 2;
+  graphics.fillColor = new Color(244, 235, 201, 218);
+  graphics.strokeColor = new Color(72, 67, 55, 190);
+  graphics.rect(-frameWidth / 2, -frameHeight / 2, frameWidth, frameHeight);
+  graphics.fill();
+  graphics.stroke();
+
+  graphics.lineWidth = 1.2;
+  graphics.fillColor = new Color(180, 178, 162, 96);
+  graphics.strokeColor = new Color(44, 43, 38, 225);
+  for (const piece of STANDARD_REFERENCE_TARGET_PIECES) {
+    drawReferencePiece(graphics, piece);
+    graphics.fill();
+    graphics.stroke();
+  }
+
+  for (const overlap of STANDARD_REFERENCE_OVERLAPS) {
+    const first = STANDARD_REFERENCE_TARGET_PIECES.find((piece) => piece.id === overlap.firstId);
+    const second = STANDARD_REFERENCE_TARGET_PIECES.find((piece) => piece.id === overlap.secondId);
+    if (!first || !second) {
+      continue;
+    }
+
+    const intersection = intersectReferencePieces(first, second);
+    if (intersection.length < 3) {
+      continue;
+    }
+
+    graphics.lineWidth = 1.4;
+    graphics.fillColor = overlap.color;
+    graphics.strokeColor = new Color(44, 43, 38, 190);
+    drawPolygon(graphics, intersection);
+    graphics.fill();
+    graphics.stroke();
+  }
+
+  graphics.lineWidth = 1.1;
+  graphics.fillColor = new Color(0, 0, 0, 0);
+  graphics.strokeColor = new Color(44, 43, 38, 210);
+  for (const piece of STANDARD_REFERENCE_TARGET_PIECES) {
+    drawReferencePiece(graphics, piece);
+    graphics.stroke();
+  }
+}
+
+function drawReferencePiece(graphics: Graphics, piece: ReferencePiece): void {
+  if (piece.shape === "circle") {
+    graphics.circle(piece.center.x, piece.center.y, REFERENCE_STANDARD_PIECE_SIZE / 2);
+    return;
+  }
+
+  drawPolygon(graphics, buildReferencePiecePolygon(piece));
+}
+
+function intersectReferencePieces(first: ReferencePiece, second: ReferencePiece): M01GreyboxPoint[] {
+  return clipConvexPolygon(
+    buildReferencePiecePolygon(first),
+    buildReferencePiecePolygon(second)
+  );
+}
+
+function buildReferencePiecePolygon(piece: ReferencePiece): M01GreyboxPoint[] {
+  const half = REFERENCE_STANDARD_PIECE_SIZE / 2;
+
+  if (piece.shape === "circle") {
+    return Array.from({ length: REFERENCE_CIRCLE_SEGMENTS }, (_, index) => {
+      const angle = (Math.PI * 2 * index) / REFERENCE_CIRCLE_SEGMENTS;
+      return {
+        x: piece.center.x + Math.cos(angle) * half,
+        y: piece.center.y + Math.sin(angle) * half
+      };
+    });
+  }
+
+  if (piece.shape === "triangle") {
+    return [
+      { x: piece.center.x, y: piece.center.y + half },
+      { x: piece.center.x - half, y: piece.center.y - half },
+      { x: piece.center.x + half, y: piece.center.y - half }
+    ];
+  }
+
+  return [
+    { x: piece.center.x - half / 2, y: piece.center.y + half },
+    { x: piece.center.x + half / 2, y: piece.center.y + half },
+    { x: piece.center.x + half, y: piece.center.y },
+    { x: piece.center.x + half / 2, y: piece.center.y - half },
+    { x: piece.center.x - half / 2, y: piece.center.y - half },
+    { x: piece.center.x - half, y: piece.center.y }
+  ];
+}
+
+function drawPolygon(graphics: Graphics, points: M01GreyboxPoint[]): void {
+  const [first, ...rest] = points;
+  if (!first) {
+    return;
+  }
+
+  graphics.moveTo(first.x, first.y);
+  for (const point of rest) {
+    graphics.lineTo(point.x, point.y);
+  }
   graphics.close();
+}
 
-  graphics.moveTo(-halfWidth * 0.52, halfHeight * 0.2);
-  graphics.lineTo(-halfWidth * 0.18, halfHeight * 0.34);
-  graphics.lineTo(halfWidth * 0.14, halfHeight * 0.08);
-  graphics.lineTo(halfWidth * 0.42, -halfHeight * 0.1);
-  graphics.lineTo(halfWidth * 0.2, -halfHeight * 0.34);
-  graphics.lineTo(-halfWidth * 0.2, -halfHeight * 0.28);
+function clipConvexPolygon(
+  subjectPolygon: M01GreyboxPoint[],
+  clipPolygon: M01GreyboxPoint[]
+): M01GreyboxPoint[] {
+  const clipOrientation = polygonArea(clipPolygon) >= 0 ? 1 : -1;
+  let output = subjectPolygon;
+
+  for (let index = 0; index < clipPolygon.length; index += 1) {
+    const clipStart = clipPolygon[index];
+    const clipEnd = clipPolygon[(index + 1) % clipPolygon.length];
+    const input = output;
+    output = [];
+
+    if (input.length === 0) {
+      break;
+    }
+
+    let previous = input[input.length - 1];
+    for (const current of input) {
+      const currentInside = isInsideClipEdge(current, clipStart, clipEnd, clipOrientation);
+      const previousInside = isInsideClipEdge(previous, clipStart, clipEnd, clipOrientation);
+
+      if (currentInside) {
+        if (!previousInside) {
+          output.push(intersectLineSegments(previous, current, clipStart, clipEnd));
+        }
+        output.push(current);
+      } else if (previousInside) {
+        output.push(intersectLineSegments(previous, current, clipStart, clipEnd));
+      }
+
+      previous = current;
+    }
+  }
+
+  return output;
+}
+
+function isInsideClipEdge(
+  point: M01GreyboxPoint,
+  edgeStart: M01GreyboxPoint,
+  edgeEnd: M01GreyboxPoint,
+  orientation: number
+): boolean {
+  return orientation * cross(edgeStart, edgeEnd, point) >= -0.0001;
+}
+
+function intersectLineSegments(
+  firstStart: M01GreyboxPoint,
+  firstEnd: M01GreyboxPoint,
+  secondStart: M01GreyboxPoint,
+  secondEnd: M01GreyboxPoint
+): M01GreyboxPoint {
+  const firstDx = firstEnd.x - firstStart.x;
+  const firstDy = firstEnd.y - firstStart.y;
+  const secondDx = secondEnd.x - secondStart.x;
+  const secondDy = secondEnd.y - secondStart.y;
+  const denominator = firstDx * secondDy - firstDy * secondDx;
+
+  if (Math.abs(denominator) < 0.0001) {
+    return firstEnd;
+  }
+
+  const t =
+    ((secondStart.x - firstStart.x) * secondDy -
+      (secondStart.y - firstStart.y) * secondDx) /
+    denominator;
+
+  return {
+    x: firstStart.x + firstDx * t,
+    y: firstStart.y + firstDy * t
+  };
+}
+
+function polygonArea(points: M01GreyboxPoint[]): number {
+  return points.reduce((area, point, index) => {
+    const next = points[(index + 1) % points.length];
+    return area + point.x * next.y - next.x * point.y;
+  }, 0);
+}
+
+function cross(
+  edgeStart: M01GreyboxPoint,
+  edgeEnd: M01GreyboxPoint,
+  point: M01GreyboxPoint
+): number {
+  return (
+    (edgeEnd.x - edgeStart.x) * (point.y - edgeStart.y) -
+    (edgeEnd.y - edgeStart.y) * (point.x - edgeStart.x)
+  );
 }
 
 function drawBottomLightHintNote(graphics: Graphics): void {
