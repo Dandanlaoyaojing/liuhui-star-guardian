@@ -1,5 +1,9 @@
 # M30 Danger Prototype Autoloop Ralphex Plan
 
+> **Status:** PAUSED on 2026-05-02. Do not execute this plan until M01 is complete and the operator explicitly resumes M30 work.
+>
+> Rationale: the current production focus is to finish M01 first. This file is kept as a later-stage planning artifact only, not an active handoff.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Start the non-art M30 dangerous prototype so Stage 5 can be tested as a real "naming ritual" instead of prose.

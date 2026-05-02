@@ -8,7 +8,7 @@ Last updated: 2026-05-02
 - **P1-a 安全原型**：M01（分类与归纳）—— 验证基础管线（Cocos Creator + Arrog 式统一手绘墨线 + 低饱和配色 + 拖拽交互 + ToolCard 产出）
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
-**当前执行焦点**：M01 第一关灰盒原型的非美术稳定性链路已经补齐并推送；旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`。下一批自动续跑切到 **P1-b M30 危险原型**，计划见 `docs/plans/2026-05-02-m30-danger-prototype-autoloop-ralphex.md`：先用非美术数据、domain 测试、ToolCard 解锁和灰盒 session API 验证“概念融合 / 命名仪式”是否能成为真实玩家动作。最终美术精修、线条统一和位图重绘继续后置。
+**当前执行焦点**：只做 M01，直到 M01 第一关成为完整可玩原型后再进入下一关或 M30。旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`。2026-05-02 曾短暂创建 M30 autoloop 计划，但未产生任何 M30 代码/配置改动；该计划已标记 PAUSED，不再作为当前 handoff。当前下一批自动续跑应围绕 M01 完整化：真实输入闭环、玩家可完成的 preview smoke、完成态 ToolCard/反馈、残留灰盒与最终美术前的占位体验打磨。
 
 ## Current Phase
 
@@ -75,7 +75,7 @@ Last updated: 2026-05-02
 
 ## Next Recommended Step (immediate)
 
-**下一步：启动 M30 危险原型非美术 autoloop**。新版 M01 灰盒已经跑通成功态交互 smoke，失败底光行为、严格真实输入 smoke gate、纠错回归和 preview refresh helper 都已补齐；M01 的最终美术精修继续后置。当前建议按 `docs/plans/2026-05-02-m30-danger-prototype-autoloop-ralphex.md` 执行下一批 checkpoint：先冻结 M30 的概念融合数据契约，再补 domain validation、ToolCard 进度解锁和薄灰盒 session API。第一批 M30 不做最终贴图、不扩写全部 Stage 5，只验证“月亮 + 硬币 -> 周期性交换/价值”的 A+B->C 动作是否可被代码和测试表达出来。
+**下一步：继续 M01 完整化，不跳关**。新版 M01 灰盒已经跑通 domain/session 逻辑、成功态 API smoke、失败底光行为、纠错回归和 preview refresh helper；但还不能称为“完整 M01”，因为严格真实输入 preview gate `npm run smoke:m01-preview:input` 当前仍会因 headless Cocos canvas 输入不响应而失败，默认 smoke 还依赖 fallback。当前建议新建并执行 M01 completion autoloop：优先修到真实浏览器输入可以完成玩家核心路径，再补完成态体验与 handoff 验收清单。M30 及其他关卡在 M01 完整前暂停。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
