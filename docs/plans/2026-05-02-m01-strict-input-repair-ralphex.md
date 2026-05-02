@@ -52,4 +52,4 @@
 - [x] Run `npm run smoke:m01-preview:input` and require `realInput.usedFallback = false`.
 - [x] Update `production/active.md` with the root cause, fix, verification evidence, and next recommended step.
 - [x] Self-review the diff for accidental gameplay-rule changes, stale flashlight state cleanup gaps, tests that only check strings, and accidental generated/editor files.
-- [ ] Commit and push only scoped files with a focused message.
+- [x] Commit and push only scoped files with a focused message.
