@@ -113,7 +113,7 @@ Expected commit:
 - [x] Update any relevant scene/preview README with the exact M01 run commands and current caveats.
 - [x] Ensure M30 remains paused until the operator explicitly resumes it.
 - [x] Verify docs with `git diff --check`.
-- [x] Commit and push (skipped - not automatable in this sandbox/session; previous attempt could not create `.git/index.lock` or write Git objects, and push requires external Git remote access).
+- [x] Commit and push. Local handoff commit `473a113` was pushed to `origin/codex/m01-drag-greybox`.
 
 Completion note:
 - `production/active.md` now records M01 as complete for the current greybox prototype phase, cites the strict real-input completion smoke evidence from Tasks 1-3, and keeps M30 / other levels paused until explicit operator direction.
