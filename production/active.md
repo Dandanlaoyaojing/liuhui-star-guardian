@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 
 ## Current Objective
 
@@ -75,7 +75,7 @@ Last updated: 2026-05-01
 
 ## Next Recommended Step (immediate)
 
-**新版 M01 灰盒已经跑通交互 smoke，下一步进入表现层与手感 polish**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1-10 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API、Cocos bootstrap 输入接线、legacy sorter art 隔离、ToolCard 与可见文本都已迁到新版“手电 + 证据拼接 + 底光验证 + 关系归纳”路径；Cocos preview 重启后使用 `?scene=a2135734-fc11-4a0e-926d-40bc2301a752` 可稳定进入 `M01Greybox` 场景，并已完成点击拾起 / 点击放置的完整通关 smoke。2026-05-01 已补上“错误整体验证时短暂显露已 staged 碎片本色”的失败底光表现；下一步建议先做一次 Cocos preview 失败态 smoke，确认 2 秒闪光窗口内颜色揭示与熄灭回灰都可见，再继续补正式灰白碎片 / 证据 marker 贴图。
+**新版 M01 灰盒已经跑通成功态交互 smoke，失败底光行为的 domain / repo 验证也已补齐，但当前会话缺少可驱动 Cocos 预览的浏览器自动化**。执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`。Task 1-10 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API、Cocos bootstrap 输入接线、legacy sorter art 隔离、ToolCard 与可见文本都已迁到新版“手电 + 证据拼接 + 底光验证 + 关系归纳”路径；Cocos preview 重启后使用 `?scene=a2135734-fc11-4a0e-926d-40bc2301a752` 可稳定进入 `M01Greybox` 场景，并已完成点击拾起 / 点击放置的完整通关 smoke。2026-05-01 已补上“错误整体验证时短暂显露已 staged 碎片本色”的失败底光表现；2026-05-02 已确认预览服务存活并用 `M01GreyboxSession` 回归测试覆盖失败闪光 -> 暂显真色 -> 熄灭回灰，但本轮无法采集新的浏览器截图或 console/page error。下一步应在具备 in-app Browser `node_repl js` 或本机 Chrome/Playwright 的环境里复跑一次错误 complete candidate 预览 smoke，再决定是否继续正式灰白碎片 / 证据 marker 贴图。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
@@ -137,6 +137,7 @@ Last updated: 2026-05-01
 
 ## Verification Evidence
 
+- 2026-05-02 M01 失败底光 preview smoke checkpoint：`curl -I http://127.0.0.1:7456/` 返回 `HTTP/1.1 200 OK`，确认预览服务在线；`npm test -- tests/cocos/M01GreyboxSession.test.ts` 成功（1 个测试文件 / 23 个测试），覆盖错误 complete candidate 触发底光闪烁、已 staged 碎片短暂暴露真实本色、约 2 秒后返回灰白的 session/domain 行为；`npm run typecheck` 成功；`npm test` 成功（15 个测试文件 / 121 个测试）。本轮未产出新截图，console/page error 也未采集，因为当前会话没有 `mcp__node_repl__js` 浏览器入口，repo 未安装 `playwright`，本机也没有 `chrome/chromium` 可供 shell 自动化驱动。
 - 2026-04-24 已安装 Cocos Creator 3.8.8 到 `/Applications/CocosCreator-3.8.8.app`；`Info.plist` 显示 `CFBundleShortVersionString = 3.8.8`，二进制为 universal `x86_64 + arm64`，`codesign --verify --deep --strict` 通过。
 - 2026-04-24 已用 `/Applications/CocosCreator-3.8.8.app/Contents/MacOS/CocosCreator --project /Users/danmac/liuhui-star-guardian` 打开项目入口；日志显示 engine 加载成功，并注册 `web-desktop` / `web-mobile` / `ios` / `android` / `wechatgame` 等平台成功；所有当前 `assets/` 下的 PNG/JPG/JSON/TS 资源均已生成对应 `.meta` 文件。随后修正 `M01GreyboxBootstrap.ts` 的 JSON 载入方式，避免 Cocos/Babel 不支持 `import attributes` 的脚本编译错误；复测未再出现该语法错误。
 - 2026-04-24 已安装本机 Cocos MCP 插件（DaxianLee/cocos-mcp-server v1.4.0）到 `extensions/cocos-mcp-server/`，并写入本机 `.mcp.json` 的 `cocos-creator` HTTP 连接；启动 Cocos 后 `http://127.0.0.1:3000/health` 返回 `{"status":"ok","tools":157}`。
