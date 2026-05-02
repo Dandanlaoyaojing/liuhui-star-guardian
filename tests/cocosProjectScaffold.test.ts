@@ -345,12 +345,12 @@ describe("Cocos Creator project scaffold", () => {
     expect(artCandidate).not.toContain('<g id="true-overlap-colors" filter=');
   });
 
-  it("keeps M01 target art overlaps readable without encouraging oversized intersections", () => {
+  it("keeps M01 target art as a continuous six-piece overlap chain", () => {
     const artCandidate = readText(
       "docs/design/generated-m01-art-slices/m01-target-standard-piece-art-candidate.svg"
     );
     const pieces = parseM01TargetPieces(artCandidate);
-    const intendedPairs = new Set(["0:1", "2:3", "3:4", "4:5"]);
+    const intendedPairs = new Set(["0:1", "1:2", "2:3", "3:4", "4:5"]);
     const readableEvidenceOverlap = { min: 450, max: 1200 };
 
     expect(pieces).toHaveLength(6);
@@ -361,10 +361,10 @@ describe("Cocos Creator project scaffold", () => {
         const pairKey = `${firstIndex}:${secondIndex}`;
 
         if (intendedPairs.has(pairKey)) {
-          expect(area, `${pairKey} should be a readable evidence overlap`).toBeGreaterThanOrEqual(
+          expect(area, `${pairKey} should be a readable adjacent evidence overlap`).toBeGreaterThanOrEqual(
             readableEvidenceOverlap.min
           );
-          expect(area, `${pairKey} should not become an oversized overlap`).toBeLessThanOrEqual(
+          expect(area, `${pairKey} should not become an oversized adjacent overlap`).toBeLessThanOrEqual(
             readableEvidenceOverlap.max
           );
         } else {

@@ -5,16 +5,19 @@
     <polygon id="std-hexagon" points="-48,0 -24,-41.569 24,-41.569 48,0 24,41.569 -24,41.569" />
 
     <clipPath id="clip-left-circle" clipPathUnits="userSpaceOnUse">
-      <circle cx="196" cy="154" r="48" />
+      <circle cx="170" cy="160" r="48" />
+    </clipPath>
+    <clipPath id="clip-first-triangle" clipPathUnits="userSpaceOnUse">
+      <polygon points="225,118.431 177,201.569 273,201.569" />
+    </clipPath>
+    <clipPath id="clip-middle-hexagon" clipPathUnits="userSpaceOnUse">
+      <polygon points="232,148 256,106.431 304,106.431 328,148 304,189.569 256,189.569" />
+    </clipPath>
+    <clipPath id="clip-middle-circle" clipPathUnits="userSpaceOnUse">
+      <circle cx="340" cy="184" r="48" />
     </clipPath>
     <clipPath id="clip-right-triangle" clipPathUnits="userSpaceOnUse">
-      <polygon points="350,116.431 302,199.569 398,199.569" />
-    </clipPath>
-    <clipPath id="clip-top-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="356,162 380,120.431 428,120.431 452,162 428,203.569 380,203.569" />
-    </clipPath>
-    <clipPath id="clip-lower-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="388,226 412,184.431 460,184.431 484,226 460,267.569 412,267.569" />
+      <polygon points="398,152.431 350,235.569 446,235.569" />
     </clipPath>
 
     <pattern id="paper-tooth" width="32" height="32" patternUnits="userSpaceOnUse">
@@ -31,15 +34,15 @@
       <stop offset="0.52" stop-color="#bfc0ac" stop-opacity="0.56" />
       <stop offset="1" stop-color="#e2d8bd" stop-opacity="0.62" />
     </linearGradient>
-    <radialGradient id="muted-purple-wash" cx="244" cy="164" r="92" gradientUnits="userSpaceOnUse">
+    <radialGradient id="muted-purple-wash" cx="260" cy="176" r="132" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#9a78ad" stop-opacity="0.9" />
       <stop offset="1" stop-color="#7f5d95" stop-opacity="0.78" />
     </radialGradient>
-    <radialGradient id="muted-green-wash" cx="386" cy="162" r="92" gradientUnits="userSpaceOnUse">
+    <radialGradient id="muted-green-wash" cx="358" cy="170" r="144" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#86aa7d" stop-opacity="0.9" />
       <stop offset="1" stop-color="#668c65" stop-opacity="0.78" />
     </radialGradient>
-    <radialGradient id="muted-orange-wash" cx="396" cy="224" r="90" gradientUnits="userSpaceOnUse">
+    <radialGradient id="muted-orange-wash" cx="322" cy="176" r="96" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#cc8b47" stop-opacity="0.9" />
       <stop offset="1" stop-color="#ad6f34" stop-opacity="0.78" />
     </radialGradient>
@@ -64,49 +67,51 @@
      fill="url(#piece-paper-wash)"
      fill-opacity="0.78"
      stroke="#2b2924" stroke-width="2.2" stroke-linejoin="round">
-    <use href="#std-circle" transform="translate(196 154)" />
-    <use href="#std-triangle" transform="translate(252 158)" />
-    <use href="#std-triangle" transform="translate(350 158)" />
-    <use href="#std-hexagon" transform="translate(404 162)" />
-    <use href="#std-hexagon" transform="translate(436 226)" />
-    <use href="#std-circle" transform="translate(376 260)" />
+    <use href="#std-circle" transform="translate(170 160)" />
+    <use href="#std-triangle" transform="translate(225 160)" />
+    <use href="#std-hexagon" transform="translate(280 148)" />
+    <use href="#std-circle" transform="translate(340 184)" />
+    <use href="#std-triangle" transform="translate(398 194)" />
+    <use href="#std-hexagon" transform="translate(456 202)" />
   </g>
 
   <g id="piece-wash-overlays" fill="#fff5d9" fill-opacity="0.18" stroke="none">
-    <use href="#std-circle" transform="translate(196 154) scale(0.78)" />
-    <use href="#std-triangle" transform="translate(252 158) scale(0.78)" />
-    <use href="#std-triangle" transform="translate(350 158) scale(0.78)" />
-    <use href="#std-hexagon" transform="translate(404 162) scale(0.78)" />
-    <use href="#std-hexagon" transform="translate(436 226) scale(0.78)" />
-    <use href="#std-circle" transform="translate(376 260) scale(0.78)" />
+    <use href="#std-circle" transform="translate(170 160) scale(0.78)" />
+    <use href="#std-triangle" transform="translate(225 160) scale(0.78)" />
+    <use href="#std-hexagon" transform="translate(280 148) scale(0.78)" />
+    <use href="#std-circle" transform="translate(340 184) scale(0.78)" />
+    <use href="#std-triangle" transform="translate(398 194) scale(0.78)" />
+    <use href="#std-hexagon" transform="translate(456 202) scale(0.78)" />
   </g>
 
   <g id="true-overlap-colors"
      fill-opacity="0.9" stroke="#2b2924" stroke-opacity="0.58"
      stroke-width="1.25" stroke-linejoin="round">
-    <polygon points="252,116.431 204,199.569 300,199.569" fill="url(#muted-purple-wash)" clip-path="url(#clip-left-circle)" />
-    <polygon points="356,162 380,120.431 428,120.431 452,162 428,203.569 380,203.569" fill="url(#muted-green-wash)" clip-path="url(#clip-right-triangle)" />
-    <polygon points="388,226 412,184.431 460,184.431 484,226 460,267.569 412,267.569" fill="url(#muted-orange-wash)" clip-path="url(#clip-top-hexagon)" />
-    <circle cx="376" cy="260" r="48" fill="url(#muted-purple-wash)" clip-path="url(#clip-lower-hexagon)" />
+    <polygon points="225,118.431 177,201.569 273,201.569" fill="url(#muted-purple-wash)" clip-path="url(#clip-left-circle)" />
+    <polygon points="232,148 256,106.431 304,106.431 328,148 304,189.569 256,189.569" fill="url(#muted-green-wash)" clip-path="url(#clip-first-triangle)" />
+    <circle cx="340" cy="184" r="48" fill="url(#muted-orange-wash)" clip-path="url(#clip-middle-hexagon)" />
+    <polygon points="398,152.431 350,235.569 446,235.569" fill="url(#muted-purple-wash)" clip-path="url(#clip-middle-circle)" />
+    <polygon points="408,202 432,160.431 480,160.431 504,202 480,243.569 432,243.569" fill="url(#muted-green-wash)" clip-path="url(#clip-right-triangle)" />
   </g>
 
   <g id="ink-linework-overlays"
      fill="none" stroke="#171512" stroke-opacity="0.9"
      stroke-width="1.45" stroke-linejoin="round">
-    <use href="#std-circle" transform="translate(196 154)" />
-    <use href="#std-triangle" transform="translate(252 158)" />
-    <use href="#std-triangle" transform="translate(350 158)" />
-    <use href="#std-hexagon" transform="translate(404 162)" />
-    <use href="#std-hexagon" transform="translate(436 226)" />
-    <use href="#std-circle" transform="translate(376 260)" />
+    <use href="#std-circle" transform="translate(170 160)" />
+    <use href="#std-triangle" transform="translate(225 160)" />
+    <use href="#std-hexagon" transform="translate(280 148)" />
+    <use href="#std-circle" transform="translate(340 184)" />
+    <use href="#std-triangle" transform="translate(398 194)" />
+    <use href="#std-hexagon" transform="translate(456 202)" />
   </g>
 
   <g id="dry-brush-detail" fill="none" stroke="#514a3b" stroke-opacity="0.18" stroke-width="1" stroke-linecap="round">
-    <path d="M158 141 C174 137, 188 138, 205 142" />
-    <path d="M223 169 C240 176, 258 177, 276 172" />
-    <path d="M318 147 C338 140, 360 141, 378 149" />
-    <path d="M410 212 C426 208, 446 209, 464 215" />
-    <path d="M345 271 C362 278, 385 277, 402 270" />
+    <path d="M132 148 C148 144, 163 145, 181 150" />
+    <path d="M198 170 C215 177, 235 178, 253 173" />
+    <path d="M250 138 C270 131, 294 132, 314 141" />
+    <path d="M310 195 C327 202, 350 203, 369 198" />
+    <path d="M372 207 C390 214, 414 214, 433 208" />
+    <path d="M430 192 C448 187, 470 189, 488 196" />
   </g>
 
   <g id="bottom-standard-piece-check" transform="translate(126 376)"
