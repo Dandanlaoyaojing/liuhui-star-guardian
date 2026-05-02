@@ -34,11 +34,11 @@ coverage/
 /extensions/cocos-mcp-server/
 /settings/mcp-server.json
 /settings/tool-manager.json
+/settings/v2/packages/information.json
 
-# Cocos local editor profiles are machine-specific; keep only the shared 2D scene profile.
+# Cocos local editor profiles are machine-specific.
 /profiles/*
 !/profiles/v2/
 /profiles/v2/*
 !/profiles/v2/packages/
 /profiles/v2/packages/*
-!/profiles/v2/packages/scene.json
