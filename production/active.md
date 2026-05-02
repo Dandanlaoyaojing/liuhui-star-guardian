@@ -8,7 +8,7 @@ Last updated: 2026-05-02
 - **P1-a 安全原型**：M01（分类与归纳）—— 验证基础管线（Cocos Creator + Arrog 式统一手绘墨线 + 低饱和配色 + 拖拽交互 + ToolCard 产出）
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
-**当前执行焦点**：M01 第一关灰盒原型继续推进中；旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，当前自动续跑计划见 `docs/plans/2026-05-02-m01-non-art-autoloop-ralphex.md`。2026-04-29 起权威 spec 已将 M01 机制改为“可配置候选灰白碎片池 + 三色手电探测隐藏本色 + 目标交叠证据图 + 弱磁吸拼接验证 + 底光整体验证”，现有 DragHandler / SnapZone / FilterSystem 技术积累已经迁移到新版 M01。接下来的优先级不是 runtime sprite 视觉精修，而是继续补强非美术完成度：真实输入 preview smoke、交互状态回归覆盖、预览刷新/冒烟流程稳定性，以及 handoff 与验证链路的一致性。最终美术精修、线条统一和位图重绘明确后置到这些非美术 checkpoint 完成之后。
+**当前执行焦点**：M01 第一关灰盒原型的非美术稳定性链路已经补齐并推送；旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`。下一批自动续跑切到 **P1-b M30 危险原型**，计划见 `docs/plans/2026-05-02-m30-danger-prototype-autoloop-ralphex.md`：先用非美术数据、domain 测试、ToolCard 解锁和灰盒 session API 验证“概念融合 / 命名仪式”是否能成为真实玩家动作。最终美术精修、线条统一和位图重绘继续后置。
 
 ## Current Phase
 
@@ -75,7 +75,7 @@ Last updated: 2026-05-02
 
 ## Next Recommended Step (immediate)
 
-**新版 M01 灰盒已经跑通成功态交互 smoke，失败底光行为的 domain / repo 验证也已补齐，且 repo-local Cocos preview smoke harness 已通过真实预览复验**。基础执行计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，当前续跑顺序以 `docs/plans/2026-05-02-m01-non-art-autoloop-ralphex.md` 为准。Task 1-10 已完成：童话颜料混色、真实 overlap evidence JSON、controller/session/domain 校验、layout、drop resolver、session API、Cocos bootstrap 输入接线、legacy sorter art 隔离、ToolCard 与可见文本都已迁到新版“手电 + 证据拼接 + 底光验证 + 关系归纳”路径；Cocos preview 使用 `?scene=a2135734-fc11-4a0e-926d-40bc2301a752` 可稳定进入 `M01Greybox` 场景，并已完成点击拾起 / 点击放置的完整通关 smoke。2026-05-01 已补上“错误整体验证时短暂显露已 staged 碎片本色”的失败底光表现；2026-05-02 `npm run smoke:m01-preview` 现已扩展为两段式 preview 验证：先尝试通过 canvas 浏览器输入事件走手电观察、碎片自由放置和首个 evidence staged path，再保留错误 complete candidate 的 failed-validation smoke。默认 smoke 允许 headless Cocos preview 在 browser input 不响应时回退到 bootstrap-level 等价路径并记录 blocker；严格真实输入 gate 已单独拆为 `npm run smoke:m01-preview:input`，一旦触发 fallback 就失败。2026-05-02 又补上了最高风险状态回归缺口：失败整体验证后的真实纠错循环，现在有 session regression 直接覆盖“wrong_blend_color 闪烁中替换错误 evidence pair -> 立即清掉 `validationColor` / `flash_then_off` 残留 -> 再次验证成功常亮”的路径；之所以优先挑这条，是因为它把失败反馈复位和玩家纠错重试串成了一个真实闭环，而之前的测试只分别覆盖了错误闪烁和单次改 pair。预览刷新 / 冒烟诊断现在也已固化为 repo-local helper：先运行 `npm run smoke:m01-preview-refresh -- --dry-run` 看症状和 MCP 顺序，需要实际刷新时运行 `npm run smoke:m01-preview-refresh`，它会按 `refresh_assets:scripts -> refresh_assets:stage1-config -> soft_reload_scene` 顺序调用本地 Cocos MCP，再提示复跑 `npm run smoke:m01-preview`；只有 MCP 刷新失败或本地 `127.0.0.1:3000` 不可达时才建议重启 Cocos Creator。当前这条非美术稳定性链路已补齐；后续若 smoke 再遇 stale bundle，可先用 helper 自诊断和刷新，再决定是否需要重新打开预览或进入下一份 M01 计划。
+**下一步：启动 M30 危险原型非美术 autoloop**。新版 M01 灰盒已经跑通成功态交互 smoke，失败底光行为、严格真实输入 smoke gate、纠错回归和 preview refresh helper 都已补齐；M01 的最终美术精修继续后置。当前建议按 `docs/plans/2026-05-02-m30-danger-prototype-autoloop-ralphex.md` 执行下一批 checkpoint：先冻结 M30 的概念融合数据契约，再补 domain validation、ToolCard 进度解锁和薄灰盒 session API。第一批 M30 不做最终贴图、不扩写全部 Stage 5，只验证“月亮 + 硬币 -> 周期性交换/价值”的 A+B->C 动作是否可被代码和测试表达出来。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。
