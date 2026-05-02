@@ -27,9 +27,11 @@ declare module "cc" {
 
   export const Input: {
     EventType: {
+      MOUSE_DOWN: string;
       MOUSE_MOVE: string;
       MOUSE_UP: string;
       MOUSE_WHEEL: string;
+      TOUCH_START: string;
       TOUCH_MOVE: string;
       TOUCH_END: string;
       TOUCH_CANCEL: string;

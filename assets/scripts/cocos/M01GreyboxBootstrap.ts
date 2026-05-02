@@ -54,6 +54,12 @@ const { ccclass, property } = _decorator;
 const CLICK_DRAG_THRESHOLD = 6;
 const DEFAULT_FLASHLIGHT_BEAM_REACH = 170;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
+const FRAGMENT_FLOOR = {
+  minX: -480,
+  maxX: 480,
+  minY: -320,
+  maxY: -176
+};
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
@@ -89,8 +95,14 @@ export class M01GreyboxBootstrap extends Component {
   private flashlightBeamGraphics: Graphics | null = null;
   private activeFlashlightId: string | undefined;
   private activeFlashlightColor: M01BaseColor | undefined;
+  private heldFlashlightId: string | undefined;
+  private heldFlashlightPointerId: string | number | undefined;
+  private flashlightBeamAnchor: M01GreyboxPoint | undefined;
+  private flashlightBeamGesturePointerId: string | number | undefined;
+  private flashlightBeamLit = false;
   private flashlightBeamTarget: M01GreyboxPoint | undefined;
   private flashlightBeamReach = DEFAULT_FLASHLIGHT_BEAM_REACH;
+  private suppressHeldFlashlightFollow = false;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private readonly observedColorResetScheduler = new ObservedResetScheduler(() => {
     this.syncVisualState();
@@ -130,9 +142,15 @@ export class M01GreyboxBootstrap extends Component {
       this.hintedTargetIds.clear();
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFlashlightId = undefined;
+      this.heldFlashlightPointerId = undefined;
       this.activeFlashlightId = undefined;
       this.activeFlashlightColor = undefined;
+      this.flashlightBeamAnchor = undefined;
+      this.flashlightBeamGesturePointerId = undefined;
+      this.flashlightBeamLit = false;
       this.flashlightBeamTarget = undefined;
+      this.suppressHeldFlashlightFollow = false;
       this.flashlightBeamReach = DEFAULT_FLASHLIGHT_BEAM_REACH;
       this.renderGreybox(this.layout);
       this.syncVisualState();
@@ -262,7 +280,7 @@ export class M01GreyboxBootstrap extends Component {
     this.node.addChild(this.greyboxRoot);
     const rootTransform = this.greyboxRoot.addComponent(UITransform);
     rootTransform.setContentSize(layout.canvas.width, layout.canvas.height);
-    this.greyboxRoot.on("touch-end", (event: EventTouch) => this.placeHeldFragmentAt(event), this);
+    this.addRootPointerCapture(this.greyboxRoot);
     this.bindGlobalPointerInput();
 
     this.addBottomLightNode(this.greyboxRoot, layout);
@@ -275,7 +293,7 @@ export class M01GreyboxBootstrap extends Component {
     if (this.enableArtPreview) {
       this.renderStaticArtPreview(this.greyboxRoot, layout);
     }
-    for (const evidence of layout.evidence) {
+    for (const evidence of layout.referenceEvidence) {
       this.addShapeNode(this.greyboxRoot, evidence);
     }
     for (const slot of layout.slots ?? []) {
@@ -296,6 +314,11 @@ export class M01GreyboxBootstrap extends Component {
     }
     this.feedbackLabel = this.addFeedbackLabel(this.greyboxRoot);
     this.hintButtonRoot = this.addHintButton(this.greyboxRoot);
+  }
+
+  private addRootPointerCapture(parent: Node): void {
+    parent.on("touch-start", (event: EventTouch) => this.beginActivePointerPress(event), this);
+    parent.on("touch-end", (event: EventTouch) => this.placeHeldFragmentAt(event), this);
   }
 
   private addBottomLightNode(parent: Node, layout: M01GreyboxLayout): Node {
@@ -374,7 +397,12 @@ export class M01GreyboxBootstrap extends Component {
 
     const graphics = this.flashlightBeamGraphics;
     graphics.clear();
-    if (!this.layout || !this.activeFlashlightId || !this.activeFlashlightColor) {
+    if (
+      !this.layout ||
+      !this.activeFlashlightId ||
+      !this.activeFlashlightColor ||
+      !this.flashlightBeamLit
+    ) {
       return;
     }
 
@@ -385,10 +413,20 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const source = this.tokenPositions.get(flashlight.controllerId) ?? flashlight.position;
+    const source =
+      this.flashlightBeamAnchor ??
+      this.tokenPositions.get(flashlight.controllerId) ??
+      flashlight.position;
     const target = this.getFlashlightBeamTarget();
-    const dx = target.x - source.x;
-    const dy = target.y - source.y;
+    const clippedBeam = clipFlashlightBeamToFragmentFloor(source, target);
+    if (!clippedBeam) {
+      return;
+    }
+
+    const clippedSource = clippedBeam.source;
+    const clippedTarget = clippedBeam.target;
+    const dx = clippedTarget.x - clippedSource.x;
+    const dy = clippedTarget.y - clippedSource.y;
     const length = Math.max(Math.hypot(dx, dy), 1);
     const normalX = -dy / length;
     const normalY = dx / length;
@@ -398,10 +436,27 @@ export class M01GreyboxBootstrap extends Component {
     graphics.fillColor = colorForBeam(this.activeFlashlightColor);
     graphics.strokeColor = colorForBeamStroke(this.activeFlashlightColor);
     graphics.lineWidth = 1.5;
-    graphics.moveTo(source.x + normalX * nearWidth, source.y + normalY * nearWidth);
-    graphics.lineTo(target.x + normalX * farWidth, target.y + normalY * farWidth);
-    graphics.lineTo(target.x - normalX * farWidth, target.y - normalY * farWidth);
-    graphics.lineTo(source.x - normalX * nearWidth, source.y - normalY * nearWidth);
+    const nearLeft = clampPointToFragmentFloor({
+      x: clippedSource.x + normalX * nearWidth,
+      y: clippedSource.y + normalY * nearWidth
+    });
+    const farLeft = clampPointToFragmentFloor({
+      x: clippedTarget.x + normalX * farWidth,
+      y: clippedTarget.y + normalY * farWidth
+    });
+    const farRight = clampPointToFragmentFloor({
+      x: clippedTarget.x - normalX * farWidth,
+      y: clippedTarget.y - normalY * farWidth
+    });
+    const nearRight = clampPointToFragmentFloor({
+      x: clippedSource.x - normalX * nearWidth,
+      y: clippedSource.y - normalY * nearWidth
+    });
+
+    graphics.moveTo(nearLeft.x, nearLeft.y);
+    graphics.lineTo(farLeft.x, farLeft.y);
+    graphics.lineTo(farRight.x, farRight.y);
+    graphics.lineTo(nearRight.x, nearRight.y);
     graphics.close();
     graphics.fill();
     graphics.stroke();
@@ -682,9 +737,11 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    input.on(Input.EventType.MOUSE_DOWN, this.beginActivePointerPress, this);
     input.on(Input.EventType.MOUSE_MOVE, this.moveActivePointerDrag, this);
     input.on(Input.EventType.MOUSE_UP, this.endActivePointerDrag, this);
     input.on(Input.EventType.MOUSE_WHEEL, this.adjustFlashlightBeamReach, this);
+    input.on(Input.EventType.TOUCH_START, this.beginActivePointerPress, this);
     input.on(Input.EventType.TOUCH_MOVE, this.moveActivePointerDrag, this);
     input.on(Input.EventType.TOUCH_END, this.endActivePointerDrag, this);
     input.on(Input.EventType.TOUCH_CANCEL, this.cancelActivePointerDrag, this);
@@ -696,18 +753,40 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    input.off(Input.EventType.MOUSE_DOWN, this.beginActivePointerPress, this);
     input.off(Input.EventType.MOUSE_MOVE, this.moveActivePointerDrag, this);
     input.off(Input.EventType.MOUSE_UP, this.endActivePointerDrag, this);
     input.off(Input.EventType.MOUSE_WHEEL, this.adjustFlashlightBeamReach, this);
+    input.off(Input.EventType.TOUCH_START, this.beginActivePointerPress, this);
     input.off(Input.EventType.TOUCH_MOVE, this.moveActivePointerDrag, this);
     input.off(Input.EventType.TOUCH_END, this.endActivePointerDrag, this);
     input.off(Input.EventType.TOUCH_CANCEL, this.cancelActivePointerDrag, this);
     this.globalPointerInputBound = false;
   }
 
+  private beginActivePointerPress(event: M01GreyboxPointerEvent): void {
+    const position = this.eventToLocalPoint(event);
+    const hitToken = this.findTokenAtPosition(
+      [...(this.layout?.fragments ?? []), ...(this.layout?.flashlights ?? [])],
+      position
+    );
+    this.suppressHeldFlashlightFollow = Boolean(
+      hitToken && hitToken.controllerId !== this.heldFlashlightId
+    );
+    this.beginFlashlightBeamGesture(event);
+  }
+
   private beginTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
     if (!this.layout) {
       return;
+    }
+    if (token.kind === "flashlight" && token.controllerId === this.heldFlashlightId) {
+      return;
+    }
+    if (token.kind !== "flashlight") {
+      this.heldFlashlightId = undefined;
+      this.heldFlashlightPointerId = undefined;
+      this.suppressHeldFlashlightFollow = false;
     }
 
     const position = this.eventToLocalPoint(event);
@@ -728,11 +807,19 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    if (this.updateFlashlightBeamGesture(event)) {
+      return;
+    }
+
     this.moveFlashlightBeamWithPointer(event);
+    this.moveHeldFlashlightWithPointer(event);
     this.moveHeldFragmentWithPointer(event);
   }
 
   private moveFlashlightBeamWithPointer(event: M01GreyboxPointerEvent): void {
+    if (this.heldFlashlightId) {
+      return;
+    }
     if (!this.activeFlashlightId || !this.activeFlashlightColor) {
       return;
     }
@@ -744,6 +831,74 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.drawFlashlightBeam();
+  }
+
+  private moveHeldFlashlightWithPointer(event: M01GreyboxPointerEvent): void {
+    const heldFlashlightId = this.heldFlashlightId;
+    if (
+      !heldFlashlightId ||
+      this.suppressHeldFlashlightFollow ||
+      this.flashlightBeamGesturePointerId !== undefined ||
+      (this.heldFlashlightPointerId !== undefined &&
+        this.heldFlashlightPointerId !== this.pointerIdForEvent(event))
+    ) {
+      return;
+    }
+
+    const entry = this.greyboxNodes.get(heldFlashlightId);
+    if (!entry) {
+      this.heldFlashlightId = undefined;
+      this.heldFlashlightPointerId = undefined;
+      return;
+    }
+
+    const position = this.eventToLocalPoint(event);
+    entry.node.setPosition(position.x, position.y, 0);
+    this.tokenPositions.set(heldFlashlightId, position);
+    if (!this.flashlightBeamLit) {
+      this.flashlightBeamAnchor = position;
+      this.drawFlashlightBeam();
+    }
+  }
+
+  private beginFlashlightBeamGesture(event: M01GreyboxPointerEvent): void {
+    if (!this.heldFlashlightId || !this.activeFlashlightId || !this.activeFlashlightColor) {
+      return;
+    }
+
+    const position = this.eventToLocalPoint(event);
+    const hitToken = this.findTokenAtPosition(
+      [...(this.layout?.fragments ?? []), ...(this.layout?.flashlights ?? [])],
+      position
+    );
+    if (hitToken && hitToken.controllerId !== this.heldFlashlightId) {
+      return;
+    }
+
+    const pointerId = this.pointerIdForEvent(event);
+    const source = this.tokenPositions.get(this.heldFlashlightId);
+    if (!source) {
+      return;
+    }
+
+    this.flashlightBeamGesturePointerId = pointerId;
+    this.heldFlashlightPointerId = undefined;
+    this.flashlightBeamAnchor = source;
+    this.flashlightBeamLit = true;
+    this.flashlightBeamTarget = position;
+    this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget);
+    this.drawFlashlightBeam();
+  }
+
+  private updateFlashlightBeamGesture(event: M01GreyboxPointerEvent): boolean {
+    if (this.flashlightBeamGesturePointerId === undefined) {
+      return false;
+    }
+
+    this.flashlightBeamTarget = this.eventToLocalPoint(event);
+    this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget);
+    this.drawFlashlightBeam();
+    return true;
   }
 
   private adjustFlashlightBeamReach(event: M01GreyboxPointerEvent): void {
@@ -781,16 +936,34 @@ export class M01GreyboxBootstrap extends Component {
   private endActivePointerDrag(event: M01GreyboxPointerEvent): void {
     if (this.activeDragNode && this.activeDragToken) {
       this.endTokenDrag(event, this.activeDragNode, this.activeDragToken);
+      this.suppressHeldFlashlightFollow = false;
+      return;
     }
+
+    if (this.flashlightBeamGesturePointerId !== undefined) {
+      this.flashlightBeamGesturePointerId = undefined;
+    }
+    this.suppressHeldFlashlightFollow = false;
   }
 
   private cancelActivePointerDrag(event: M01GreyboxPointerEvent): void {
     if (this.activeDragNode && this.activeDragToken) {
       this.cancelTokenDrag(event, this.activeDragNode, this.activeDragToken);
+      this.suppressHeldFlashlightFollow = false;
+      return;
     }
+
+    if (this.flashlightBeamGesturePointerId !== undefined) {
+      this.flashlightBeamGesturePointerId = undefined;
+    }
+    this.suppressHeldFlashlightFollow = false;
   }
 
   private endTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
+    if (token.kind === "flashlight" && token.controllerId === this.heldFlashlightId) {
+      this.clearActiveDrag();
+      return;
+    }
     if (!this.dragState.active) {
       this.clearActiveDrag();
       return;
@@ -820,6 +993,10 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private cancelTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
+    if (token.kind === "flashlight" && token.controllerId === this.heldFlashlightId) {
+      this.clearActiveDrag();
+      return;
+    }
     const transition = cancelDragSession(this.dragState, this.pointerIdForEvent(event));
     this.dragState = transition.state;
     this.resetTokenNode(node, token);
@@ -859,6 +1036,11 @@ export class M01GreyboxBootstrap extends Component {
       return true;
     }
 
+    if (token.kind === "flashlight") {
+      this.handleFlashlightClick(node, token, session.currentPosition, session.pointerId);
+      return true;
+    }
+
     return false;
   }
 
@@ -889,6 +1071,40 @@ export class M01GreyboxBootstrap extends Component {
     this.tokenPositions.set(token.controllerId, position);
   }
 
+  private handleFlashlightClick(
+    node: Node,
+    token: M01GreyboxTokenNode,
+    position: M01GreyboxPoint,
+    pointerId: string | number
+  ): void {
+    if (!this.session) {
+      this.resetTokenNode(node, token);
+      return;
+    }
+
+    const selected = this.session.selectFlashlight(token.controllerId);
+    this.setStatus(selected.status);
+    this.clearHintTargets();
+    this.syncFeedbackFromSession();
+    if (!selected.accepted) {
+      this.resetTokenNode(node, token);
+      this.syncVisualState();
+      return;
+    }
+
+    this.heldFlashlightId = token.controllerId;
+    this.heldFlashlightPointerId = undefined;
+    this.activeFlashlightId = selected.activeFlashlightId;
+    this.activeFlashlightColor = selected.activeFlashlightColor;
+    this.flashlightBeamLit = false;
+    this.flashlightBeamAnchor = position;
+    this.flashlightBeamTarget = undefined;
+    node.setPosition(position.x, position.y, 0);
+    this.tokenPositions.set(token.controllerId, position);
+    this.clearObservedColorReset();
+    this.syncVisualState();
+  }
+
   private handleTokenDrop(node: Node, token: M01GreyboxTokenNode, dropPosition: M01GreyboxPoint): void {
     if (!this.layout || !this.session) {
       this.resetTokenNode(node, token);
@@ -909,6 +1125,11 @@ export class M01GreyboxBootstrap extends Component {
       if (selected.accepted) {
         this.activeFlashlightId = selected.activeFlashlightId;
         this.activeFlashlightColor = selected.activeFlashlightColor;
+        this.heldFlashlightId = action.flashlightId;
+        this.heldFlashlightPointerId = undefined;
+        this.flashlightBeamAnchor =
+          this.tokenPositions.get(action.flashlightId) ?? token.position;
+        this.flashlightBeamLit = true;
         this.flashlightBeamTarget = dropPosition;
         this.clearObservedColorReset();
       }
@@ -1180,7 +1401,13 @@ export class M01GreyboxBootstrap extends Component {
       this.setFeedback("");
       this.activeFlashlightId = undefined;
       this.activeFlashlightColor = undefined;
+      this.heldFlashlightId = undefined;
+      this.heldFlashlightPointerId = undefined;
+      this.flashlightBeamAnchor = undefined;
+      this.flashlightBeamGesturePointerId = undefined;
+      this.flashlightBeamLit = false;
       this.flashlightBeamTarget = undefined;
+      this.suppressHeldFlashlightFollow = false;
       this.drawFlashlightBeam();
       if (this.hintButtonRoot) {
         this.hintButtonRoot.active = false;
@@ -1487,6 +1714,65 @@ function drawNoteLightBulb(graphics: Graphics, x: number, y: number, lit: boolea
     graphics.lineTo(x + Math.cos(angle) * 29, y + Math.sin(angle) * 29);
   }
   graphics.stroke();
+}
+
+function clipFlashlightBeamToFragmentFloor(
+  source: M01GreyboxPoint,
+  target: M01GreyboxPoint
+): { source: M01GreyboxPoint; target: M01GreyboxPoint } | null {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  let enter = 0;
+  let exit = 1;
+
+  const clip = (edgeDirection: number, edgeDistance: number): boolean => {
+    if (edgeDirection === 0) {
+      return edgeDistance >= 0;
+    }
+
+    const ratio = edgeDistance / edgeDirection;
+    if (edgeDirection < 0) {
+      if (ratio > exit) {
+        return false;
+      }
+      enter = Math.max(enter, ratio);
+      return true;
+    }
+
+    if (ratio < enter) {
+      return false;
+    }
+    exit = Math.min(exit, ratio);
+    return true;
+  };
+
+  const visible =
+    clip(-dx, source.x - FRAGMENT_FLOOR.minX) &&
+    clip(dx, FRAGMENT_FLOOR.maxX - source.x) &&
+    clip(-dy, source.y - FRAGMENT_FLOOR.minY) &&
+    clip(dy, FRAGMENT_FLOOR.maxY - source.y);
+
+  if (!visible) {
+    return null;
+  }
+
+  return {
+    source: {
+      x: source.x + enter * dx,
+      y: source.y + enter * dy
+    },
+    target: {
+      x: source.x + exit * dx,
+      y: source.y + exit * dy
+    }
+  };
+}
+
+function clampPointToFragmentFloor(point: M01GreyboxPoint): M01GreyboxPoint {
+  return {
+    x: Math.max(FRAGMENT_FLOOR.minX, Math.min(FRAGMENT_FLOOR.maxX, point.x)),
+    y: Math.max(FRAGMENT_FLOOR.minY, Math.min(FRAGMENT_FLOOR.maxY, point.y))
+  };
 }
 
 function colorForBeam(color: M01BaseColor): Color {

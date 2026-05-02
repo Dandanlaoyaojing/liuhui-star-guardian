@@ -27,6 +27,7 @@ const sceneUrl =
 const chromePath = browserCandidates.find((candidate) => existsSync(candidate));
 const screenshotDir = resolve(rootDir, "temp");
 const requireBrowserInput = process.argv.includes("--require-browser-input");
+const captureCleanQa = process.argv.includes("--capture-clean-qa");
 
 function assert(condition, message) {
   if (!condition) {
@@ -40,6 +41,42 @@ function pointDistance(a, b) {
 
 async function readConfig() {
   return JSON.parse(await readFile(configPath, "utf8"));
+}
+
+async function hidePreviewChrome(page) {
+  await page.addStyleTag({
+    content: `
+      .toolbar,
+      .preview-toolbar,
+      .preview-debug,
+      .debug-panel,
+      .stats,
+      [class*="toolbar"],
+      [class*="debug"],
+      [class*="stats"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      body {
+        margin: 0 !important;
+        overflow: hidden !important;
+        background: #f6f0e5 !important;
+      }
+    `
+  });
+  await page.evaluate(() => {
+    window.cc?.debug?.setDisplayStats?.(false);
+    window.cc?.profiler?.hideStats?.();
+  });
+}
+
+async function captureCleanQaScreenshot(page) {
+  await hidePreviewChrome(page);
+  const cleanQaScreenshotPath = resolve(screenshotDir, "m01-preview-clean-qa.png");
+  const canvas = page.locator("canvas").first();
+  await canvas.waitFor({ state: "visible", timeout: 30_000 });
+  await canvas.screenshot({ path: cleanQaScreenshotPath });
+  return cleanQaScreenshotPath;
 }
 
 function buildWrongCandidate(config) {
@@ -196,7 +233,14 @@ async function runRealInputPath(page, realInputPlan) {
         step,
         activeFlashlightId: bootstrap?.activeFlashlightId,
         activeFlashlightColor: bootstrap?.activeFlashlightColor,
+        heldFlashlightId: bootstrap?.heldFlashlightId,
         heldFragmentId: bootstrap?.heldFragmentId,
+        flashlightPosition: tokenPositions
+          ? tokenPositions.get(realInputPlan.flashlightId)
+          : undefined,
+        beamAnchor: bootstrap?.flashlightBeamAnchor,
+        beamTarget: bootstrap?.flashlightBeamTarget,
+        flashlightBeamLit: bootstrap?.flashlightBeamLit,
         observedColor: session
           ? session.getFragmentView(realInputPlan.revealFragmentId).observedColor
           : undefined,
@@ -237,8 +281,25 @@ async function runRealInputPath(page, realInputPlan) {
     await page.mouse.up();
     await page.waitForTimeout(120);
   };
-  await dragLocalPoint(realInputPlan.flashlightPosition, realInputPlan.revealFragmentPosition);
-  debugSteps.push(await snapshotInteractionState("after_flashlight_drag"));
+  const runHeldFlashlightRevealPath = async () => {
+    await moveMouseToLocalPoint(realInputPlan.flashlightPosition);
+    await page.mouse.down();
+    await page.waitForTimeout(24);
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+    await moveMouseToLocalPoint(realInputPlan.heldFlashlightPosition, { steps: 8 });
+    await page.waitForTimeout(80);
+    debugSteps.push(await snapshotInteractionState("after_held_flashlight_move"));
+
+    await page.mouse.down();
+    await page.waitForTimeout(24);
+    await moveMouseToLocalPoint(realInputPlan.revealFragmentPosition, { steps: 10 });
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+    await page.waitForTimeout(140);
+    debugSteps.push(await snapshotInteractionState("after_held_flashlight_shine"));
+  };
+  await runHeldFlashlightRevealPath();
 
   await dragLocalPoint(
     realInputPlan.freePlacement.fragmentPosition,
@@ -321,7 +382,12 @@ async function runRealInputPath(page, realInputPlan) {
     return {
       activeFlashlightId: bootstrap.activeFlashlightId,
       activeFlashlightColor: bootstrap.activeFlashlightColor,
+      heldFlashlightId: bootstrap.heldFlashlightId,
       heldFragmentId: bootstrap.heldFragmentId,
+      flashlightPosition: tokenPositions ? tokenPositions.get(realInputPlan.flashlightId) : undefined,
+      beamAnchor: bootstrap.flashlightBeamAnchor,
+      beamTarget: bootstrap.flashlightBeamTarget,
+      flashlightBeamLit: bootstrap.flashlightBeamLit,
       observedColor:
         bootstrap.session.getFragmentView(realInputPlan.revealFragmentId).observedColor,
       freePlacement: {
@@ -473,6 +539,16 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
       flashlightEntry.token,
       realInputPlan.flashlightPosition
     );
+    flashlightEntry.node.setPosition(
+      realInputPlan.heldFlashlightPosition.x,
+      realInputPlan.heldFlashlightPosition.y,
+      0
+    );
+    tokenPositions?.set(realInputPlan.flashlightId, realInputPlan.heldFlashlightPosition);
+    bootstrap.heldFlashlightId = realInputPlan.flashlightId;
+    bootstrap.flashlightBeamAnchor = realInputPlan.heldFlashlightPosition;
+    bootstrap.flashlightBeamTarget = realInputPlan.revealFragmentPosition;
+    bootstrap.flashlightBeamLit = true;
     bootstrap.session.revealFragment(realInputPlan.revealFragmentId);
     bootstrap.syncVisualState();
 
@@ -513,7 +589,12 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
     return {
       activeFlashlightId: bootstrap.activeFlashlightId,
       activeFlashlightColor: bootstrap.activeFlashlightColor,
+      heldFlashlightId: bootstrap.heldFlashlightId,
       heldFragmentId: bootstrap.heldFragmentId,
+      flashlightPosition: tokenPositions ? tokenPositions.get(realInputPlan.flashlightId) : undefined,
+      beamAnchor: bootstrap.flashlightBeamAnchor,
+      beamTarget: bootstrap.flashlightBeamTarget,
+      flashlightBeamLit: bootstrap.flashlightBeamLit,
       observedColor:
         bootstrap.session.getFragmentView(realInputPlan.revealFragmentId).observedColor,
       freePlacement: {
@@ -578,9 +659,26 @@ async function main() {
     );
 
     const browserInputAttempt = await runRealInputPath(page, realInputPlan);
+    const heldMoveStep = browserInputAttempt.debugSteps.find(
+      (step) => step.step === "after_held_flashlight_move"
+    );
+    const heldShineStep = browserInputAttempt.debugSteps.find(
+      (step) => step.step === "after_held_flashlight_shine"
+    );
     const browserInputStable =
       browserInputAttempt.activeFlashlightId === realInputPlan.flashlightId &&
       browserInputAttempt.observedColor === realInputPlan.expectedObservedColor &&
+      heldMoveStep?.heldFlashlightId === realInputPlan.flashlightId &&
+      heldMoveStep.flashlightPosition &&
+      Math.abs(
+        heldMoveStep.flashlightPosition.x - realInputPlan.heldFlashlightPosition.x
+      ) <= 1 &&
+      Math.abs(
+        heldMoveStep.flashlightPosition.y - realInputPlan.heldFlashlightPosition.y
+      ) <= 1 &&
+      heldShineStep?.beamTarget &&
+      Math.abs(heldShineStep.beamTarget.x - realInputPlan.revealFragmentPosition.x) <= 1 &&
+      Math.abs(heldShineStep.beamTarget.y - realInputPlan.revealFragmentPosition.y) <= 1 &&
       browserInputAttempt.freePlacement.position &&
       Math.abs(
         browserInputAttempt.freePlacement.position.x - realInputPlan.freePlacement.dropPosition.x
@@ -609,6 +707,34 @@ async function main() {
     assert(
       realInput.activeFlashlightId === realInputPlan.flashlightId,
       `Expected active flashlight ${realInputPlan.flashlightId}; got ${realInput.activeFlashlightId}.`
+    );
+    const realHeldMoveStep = realInput.debugSteps?.find(
+      (step) => step.step === "after_held_flashlight_move"
+    );
+    const realHeldShineStep = realInput.debugSteps?.find(
+      (step) => step.step === "after_held_flashlight_shine"
+    );
+    assert(
+      realHeldMoveStep?.heldFlashlightId === realInputPlan.flashlightId,
+      `Expected held flashlight ${realInputPlan.flashlightId} before reveal; got ${realHeldMoveStep?.heldFlashlightId}.`
+    );
+    assert(
+      realHeldMoveStep.flashlightPosition,
+      `Expected held flashlight position for ${realInputPlan.flashlightId}.`
+    );
+    assert(
+      Math.abs(realHeldMoveStep.flashlightPosition.x - realInputPlan.heldFlashlightPosition.x) <= 1 &&
+        Math.abs(realHeldMoveStep.flashlightPosition.y - realInputPlan.heldFlashlightPosition.y) <= 1,
+      `Expected ${realInputPlan.flashlightId} to follow hand to (${realInputPlan.heldFlashlightPosition.x}, ${realInputPlan.heldFlashlightPosition.y}); got (${realHeldMoveStep.flashlightPosition.x}, ${realHeldMoveStep.flashlightPosition.y}).`
+    );
+    assert(
+      realHeldShineStep?.beamTarget,
+      `Expected held flashlight beam target to be controlled by the gesture endpoint.`
+    );
+    assert(
+      Math.abs(realHeldShineStep.beamTarget.x - realInputPlan.revealFragmentPosition.x) <= 1 &&
+        Math.abs(realHeldShineStep.beamTarget.y - realInputPlan.revealFragmentPosition.y) <= 1,
+      `Expected beam endpoint to reach (${realInputPlan.revealFragmentPosition.x}, ${realInputPlan.revealFragmentPosition.y}); got (${realHeldShineStep.beamTarget.x}, ${realHeldShineStep.beamTarget.y}).`
     );
     assert(
       realInput.observedColor === realInputPlan.expectedObservedColor,
@@ -687,6 +813,9 @@ async function main() {
     );
     const completionScreenshotPath = resolve(screenshotDir, "m01-preview-completion-smoke.png");
     await page.screenshot({ path: completionScreenshotPath, fullPage: true });
+    const cleanQaScreenshotPath = captureCleanQa
+      ? await captureCleanQaScreenshot(page)
+      : undefined;
     assert(pageErrors.length === 0, `Preview page errors: ${pageErrors.join(" | ")}`);
     assert(
       consoleMessages.length === 0,
@@ -700,6 +829,7 @@ async function main() {
           sceneUrl,
           screenshotPath,
           completionScreenshotPath,
+          cleanQaScreenshotPath,
           realInput,
           completion,
           validation: failure.validation,

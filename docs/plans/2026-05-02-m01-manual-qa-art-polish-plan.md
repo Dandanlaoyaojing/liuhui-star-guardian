@@ -53,6 +53,11 @@ Health score:
 6. **[P3] Previous art v3 prompt is stale.**
    `docs/design/generated-m01-art-slices/m01-runtime-v3-visual-qa-and-prompt.md` still targets the old nine-slot sorter assets. It should not be reused directly for the current overlap-evidence M01.
 
+7. **[P1] Flashlight handfeel is underspecified and partly still behaves like a fixed tool selector.**
+   The approved M01 interaction is not "click a color button and move an abstract beam." The flashlight should feel like a hand-held tool: click to pick it up, let the flashlight body follow the pointer, click or hold to shine, switch color by picking another flashlight, and stretch the beam endpoint with the gesture to set direction and range.
+
+   Non-negotiable correction: keep the reveal rules unchanged, but make the runtime state machine explicit. A held flashlight must have visible position state independent from the target beam endpoint; shining should scan only the bottom fragment floor.
+
 ## Non-Goals
 
 - Do not change the M01 puzzle rules, evidence count, solution pairs, or color-mixing rules.
@@ -276,6 +281,41 @@ git add docs/design/generated-m01-art-slices/m01-overlap-runtime-art-polish-qa-a
 git commit -m "docs: plan M01 overlap art polish"
 git push
 ```
+
+---
+
+### Task 3.5: Make The Flashlight A Held Tool
+
+**Files:**
+- Modify: `docs/design/game-design-spec.md`
+- Modify: `assets/scripts/cocos/M01GreyboxBootstrap.ts`
+- Modify: `scripts/m01-preview-smoke.mjs`
+- Modify: `scripts/m01-preview-smoke-helpers.mjs`
+- Test: `tests/cocosProjectScaffold.test.ts`
+- Test: `tests/m01PreviewSmokeScript.test.ts`
+
+**Runtime handfeel contract:**
+- A flashlight is not a fixed button or fixed emitter.
+- Click / tap a flashlight to pick it up.
+- The held flashlight body follows the pointer.
+- Click / hold while holding the flashlight to shine.
+- Picking another flashlight switches the active color.
+- The beam source is the held flashlight position; the beam target is the current gesture endpoint, so direction and range come from the player's hand movement.
+- Reveal hit detection remains limited to bottom fragments.
+
+**Verification:**
+```bash
+npm test -- tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeScript.test.ts
+npm run typecheck
+npm run smoke:m01-preview-refresh
+npm run smoke:m01-preview:input -- --capture-clean-qa
+```
+
+Expected:
+- Strict smoke still uses real browser input (`usedFallback = false`).
+- Smoke output records `heldFlashlightId = flashlight_red` before reveal.
+- The flashlight token follows the hand position before the beam endpoint is stretched.
+- Completion still reaches `bottomLight = steady_on`.
 
 ---
 

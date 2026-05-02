@@ -56,6 +56,7 @@ export interface M01GreyboxLayout {
   filters?: M01GreyboxTokenNode[];
   fragments: M01GreyboxTokenNode[];
   evidence: M01GreyboxTokenNode[];
+  referenceEvidence: M01GreyboxTokenNode[];
   slots?: M01GreyboxTokenNode[];
 }
 
@@ -74,6 +75,10 @@ export function buildM01GreyboxLayout(
     buildFilterNode(filter, config, options.text)
   );
   const slots = (config.slots ?? []).map((slot) => buildSlotNode(slot, options.text));
+  const evidence = (config.evidence ?? []).map((item) => buildEvidenceNode(item, options.text));
+  const referenceEvidence = (config.evidence ?? []).map((item, index) =>
+    buildReferenceEvidenceNode(item, index, options.text)
+  );
   const layout = {
     canvas: CANVAS,
     statusText: formatM01GreyboxText("initialInstruction", {}, options.text),
@@ -83,7 +88,8 @@ export function buildM01GreyboxLayout(
       buildFlashlightNode(flashlight, options.text)
     ),
     fragments: config.fragments.map((fragment) => buildFragmentNode(fragment, options.text)),
-    evidence: (config.evidence ?? []).map((evidence) => buildEvidenceNode(evidence, options.text)),
+    evidence,
+    referenceEvidence,
     ...(filters.length > 0 ? { filters } : {}),
     ...(slots.length > 0 ? { slots } : {})
   };
@@ -215,8 +221,33 @@ function buildEvidenceNode(
     size: { width: size, height: size },
     colorToken: evidence.targetBlendColor,
     shapeToken: evidence.targetShape,
-    tags: ["overlap_evidence", ...sourceShapeTags, ...evidence.shapeTags],
+    tags: ["overlap_evidence", "snap_zone", ...sourceShapeTags, ...evidence.shapeTags],
     fragmentSnapPositions: buildEvidenceFragmentSnapPositions(evidence, position)
+  };
+}
+
+function buildReferenceEvidenceNode(
+  evidence: M01OverlapEvidenceDef,
+  index: number,
+  text: M01GreyboxTextOverrides = {}
+): M01GreyboxTokenNode {
+  const token = buildEvidenceNode(evidence, text);
+
+  return {
+    ...token,
+    position: buildReferenceEvidencePosition(index),
+    tags: token.tags.filter((tag) => tag !== "snap_zone").concat("reference_evidence"),
+    fragmentSnapPositions: undefined
+  };
+}
+
+function buildReferenceEvidencePosition(index: number): M01GreyboxPoint {
+  const column = index % 2;
+  const row = Math.floor(index / 2);
+
+  return {
+    x: 294 + column * 92,
+    y: 138 - row * 76
   };
 }
 

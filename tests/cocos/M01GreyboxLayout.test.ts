@@ -57,9 +57,28 @@ describe("buildM01GreyboxLayout", () => {
 
   it("keeps target evidence as a separate colored reference diagram above the floor pool", () => {
     const layout = buildM01GreyboxLayout(config);
+    const boardHalfWidth = layout.board.size.width / 2;
+    const boardHalfHeight = layout.board.size.height / 2;
 
-    expect(layout.evidence.every((evidence) => evidence.position.y > -170)).toBe(true);
-    expect(layout.evidence.map((evidence) => evidence.colorToken)).toEqual([
+    expect(layout.referenceEvidence).toHaveLength(config.evidence.length);
+    expect(layout.evidence.every((evidence) => evidence.tags.includes("snap_zone"))).toBe(true);
+    expect(
+      layout.evidence.every(
+        (evidence) =>
+          Math.abs(evidence.position.x - layout.board.position.x) <= boardHalfWidth &&
+          Math.abs(evidence.position.y - layout.board.position.y) <= boardHalfHeight
+      )
+    ).toBe(true);
+
+    expect(
+      layout.referenceEvidence.every(
+        (evidence) =>
+          Math.abs(evidence.position.x - layout.board.position.x) > boardHalfWidth ||
+          Math.abs(evidence.position.y - layout.board.position.y) > boardHalfHeight
+      )
+    ).toBe(true);
+    expect(layout.referenceEvidence.every((evidence) => evidence.position.y > -170)).toBe(true);
+    expect(layout.referenceEvidence.map((evidence) => evidence.colorToken)).toEqual([
       "purple",
       "green",
       "orange",

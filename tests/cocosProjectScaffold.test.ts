@@ -142,6 +142,8 @@ describe("Cocos Creator project scaffold", () => {
   it("renders M01 overlap evidence as a colored reference diagram", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
+    expect(bootstrap).toContain("layout.referenceEvidence");
+    expect(bootstrap).toContain("layout.evidence");
     expect(bootstrap).toContain("purple: [");
     expect(bootstrap).toContain("green: [");
     expect(bootstrap).toContain("orange: [");
@@ -183,6 +185,21 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("if (this.flashlightBeamTarget)");
     expect(bootstrap).toContain("this.layout.fragments");
     expect(bootstrap).not.toContain("const target = this.layout.board.position");
+  });
+
+  it("treats M01 flashlights as held tools instead of fixed emitters", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("heldFlashlightId");
+    expect(bootstrap).toContain("handleFlashlightClick");
+    expect(bootstrap).toContain("moveHeldFlashlightWithPointer");
+    expect(bootstrap).toContain("beginFlashlightBeamGesture");
+    expect(bootstrap).toContain("updateFlashlightBeamGesture");
+    expect(bootstrap).toContain("flashlightBeamAnchor");
+    expect(bootstrap).toContain("flashlightBeamLit");
+    expect(bootstrap).toContain('token.kind === "flashlight"');
+    expect(bootstrap).toContain("Input.EventType.MOUSE_DOWN");
+    expect(bootstrap).toContain("Input.EventType.TOUCH_START");
   });
 
   it("lets player input adjust the M01 flashlight beam reach", () => {
@@ -241,6 +258,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validation.validationLightSeconds");
     expect(bootstrap).toContain("setTimeout(() =>");
     expect(bootstrap).toContain("clearTimeout(this.validationLightResetTimeout)");
+  });
+
+  it("clips the visible M01 flashlight beam to the fragment floor", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("drawFlashlightBeam");
+    expect(bootstrap).toContain("FRAGMENT_FLOOR");
+    expect(bootstrap).toContain("clipFlashlightBeamToFragmentFloor");
   });
 
   it("uses M01 overlap-evidence copy instead of old filter-slot sorter wording", () => {

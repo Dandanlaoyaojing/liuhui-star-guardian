@@ -37,6 +37,23 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("observedColor");
   });
 
+  it("drives the flashlight as a held tool before revealing fragments", () => {
+    const smokeScript = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke.mjs"),
+      "utf8"
+    );
+    const smokeHelpers = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke-helpers.mjs"),
+      "utf8"
+    );
+
+    expect(smokeScript).toContain("runHeldFlashlightRevealPath");
+    expect(smokeScript).toContain("heldFlashlightId");
+    expect(smokeScript).toContain("flashlightPosition");
+    expect(smokeScript).toContain("beamTarget");
+    expect(smokeHelpers).toContain("heldFlashlightPosition");
+  });
+
   it("asserts the successful completion path reaches steady_on and the ToolCard preview", () => {
     const smokeScript = readFileSync(
       join(projectRoot, "scripts/m01-preview-smoke.mjs"),
@@ -50,5 +67,16 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("flashlightBeamTarget");
     expect(smokeScript).toContain("hintButtonVisible");
     expect(smokeScript).toContain("completion");
+  });
+
+  it("supports clean QA captures with preview chrome hidden", () => {
+    const smokeScript = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke.mjs"),
+      "utf8"
+    );
+
+    expect(smokeScript).toContain("--capture-clean-qa");
+    expect(smokeScript).toContain("m01-preview-clean-qa.png");
+    expect(smokeScript).toContain("hidePreviewChrome");
   });
 });

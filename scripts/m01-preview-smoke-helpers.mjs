@@ -28,6 +28,7 @@ export function buildRealInputPlan(config) {
   const firstStagedFragment = findById(config.fragments ?? [], "fragment_circle_red_1", "fragment");
   const secondStagedFragment = findById(config.fragments ?? [], "fragment_triangle_blue_1", "fragment");
   const evidence = findById(config.evidence ?? [], "evidence_purple_upper_left", "evidence");
+  const heldFlashlightPosition = { x: -252, y: -202 };
   const completionEvidence = (config.evidence ?? []).map((candidate) => ({
     evidenceId: candidate.id,
     evidencePosition: candidate.position,
@@ -42,6 +43,7 @@ export function buildRealInputPlan(config) {
     canvasSize: CANVAS_SIZE,
     flashlightId: flashlight.id,
     flashlightPosition: flashlight.position,
+    heldFlashlightPosition,
     revealFragmentId: revealFragment.id,
     revealFragmentPosition: revealFragment.position,
     expectedObservedColor: "purple",
