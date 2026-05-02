@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
-    "smoke:m01-preview": "node scripts/m01-preview-smoke.mjs"
+    "smoke:m01-preview": "node scripts/m01-preview-smoke.mjs",
+    "smoke:m01-preview-refresh": "node scripts/m01-preview-refresh.mjs --json"
   },
   "devDependencies": {
     "@types/node": "^20.19.25",

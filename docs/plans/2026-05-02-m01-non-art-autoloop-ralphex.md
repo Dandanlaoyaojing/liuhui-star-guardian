@@ -111,10 +111,10 @@ Expected commit:
 
 ### Task 4: Make Preview Refresh/Smoke Workflow Less Fragile
 
-- [ ] add a repo-local helper, script option, or focused documentation path for stale preview diagnosis and refresh
-- [ ] prefer MCP refresh / soft reload guidance before any restart-heavy fallback
-- [ ] update `production/active.md` with the stabilized refresh/smoke workflow
-- [ ] verify any helper syntax, run `npm run smoke:m01-preview` after the refresh path if feasible, and run `git diff --check`
+- [x] add a repo-local helper, script option, or focused documentation path for stale preview diagnosis and refresh
+- [x] prefer MCP refresh / soft reload guidance before any restart-heavy fallback
+- [x] update `production/active.md` with the stabilized refresh/smoke workflow
+- [x] verify any helper syntax, run `npm run smoke:m01-preview` after the refresh path if feasible, and run `git diff --check` (helper syntax, targeted tests, `npm run typecheck`, `npm test`, and `git diff --check` passed; live refresh now reports a concrete offline-MCP error, and the post-refresh preview smoke rerun was skipped in this session because `127.0.0.1:3000` and `127.0.0.1:7456` were both unavailable)
 
 Reframe:
 - We already hit stale Cocos preview bundles. The fix is known, but future agents should not rediscover it by trial and error.
