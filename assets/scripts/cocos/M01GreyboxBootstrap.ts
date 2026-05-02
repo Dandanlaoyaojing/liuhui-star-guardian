@@ -45,6 +45,7 @@ import type {
 import { buildToolCardPreview } from "../ui/ToolCardView.ts";
 import {
   buildM01GreyboxStaticArtPlan,
+  getM01GreyboxToolCardFrameResource,
   getM01GreyboxRuntimeSpriteResourceForToken
 } from "./M01GreyboxArt.ts";
 import { ObservedResetScheduler } from "./ObservedResetScheduler.ts";
@@ -577,12 +578,41 @@ export class M01GreyboxBootstrap extends Component {
     background.rect(-180, -75, 360, 150);
     background.fill();
     background.stroke();
+    this.renderToolCardArtFrame(cardRoot);
 
     this.addCardLabel(cardRoot, "M01ToolCardSubtitle", preview.subtitle, 0, 48, 13);
     this.addCardLabel(cardRoot, "M01ToolCardTitle", preview.title, 0, 24, 22);
     this.addCardLabel(cardRoot, "M01ToolCardCrystal", preview.lines[0] ?? "", 0, -8, 15);
     this.addCardLabel(cardRoot, "M01ToolCardAction", preview.lines[1] ?? "", 0, -34, 13);
     this.addCardLabel(cardRoot, "M01ToolCardUse", preview.lines[2] ?? "", 0, -56, 12);
+  }
+
+  private renderToolCardArtFrame(parent: Node): void {
+    if (!this.enableArtPreview) {
+      return;
+    }
+
+    const frame = getM01GreyboxToolCardFrameResource();
+    if (!frame) {
+      return;
+    }
+
+    const frameNode = new Node("M01ToolCardPreviewArtFrame");
+    parent.addChild(frameNode);
+
+    const transform = frameNode.addComponent(UITransform);
+    transform.setContentSize(360, 150);
+
+    const sprite = frameNode.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    resources.load(frame.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame) {
+        this.setFeedback(this.formatText("loadFailed", { reason: error?.message ?? frame.resourcesLoadPath }));
+        frameNode.active = false;
+        return;
+      }
+      sprite.spriteFrame = spriteFrame;
+    });
   }
 
   private addCardLabel(

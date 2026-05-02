@@ -11,15 +11,18 @@ import {
   getM01GreyboxArtSlice,
   getM01GreyboxArtPreviewResource,
   getM01GreyboxRuntimeSpriteResourceForToken,
+  getM01GreyboxToolCardFrameResource,
   getM01GreyboxRuntimeTransparentResource,
   M01_GREYBOX_ART_ASSET_ROOT,
   M01_GREYBOX_ART_PREVIEW_RESOURCES,
   M01_GREYBOX_ART_SOURCE_SHEET,
   M01_GREYBOX_ART_SLICES,
   M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES,
+  M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES,
   M01_GREYBOX_RUNTIME_FILTER_RESOURCES,
   M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES,
   M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
+  M01_GREYBOX_RUNTIME_SURFACE_RESOURCES,
   M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES
 } from "../../assets/scripts/cocos/M01GreyboxArt.ts";
 import { buildM01GreyboxLayout } from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
@@ -386,6 +389,48 @@ describe("M01 greybox art slices", () => {
     }
   });
 
+  it("declares flashlight token sprites and overlap surface resources for the current M01 art inventory", () => {
+    expect(M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES.map((resource) => resource.id)).toEqual([
+      "flashlight_red",
+      "flashlight_yellow",
+      "flashlight_blue"
+    ]);
+    expect(M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.map((resource) => resource.id)).toEqual([
+      "fragment_floor",
+      "toolcard_frame"
+    ]);
+
+    for (const resource of [
+      ...M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES,
+      ...M01_GREYBOX_RUNTIME_SURFACE_RESOURCES
+    ]) {
+      expect(
+        resource.file
+      ).toMatch(
+        /^assets\/resources\/art\/stage1-m01\/runtime-sprites\/(flashlights|surfaces)\/m01-.+\.png$/
+      );
+      expect(resource.resourcesLoadPath).toMatch(
+        /^art\/stage1-m01\/runtime-sprites\/(flashlights|surfaces)\/m01-.+\/spriteFrame$/
+      );
+      expect(existsSync(join(projectRoot, resource.file))).toBe(true);
+      expect(existsSync(join(projectRoot, `${resource.file}.meta`))).toBe(true);
+
+      const image = readPngRgba(resource.file);
+      expect(alphaAt(image, 0, 0)).toBe(0);
+      expect(alphaAt(image, image.width - 1, 0)).toBe(0);
+      expect(alphaAt(image, 0, image.height - 1)).toBe(0);
+      expect(alphaAt(image, image.width - 1, image.height - 1)).toBe(0);
+      expect(countOpaquePixels(image)).toBeGreaterThan(image.width * image.height * 0.05);
+    }
+
+    expect(getM01GreyboxToolCardFrameResource()).toMatchObject({
+      id: "toolcard_frame",
+      role: "toolcard_frame_surface",
+      resourcesLoadPath:
+        "art/stage1-m01/runtime-sprites/surfaces/m01-toolcard-preview-frame/spriteFrame"
+    });
+  });
+
   it("maps greybox fragment and filter tokens onto isolated runtime sprite resources", () => {
     const layout = buildM01GreyboxLayout(config);
     const plan = buildM01GreyboxTokenArtPlan(layout);
@@ -416,9 +461,9 @@ describe("M01 greybox art slices", () => {
     expect(gearArt).toMatchObject({
       id: "gearStar",
       role: "repair_object_token",
-      displaySize: { width: 300, height: 281 },
+      displaySize: { width: 300, height: 300 },
       resourcesLoadPath:
-        "art/stage1-m01/runtime-transparent/m01-gear-star-slice-transparent/spriteFrame"
+        "art/stage1-m01/runtime-sprites/surfaces/m01-overlap-memory-gear/spriteFrame"
     });
 
     expect(plan.tokens.find((token) => token.controllerId === "fragment_red_circle_1")).toMatchObject({
@@ -435,7 +480,9 @@ describe("M01 greybox art slices", () => {
 
     expect(M01_GREYBOX_ART_SOURCE_SHEET).toContain("candidate-v2");
     expect(plan.enabledByDefault).toBe(false);
-    expect(plan.tokens).toHaveLength(layout.fragments.length + layout.evidence.length + 1);
+    expect(plan.tokens).toHaveLength(
+      layout.fragments.length + layout.evidence.length + layout.flashlights.length + 1
+    );
     expect(plan.tokens.some((token) => token.role === "filter_token")).toBe(false);
 
     const hiddenCircle = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[0]);
@@ -444,6 +491,7 @@ describe("M01 greybox art slices", () => {
     const hiddenHexagon = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[8]);
     const purpleEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[0]);
     const orangeEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[2]);
+    const redFlashlight = getM01GreyboxRuntimeSpriteResourceForToken(layout.flashlights[0]);
 
     expect(hiddenCircle).toMatchObject({
       id: "hidden_circle",
@@ -479,6 +527,12 @@ describe("M01 greybox art slices", () => {
       resourcesLoadPath:
         "art/stage1-m01/runtime-sprites/evidence-markers/m01-evidence-orange-hexagon-hexagon/spriteFrame"
     });
+    expect(redFlashlight).toMatchObject({
+      id: "flashlight_red",
+      role: "flashlight_token",
+      resourcesLoadPath:
+        "art/stage1-m01/runtime-sprites/flashlights/m01-flashlight-red/spriteFrame"
+    });
 
     expect(plan.tokens.find((token) => token.controllerId === layout.fragments[0]?.controllerId)).toMatchObject({
       controllerId: "fragment_circle_red_1",
@@ -492,7 +546,12 @@ describe("M01 greybox art slices", () => {
       role: "evidence_marker_token",
       interactive: false
     });
-    expect(getM01GreyboxRuntimeSpriteResourceForToken(layout.flashlights[0])).toBeUndefined();
+    expect(plan.tokens.find((token) => token.controllerId === layout.flashlights[0]?.controllerId)).toMatchObject({
+      controllerId: "flashlight_red",
+      resourceId: "flashlight_red",
+      role: "flashlight_token",
+      interactive: false
+    });
   });
 
   it("builds a static gameplay art plan without fragment or filter composite sheets", () => {
@@ -518,6 +577,16 @@ describe("M01 greybox art slices", () => {
     const plan = buildM01GreyboxStaticArtPlan(layout);
 
     expect(plan.enabledByDefault).toBe(false);
-    expect(plan.layers).toEqual([]);
+    expect(plan.layers).toEqual([
+      {
+        id: "fragmentFloor",
+        role: "fragment_floor_surface",
+        resourcesLoadPath:
+          "art/stage1-m01/runtime-sprites/surfaces/m01-fragment-floor-surface/spriteFrame",
+        interactive: false,
+        position: { x: 0, y: -248 },
+        size: { width: 960, height: 128 }
+      }
+    ]);
   });
 });

@@ -70,7 +70,9 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("buildToolCardPreview");
+    expect(bootstrap).toContain("getM01GreyboxToolCardFrameResource");
     expect(bootstrap).toContain("M01ToolCardPreview");
+    expect(bootstrap).toContain("M01ToolCardPreviewArtFrame");
     expect(bootstrap).toContain("renderToolCardPreview");
   });
 
@@ -285,6 +287,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("@property({ type: Boolean })");
     expect(bootstrap).toContain("enableArtPreview = false");
     expect(bootstrap).toContain("buildM01GreyboxStaticArtPlan");
+    expect(bootstrap).toContain("getM01GreyboxToolCardFrameResource");
     expect(bootstrap).toContain("getM01GreyboxRuntimeSpriteResourceForToken");
     expect(bootstrap).toContain("SpriteFrame");
     expect(bootstrap).toContain("sprite.sizeMode = Sprite.SizeMode.CUSTOM");

@@ -45,18 +45,18 @@
 
 ### Task 1: Complete M01 Overlap Art Preview Inventory
 
-- [ ] Read the sources of truth and confirm the checkpoint is the remaining Task 5 inventory, not a new product-design pass.
-- [ ] Add failing or extended tests in `tests/cocos/M01GreyboxArt.test.ts` and, if needed, `tests/cocosProjectScaffold.test.ts` requiring overlap-mode art inventory to include flashlight tools, assembly plate / memory gear, bottom fragment floor, and ToolCard preview frame resources in addition to the already mapped hidden fragments and evidence markers.
-- [ ] Run `npm test -- tests/cocos/M01GreyboxArt.test.ts tests/cocosProjectScaffold.test.ts` and confirm the new expectations fail for the intended missing inventory.
-- [ ] Implement the minimal `M01GreyboxArt.ts` resource declarations and mapping changes needed to satisfy the tests while keeping `enableArtPreview=false` by default.
-- [ ] Add or generate only the smallest acceptable placeholder runtime resources under `assets/resources/art/stage1-m01/runtime-sprites/` if the tests require real files; include Cocos `.png.meta` files for any added PNG.
-- [ ] Keep existing real-input and gameplay paths untouched; if `M01GreyboxBootstrap.ts` changes, it must only consume non-interactive art plan resources and preserve hit targets.
-- [ ] Update `production/active.md` with the checkpoint result, verification evidence, residual risk, and next recommended step.
-- [ ] Verify with:
+- [x] Read the sources of truth and confirm the checkpoint is the remaining Task 5 inventory, not a new product-design pass.
+- [x] Add failing or extended tests in `tests/cocos/M01GreyboxArt.test.ts` and, if needed, `tests/cocosProjectScaffold.test.ts` requiring overlap-mode art inventory to include flashlight tools, assembly plate / memory gear, bottom fragment floor, and ToolCard preview frame resources in addition to the already mapped hidden fragments and evidence markers.
+- [x] Run `npm test -- tests/cocos/M01GreyboxArt.test.ts tests/cocosProjectScaffold.test.ts` and confirm the new expectations fail for the intended missing inventory.
+- [x] Implement the minimal `M01GreyboxArt.ts` resource declarations and mapping changes needed to satisfy the tests while keeping `enableArtPreview=false` by default.
+- [x] Add or generate only the smallest acceptable placeholder runtime resources under `assets/resources/art/stage1-m01/runtime-sprites/` if the tests require real files; include Cocos `.png.meta` files for any added PNG.
+- [x] Keep existing real-input and gameplay paths untouched; if `M01GreyboxBootstrap.ts` changes, it must only consume non-interactive art plan resources and preserve hit targets.
+- [x] Update `production/active.md` with the checkpoint result, verification evidence, residual risk, and next recommended step.
+- [x] Verify with:
   - `npm test -- tests/cocos/M01GreyboxArt.test.ts tests/cocosProjectScaffold.test.ts`
   - `npm run typecheck`
   - `npm test`
   - `git diff --check`
-- [ ] Run `npm run smoke:m01-preview-refresh` and `npm run smoke:m01-preview:input` if the local Cocos MCP / preview services are reachable; if unavailable, record the blocker precisely in `production/active.md` instead of faking success.
-- [ ] Self-review the diff for accidental product-rule changes, legacy sorter regression, tests that do not prove the intended behavior, and accidental staging of Cocos editor state.
-- [ ] Commit only scoped files with a focused message.
+- [x] Run `npm run smoke:m01-preview-refresh` and `npm run smoke:m01-preview:input` if the local Cocos MCP / preview services are reachable; if unavailable, record the blocker precisely in `production/active.md` instead of faking success. Strict input smoke still fell back to the non-browser path twice; the blocker snapshot is recorded in `production/active.md`.
+- [x] Self-review the diff for accidental product-rule changes, legacy sorter regression, tests that do not prove the intended behavior, and accidental staging of Cocos editor state.
+- [x] Commit only scoped files with a focused message. Ralphex child process could not create `.git/index.lock` (`Operation not permitted`), so the parent Codex session staged and committed the same scoped files after rerunning the relevant verification.

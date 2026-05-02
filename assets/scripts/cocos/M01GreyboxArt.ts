@@ -34,18 +34,28 @@ export type M01GreyboxRuntimeEvidenceSpriteId =
   | "evidence_green_triangle_hexagon"
   | "evidence_orange_hexagon_hexagon"
   | "evidence_purple_hexagon_circle";
+export type M01GreyboxRuntimeFlashlightId =
+  | "flashlight_red"
+  | "flashlight_yellow"
+  | "flashlight_blue";
 export type M01GreyboxRuntimeFilterId = "red" | "blue" | "yellow";
+export type M01GreyboxRuntimeSurfaceId = "fragment_floor" | "toolcard_frame";
 export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeFragmentId
   | M01GreyboxRuntimeHiddenFragmentId
   | M01GreyboxRuntimeEvidenceSpriteId
+  | M01GreyboxRuntimeFlashlightId
   | M01GreyboxRuntimeFilterId
+  | M01GreyboxRuntimeSurfaceId
   | "gearStar";
 export type M01GreyboxRuntimeSpriteRole =
   | "fragment_token"
   | "filter_token"
+  | "flashlight_token"
   | "evidence_marker_token"
-  | "repair_object_token";
+  | "repair_object_token"
+  | "fragment_floor_surface"
+  | "toolcard_frame_surface";
 
 export interface M01GreyboxArtSlice {
   id: M01GreyboxArtSliceId;
@@ -94,8 +104,8 @@ export interface M01GreyboxRuntimeSpriteResource {
 }
 
 export interface M01GreyboxArtPreviewLayer {
-  id: M01GreyboxArtSliceId;
-  role: M01GreyboxArtRole;
+  id: string;
+  role: string;
   resourcesLoadPath: `${string}/spriteFrame`;
   interactive: false;
   position: {
@@ -152,7 +162,13 @@ function transparentResourceLoadPath(filename: string): `${string}/spriteFrame` 
 }
 
 function runtimeSpriteResourceLoadPath(
-  folder: "fragments" | "filters" | "hidden-fragments" | "evidence-markers",
+  folder:
+    | "fragments"
+    | "filters"
+    | "hidden-fragments"
+    | "evidence-markers"
+    | "flashlights"
+    | "surfaces",
   filename: string
 ): `${string}/spriteFrame` {
   return `art/stage1-m01/runtime-sprites/${folder}/${filename.replace(/\.png$/, "")}/spriteFrame`;
@@ -273,20 +289,52 @@ function runtimeEvidenceResource(
   };
 }
 
-function runtimeGearResource(): M01GreyboxRuntimeSpriteResource {
-  const filename = "m01-gear-star-slice-transparent.png";
-  const file = `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/${filename}`;
+function runtimeFlashlightResource(
+  id: M01GreyboxRuntimeFlashlightId,
+  filename: string
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/flashlights/${filename}`;
 
   return {
-    id: "gearStar",
-    role: "repair_object_token",
+    id,
+    role: "flashlight_token",
     file,
-    sourceFile: `${M01_GREYBOX_ART_RESOURCE_ROOT}/m01-gear-star-slice.png`,
+    sourceFile: `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-color-filters-slice-transparent.png`,
     assetDatabaseUrl: `db://${file}`,
-    resourcesLoadPath: transparentResourceLoadPath(filename),
-    runtimeStatus: "isolated_candidate",
-    displaySize: { width: 300, height: 281 }
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("flashlights", filename),
+    runtimeStatus: "isolated_candidate"
   };
+}
+
+function runtimeSurfaceResource(
+  id: "gearStar" | M01GreyboxRuntimeSurfaceId,
+  role: "repair_object_token" | "fragment_floor_surface" | "toolcard_frame_surface",
+  filename: string,
+  sourceFile: string,
+  displaySize?: { width: number; height: number }
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/surfaces/${filename}`;
+
+  return {
+    id,
+    role,
+    file,
+    sourceFile,
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("surfaces", filename),
+    runtimeStatus: "isolated_candidate",
+    displaySize
+  };
+}
+
+function runtimeGearResource(): M01GreyboxRuntimeSpriteResource {
+  return runtimeSurfaceResource(
+    "gearStar",
+    "repair_object_token",
+    "m01-overlap-memory-gear.png",
+    `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-gear-star-slice-transparent.png`,
+    { width: 300, height: 300 }
+  );
 }
 
 // These imported art candidates live outside assets/resources, so they are editor/import
@@ -371,8 +419,29 @@ export const M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES: M01GreyboxRuntimeSpriteReso
   )
 ];
 
+export const M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeFlashlightResource("flashlight_red", "m01-flashlight-red.png"),
+  runtimeFlashlightResource("flashlight_yellow", "m01-flashlight-yellow.png"),
+  runtimeFlashlightResource("flashlight_blue", "m01-flashlight-blue.png")
+];
+
 export const M01_GREYBOX_RUNTIME_OBJECT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
   runtimeGearResource()
+];
+
+export const M01_GREYBOX_RUNTIME_SURFACE_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeSurfaceResource(
+    "fragment_floor",
+    "fragment_floor_surface",
+    "m01-fragment-floor-surface.png",
+    `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-nine-slot-tray-slice-transparent.png`
+  ),
+  runtimeSurfaceResource(
+    "toolcard_frame",
+    "toolcard_frame_surface",
+    "m01-toolcard-preview-frame.png",
+    `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-toolcard-thumbnail-slice-transparent.png`
+  )
 ];
 
 export function getM01GreyboxArtSlice(id: M01GreyboxArtSliceId): M01GreyboxArtSlice | undefined {
@@ -424,6 +493,12 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
     );
   }
 
+  if (token.kind === "flashlight") {
+    return M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES.find(
+      (resource) => resource.id === `flashlight_${token.colorToken}`
+    );
+  }
+
   if (token.kind === "gear") {
     return M01_GREYBOX_RUNTIME_OBJECT_RESOURCES.find((resource) => resource.id === "gearStar");
   }
@@ -461,7 +536,9 @@ export function buildM01GreyboxRuntimeTransparentPlan(): M01GreyboxArtPreviewPla
   return {
     enabledByDefault: false,
     layers: previewPlan.layers.map((previewLayer) => {
-      const resource = getM01GreyboxRuntimeTransparentResource(previewLayer.id);
+      const resource = getM01GreyboxRuntimeTransparentResource(
+        previewLayer.id as M01GreyboxArtSliceId
+      );
       if (!resource) {
         return previewLayer;
       }
@@ -478,9 +555,23 @@ export function buildM01GreyboxStaticArtPlan(
   layout?: M01GreyboxLayout
 ): M01GreyboxArtPreviewPlan {
   if (layout && layout.evidence.length > 0) {
+    const fragmentFloor = M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
+      (resource) => resource.id === "fragment_floor"
+    );
     return {
       enabledByDefault: false,
-      layers: []
+      layers: fragmentFloor
+        ? [
+            {
+              id: "fragmentFloor",
+              role: "fragment_floor_surface",
+              resourcesLoadPath: fragmentFloor.resourcesLoadPath,
+              interactive: false,
+              position: { x: 0, y: -248 },
+              size: { width: 960, height: 128 }
+            }
+          ]
+        : []
     };
   }
 
@@ -504,7 +595,13 @@ export function buildM01GreyboxStaticArtPlan(
 }
 
 export function buildM01GreyboxTokenArtPlan(layout: M01GreyboxLayout): M01GreyboxTokenArtPlan {
-  const tokens = [layout.gear, ...layout.fragments, ...layout.evidence, ...(layout.filters ?? [])]
+  const tokens = [
+    layout.gear,
+    ...layout.fragments,
+    ...layout.evidence,
+    ...layout.flashlights,
+    ...(layout.filters ?? [])
+  ]
     .map((token): M01GreyboxTokenArtLayer | undefined => {
       const resource = getM01GreyboxRuntimeSpriteResourceForToken(token);
       if (!resource) {
@@ -525,6 +622,14 @@ export function buildM01GreyboxTokenArtPlan(layout: M01GreyboxLayout): M01Greybo
     enabledByDefault: false,
     tokens
   };
+}
+
+export function getM01GreyboxToolCardFrameResource():
+  | M01GreyboxRuntimeSpriteResource
+  | undefined {
+  return M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
+    (resource) => resource.id === "toolcard_frame"
+  );
 }
 
 function readEvidenceSourceShapeSignature(tags: string[]): string | undefined {
