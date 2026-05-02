@@ -35,4 +35,17 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("isEvidenceStaged");
     expect(smokeScript).toContain("observedColor");
   });
+
+  it("asserts the successful completion path reaches steady_on and the ToolCard preview", () => {
+    const smokeScript = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke.mjs"),
+      "utf8"
+    );
+
+    expect(smokeScript).toContain("completionEvidence");
+    expect(smokeScript).toContain("expectedToolCardTitle");
+    expect(smokeScript).toContain('bottomLight === "steady_on"');
+    expect(smokeScript).toContain("M01ToolCardTitle");
+    expect(smokeScript).toContain("completion");
+  });
 });

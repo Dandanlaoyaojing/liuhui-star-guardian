@@ -332,6 +332,102 @@ async function runRealInputPath(page, realInputPlan) {
   }, { realInputPlan }).then((result) => ({ ...result, debugSteps }));
 }
 
+async function runCompletionInputPath(page, realInputPlan) {
+  const canvas = page.locator("canvas").first();
+  await canvas.waitFor({ state: "visible", timeout: 30_000 });
+  const canvasBox = await canvas.boundingBox();
+  assert(canvasBox, "Preview canvas is unavailable for completion smoke.");
+  const toPagePoint = (localPoint) =>
+    localPointToPagePoint(canvasBox, realInputPlan.canvasSize, localPoint);
+  const moveMouseToLocalPoint = async (localPoint, options = {}) => {
+    const pagePoint = toPagePoint(localPoint);
+    await page.mouse.move(pagePoint.x, pagePoint.y, options);
+  };
+  const dragLocalPoint = async (fromLocalPoint, toLocalPoint) => {
+    await moveMouseToLocalPoint(fromLocalPoint);
+    await page.mouse.down();
+    await page.waitForTimeout(24);
+    await moveMouseToLocalPoint(toLocalPoint, { steps: 10 });
+    await page.waitForTimeout(40);
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+  };
+  const currentFragmentPosition = async (fragmentId) =>
+    page.evaluate((fragmentId) => {
+      const cc = window.cc;
+      const scene = cc && cc.director ? cc.director.getScene() : undefined;
+      function findNode(node, name) {
+        if (!node) {
+          return undefined;
+        }
+        if (node.name === name) {
+          return node;
+        }
+        for (const child of node.children ?? []) {
+          const found = findNode(child, name);
+          if (found) {
+            return found;
+          }
+        }
+        return undefined;
+      }
+      const root = findNode(scene, "M01GreyboxRoot");
+      const bootstrap = root?.components?.find(
+        (component) => component.constructor?.name === "M01GreyboxBootstrap"
+      );
+      const tokenPositions = bootstrap?.tokenPositions;
+      const position = tokenPositions ? tokenPositions.get(fragmentId) : undefined;
+      if (!position) {
+        throw new Error(`Missing token position for completion fragment: ${fragmentId}`);
+      }
+      return position;
+    }, fragmentId);
+
+  await dragLocalPoint(realInputPlan.flashlightPosition, realInputPlan.revealFragmentPosition);
+  for (const evidence of realInputPlan.completionEvidence) {
+    for (const fragmentId of evidence.fragmentIds) {
+      await dragLocalPoint(await currentFragmentPosition(fragmentId), evidence.evidencePosition);
+    }
+  }
+
+  await page.waitForTimeout(300);
+  return page.evaluate(({ realInputPlan }) => {
+    const cc = window.cc;
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
+    function findNode(node, name) {
+      if (!node) {
+        return undefined;
+      }
+      if (node.name === name) {
+        return node;
+      }
+      for (const child of node.children ?? []) {
+        const found = findNode(child, name);
+        if (found) {
+          return found;
+        }
+      }
+      return undefined;
+    }
+    const root = findNode(scene, "M01GreyboxRoot");
+    const bootstrap = root?.components?.find(
+      (component) => component.constructor?.name === "M01GreyboxBootstrap"
+    );
+    if (!bootstrap?.session) {
+      throw new Error("M01GreyboxBootstrap session is unavailable for completion smoke.");
+    }
+    const titleNode = findNode(scene, "M01ToolCardTitle");
+    const title = titleNode ? titleNode.getComponent(cc.Label)?.string : undefined;
+    return {
+      evidenceCount: realInputPlan.completionEvidence.length,
+      areAllEvidenceStaged: bootstrap.session.areAllEvidenceStaged(),
+      completionState: bootstrap.session.getCompletionState(),
+      toolCardTitle: title,
+      status: findNode(scene, "M01StatusLabel")?.getComponent(cc.Label)?.string
+    };
+  }, { realInputPlan });
+}
+
 async function runRuntimeEquivalentInputPath(page, realInputPlan) {
   return page.evaluate(({ realInputPlan }) => {
     const cc = window.cc;
@@ -542,6 +638,27 @@ async function main() {
 
     const screenshotPath = resolve(screenshotDir, "m01-preview-failed-validation-smoke.png");
     await page.screenshot({ path: screenshotPath, fullPage: true });
+    await page.goto(sceneUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.waitForFunction(() => window.cc?.director?.getScene?.()?.name === "M01Greybox", {
+      timeout: 30_000
+    });
+    await page.waitForTimeout(3_000);
+    const completion = await runCompletionInputPath(page, realInputPlan);
+    assert(
+      completion.areAllEvidenceStaged,
+      "Expected all evidence pairs to be staged through real browser input."
+    );
+    assert(
+      completion.completionState.bottomLight === "steady_on",
+      `Expected M01 completion bottom light steady_on; got ${completion.completionState.bottomLight}.`
+    );
+    assert(completion.completionState.completed, "Expected M01 completion state to be completed.");
+    assert(
+      completion.toolCardTitle === realInputPlan.expectedToolCardTitle,
+      `Expected ToolCard title ${realInputPlan.expectedToolCardTitle}; got ${completion.toolCardTitle}.`
+    );
+    const completionScreenshotPath = resolve(screenshotDir, "m01-preview-completion-smoke.png");
+    await page.screenshot({ path: completionScreenshotPath, fullPage: true });
     assert(pageErrors.length === 0, `Preview page errors: ${pageErrors.join(" | ")}`);
     assert(
       consoleMessages.length === 0,
@@ -554,7 +671,9 @@ async function main() {
           ok: true,
           sceneUrl,
           screenshotPath,
+          completionScreenshotPath,
           realInput,
+          completion,
           validation: failure.validation,
           stagedFragmentId: failure.stagedFragmentId,
           validationColorDuringFlash: failure.duringFlash.validationColor,

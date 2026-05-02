@@ -60,11 +60,15 @@ Expected commit:
 
 ### Task 2: Cover Full Real-Input Completion Path
 
-- [ ] Extend preview smoke or add a focused strict variant so real input completes all four evidence pairs and reaches ToolCard unlock.
-- [ ] Assert completion state, bottom light `steady_on`, ToolCard title, and no console/page errors.
-- [ ] Keep the failed-validation smoke coverage intact.
-- [ ] Update `production/active.md` with fresh evidence.
-- [ ] Verify with preview smoke commands, `npm run typecheck`, `npm test`, and `git diff --check`.
+- [x] Extend preview smoke or add a focused strict variant so real input completes all four evidence pairs and reaches ToolCard unlock.
+- [x] Assert completion state, bottom light `steady_on`, ToolCard title, and no console/page errors.
+- [x] Keep the failed-validation smoke coverage intact.
+- [x] Update `production/active.md` with fresh evidence.
+- [x] Verify with preview smoke commands, `npm run typecheck`, `npm test`, and `git diff --check`.
+
+Completion note:
+- `scripts/m01-preview-smoke.mjs` now runs failed-validation coverage and then reloads a clean M01 preview to complete all evidence pairs through Playwright mouse-driven browser input.
+- `npm run smoke:m01-preview:input` passes with `realInput.usedFallback = false`, `completion.evidenceCount = 4`, `completion.areAllEvidenceStaged = true`, `completion.completionState.bottomLight = "steady_on"`, `completion.toolCardTitle = "分类与归纳"`, and empty `consoleMessages/pageErrors`.
 
 Reframe:
 - A partial input smoke is useful, but M01 completion requires proving a player can finish the level through the same public interaction path.

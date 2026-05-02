@@ -28,6 +28,11 @@ export function buildRealInputPlan(config) {
   const firstStagedFragment = findById(config.fragments ?? [], "fragment_circle_red_1", "fragment");
   const secondStagedFragment = findById(config.fragments ?? [], "fragment_triangle_blue_1", "fragment");
   const evidence = findById(config.evidence ?? [], "evidence_purple_upper_left", "evidence");
+  const completionEvidence = (config.evidence ?? []).map((candidate) => ({
+    evidenceId: candidate.id,
+    evidencePosition: candidate.position,
+    fragmentIds: [...candidate.solution.fragmentIds]
+  }));
   const freeDropPosition = {
     x: 0,
     y: clamp(revealFragment.position.y + FREE_DROP_Y_OFFSET, -CANVAS_SIZE.height / 2 + 24, 0)
@@ -45,6 +50,8 @@ export function buildRealInputPlan(config) {
       fragmentPosition: freePlacementFragment.position,
       dropPosition: freeDropPosition
     },
+    completionEvidence,
+    expectedToolCardTitle: config.toolCard?.front?.toolName,
     stageEvidence: {
       evidenceId: evidence.id,
       evidencePosition: evidence.position,
