@@ -8,6 +8,8 @@
 
 **Tech Stack:** Cocos Creator 3.8.8, TypeScript, Vitest, Playwright-based M01 preview smoke, repo-local Cocos MCP refresh helper.
 
+**Status:** Tasks 1-5 are complete as of 2026-05-02. The Task 5 Ralphex execution record is archived at `docs/plans/completed/2026-05-02-m01-art-preview-task5-ralphex.md`. This plan now remains as the QA/art-readiness handoff for the next visual review pass.
+
 ---
 
 ## Manual QA Baseline
@@ -381,4 +383,4 @@ git push
 
 ## Recommended Next Action
 
-Start with Task 1 and Task 2 before generating new art. The current largest human-readability risk is not missing final pixels; it is that the player cannot clearly distinguish the side target evidence diagram from their own assembly board.
+Run the art-preview visual QA pass against the completed Task 1-5 baseline: refresh Cocos preview, run the strict smoke with `--enable-art-preview --capture-clean-qa`, review `temp/m01-art-preview-clean-qa.png`, and decide whether the first-pass placeholder sprites are acceptable for the next prototype checkpoint or need a new generated/paintover asset pass. M30 remains paused unless the operator explicitly resumes it.

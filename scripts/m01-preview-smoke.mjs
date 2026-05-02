@@ -28,6 +28,7 @@ const chromePath = browserCandidates.find((candidate) => existsSync(candidate));
 const screenshotDir = resolve(rootDir, "temp");
 const requireBrowserInput = process.argv.includes("--require-browser-input");
 const captureCleanQa = process.argv.includes("--capture-clean-qa");
+const enableArtPreview = process.argv.includes("--enable-art-preview");
 
 function assert(condition, message) {
   if (!condition) {
@@ -70,13 +71,86 @@ async function hidePreviewChrome(page) {
   });
 }
 
-async function captureCleanQaScreenshot(page) {
+async function captureCleanQaScreenshot(page, { artPreview = false } = {}) {
   await hidePreviewChrome(page);
-  const cleanQaScreenshotPath = resolve(screenshotDir, "m01-preview-clean-qa.png");
+  const cleanQaScreenshotPath = resolve(
+    screenshotDir,
+    artPreview ? "m01-art-preview-clean-qa.png" : "m01-preview-clean-qa.png"
+  );
   const canvas = page.locator("canvas").first();
   await canvas.waitFor({ state: "visible", timeout: 30_000 });
   await canvas.screenshot({ path: cleanQaScreenshotPath });
   return cleanQaScreenshotPath;
+}
+
+async function enableArtPreviewMode(page) {
+  const artPreviewState = await page.evaluate(async () => {
+    const cc = window.cc;
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
+    function findNode(node, name) {
+      if (!node) {
+        return undefined;
+      }
+      if (node.name === name) {
+        return node;
+      }
+      for (const child of node.children ?? []) {
+        const found = findNode(child, name);
+        if (found) {
+          return found;
+        }
+      }
+      return undefined;
+    }
+    function flattenNames(node, names = []) {
+      if (!node) {
+        return names;
+      }
+      names.push(node.name);
+      for (const child of node.children ?? []) {
+        flattenNames(child, names);
+      }
+      return names;
+    }
+    const root = findNode(scene, "M01GreyboxRoot");
+    const bootstrap = root?.components?.find(
+      (component) => component.constructor?.name === "M01GreyboxBootstrap"
+    );
+    if (!bootstrap?.layout || !bootstrap?.renderGreybox || !bootstrap?.syncVisualState) {
+      throw new Error("M01GreyboxBootstrap cannot re-render art preview mode.");
+    }
+
+    bootstrap.enableArtPreview = true;
+    bootstrap.greyboxRoot?.destroy?.();
+    bootstrap.toolCardRoot = null;
+    bootstrap.hintButtonRoot = null;
+    bootstrap.feedbackLabel = null;
+    bootstrap.greyboxNodes?.clear?.();
+    bootstrap.tokenPositions?.clear?.();
+    bootstrap.artPreviewFallbackUnderlayIds?.clear?.();
+    bootstrap.renderGreybox(bootstrap.layout);
+    bootstrap.syncVisualState();
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    const names = flattenNames(scene);
+    return {
+      enabled: bootstrap.enableArtPreview === true,
+      artSpriteCount: names.filter((name) => name.startsWith("M01ArtSprite_")).length,
+      staticArtCount: names.filter((name) => name.startsWith("M01StaticArt_")).length,
+      hasFragmentFloor: names.includes("M01StaticArt_fragmentFloor")
+    };
+  });
+
+  assert(artPreviewState.enabled, "Expected M01 art preview toggle to be enabled.");
+  assert(
+    artPreviewState.artSpriteCount > 0,
+    "Expected art preview mode to render token-level art sprites."
+  );
+  assert(
+    artPreviewState.hasFragmentFloor,
+    "Expected art preview mode to render the fragment floor surface."
+  );
+  return artPreviewState;
 }
 
 function buildWrongCandidate(config) {
@@ -657,6 +731,7 @@ async function main() {
       initial.bootstrapKeys.includes("flashlightBeamTarget"),
       "Preview runtime is stale: M01GreyboxBootstrap lacks flashlightBeamTarget."
     );
+    const artPreview = enableArtPreview ? await enableArtPreviewMode(page) : undefined;
 
     const browserInputAttempt = await runRealInputPath(page, realInputPlan);
     const heldMoveStep = browserInputAttempt.debugSteps.find(
@@ -814,7 +889,7 @@ async function main() {
     const completionScreenshotPath = resolve(screenshotDir, "m01-preview-completion-smoke.png");
     await page.screenshot({ path: completionScreenshotPath, fullPage: true });
     const cleanQaScreenshotPath = captureCleanQa
-      ? await captureCleanQaScreenshot(page)
+      ? await captureCleanQaScreenshot(page, { artPreview: enableArtPreview })
       : undefined;
     assert(pageErrors.length === 0, `Preview page errors: ${pageErrors.join(" | ")}`);
     assert(
@@ -827,6 +902,7 @@ async function main() {
         {
           ok: true,
           sceneUrl,
+          artPreview,
           screenshotPath,
           completionScreenshotPath,
           cleanQaScreenshotPath,

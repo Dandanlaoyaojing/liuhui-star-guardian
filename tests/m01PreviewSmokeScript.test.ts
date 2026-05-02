@@ -79,4 +79,17 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("m01-preview-clean-qa.png");
     expect(smokeScript).toContain("hidePreviewChrome");
   });
+
+  it("can temporarily enable art-preview mode for visual QA without changing the default toggle", () => {
+    const smokeScript = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke.mjs"),
+      "utf8"
+    );
+
+    expect(smokeScript).toContain("--enable-art-preview");
+    expect(smokeScript).toContain("enableArtPreviewMode");
+    expect(smokeScript).toContain("bootstrap.enableArtPreview = true");
+    expect(smokeScript).toContain("m01-art-preview-clean-qa.png");
+    expect(smokeScript).toContain("M01StaticArt_fragmentFloor");
+  });
 });
