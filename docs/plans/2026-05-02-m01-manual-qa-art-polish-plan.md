@@ -4,7 +4,7 @@
 
 **Goal:** Turn the completed M01 greybox into a human-readable art-polish target without changing the approved M01 rules.
 
-**Architecture:** Keep the current domain/session/smoke path as the baseline. Separate QA findings from implementation tasks: first preserve visual evidence, then split target reference art from assembly-board snap affordances, then replace greybox runtime assets with transparent-ready hand-drawn placeholders. Do not resume M30 or change other levels.
+**Architecture:** Keep the current domain/session/smoke path as the baseline. Separate QA findings from implementation tasks: first preserve visual evidence, then render the target overlap image as a side reference diagram outside the assembly plate, then keep board snap zones as invisible gameplay affordances, then replace greybox runtime assets with transparent-ready hand-drawn placeholders. Do not resume M30 or change other levels.
 
 **Tech Stack:** Cocos Creator 3.8.8, TypeScript, Vitest, Playwright-based M01 preview smoke, repo-local Cocos MCP refresh helper.
 
@@ -35,6 +35,8 @@ Health score:
 
 1. **[P1] Target evidence still reads like board contents, not a side reference diagram.**
    The spec says the target overlap evidence is a nearby reference diagram, while the center is the player assembly plate. In screenshots, colored evidence markers are visually embedded around the central board, so a human tester can read them as already-placed pieces rather than a target to reconstruct.
+
+   Non-negotiable correction: do not draw the target image on top of the assembly plate. The target image must be a separate side picture. The central plate should show only the player's placed fragments, bottom light, and subtle assembly affordances.
 
 2. **[P1] Flashlight beam visually sweeps over the assembly board.**
    The runtime hit logic only reveals bottom fragments, but the visible beam triangle crosses the board in the failed-validation screenshot. This conflicts with the design rule that the flashlight only illuminates bottom fragments and not the assembly platform.
@@ -130,7 +132,7 @@ git push
 In `tests/cocos/M01GreyboxLayout.test.ts`, assert that:
 - `layout.evidence` keeps hidden snap poses for gameplay.
 - A new `layout.referenceEvidence` or equivalent view model exists for the side target diagram.
-- Reference evidence positions are outside the central assembly board bounds.
+- Reference evidence positions are outside the central assembly board bounds and form a side picture, not an overlay on the assembly plate.
 - Snap poses still resolve inside/around the board.
 
 **Step 2: Run test to verify it fails**
@@ -145,13 +147,14 @@ Expected: FAIL because there is no separate reference evidence model.
 **Step 3: Implement minimal split**
 
 In `M01GreyboxLayout.ts`:
-- Add a reference-only evidence collection for visual target markers.
-- Keep `layout.evidence` for snap/drop hit zones and validation.
+- Add a reference-only evidence collection for the visual target picture.
+- Keep `layout.evidence` for snap/drop hit zones and validation, but treat those zones as invisible gameplay affordances rather than visible target art.
 - Position reference markers as a compact side diagram, preferably right of the board and above the floor pool.
 
 In `M01GreyboxBootstrap.ts`:
-- Render reference markers as visible target diagram nodes.
-- Keep gameplay evidence hit zones visually subdued or hidden enough that the center reads as the player assembly board.
+- Render reference markers only in the side target diagram.
+- Do not render colored target evidence markers on the central assembly plate.
+- Keep gameplay evidence hit zones invisible on the board while preserving weak snap and validation behavior.
 - Preserve weak snap and validation behavior.
 
 **Step 4: Verify**
@@ -166,7 +169,7 @@ npm run smoke:m01-preview:input
 
 Expected:
 - Strict smoke still passes with `usedFallback = false`.
-- Completion screenshot shows the target reference diagram visually separated from the board.
+- Completion screenshot shows the target reference diagram as a separate side picture, while the assembly plate contains only player-placed fragments and completion lighting.
 
 **Step 5: Commit**
 
