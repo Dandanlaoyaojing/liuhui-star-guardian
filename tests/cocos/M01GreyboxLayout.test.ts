@@ -55,12 +55,19 @@ describe("buildM01GreyboxLayout", () => {
     expect(layout.fragments.every((fragment) => fragment.size.height === 48)).toBe(true);
   });
 
-  it("keeps target evidence as a separate colored reference diagram above the floor pool", () => {
+  it("keeps target evidence as one coherent reference pattern above the floor pool", () => {
     const layout = buildM01GreyboxLayout(config);
     const boardHalfWidth = layout.board.size.width / 2;
     const boardHalfHeight = layout.board.size.height / 2;
 
     expect(layout.referenceEvidence).toHaveLength(config.evidence.length);
+    expect(layout.referencePattern).toMatchObject({
+      kind: "reference_pattern",
+      shapeToken: "reference_pattern"
+    });
+    expect(layout.referencePattern?.tags).toEqual(
+      expect.arrayContaining(["complete_pattern", "target_pattern"])
+    );
     expect(layout.evidence.every((evidence) => evidence.tags.includes("snap_zone"))).toBe(true);
     expect(
       layout.evidence.every(
@@ -84,6 +91,24 @@ describe("buildM01GreyboxLayout", () => {
       "orange",
       "purple"
     ]);
+
+    const referenceScale =
+      (layout.referenceEvidence[1].position.x - layout.referenceEvidence[0].position.x) /
+      (config.evidence[1].position.x - config.evidence[0].position.x);
+
+    for (let i = 0; i < config.evidence.length; i += 1) {
+      for (let j = i + 1; j < config.evidence.length; j += 1) {
+        const originalDx = config.evidence[j].position.x - config.evidence[i].position.x;
+        const originalDy = config.evidence[j].position.y - config.evidence[i].position.y;
+        const referenceDx =
+          layout.referenceEvidence[j].position.x - layout.referenceEvidence[i].position.x;
+        const referenceDy =
+          layout.referenceEvidence[j].position.y - layout.referenceEvidence[i].position.y;
+
+        expect(referenceDx).toBeCloseTo(originalDx * referenceScale, 5);
+        expect(referenceDy).toBeCloseTo(originalDy * referenceScale, 5);
+      }
+    }
   });
 
   it("snaps the two fragments for an evidence pair into partial-overlap poses instead of one pile", () => {

@@ -294,6 +294,9 @@ export class M01GreyboxBootstrap extends Component {
     if (this.enableArtPreview) {
       this.renderStaticArtPreview(this.greyboxRoot, layout);
     }
+    if (layout.referencePattern) {
+      this.addShapeNode(this.greyboxRoot, layout.referencePattern);
+    }
     for (const evidence of layout.referenceEvidence) {
       this.addShapeNode(this.greyboxRoot, evidence);
     }
@@ -1647,6 +1650,8 @@ export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): 
     drawGear(graphics, token.size.width / 2);
   } else if (token.shapeToken === "generated_overlap") {
     drawGeneratedOverlap(graphics, token.size.width, token.size.height);
+  } else if (token.shapeToken === "reference_pattern") {
+    drawReferencePattern(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "triangle") {
     drawTriangle(graphics, token.size.width, token.size.height);
   } else if (token.shapeToken === "hexagon") {
@@ -1712,6 +1717,28 @@ function drawGeneratedOverlap(graphics: Graphics, width: number, height: number)
   graphics.lineTo(radius * 0.18, -radius * 0.68);
   graphics.lineTo(-radius * 0.6, -radius * 0.46);
   graphics.close();
+}
+
+function drawReferencePattern(graphics: Graphics, width: number, height: number): void {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+
+  graphics.moveTo(-halfWidth * 0.82, halfHeight * 0.32);
+  graphics.lineTo(-halfWidth * 0.34, halfHeight * 0.78);
+  graphics.lineTo(halfWidth * 0.18, halfHeight * 0.66);
+  graphics.lineTo(halfWidth * 0.76, halfHeight * 0.24);
+  graphics.lineTo(halfWidth * 0.66, -halfHeight * 0.36);
+  graphics.lineTo(halfWidth * 0.12, -halfHeight * 0.72);
+  graphics.lineTo(-halfWidth * 0.48, -halfHeight * 0.58);
+  graphics.lineTo(-halfWidth * 0.72, -halfHeight * 0.08);
+  graphics.close();
+
+  graphics.moveTo(-halfWidth * 0.52, halfHeight * 0.2);
+  graphics.lineTo(-halfWidth * 0.18, halfHeight * 0.34);
+  graphics.lineTo(halfWidth * 0.14, halfHeight * 0.08);
+  graphics.lineTo(halfWidth * 0.42, -halfHeight * 0.1);
+  graphics.lineTo(halfWidth * 0.2, -halfHeight * 0.34);
+  graphics.lineTo(-halfWidth * 0.2, -halfHeight * 0.28);
 }
 
 function drawBottomLightHintNote(graphics: Graphics): void {

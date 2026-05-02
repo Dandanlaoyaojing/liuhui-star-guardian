@@ -21,6 +21,7 @@ export type M01GreyboxNodeKind =
   | "filter"
   | "fragment"
   | "evidence"
+  | "reference_pattern"
   | "slot"
   | "label";
 
@@ -56,6 +57,7 @@ export interface M01GreyboxLayout {
   filters?: M01GreyboxTokenNode[];
   fragments: M01GreyboxTokenNode[];
   evidence: M01GreyboxTokenNode[];
+  referencePattern?: M01GreyboxTokenNode;
   referenceEvidence: M01GreyboxTokenNode[];
   slots?: M01GreyboxTokenNode[];
 }
@@ -66,6 +68,8 @@ export interface M01GreyboxLayoutOptions {
 
 const CANVAS: M01GreyboxSize = { width: 960, height: 640 };
 const MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE = 34;
+const REFERENCE_PATTERN_CENTER: M01GreyboxPoint = { x: 340, y: 72 };
+const REFERENCE_PATTERN_SCALE = 0.58;
 
 export function buildM01GreyboxLayout(
   config: M01MemoryGearConfig,
@@ -76,9 +80,7 @@ export function buildM01GreyboxLayout(
   );
   const slots = (config.slots ?? []).map((slot) => buildSlotNode(slot, options.text));
   const evidence = (config.evidence ?? []).map((item) => buildEvidenceNode(item, options.text));
-  const referenceEvidence = (config.evidence ?? []).map((item, index) =>
-    buildReferenceEvidenceNode(item, index, options.text)
-  );
+  const referenceEvidence = buildReferenceEvidenceNodes(config.evidence ?? [], options.text);
   const layout = {
     canvas: CANVAS,
     statusText: formatM01GreyboxText("initialInstruction", {}, options.text),
@@ -89,12 +91,50 @@ export function buildM01GreyboxLayout(
     ),
     fragments: config.fragments.map((fragment) => buildFragmentNode(fragment, options.text)),
     evidence,
+    ...(referenceEvidence.length > 0 ? { referencePattern: buildReferencePatternNode(referenceEvidence) } : {}),
     referenceEvidence,
     ...(filters.length > 0 ? { filters } : {}),
     ...(slots.length > 0 ? { slots } : {})
   };
 
   return layout as M01GreyboxLayout;
+}
+
+function buildReferencePatternNode(
+  referenceEvidence: M01GreyboxTokenNode[]
+): M01GreyboxTokenNode {
+  const bounds = referenceEvidence.reduce(
+    (current, evidence) => ({
+      minX: Math.min(current.minX, evidence.position.x - evidence.size.width / 2),
+      maxX: Math.max(current.maxX, evidence.position.x + evidence.size.width / 2),
+      minY: Math.min(current.minY, evidence.position.y - evidence.size.height / 2),
+      maxY: Math.max(current.maxY, evidence.position.y + evidence.size.height / 2)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+  );
+
+  return {
+    id: "m01_reference_complete_pattern",
+    controllerId: "m01_reference_complete_pattern",
+    kind: "reference_pattern",
+    label: "目标完整图案",
+    position: {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2
+    },
+    size: {
+      width: bounds.maxX - bounds.minX + 34,
+      height: bounds.maxY - bounds.minY + 34
+    },
+    colorToken: "neutral",
+    shapeToken: "reference_pattern",
+    tags: ["reference_evidence", "complete_pattern", "target_pattern"]
+  };
 }
 
 function buildGearNode(config: M01MemoryGearConfig): M01GreyboxTokenNode {
@@ -226,29 +266,47 @@ function buildEvidenceNode(
   };
 }
 
-function buildReferenceEvidenceNode(
-  evidence: M01OverlapEvidenceDef,
-  index: number,
+function buildReferenceEvidenceNodes(
+  evidenceItems: M01OverlapEvidenceDef[],
   text: M01GreyboxTextOverrides = {}
-): M01GreyboxTokenNode {
-  const token = buildEvidenceNode(evidence, text);
+): M01GreyboxTokenNode[] {
+  if (evidenceItems.length === 0) {
+    return [];
+  }
 
-  return {
+  const evidenceNodes = evidenceItems.map((evidence) => buildEvidenceNode(evidence, text));
+  const bounds = evidenceNodes.reduce(
+    (current, evidence) => ({
+      minX: Math.min(current.minX, evidence.position.x),
+      maxX: Math.max(current.maxX, evidence.position.x),
+      minY: Math.min(current.minY, evidence.position.y),
+      maxY: Math.max(current.maxY, evidence.position.y)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+  );
+  const sourceCenter = {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2
+  };
+
+  return evidenceNodes.map((token) => ({
     ...token,
-    position: buildReferenceEvidencePosition(index),
-    tags: token.tags.filter((tag) => tag !== "snap_zone").concat("reference_evidence"),
+    position: {
+      x: REFERENCE_PATTERN_CENTER.x + (token.position.x - sourceCenter.x) * REFERENCE_PATTERN_SCALE,
+      y: REFERENCE_PATTERN_CENTER.y + (token.position.y - sourceCenter.y) * REFERENCE_PATTERN_SCALE
+    },
+    size: {
+      width: token.size.width * REFERENCE_PATTERN_SCALE,
+      height: token.size.height * REFERENCE_PATTERN_SCALE
+    },
+    tags: token.tags.filter((tag) => tag !== "snap_zone").concat("reference_evidence", "complete_pattern"),
     fragmentSnapPositions: undefined
-  };
-}
-
-function buildReferenceEvidencePosition(index: number): M01GreyboxPoint {
-  const column = index % 2;
-  const row = Math.floor(index / 2);
-
-  return {
-    x: 294 + column * 92,
-    y: 138 - row * 76
-  };
+  }));
 }
 
 export function resolveM01EvidenceFragmentSnapPosition(

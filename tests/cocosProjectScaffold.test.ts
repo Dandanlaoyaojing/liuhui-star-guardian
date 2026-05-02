@@ -145,6 +145,8 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("layout.referenceEvidence");
+    expect(bootstrap).toContain("layout.referencePattern");
+    expect(bootstrap).toContain("drawReferencePattern");
     expect(bootstrap).toContain("layout.evidence");
     expect(bootstrap).toContain("purple: [");
     expect(bootstrap).toContain("green: [");

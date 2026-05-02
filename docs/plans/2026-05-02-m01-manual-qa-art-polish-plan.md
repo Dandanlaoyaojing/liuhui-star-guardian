@@ -10,6 +10,8 @@
 
 **Status:** Tasks 1-5 are complete as of 2026-05-02. The Task 5 Ralphex execution record is archived at `docs/plans/completed/2026-05-02-m01-art-preview-task5-ralphex.md`. This plan now remains as the QA/art-readiness handoff for the next visual review pass.
 
+**2026-05-02 clarification:** The side target must not read as loose pairwise clue icons. It should be one coherent target pattern assembled from all required fragments, with colored two-fragment overlaps acting as local relationship clues inside that larger pattern.
+
 ---
 
 ## Manual QA Baseline
