@@ -80,6 +80,7 @@ export class M01GreyboxBootstrap extends Component {
   private layout: M01GreyboxLayout | null = null;
   private greyboxRoot: Node | null = null;
   private toolCardRoot: Node | null = null;
+  private hintButtonRoot: Node | null = null;
   private feedbackLabel: Label | null = null;
   private activeDragNode: Node | null = null;
   private activeDragToken: M01GreyboxTokenNode | null = null;
@@ -121,6 +122,7 @@ export class M01GreyboxBootstrap extends Component {
       this.session = M01GreyboxSession.fromConfig(m01Config, { text: this.text });
       this.layout = buildM01GreyboxLayout(m01Config, { text: this.text });
       this.toolCardRoot = null;
+      this.hintButtonRoot = null;
       this.feedbackLabel = null;
       this.weakSnappedFragmentsByEvidence.clear();
       this.tokenPositions.clear();
@@ -292,7 +294,7 @@ export class M01GreyboxBootstrap extends Component {
       this.statusLabel = this.addStatusLabel(this.greyboxRoot);
     }
     this.feedbackLabel = this.addFeedbackLabel(this.greyboxRoot);
-    this.addHintButton(this.greyboxRoot);
+    this.hintButtonRoot = this.addHintButton(this.greyboxRoot);
   }
 
   private addBottomLightNode(parent: Node, layout: M01GreyboxLayout): Node {
@@ -1175,6 +1177,13 @@ export class M01GreyboxBootstrap extends Component {
     const card = this.session.getLastToolCard();
     if (card) {
       this.setFeedback("");
+      this.activeFlashlightId = undefined;
+      this.activeFlashlightColor = undefined;
+      this.flashlightBeamTarget = undefined;
+      this.drawFlashlightBeam();
+      if (this.hintButtonRoot) {
+        this.hintButtonRoot.active = false;
+      }
       this.renderToolCardPreview(this.greyboxRoot, card);
     }
   }

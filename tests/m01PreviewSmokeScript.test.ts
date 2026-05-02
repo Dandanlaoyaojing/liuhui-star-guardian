@@ -46,6 +46,8 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("expectedToolCardTitle");
     expect(smokeScript).toContain('bottomLight === "steady_on"');
     expect(smokeScript).toContain("M01ToolCardTitle");
+    expect(smokeScript).toContain("flashlightBeamTarget");
+    expect(smokeScript).toContain("hintButtonVisible");
     expect(smokeScript).toContain("completion");
   });
 });

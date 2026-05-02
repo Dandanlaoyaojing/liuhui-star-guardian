@@ -81,6 +81,18 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.renderToolCardPreview(this.greyboxRoot, card)");
   });
 
+  it("clears transient M01 tools when the completion ToolCard appears", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("private hintButtonRoot: Node | null = null");
+    expect(bootstrap).toContain("this.hintButtonRoot = this.addHintButton(this.greyboxRoot)");
+    expect(bootstrap).toContain("this.activeFlashlightId = undefined");
+    expect(bootstrap).toContain("this.activeFlashlightColor = undefined");
+    expect(bootstrap).toContain("this.flashlightBeamTarget = undefined");
+    expect(bootstrap).toContain("this.drawFlashlightBeam();");
+    expect(bootstrap).toContain("this.hintButtonRoot.active = false");
+  });
+
   it("wires the M01 greybox runtime to drag sessions and drop resolution", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

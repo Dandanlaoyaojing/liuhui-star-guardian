@@ -84,11 +84,16 @@ Expected commit:
 
 ### Task 3: Polish M01 Completion Presentation Without Final Art
 
-- [ ] Review the runtime completion state in Cocos preview for overlap, stale feedback, or invisible affordances.
-- [ ] Fix any M01-only presentation issue that blocks “complete playable prototype” quality.
-- [ ] Add scaffold tests for any presentation lifecycle fix.
-- [ ] Update `production/active.md` with what was checked and fixed.
-- [ ] Verify with targeted tests, preview smoke, `npm run typecheck`, `npm test`, and `git diff --check`.
+- [x] Review the runtime completion state in Cocos preview for overlap, stale feedback, or invisible affordances.
+- [x] Fix any M01-only presentation issue that blocks “complete playable prototype” quality.
+- [x] Add scaffold tests for any presentation lifecycle fix.
+- [x] Update `production/active.md` with what was checked and fixed.
+- [x] Verify with targeted tests, preview smoke, `npm run typecheck`, `npm test`, and `git diff --check`.
+
+Completion note:
+- Completion smoke screenshot review found the completed scene still showing the active red flashlight beam across the board, which distracted from the steady bottom light and ToolCard unlock state.
+- `M01GreyboxBootstrap` now stores the hint button root, clears active flashlight id/color/beam target, redraws the beam, and hides the hint button before rendering the completion ToolCard.
+- `npm run smoke:m01-preview:input` now asserts completion also clears the active flashlight beam target and hides the hint button; the fresh completion screenshot is `temp/m01-preview-completion-smoke.png`.
 
 Reframe:
 - This is still not final art. It is the pass that makes the playable M01 state readable and stable enough to hand to a human tester.

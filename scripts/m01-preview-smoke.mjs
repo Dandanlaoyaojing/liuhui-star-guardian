@@ -418,10 +418,14 @@ async function runCompletionInputPath(page, realInputPlan) {
     }
     const titleNode = findNode(scene, "M01ToolCardTitle");
     const title = titleNode ? titleNode.getComponent(cc.Label)?.string : undefined;
+    const hintButton = findNode(scene, "M01HintButton");
     return {
       evidenceCount: realInputPlan.completionEvidence.length,
+      activeFlashlightId: bootstrap.activeFlashlightId,
+      flashlightBeamTarget: bootstrap.flashlightBeamTarget,
       areAllEvidenceStaged: bootstrap.session.areAllEvidenceStaged(),
       completionState: bootstrap.session.getCompletionState(),
+      hintButtonVisible: hintButton?.active ?? false,
       toolCardTitle: title,
       status: findNode(scene, "M01StatusLabel")?.getComponent(cc.Label)?.string
     };
@@ -653,6 +657,18 @@ async function main() {
       `Expected M01 completion bottom light steady_on; got ${completion.completionState.bottomLight}.`
     );
     assert(completion.completionState.completed, "Expected M01 completion state to be completed.");
+    assert(
+      completion.activeFlashlightId === undefined,
+      `Expected completion to clear the active flashlight beam; got ${completion.activeFlashlightId}.`
+    );
+    assert(
+      completion.flashlightBeamTarget === undefined,
+      `Expected completion to clear the flashlight beam target; got ${JSON.stringify(completion.flashlightBeamTarget)}.`
+    );
+    assert(
+      completion.hintButtonVisible === false,
+      "Expected completion to hide the hint button."
+    );
     assert(
       completion.toolCardTitle === realInputPlan.expectedToolCardTitle,
       `Expected ToolCard title ${realInputPlan.expectedToolCardTitle}; got ${completion.toolCardTitle}.`
