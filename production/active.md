@@ -8,12 +8,12 @@ Last updated: 2026-05-02
 - **P1-a 安全原型**：M01（分类与归纳）—— 验证基础管线（Cocos Creator + Arrog 式统一手绘墨线 + 低饱和配色 + 拖拽交互 + ToolCard 产出）
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
-**当前执行焦点**：只做 M01，直到 M01 第一关成为完整可玩原型后再进入下一关或 M30。旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`。2026-05-02 曾短暂创建 M30 autoloop 计划，但未产生任何 M30 代码/配置改动；该计划已标记 PAUSED，不再作为当前 handoff。当前下一批自动续跑应围绕 M01 完整化：真实输入闭环、玩家可完成的 preview smoke、完成态 ToolCard/反馈、残留灰盒与最终美术前的占位体验打磨。
+**当前执行焦点**：M01 第一关已完成本轮“完整可玩灰盒原型”阶段，可作为 P1-a 安全原型的当前基线。旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`，本轮 completion handoff 见 `docs/plans/2026-05-02-m01-completion-autoloop-ralphex.md`。2026-05-02 曾短暂创建 M30 autoloop 计划，但未产生任何 M30 代码/配置改动；该计划已标记 PAUSED，不再作为当前 handoff。M30 及所有其他关卡仍暂停，直到 operator 明确下达恢复指令。
 
 ## Current Phase
 
 - **Design: FROZEN at v1.9**
-- **Prototyping: M01 greybox runtime playable; hints, error feedback, repair state, completion ToolCard preview, drag-drop runtime path verified in Cocos preview, and first paper-backed M01 art candidates imported**
+- **Prototyping: M01 greybox prototype complete for this phase; hints, error feedback, repair state, completion ToolCard preview, full real-input completion smoke, refresh helper, and first-pass placeholder runtime art are documented as the current baseline**
 - **Local toolchain**: Cocos Creator 3.8.8 installed at `/Applications/CocosCreator-3.8.8.app` on 2026-04-24.
 - **Cocos project integration**: repo now has Cocos Creator 3.x project metadata (`.creator/`, `settings/v2/`, shared `profiles/v2/packages/scene.json`) and generated `.meta` files for current assets.
 - **Local editor automation**: Cocos MCP server plugin installed locally at `extensions/cocos-mcp-server/` and configured to auto-start on `127.0.0.1:3000` when Cocos opens this project.
@@ -75,7 +75,7 @@ Last updated: 2026-05-02
 
 ## Next Recommended Step (immediate)
 
-**下一步：记录 M01 completion handoff，不跳关**。新版 M01 灰盒已经跑通 domain/session 逻辑、失败底光行为、纠错回归、preview refresh helper、严格真实输入 preview gate、完整真实输入通关 smoke，以及完成态表现 polish。2026-05-02 最新 `npm run smoke:m01-preview:input` 已在刷新后的 Cocos preview 中通过，且 `realInput.usedFallback = false`；同一 smoke 会先保留错误候选的 `flash_then_off` 验证，再重载干净场景用真实浏览器输入完成全部 4 个 evidence pair，最终得到 `bottomLight = steady_on`、ToolCard 标题“分类与归纳”，并确认完成态不再保留活动手电光束或提示按钮。下一批 M01 completion autoloop 只做 handoff 固化：把 run/refresh/smoke 命令和当前 caveats 写清楚。M30 及其他关卡在 M01 完整前暂停。
+**下一步：等待 operator 明确选择下一条生产线，不自动跳关**。新版 M01 灰盒已完成本轮完整可玩原型 handoff：domain/session 逻辑、失败底光行为、纠错回归、preview refresh helper、严格真实输入 preview gate、完整真实输入通关 smoke、完成态表现 polish、以及局部交叠吸附表现都已验证并记录。2026-05-02 最新严格 preview 证据来自刷新后的 Cocos preview：`npm run smoke:m01-preview:input` 通过，`realInput.usedFallback = false`，全部 4 个 evidence pair 通过真实浏览器输入完成，最终得到 `bottomLight = steady_on`、ToolCard 标题“分类与归纳”，并确认完成态不保留活动手电光束或提示按钮。M30 及其他关卡仍暂停；只有 operator 明确恢复 M30 / 下一关 / 美术 polish 时才进入新工作流。
 
 **当前 M01 灰盒进度**：
 - 2026-04-29 spec 已更新：M01 从“过滤器筛选 + 九宫格归类”改为“光谱探测 + 交叠证据拼接”。以下旧灰盒进度代表已验证技术能力，不再代表最终 M01 玩法形态。

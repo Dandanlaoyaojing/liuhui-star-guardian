@@ -109,11 +109,15 @@ Expected commit:
 
 ### Task 4: Record M01 Completion Handoff
 
-- [ ] Update `production/active.md` to mark M01 complete for this prototype phase only if Tasks 1-3 are actually verified.
-- [ ] Update any relevant scene/preview README with the exact M01 run commands and current caveats.
-- [ ] Ensure M30 remains paused until the operator explicitly resumes it.
-- [ ] Verify docs with `git diff --check`.
-- [ ] Commit and push.
+- [x] Update `production/active.md` to mark M01 complete for this prototype phase only if Tasks 1-3 are actually verified.
+- [x] Update any relevant scene/preview README with the exact M01 run commands and current caveats.
+- [x] Ensure M30 remains paused until the operator explicitly resumes it.
+- [x] Verify docs with `git diff --check`.
+- [x] Commit and push (skipped - not automatable in this sandbox/session; previous attempt could not create `.git/index.lock` or write Git objects, and push requires external Git remote access).
+
+Completion note:
+- `production/active.md` now records M01 as complete for the current greybox prototype phase, cites the strict real-input completion smoke evidence from Tasks 1-3, and keeps M30 / other levels paused until explicit operator direction.
+- `assets/scenes/README.md` now lists the exact M01 preview URL, refresh helper, default smoke, strict real-input smoke, typecheck/test commands, and caveats for stale preview bundles and fallback diagnostics.
 
 Reframe:
 - The completion handoff should be file-based, so the next agent does not rediscover whether M01 is truly done.
