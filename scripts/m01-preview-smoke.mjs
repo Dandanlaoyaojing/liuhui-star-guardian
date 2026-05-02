@@ -60,7 +60,7 @@ function buildWrongCandidate(config) {
 async function snapshotRuntime(page) {
   return page.evaluate(() => {
     const cc = window.cc;
-    const scene = cc?.director?.getScene?.();
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
     function findNode(node, name) {
       if (!node) {
         return undefined;
@@ -90,7 +90,8 @@ async function snapshotRuntime(page) {
     const bootstrap = root?.components?.find(
       (component) => component.constructor?.name === "M01GreyboxBootstrap"
     );
-    const statusLabel = findNode(scene, "M01StatusLabel")?.getComponent?.(cc.Label)?.string;
+    const statusNode = findNode(scene, "M01StatusLabel");
+    const statusLabel = statusNode ? statusNode.getComponent(cc.Label)?.string : undefined;
     return {
       sceneName: scene?.name,
       nodeNames: flattenNames(scene),
@@ -137,11 +138,17 @@ async function runFailureValidation(page, wrongPairs) {
 
     const stagedFragmentId = Object.values(stagedPairs)[0][0];
     const duringFlash = bootstrap.session.getFragmentView(stagedFragmentId);
-    const statusDuringFlash = findNode(scene, "M01StatusLabel")?.getComponent?.(cc.Label)?.string;
+    const statusDuringNode = findNode(scene, "M01StatusLabel");
+    const statusDuringFlash = statusDuringNode
+      ? statusDuringNode.getComponent(cc.Label)?.string
+      : undefined;
     await new Promise((resolve) => setTimeout(resolve, 2200));
     bootstrap.syncVisualState();
     const afterFlash = bootstrap.session.getFragmentView(stagedFragmentId);
-    const statusAfterFlash = findNode(scene, "M01StatusLabel")?.getComponent?.(cc.Label)?.string;
+    const statusAfterNode = findNode(scene, "M01StatusLabel");
+    const statusAfterFlash = statusAfterNode
+      ? statusAfterNode.getComponent(cc.Label)?.string
+      : undefined;
 
     return {
       validation,
@@ -155,103 +162,89 @@ async function runFailureValidation(page, wrongPairs) {
 }
 
 async function runRealInputPath(page, realInputPlan) {
+  const snapshotInteractionState = async (step) =>
+    page.evaluate(({ realInputPlan, step }) => {
+      const cc = window.cc;
+      const scene = cc && cc.director ? cc.director.getScene() : undefined;
+      function findNode(node, name) {
+        if (!node) {
+          return undefined;
+        }
+        if (node.name === name) {
+          return node;
+        }
+        for (const child of node.children ?? []) {
+          const found = findNode(child, name);
+          if (found) {
+            return found;
+          }
+        }
+        return undefined;
+      }
+      const root = findNode(scene, "M01GreyboxRoot");
+      const bootstrap = root?.components?.find(
+        (component) => component.constructor?.name === "M01GreyboxBootstrap"
+      );
+      const session = bootstrap?.session;
+      const tokenPositions = bootstrap?.tokenPositions;
+      const statusNode = findNode(scene, "M01StatusLabel");
+      return {
+        step,
+        activeFlashlightId: bootstrap?.activeFlashlightId,
+        activeFlashlightColor: bootstrap?.activeFlashlightColor,
+        heldFragmentId: bootstrap?.heldFragmentId,
+        observedColor: session
+          ? session.getFragmentView(realInputPlan.revealFragmentId).observedColor
+          : undefined,
+        freePlacementPosition: tokenPositions
+          ? tokenPositions.get(realInputPlan.freePlacement.fragmentId)
+          : undefined,
+        stageFragmentPositions: Object.fromEntries(
+          realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
+            fragmentId,
+            tokenPositions ? tokenPositions.get(fragmentId) : undefined
+          ])
+        ),
+        isEvidenceStaged: session
+          ? session.isEvidenceStaged(realInputPlan.stageEvidence.evidenceId)
+          : undefined,
+        status: statusNode ? statusNode.getComponent(cc.Label)?.string : undefined
+      };
+    }, { realInputPlan, step });
+
   const canvas = page.locator("canvas").first();
   await canvas.waitFor({ state: "visible", timeout: 30_000 });
   const canvasBox = await canvas.boundingBox();
   assert(canvasBox, "Preview canvas is unavailable for real-input smoke.");
   const toPagePoint = (localPoint) =>
     localPointToPagePoint(canvasBox, realInputPlan.canvasSize, localPoint);
-  const dispatchCanvasTouchPath = async (steps) => {
-    await page.evaluate(async ({ steps }) => {
-      const canvas = document.querySelector("canvas");
-      if (!canvas) {
-        throw new Error("Preview canvas is unavailable for touch dispatch.");
-      }
-
-      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      const makeTouch = (point) =>
-        new Touch({
-          identifier: 1,
-          target: canvas,
-          clientX: point.x,
-          clientY: point.y,
-          pageX: point.x,
-          pageY: point.y,
-          screenX: point.x,
-          screenY: point.y,
-          radiusX: 2,
-          radiusY: 2,
-          rotationAngle: 0,
-          force: 1
-        });
-      const dispatch = (type, point) => {
-        const touch = makeTouch(point);
-        const touches = type === "touchend" || type === "touchcancel" ? [] : [touch];
-        const event = new TouchEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          touches,
-          targetTouches: touches,
-          changedTouches: [touch]
-        });
-        canvas.dispatchEvent(event);
-      };
-
-      for (const step of steps) {
-        dispatch(step.type, step.point);
-        await wait(step.delayMs ?? 16);
-      }
-    }, { steps });
-  };
-  const tapLocalPoint = async (localPoint) => {
+  const debugSteps = [];
+  const moveMouseToLocalPoint = async (localPoint, options = {}) => {
     const pagePoint = toPagePoint(localPoint);
-    await dispatchCanvasTouchPath([
-      { type: "touchstart", point: pagePoint, delayMs: 40 },
-      { type: "touchend", point: pagePoint, delayMs: 100 }
-    ]);
+    await page.mouse.move(pagePoint.x, pagePoint.y, options);
+    return pagePoint;
   };
   const dragLocalPoint = async (fromLocalPoint, toLocalPoint) => {
-    const fromPoint = toPagePoint(fromLocalPoint);
-    const steps = [{ type: "touchstart", point: fromPoint, delayMs: 24 }];
-    const segments = 10;
-    for (let index = 1; index <= segments; index += 1) {
-      const progress = index / segments;
-      const localPoint = {
-        x: fromLocalPoint.x + (toLocalPoint.x - fromLocalPoint.x) * progress,
-        y: fromLocalPoint.y + (toLocalPoint.y - fromLocalPoint.y) * progress
-      };
-      steps.push({
-        type: "touchmove",
-        point: toPagePoint(localPoint),
-        delayMs: 20
-      });
-    }
-    steps.push({
-      type: "touchend",
-      point: toPagePoint(toLocalPoint),
-      delayMs: 120
-    });
-    await dispatchCanvasTouchPath(steps);
+    await moveMouseToLocalPoint(fromLocalPoint);
+    await page.mouse.down();
+    await page.waitForTimeout(24);
+    await moveMouseToLocalPoint(toLocalPoint, { steps: 10 });
+    await page.waitForTimeout(40);
+    await page.mouse.up();
+    await page.waitForTimeout(120);
   };
-
-  await tapLocalPoint(realInputPlan.flashlightPosition);
-  await dispatchCanvasTouchPath([
-    {
-      type: "touchmove",
-      point: toPagePoint(realInputPlan.revealFragmentPosition),
-      delayMs: 120
-    }
-  ]);
+  await dragLocalPoint(realInputPlan.flashlightPosition, realInputPlan.revealFragmentPosition);
+  debugSteps.push(await snapshotInteractionState("after_flashlight_drag"));
 
   await dragLocalPoint(
     realInputPlan.freePlacement.fragmentPosition,
     realInputPlan.freePlacement.dropPosition
   );
+  debugSteps.push(await snapshotInteractionState("after_free_fragment_drag"));
 
   const runtimeFragmentPositions = await page.evaluate(() => {
     const cc = window.cc;
-    const scene = cc?.director?.getScene?.();
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
     function findNode(node, name) {
       if (!node) {
         return undefined;
@@ -283,11 +276,12 @@ async function runRealInputPath(page, realInputPlan) {
     const fragmentPosition = runtimeFragmentPositions[fragmentId];
     assert(fragmentPosition, `Missing fragment layout position for real-input step: ${fragmentId}`);
     await dragLocalPoint(fragmentPosition, realInputPlan.stageEvidence.evidencePosition);
+    debugSteps.push(await snapshotInteractionState(`after_stage_drag:${fragmentId}`));
   }
 
   return page.evaluate(({ realInputPlan }) => {
     const cc = window.cc;
-    const scene = cc?.director?.getScene?.();
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
     function findNode(node, name) {
       if (!node) {
         return undefined;
@@ -310,18 +304,20 @@ async function runRealInputPath(page, realInputPlan) {
     if (!bootstrap?.session) {
       throw new Error("M01GreyboxBootstrap session is unavailable in preview runtime.");
     }
+    const tokenPositions = bootstrap.tokenPositions;
 
-    const freePosition = bootstrap.tokenPositions?.get(realInputPlan.freePlacement.fragmentId);
+    const freePosition = tokenPositions ? tokenPositions.get(realInputPlan.freePlacement.fragmentId) : undefined;
     const stageFragmentPositions = Object.fromEntries(
       realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
         fragmentId,
-        bootstrap.tokenPositions?.get(fragmentId)
+        tokenPositions ? tokenPositions.get(fragmentId) : undefined
       ])
     );
 
     return {
       activeFlashlightId: bootstrap.activeFlashlightId,
       activeFlashlightColor: bootstrap.activeFlashlightColor,
+      heldFragmentId: bootstrap.heldFragmentId,
       observedColor:
         bootstrap.session.getFragmentView(realInputPlan.revealFragmentId).observedColor,
       freePlacement: {
@@ -333,13 +329,13 @@ async function runRealInputPath(page, realInputPlan) {
       areAllEvidenceStaged: bootstrap.session.areAllEvidenceStaged(),
       stageFragmentPositions
     };
-  }, { realInputPlan });
+  }, { realInputPlan }).then((result) => ({ ...result, debugSteps }));
 }
 
 async function runRuntimeEquivalentInputPath(page, realInputPlan) {
   return page.evaluate(({ realInputPlan }) => {
     const cc = window.cc;
-    const scene = cc?.director?.getScene?.();
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
     function findNode(node, name) {
       if (!node) {
         return undefined;
@@ -362,6 +358,7 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
     if (!bootstrap?.session || !bootstrap?.greyboxNodes) {
       throw new Error("M01GreyboxBootstrap runtime state is unavailable for fallback smoke.");
     }
+    const tokenPositions = bootstrap.tokenPositions;
 
     const flashlightEntry = bootstrap.greyboxNodes.get(realInputPlan.flashlightId);
     if (!flashlightEntry) {
@@ -401,17 +398,18 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
       );
     }
 
-    const freePosition = bootstrap.tokenPositions?.get(realInputPlan.freePlacement.fragmentId);
+    const freePosition = tokenPositions ? tokenPositions.get(realInputPlan.freePlacement.fragmentId) : undefined;
     const stageFragmentPositions = Object.fromEntries(
       realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
         fragmentId,
-        bootstrap.tokenPositions?.get(fragmentId)
+        tokenPositions ? tokenPositions.get(fragmentId) : undefined
       ])
     );
 
     return {
       activeFlashlightId: bootstrap.activeFlashlightId,
       activeFlashlightColor: bootstrap.activeFlashlightColor,
+      heldFragmentId: bootstrap.heldFragmentId,
       observedColor:
         bootstrap.session.getFragmentView(realInputPlan.revealFragmentId).observedColor,
       freePlacement: {
@@ -498,7 +496,7 @@ async function main() {
           attemptedBrowserInput: true,
           usedFallback: true,
           blocker:
-            "Headless Cocos preview did not react to canvas-dispatched browser input events: active flashlight stayed unset and token positions did not move. Falling back to bootstrap-level drop handling to preserve repeatable preview coverage."
+            `Headless Cocos preview did not complete the Playwright mouse-driven browser input path. Attempt snapshot: ${JSON.stringify(browserInputAttempt)}. Falling back to bootstrap-level drop handling to preserve repeatable preview coverage.`
         };
     assert(
       !requireBrowserInput || !realInput.usedFallback,

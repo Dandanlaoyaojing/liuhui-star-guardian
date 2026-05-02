@@ -52,6 +52,7 @@ import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01Greybox
 const { ccclass, property } = _decorator;
 const CLICK_DRAG_THRESHOLD = 6;
 const DEFAULT_FLASHLIGHT_BEAM_REACH = 170;
+const FRAGMENT_INPUT_HIT_SIZE = 64;
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
@@ -555,7 +556,10 @@ export class M01GreyboxBootstrap extends Component {
     parent.addChild(node);
 
     const transform = node.addComponent(UITransform);
-    transform.setContentSize(token.size.width, token.size.height);
+    transform.setContentSize(
+      token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.width,
+      token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height
+    );
 
     const graphics = node.addComponent(Graphics);
     this.applyTokenGraphicsState(graphics, token, "normal", token.kind === "slot" ? 3 : 2);
@@ -785,6 +789,7 @@ export class M01GreyboxBootstrap extends Component {
 
   private endTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
     if (!this.dragState.active) {
+      this.clearActiveDrag();
       return;
     }
 

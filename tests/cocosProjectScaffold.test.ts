@@ -194,6 +194,7 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("CLICK_DRAG_THRESHOLD");
+    expect(bootstrap).toContain("FRAGMENT_INPUT_HIT_SIZE");
     expect(bootstrap).toContain("heldFragmentId");
     expect(bootstrap).toContain("heldPointerId");
     expect(bootstrap).toContain("moveHeldFragmentWithPointer");
@@ -202,8 +203,11 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("placeHeldFragmentAtPosition");
     expect(bootstrap).toContain("this.heldFragmentId && this.heldFragmentId !== token.controllerId");
     expect(bootstrap).toContain("tryHandleTokenClick");
+    expect(bootstrap).toContain("if (!this.dragState.active) {\n      this.clearActiveDrag();");
     expect(bootstrap).toContain("this.heldPointerId !== this.pointerIdForEvent(event)");
     expect(bootstrap).toContain("this.tokenPositions.set(heldFragmentId, position)");
+    expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.width');
+    expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height');
   });
 
   it("renders M01 flashlight beam, validation bottom light, and sketch hint note", () => {

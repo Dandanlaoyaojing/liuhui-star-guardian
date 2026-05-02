@@ -29,11 +29,15 @@ Definition of M01 complete for this phase:
 
 ### Task 1: Make Strict Real-Input Preview Smoke Pass
 
-- [ ] Investigate why `npm run smoke:m01-preview:input` currently falls back instead of driving Cocos canvas input.
-- [ ] Fix the smallest real cause in either runtime input handling or the smoke coordinate/event strategy.
-- [ ] Keep fallback in default `npm run smoke:m01-preview`, but ensure strict mode fails only for genuine real-input breakage.
-- [ ] Update `production/active.md` with the blocker found, the fix, and fresh verification evidence.
-- [ ] Verify with `npm run smoke:m01-preview:input`, `npm run smoke:m01-preview`, relevant targeted tests, `npm run typecheck`, `npm test`, and `git diff --check`.
+- [x] Investigate why `npm run smoke:m01-preview:input` currently falls back instead of driving Cocos canvas input.
+- [x] Fix the smallest real cause in either runtime input handling or the smoke coordinate/event strategy.
+- [x] Keep fallback in default `npm run smoke:m01-preview`, but ensure strict mode fails only for genuine real-input breakage.
+- [x] Update `production/active.md` with the blocker found, the fix, and fresh verification evidence.
+- [x] Verify with `npm run smoke:m01-preview:input`, `npm run smoke:m01-preview`, relevant targeted tests, `npm run typecheck`, `npm test`, and `git diff --check`.
+
+Completion note:
+- Root cause was not a generic Cocos canvas-input failure. The preview path threw `Illegal invocation` when `ObservedResetScheduler` called an unbound browser `setTimeout`, leaving `activeDragNode` stuck on the flashlight after reveal. Fragment hit areas were also widened from 48px to 64px for more reliable real pointer targeting without changing visual size.
+- `npm run smoke:m01-preview-refresh` succeeded through local Cocos MCP, and `npm run smoke:m01-preview:input` now passes with `realInput.usedFallback = false`, `observedColor = purple`, `fragment_circle_yellow_1` freely placed at `(0, -146)`, `evidence_purple_upper_left` staged, and `consoleMessages/pageErrors = []`.
 
 Reframe:
 - M01 is not complete while the only reliable preview smoke path can bypass real player input.

@@ -25,10 +25,10 @@ describe("M01 preview smoke script", () => {
       "utf8"
     );
 
-    expect(smokeScript).toContain("new TouchEvent");
-    expect(smokeScript).toContain("touchstart");
-    expect(smokeScript).toContain("touchmove");
-    expect(smokeScript).toContain("touchend");
+    expect(smokeScript).toContain("page.mouse.move");
+    expect(smokeScript).toContain("page.mouse.down");
+    expect(smokeScript).toContain("page.mouse.up");
+    expect(smokeScript).not.toContain("new TouchEvent");
     expect(smokeScript).toContain("realInput");
     expect(smokeScript).toContain("usedFallback");
     expect(smokeScript).toContain("blocker");

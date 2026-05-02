@@ -3,6 +3,23 @@ import { describe, expect, it, vi } from "vitest";
 import { ObservedResetScheduler } from "../../assets/scripts/cocos/ObservedResetScheduler.ts";
 
 describe("ObservedResetScheduler", () => {
+  it("uses safe default timer wrappers", () => {
+    vi.useFakeTimers();
+    try {
+      let expired = 0;
+      const scheduler = new ObservedResetScheduler(() => {
+        expired += 1;
+      });
+
+      scheduler.schedule("fragment_a", 2_000);
+      vi.advanceTimersByTime(2_000);
+
+      expect(expired).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("expires overlapping fragment reveals independently", () => {
     vi.useFakeTimers();
     try {
