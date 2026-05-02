@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke:m01-preview": "node scripts/m01-preview-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.19.25",
+    "playwright-core": "^1.59.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   },
