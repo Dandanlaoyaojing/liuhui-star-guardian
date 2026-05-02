@@ -26,6 +26,7 @@ const sceneUrl =
   "http://127.0.0.1:7456/?scene=a2135734-fc11-4a0e-926d-40bc2301a752";
 const chromePath = browserCandidates.find((candidate) => existsSync(candidate));
 const screenshotDir = resolve(rootDir, "temp");
+const requireBrowserInput = process.argv.includes("--require-browser-input");
 
 function assert(condition, message) {
   if (!condition) {
@@ -499,6 +500,10 @@ async function main() {
           blocker:
             "Headless Cocos preview did not react to canvas-dispatched browser input events: active flashlight stayed unset and token positions did not move. Falling back to bootstrap-level drop handling to preserve repeatable preview coverage."
         };
+    assert(
+      !requireBrowserInput || !realInput.usedFallback,
+      `Browser-input smoke required a real canvas input path, but Cocos preview required fallback. ${realInput.blocker ?? ""}`
+    );
     assert(
       realInput.activeFlashlightId === realInputPlan.flashlightId,
       `Expected active flashlight ${realInputPlan.flashlightId}; got ${realInput.activeFlashlightId}.`

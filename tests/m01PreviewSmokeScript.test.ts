@@ -5,6 +5,20 @@ import { describe, expect, it } from "vitest";
 const projectRoot = process.cwd();
 
 describe("M01 preview smoke script", () => {
+  it("exposes a strict browser-input smoke entrypoint", () => {
+    const packageJson = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
+    const smokeScript = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke.mjs"),
+      "utf8"
+    );
+
+    expect(packageJson.scripts["smoke:m01-preview:input"]).toBe(
+      "node scripts/m01-preview-smoke.mjs --require-browser-input"
+    );
+    expect(smokeScript).toContain("requireBrowserInput");
+    expect(smokeScript).toContain("Browser-input smoke required");
+  });
+
   it("drives a real browser-input path before the failed-validation runtime check", () => {
     const smokeScript = readFileSync(
       join(projectRoot, "scripts/m01-preview-smoke.mjs"),
