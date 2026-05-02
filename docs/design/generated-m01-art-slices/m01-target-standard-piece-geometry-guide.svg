@@ -15,10 +15,10 @@
       <polygon points="310,94.431 262,177.569 358,177.569" />
     </clipPath>
     <clipPath id="clip-right-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="304,140 328,98.431 376,98.431 400,140 376,181.569 328,181.569" />
+      <polygon points="316,140 340,98.431 388,98.431 412,140 388,181.569 340,181.569" />
     </clipPath>
     <clipPath id="clip-lower-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="336,204 360,162.431 408,162.431 432,204 408,245.569 360,245.569" />
+      <polygon points="348,204 372,162.431 420,162.431 444,204 420,245.569 372,245.569" />
     </clipPath>
   </defs>
 
@@ -30,24 +30,24 @@
     <use href="#std-circle" transform="translate(156 132)" />
     <use href="#std-triangle" transform="translate(212 136) rotate(0)" />
     <use href="#std-triangle" transform="translate(310 136) rotate(0)" />
-    <use href="#std-hexagon" transform="translate(352 140) rotate(0)" />
-    <use href="#std-hexagon" transform="translate(384 204) rotate(0)" />
-    <use href="#std-circle" transform="translate(324 238)" />
+    <use href="#std-hexagon" transform="translate(364 140) rotate(0)" />
+    <use href="#std-hexagon" transform="translate(396 204) rotate(0)" />
+    <use href="#std-circle" transform="translate(336 238)" />
   </g>
 
   <g id="boolean-overlap-colors" fill-opacity="1" stroke="#f2ead7" stroke-opacity="0.68" stroke-width="2" stroke-linejoin="round">
     <polygon points="212,94.431 164,177.569 260,177.569" fill="#8b62b5" clip-path="url(#clip-left-circle)" />
-    <polygon points="304,140 328,98.431 376,98.431 400,140 376,181.569 328,181.569" fill="#5a9a67" clip-path="url(#clip-right-triangle)" />
-    <polygon points="336,204 360,162.431 408,162.431 432,204 408,245.569 360,245.569" fill="#bf7c34" clip-path="url(#clip-right-hexagon)" />
-    <circle cx="324" cy="238" r="48" fill="#8b62b5" clip-path="url(#clip-lower-hexagon)" />
+    <polygon points="316,140 340,98.431 388,98.431 412,140 388,181.569 340,181.569" fill="#5a9a67" clip-path="url(#clip-right-triangle)" />
+    <polygon points="348,204 372,162.431 420,162.431 444,204 420,245.569 372,245.569" fill="#bf7c34" clip-path="url(#clip-right-hexagon)" />
+    <circle cx="336" cy="238" r="48" fill="#8b62b5" clip-path="url(#clip-lower-hexagon)" />
   </g>
 
   <g id="piece-outline-restatement" fill="none" stroke="#1a1510" stroke-opacity="0.9" stroke-width="1.5" stroke-linejoin="round">
     <use href="#std-circle" transform="translate(156 132)" />
     <use href="#std-triangle" transform="translate(212 136) rotate(0)" />
     <use href="#std-triangle" transform="translate(310 136) rotate(0)" />
-    <use href="#std-hexagon" transform="translate(352 140) rotate(0)" />
-    <use href="#std-hexagon" transform="translate(384 204) rotate(0)" />
-    <use href="#std-circle" transform="translate(324 238)" />
+    <use href="#std-hexagon" transform="translate(364 140) rotate(0)" />
+    <use href="#std-hexagon" transform="translate(396 204) rotate(0)" />
+    <use href="#std-circle" transform="translate(336 238)" />
   </g>
 </svg>
