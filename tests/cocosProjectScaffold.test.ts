@@ -345,15 +345,23 @@ describe("Cocos Creator project scaffold", () => {
     expect(artCandidate).not.toContain('<g id="true-overlap-colors" filter=');
   });
 
-  it("keeps M01 target art as a continuous six-piece overlap chain", () => {
+  it("keeps M01 target art as one compact standard-piece pattern", () => {
     const artCandidate = readText(
       "docs/design/generated-m01-art-slices/m01-target-standard-piece-art-candidate.svg"
     );
     const pieces = parseM01TargetPieces(artCandidate);
-    const intendedPairs = new Set(["0:1", "1:2", "2:3", "3:4", "4:5"]);
-    const readableEvidenceOverlap = { min: 450, max: 1200 };
+    const intendedPairs = new Set(["0:1", "0:5", "1:2", "2:3", "2:4", "4:5"]);
+    const readableEvidenceOverlap = { min: 380, max: 1500 };
 
     expect(pieces).toHaveLength(6);
+    expect(
+      Math.max(...pieces.map((piece) => piece.x)) - Math.min(...pieces.map((piece) => piece.x)),
+      "target pattern should read as one compact object, not a loose horizontal chain"
+    ).toBeLessThanOrEqual(230);
+    expect(
+      Math.max(...pieces.map((piece) => piece.y)) - Math.min(...pieces.map((piece) => piece.y)),
+      "target pattern should have meaningful vertical structure"
+    ).toBeGreaterThanOrEqual(70);
 
     for (let firstIndex = 0; firstIndex < pieces.length; firstIndex += 1) {
       for (let secondIndex = firstIndex + 1; secondIndex < pieces.length; secondIndex += 1) {
@@ -361,14 +369,14 @@ describe("Cocos Creator project scaffold", () => {
         const pairKey = `${firstIndex}:${secondIndex}`;
 
         if (intendedPairs.has(pairKey)) {
-          expect(area, `${pairKey} should be a readable adjacent evidence overlap`).toBeGreaterThanOrEqual(
+          expect(area, `${pairKey} should be a readable evidence overlap inside the larger pattern`).toBeGreaterThanOrEqual(
             readableEvidenceOverlap.min
           );
-          expect(area, `${pairKey} should not become an oversized adjacent overlap`).toBeLessThanOrEqual(
+          expect(area, `${pairKey} should not become an oversized overlap`).toBeLessThanOrEqual(
             readableEvidenceOverlap.max
           );
         } else {
-          expect(area, `${pairKey} should not create uncolored overlap`).toBeLessThan(30);
+          expect(area, `${pairKey} should not create a separate uncolored evidence overlap`).toBeLessThan(50);
         }
       }
     }
