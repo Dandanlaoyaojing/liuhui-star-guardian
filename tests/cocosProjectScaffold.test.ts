@@ -168,6 +168,8 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain('token.shapeToken === "triangle"');
     expect(bootstrap).toContain('token.shapeToken === "hexagon"');
+    expect(bootstrap).toContain("Math.sqrt(3)");
+    expect(bootstrap).not.toContain("quarterWidth");
     expect(bootstrap).not.toContain('token.shapeToken === "arc_hook"');
     expect(bootstrap).not.toContain('token.shapeToken === "arc_socket"');
     expect(bootstrap).not.toContain('token.shapeToken === "notch_hook"');
@@ -177,6 +179,22 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain('token.shapeToken === "branch_left"');
     expect(bootstrap).not.toContain('token.shapeToken === "branch_right"');
     expect(bootstrap).toContain('hidden: [');
+  });
+
+  it("keeps M01 target SVG polygons on the same regular standard-piece template", () => {
+    const geometryGuide = readText(
+      "docs/design/generated-m01-art-slices/m01-target-standard-piece-geometry-guide.svg"
+    );
+    const artCandidate = readText(
+      "docs/design/generated-m01-art-slices/m01-target-standard-piece-art-candidate.svg"
+    );
+
+    for (const svg of [geometryGuide, artCandidate]) {
+      expect(svg).toContain('<polygon id="std-triangle" points="0,-41.569 -48,41.569 48,41.569" />');
+      expect(svg).toContain('<polygon id="std-hexagon" points="-48,0 -24,-41.569 24,-41.569 48,0 24,41.569 -24,41.569" />');
+      expect(svg).not.toContain('0,-48 -48,48 48,48');
+      expect(svg).not.toContain('-24,-48 24,-48 48,0 24,48 -24,48 -48,0');
+    }
   });
 
   it("lets the M01 flashlight beam roam with the pointer over the fragment pool", () => {

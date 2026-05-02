@@ -2,23 +2,23 @@
   <defs>
     <!-- Runtime-standard 48x48 token geometry scaled 2x for guide readability. -->
     <circle id="std-circle" cx="0" cy="0" r="48" />
-    <polygon id="std-triangle" points="0,-48 -48,48 48,48" />
-    <polygon id="std-hexagon" points="-24,-48 24,-48 48,0 24,48 -24,48 -48,0" />
+    <polygon id="std-triangle" points="0,-41.569 -48,41.569 48,41.569" />
+    <polygon id="std-hexagon" points="-48,0 -24,-41.569 24,-41.569 48,0 24,41.569 -24,41.569" />
 
     <clipPath id="clip-left-circle" clipPathUnits="userSpaceOnUse">
       <circle cx="156" cy="132" r="48" />
     </clipPath>
     <clipPath id="clip-left-triangle" clipPathUnits="userSpaceOnUse">
-      <polygon points="212,88 164,184 260,184" />
+      <polygon points="212,94.431 164,177.569 260,177.569" />
     </clipPath>
     <clipPath id="clip-right-triangle" clipPathUnits="userSpaceOnUse">
-      <polygon points="288,88 240,184 336,184" />
+      <polygon points="288,94.431 240,177.569 336,177.569" />
     </clipPath>
     <clipPath id="clip-right-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="312,92 360,92 384,140 360,188 312,188 288,140" />
+      <polygon points="288,140 312,98.431 360,98.431 384,140 360,181.569 312,181.569" />
     </clipPath>
     <clipPath id="clip-lower-hexagon" clipPathUnits="userSpaceOnUse">
-      <polygon points="316,168 364,168 388,216 364,264 316,264 292,216" />
+      <polygon points="292,216 316,174.431 364,174.431 388,216 364,257.569 316,257.569" />
     </clipPath>
   </defs>
 
@@ -36,9 +36,9 @@
   </g>
 
   <g id="boolean-overlap-colors" fill-opacity="1" stroke="#f2ead7" stroke-opacity="0.68" stroke-width="2" stroke-linejoin="round">
-    <polygon points="212,88 164,184 260,184" fill="#8b62b5" clip-path="url(#clip-left-circle)" />
-    <polygon points="312,92 360,92 384,140 360,188 312,188 288,140" fill="#5a9a67" clip-path="url(#clip-right-triangle)" />
-    <polygon points="316,168 364,168 388,216 364,264 316,264 292,216" fill="#bf7c34" clip-path="url(#clip-right-hexagon)" />
+    <polygon points="212,94.431 164,177.569 260,177.569" fill="#8b62b5" clip-path="url(#clip-left-circle)" />
+    <polygon points="288,140 312,98.431 360,98.431 384,140 360,181.569 312,181.569" fill="#5a9a67" clip-path="url(#clip-right-triangle)" />
+    <polygon points="292,216 316,174.431 364,174.431 388,216 364,257.569 316,257.569" fill="#bf7c34" clip-path="url(#clip-right-hexagon)" />
     <circle cx="272" cy="216" r="48" fill="#8b62b5" clip-path="url(#clip-lower-hexagon)" />
   </g>
 

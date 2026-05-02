@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420">
+  <defs>
+    <circle id="std-circle" cx="0" cy="0" r="48" />
+    <polygon id="std-triangle" points="0,-41.569 -48,41.569 48,41.569" />
+    <polygon id="std-hexagon" points="-48,0 -24,-41.569 24,-41.569 48,0 24,41.569 -24,41.569" />
+
+    <clipPath id="clip-left-circle" clipPathUnits="userSpaceOnUse">
+      <circle cx="196" cy="154" r="48" />
+    </clipPath>
+    <clipPath id="clip-right-triangle" clipPathUnits="userSpaceOnUse">
+      <polygon points="350,116.431 302,199.569 398,199.569" />
+    </clipPath>
+    <clipPath id="clip-top-hexagon" clipPathUnits="userSpaceOnUse">
+      <polygon points="344,162 368,120.431 416,120.431 440,162 416,203.569 368,203.569" />
+    </clipPath>
+    <clipPath id="clip-lower-hexagon" clipPathUnits="userSpaceOnUse">
+      <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" />
+    </clipPath>
+
+    <filter id="paper-noise" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="9" result="noise" />
+      <feColorMatrix in="noise" type="matrix"
+        values="0 0 0 0 0.59 0 0 0 0 0.53 0 0 0 0 0.43 0 0 0 0.08 0" />
+      <feBlend in="SourceGraphic" mode="multiply" />
+    </filter>
+
+    <filter id="watercolor" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="4" result="wash" />
+      <feDisplacementMap in="SourceGraphic" in2="wash" scale="0.45" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </defs>
+
+  <rect width="720" height="420" fill="#f4efe1" filter="url(#paper-noise)" />
+
+  <g id="target-frame">
+    <rect x="82" y="48" width="556" height="304" rx="12" fill="#eee4c7" stroke="#25221d" stroke-width="2.4" />
+    <rect x="96" y="62" width="528" height="276" rx="8" fill="#f5ecd3" stroke="#6f6552" stroke-width="1.4" />
+    <circle cx="104" cy="70" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
+    <circle cx="616" cy="70" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
+    <circle cx="104" cy="330" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
+    <circle cx="616" cy="330" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
+  </g>
+
+  <g id="standard-pieces" filter="url(#watercolor)"
+     fill="#c9c6b2" fill-opacity="0.58"
+     stroke="#2b2924" stroke-width="2.2" stroke-linejoin="round">
+    <use href="#std-circle" transform="translate(196 154)" />
+    <use href="#std-triangle" transform="translate(252 158)" />
+    <use href="#std-triangle" transform="translate(350 158)" />
+    <use href="#std-hexagon" transform="translate(392 162)" />
+    <use href="#std-hexagon" transform="translate(396 226)" />
+    <use href="#std-circle" transform="translate(330 238)" />
+  </g>
+
+  <g id="true-overlap-colors" filter="url(#watercolor)"
+     fill-opacity="0.86" stroke="#2b2924" stroke-opacity="0.55"
+     stroke-width="1.3" stroke-linejoin="round">
+    <polygon points="252,116.431 204,199.569 300,199.569" fill="#8c68a8" clip-path="url(#clip-left-circle)" />
+    <polygon points="344,162 368,120.431 416,120.431 440,162 416,203.569 368,203.569" fill="#6f9a70" clip-path="url(#clip-right-triangle)" />
+    <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" fill="#c3813a" clip-path="url(#clip-top-hexagon)" />
+    <circle cx="330" cy="238" r="48" fill="#8c68a8" clip-path="url(#clip-lower-hexagon)" />
+  </g>
+
+  <g id="outline-restatement"
+     fill="none" stroke="#171512" stroke-opacity="0.88"
+     stroke-width="1.45" stroke-linejoin="round">
+    <use href="#std-circle" transform="translate(196 154)" />
+    <use href="#std-triangle" transform="translate(252 158)" />
+    <use href="#std-triangle" transform="translate(350 158)" />
+    <use href="#std-hexagon" transform="translate(392 162)" />
+    <use href="#std-hexagon" transform="translate(396 226)" />
+    <use href="#std-circle" transform="translate(330 238)" />
+  </g>
+
+  <g id="bottom-standard-piece-check" transform="translate(126 376)"
+     fill="#c9c6b2" fill-opacity="0.5"
+     stroke="#2b2924" stroke-width="1.6" stroke-linejoin="round">
+    <use href="#std-circle" transform="scale(0.42)" />
+    <use href="#std-triangle" transform="translate(74 0) scale(0.42)" />
+    <use href="#std-hexagon" transform="translate(148 0) scale(0.42)" />
+    <line x1="-54" y1="30" x2="210" y2="30" stroke="#2b2924" stroke-width="1" stroke-dasharray="5 9" />
+  </g>
+</svg>

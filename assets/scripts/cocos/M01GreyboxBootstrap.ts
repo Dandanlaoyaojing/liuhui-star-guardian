@@ -1686,23 +1686,27 @@ function drawGear(graphics: Graphics, radius: number): void {
 }
 
 function drawTriangle(graphics: Graphics, width: number, height: number): void {
-  graphics.moveTo(0, height / 2);
-  graphics.lineTo(-width / 2, -height / 2);
-  graphics.lineTo(width / 2, -height / 2);
+  const sideLength = Math.min(width, (height * 2) / Math.sqrt(3));
+  const halfSide = sideLength / 2;
+  const triangleHeight = (sideLength * Math.sqrt(3)) / 2;
+
+  graphics.moveTo(0, triangleHeight / 2);
+  graphics.lineTo(-halfSide, -triangleHeight / 2);
+  graphics.lineTo(halfSide, -triangleHeight / 2);
   graphics.close();
 }
 
 function drawHexagon(graphics: Graphics, width: number, height: number): void {
-  const halfWidth = width / 2;
-  const quarterWidth = width / 4;
-  const halfHeight = height / 2;
+  const radius = Math.min(width / 2, height / Math.sqrt(3));
+  const halfRadius = radius / 2;
+  const halfHeight = (Math.sqrt(3) * radius) / 2;
 
-  graphics.moveTo(-quarterWidth, halfHeight);
-  graphics.lineTo(quarterWidth, halfHeight);
-  graphics.lineTo(halfWidth, 0);
-  graphics.lineTo(quarterWidth, -halfHeight);
-  graphics.lineTo(-quarterWidth, -halfHeight);
-  graphics.lineTo(-halfWidth, 0);
+  graphics.moveTo(-radius, 0);
+  graphics.lineTo(-halfRadius, halfHeight);
+  graphics.lineTo(halfRadius, halfHeight);
+  graphics.lineTo(radius, 0);
+  graphics.lineTo(halfRadius, -halfHeight);
+  graphics.lineTo(-halfRadius, -halfHeight);
   graphics.close();
 }
 
@@ -1829,20 +1833,31 @@ function buildReferencePiecePolygon(piece: ReferencePiece): M01GreyboxPoint[] {
   }
 
   if (piece.shape === "triangle") {
+    const sideLength = Math.min(
+      REFERENCE_STANDARD_PIECE_SIZE,
+      (REFERENCE_STANDARD_PIECE_SIZE * 2) / Math.sqrt(3)
+    );
+    const halfSide = sideLength / 2;
+    const triangleHeight = (sideLength * Math.sqrt(3)) / 2;
+
     return [
-      { x: piece.center.x, y: piece.center.y + half },
-      { x: piece.center.x - half, y: piece.center.y - half },
-      { x: piece.center.x + half, y: piece.center.y - half }
+      { x: piece.center.x, y: piece.center.y + triangleHeight / 2 },
+      { x: piece.center.x - halfSide, y: piece.center.y - triangleHeight / 2 },
+      { x: piece.center.x + halfSide, y: piece.center.y - triangleHeight / 2 }
     ];
   }
 
+  const radius = Math.min(half, REFERENCE_STANDARD_PIECE_SIZE / Math.sqrt(3));
+  const halfRadius = radius / 2;
+  const halfHeight = (Math.sqrt(3) * radius) / 2;
+
   return [
-    { x: piece.center.x - half / 2, y: piece.center.y + half },
-    { x: piece.center.x + half / 2, y: piece.center.y + half },
-    { x: piece.center.x + half, y: piece.center.y },
-    { x: piece.center.x + half / 2, y: piece.center.y - half },
-    { x: piece.center.x - half / 2, y: piece.center.y - half },
-    { x: piece.center.x - half, y: piece.center.y }
+    { x: piece.center.x - radius, y: piece.center.y },
+    { x: piece.center.x - halfRadius, y: piece.center.y + halfHeight },
+    { x: piece.center.x + halfRadius, y: piece.center.y + halfHeight },
+    { x: piece.center.x + radius, y: piece.center.y },
+    { x: piece.center.x + halfRadius, y: piece.center.y - halfHeight },
+    { x: piece.center.x - halfRadius, y: piece.center.y - halfHeight }
   ];
 }
 
