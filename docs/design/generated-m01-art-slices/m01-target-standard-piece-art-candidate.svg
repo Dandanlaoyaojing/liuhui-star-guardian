@@ -17,32 +17,52 @@
       <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" />
     </clipPath>
 
-    <filter id="paper-noise" x="-10%" y="-10%" width="120%" height="120%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="9" result="noise" />
-      <feColorMatrix in="noise" type="matrix"
-        values="0 0 0 0 0.59 0 0 0 0 0.53 0 0 0 0 0.43 0 0 0 0.08 0" />
-      <feBlend in="SourceGraphic" mode="multiply" />
-    </filter>
+    <pattern id="paper-tooth" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect width="32" height="32" fill="#f4eedf" />
+      <path d="M2 6 L9 5 M18 9 L28 8 M5 21 L14 23 M22 26 L31 25"
+        fill="none" stroke="#8f8269" stroke-width="0.55" stroke-opacity="0.18" />
+      <circle cx="7" cy="14" r="0.9" fill="#b7a884" fill-opacity="0.16" />
+      <circle cx="24" cy="17" r="0.75" fill="#6f6552" fill-opacity="0.12" />
+      <circle cx="16" cy="29" r="0.7" fill="#d6c69d" fill-opacity="0.22" />
+    </pattern>
 
-    <filter id="watercolor" x="-5%" y="-5%" width="110%" height="110%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="4" result="wash" />
-      <feDisplacementMap in="SourceGraphic" in2="wash" scale="0.45" xChannelSelector="R" yChannelSelector="G" />
-    </filter>
+    <linearGradient id="piece-paper-wash" x1="0" y1="82" x2="0" y2="274" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d7d1b9" stop-opacity="0.72" />
+      <stop offset="0.52" stop-color="#bfc0ac" stop-opacity="0.56" />
+      <stop offset="1" stop-color="#e2d8bd" stop-opacity="0.62" />
+    </linearGradient>
+    <radialGradient id="muted-purple-wash" cx="244" cy="164" r="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9a78ad" stop-opacity="0.9" />
+      <stop offset="1" stop-color="#7f5d95" stop-opacity="0.78" />
+    </radialGradient>
+    <radialGradient id="muted-green-wash" cx="386" cy="162" r="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#86aa7d" stop-opacity="0.9" />
+      <stop offset="1" stop-color="#668c65" stop-opacity="0.78" />
+    </radialGradient>
+    <radialGradient id="muted-orange-wash" cx="396" cy="224" r="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#cc8b47" stop-opacity="0.9" />
+      <stop offset="1" stop-color="#ad6f34" stop-opacity="0.78" />
+    </radialGradient>
   </defs>
 
-  <rect width="720" height="420" fill="#f4efe1" filter="url(#paper-noise)" />
+  <rect width="720" height="420" fill="url(#paper-tooth)" />
+  <rect x="70" y="36" width="580" height="324" rx="15" fill="#eee4c7" stroke="#25221d" stroke-width="2.6" />
+  <rect x="84" y="50" width="552" height="296" rx="10" fill="#f6ecd4" stroke="#7f7158" stroke-width="1.5" />
 
-  <g id="target-frame">
-    <rect x="82" y="48" width="556" height="304" rx="12" fill="#eee4c7" stroke="#25221d" stroke-width="2.4" />
-    <rect x="96" y="62" width="528" height="276" rx="8" fill="#f5ecd3" stroke="#6f6552" stroke-width="1.4" />
+  <g id="target-frame" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M104 74 C190 62, 303 59, 430 66 C509 70, 579 68, 616 78"
+      stroke="#9a8d70" stroke-width="1.2" stroke-opacity="0.36" />
+    <path d="M102 328 C209 342, 335 338, 454 330 C525 325, 585 327, 616 316"
+      stroke="#7f7158" stroke-width="1.1" stroke-opacity="0.32" />
     <circle cx="104" cy="70" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
     <circle cx="616" cy="70" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
     <circle cx="104" cy="330" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
     <circle cx="616" cy="330" r="3.5" fill="#9b8c67" stroke="#25221d" stroke-width="1" />
   </g>
 
-  <g id="standard-pieces" filter="url(#watercolor)"
-     fill="#c9c6b2" fill-opacity="0.58"
+  <g id="standard-pieces"
+     fill="url(#piece-paper-wash)"
+     fill-opacity="0.78"
      stroke="#2b2924" stroke-width="2.2" stroke-linejoin="round">
     <use href="#std-circle" transform="translate(196 154)" />
     <use href="#std-triangle" transform="translate(252 158)" />
@@ -52,17 +72,26 @@
     <use href="#std-circle" transform="translate(330 238)" />
   </g>
 
-  <g id="true-overlap-colors" filter="url(#watercolor)"
-     fill-opacity="0.86" stroke="#2b2924" stroke-opacity="0.55"
-     stroke-width="1.3" stroke-linejoin="round">
-    <polygon points="252,116.431 204,199.569 300,199.569" fill="#8c68a8" clip-path="url(#clip-left-circle)" />
-    <polygon points="344,162 368,120.431 416,120.431 440,162 416,203.569 368,203.569" fill="#6f9a70" clip-path="url(#clip-right-triangle)" />
-    <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" fill="#c3813a" clip-path="url(#clip-top-hexagon)" />
-    <circle cx="330" cy="238" r="48" fill="#8c68a8" clip-path="url(#clip-lower-hexagon)" />
+  <g id="piece-wash-overlays" fill="#fff5d9" fill-opacity="0.18" stroke="none">
+    <use href="#std-circle" transform="translate(196 154) scale(0.78)" />
+    <use href="#std-triangle" transform="translate(252 158) scale(0.78)" />
+    <use href="#std-triangle" transform="translate(350 158) scale(0.78)" />
+    <use href="#std-hexagon" transform="translate(392 162) scale(0.78)" />
+    <use href="#std-hexagon" transform="translate(396 226) scale(0.78)" />
+    <use href="#std-circle" transform="translate(330 238) scale(0.78)" />
   </g>
 
-  <g id="outline-restatement"
-     fill="none" stroke="#171512" stroke-opacity="0.88"
+  <g id="true-overlap-colors"
+     fill-opacity="0.9" stroke="#2b2924" stroke-opacity="0.58"
+     stroke-width="1.25" stroke-linejoin="round">
+    <polygon points="252,116.431 204,199.569 300,199.569" fill="url(#muted-purple-wash)" clip-path="url(#clip-left-circle)" />
+    <polygon points="344,162 368,120.431 416,120.431 440,162 416,203.569 368,203.569" fill="url(#muted-green-wash)" clip-path="url(#clip-right-triangle)" />
+    <polygon points="348,226 372,184.431 420,184.431 444,226 420,267.569 372,267.569" fill="url(#muted-orange-wash)" clip-path="url(#clip-top-hexagon)" />
+    <circle cx="330" cy="238" r="48" fill="url(#muted-purple-wash)" clip-path="url(#clip-lower-hexagon)" />
+  </g>
+
+  <g id="ink-linework-overlays"
+     fill="none" stroke="#171512" stroke-opacity="0.9"
      stroke-width="1.45" stroke-linejoin="round">
     <use href="#std-circle" transform="translate(196 154)" />
     <use href="#std-triangle" transform="translate(252 158)" />
@@ -70,6 +99,14 @@
     <use href="#std-hexagon" transform="translate(392 162)" />
     <use href="#std-hexagon" transform="translate(396 226)" />
     <use href="#std-circle" transform="translate(330 238)" />
+  </g>
+
+  <g id="dry-brush-detail" fill="none" stroke="#514a3b" stroke-opacity="0.18" stroke-width="1" stroke-linecap="round">
+    <path d="M158 141 C174 137, 188 138, 205 142" />
+    <path d="M223 169 C240 176, 258 177, 276 172" />
+    <path d="M318 147 C338 140, 360 141, 378 149" />
+    <path d="M370 212 C386 208, 406 209, 424 215" />
+    <path d="M299 249 C316 256, 339 255, 356 248" />
   </g>
 
   <g id="bottom-standard-piece-check" transform="translate(126 376)"

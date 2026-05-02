@@ -197,6 +197,19 @@ describe("Cocos Creator project scaffold", () => {
     }
   });
 
+  it("keeps M01 target art polish from warping the deterministic geometry", () => {
+    const artCandidate = readText(
+      "docs/design/generated-m01-art-slices/m01-target-standard-piece-art-candidate.svg"
+    );
+
+    expect(artCandidate).toContain('id="paper-tooth"');
+    expect(artCandidate).toContain('id="piece-wash-overlays"');
+    expect(artCandidate).toContain('id="ink-linework-overlays"');
+    expect(artCandidate).not.toContain("feDisplacementMap");
+    expect(artCandidate).not.toContain('<g id="standard-pieces" filter=');
+    expect(artCandidate).not.toContain('<g id="true-overlap-colors" filter=');
+  });
+
   it("lets the M01 flashlight beam roam with the pointer over the fragment pool", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
