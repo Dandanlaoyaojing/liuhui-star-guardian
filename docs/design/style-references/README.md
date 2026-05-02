@@ -2,18 +2,45 @@
 
 ## Active Art-Direction Rule
 
-Only the four images in this file are active art-direction references:
+Use the four global references below as the general project baseline:
 
 1. `2026-04-22-unified-handdrawn-style-anchor.png`
 2. `2026-04-23-game-interface-style-reference.png`
 3. `2026-04-23-game-ui-board-style-reference.png`
 4. `2026-04-24-lemmy-rabbit-style-reference.png`
 
+M01 also has one local runtime-art reference for the current cockpit/control-console pass:
+
+5. `2026-05-02-console-cockpit-style-reference.png` — active for M01 runtime art generation and paintover only, not a blanket replacement for every stage.
+
 The 2026-04-23 interface and board references are now intentionally part of this game's art direction. Treat them as game interface references, not as external tool screens. They define the current target for game panels, cards, menus, journals, puzzle boards, and repair surfaces.
 
 The 2026-04-24 rabbit reference is now the active character-shape reference for Lemmy. Use it to keep the protagonist small, hand-drawn, vulnerable, and visually unified with the low-saturation red / blue-gray palette.
 
-Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch language) are backup concepts only. They may inform level metaphors and prompt wording, but future production art should be regenerated or repainted against the four active references above.
+Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch language) are backup concepts only. They may inform level metaphors and prompt wording, but future production art should be regenerated or repainted against the active references above.
+
+## 2026-05-02 Console Cockpit Style Reference
+
+- Reference image: [2026-05-02-console-cockpit-style-reference.png](2026-05-02-console-cockpit-style-reference.png)
+- Asset copy: `assets/art/style-references/console-cockpit-style-reference.png`
+- Status: active local reference for the M01 runtime-art generation / paintover pass
+- Scope: M01 control-console mood, dark old-metal panel rendering, brass linework, night-window atmosphere, and deep blue-gray / ochre value structure
+
+### Extract These Traits
+
+- Dark blue-gray negative space with soft cloudy atmospheric depth.
+- Old bronze / graphite metal panels with confident hand-drawn outlines.
+- Subtle screw heads, rings, panel seams, and curved cockpit framing.
+- Warm ochre edge highlights against a restrained dark palette.
+- Clear empty zones that can hold gameplay pieces without baked-in labels.
+
+### Do Not Overfit These Traits
+
+- Do not turn M01 into a full-screen cockpit background that hides the puzzle.
+- Do not bake stars, clouds, or decorative window scenery into every runtime sprite.
+- Do not add readable text, UI labels, or fixed button icons into generated art.
+- Do not make the target pattern a decorative dashboard panel; it must still serve the M01 overlap-reconstruction mechanic.
+- Do not replace Lemmy or future stage references with this local M01 mood unless the operator explicitly expands the style direction.
 
 ## 2026-04-24 Lemmy Rabbit Style Reference
 

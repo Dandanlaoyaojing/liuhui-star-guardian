@@ -3,7 +3,8 @@
 > Date: 2026-05-02
 > Scope: current M01 overlap-evidence runtime art direction
 > Replaces: old nine-slot sorter prompt assumptions in `m01-runtime-v3-visual-qa-and-prompt.md`
-> Current mechanic: handheld tricolor flashlight + hidden fragments + side target overlap evidence + central assembly plate
+> Current mechanic: handheld tricolor flashlight + hidden fragments + coherent side target pattern + central assembly plate
+> Active local style reference: `docs/design/style-references/2026-05-02-console-cockpit-style-reference.png`
 
 ## Purpose
 
@@ -28,25 +29,25 @@ Asset type: transparent-ready 2D runtime sprite sheet and UI-surface set for a C
 
 Primary request: Create a clean, separated runtime art sheet for M01 "memory gear overlap evidence" gameplay. The sheet should contain: one empty memory gear / central assembly plate, one side target overlap evidence diagram frame showing a single coherent assembled target pattern with local evidence marks, thirteen hidden grey-white fragments using only circle / triangle / hexagon silhouettes, three handheld flashlight tools colored red / yellow / blue, one bottom fragment floor surface, bottom-light state overlays for off / failed flash / steady on, and one ToolCard preview frame.
 
-Style: follow the active `liuhui-star-guardian` hand-drawn art direction. Prioritize the 2026-04-22 unified hand-drawn style anchor for the gear, fragments, and mechanical surfaces; use the 2026-04-23 game interface and board references for the ToolCard frame, side reference diagram frame, and bottom floor surface. The image language should be clear charcoal ink contours with slight hand wobble, restrained low-saturation watercolor fills, simple believable mechanical forms, warm paper-white negative space, gray-bronze machinery, dusty blue-gray, muted ochre, clay red, and very small brass accents.
+Style: follow the provided 2026-05-02 console cockpit reference for this M01 pass. Use its dark blue-gray night-window atmosphere, old graphite / bronze metal, warm ochre edge highlights, curved cockpit framing, screw heads, panel seams, and textured painterly clouds as the mood anchor. Preserve the project hand-drawn line quality: visible charcoal / ink contours with slight wobble, low-saturation color, readable shapes, and no glossy vector polish. Compared with the earlier pale paper direction, this pass should feel darker, more mechanical, and more like a quiet starship console while still leaving clean gameplay space.
 
 Composition: place every asset separately with generous padding for cropping. Use either a perfectly flat transparent background or a perfectly flat solid #00ff00 chroma-key background. If using chroma key, the background must be one uniform color with no paper texture, gradients, shadows, reflections, or lighting variation, and #00ff00 must not appear inside any asset. Do not add labels, numbers, arrows, UI chrome, debug overlays, cast shadows, or baked-in readable text.
 
-Assembly plate: create one empty central memory gear / repair plate. It should be dim, simple, and readable at 960x640 gameplay scale. The center should be open enough for player-placed fragments. It may show faint scratches, soft bottom-light wash zones, and a few abstract memory-groove marks. It must not show a completed final silhouette, colored target overlaps, exact fragment slots, or an answer outline.
+Assembly plate: create one empty central memory gear / repair plate as an old bronze / graphite console instrument. It should be dim, simple, and readable at 960x640 gameplay scale. The center should be open enough for player-placed fragments. It may show faint scratches, curved metal seams, small screw heads, soft bottom-light wash zones, and a few abstract memory-groove marks. It must not show a completed final silhouette, colored target overlaps, exact fragment slots, or an answer outline.
 
-Side target evidence diagram: create a separate small reference picture surface, not a board overlay. It should read first as one larger completed pattern that the player is trying to reconstruct, with four to six local two-fragment overlap marks placed within that same overall silhouette. Each local mark should still use only a partial overlap silhouette and a target blend color from muted orange, green, or purple. Preserve the relative spacing and direction between marks so the diagram feels like a single object, not a grid of separate clue icons. Never depict three or more layers meeting in one target clue.
+Side target evidence diagram: create a separate small reference picture surface, not a board overlay. It should feel like a small cockpit instrument / inset diagram mounted near the assembly plate. It must read first as one larger completed pattern that the player is trying to reconstruct, with four to six local two-fragment overlap marks placed within that same overall silhouette. Each local mark should still use only a partial overlap silhouette and a target blend color from muted orange, green, or purple. Preserve the relative spacing and direction between marks so the diagram feels like a single object, not a grid of separate clue icons. Never depict three or more layers meeting in one target clue.
 
-Hidden fragments: create thirteen separate default fragments. Use only three silhouette families: circle, triangle, and hexagon. Keep every default fragment grey-white / pale translucent paper-stone with charcoal outline and slight watercolor variation. Some fragments may share the same silhouette, but do not reveal their hidden base color. Do not create red, yellow, or blue default fragments.
+Hidden fragments: create thirteen separate default fragments. Use only three silhouette families: circle, triangle, and hexagon. Keep every default fragment cool grey / smoky pale metal-glass with charcoal outline and slight painterly variation. Some fragments may share the same silhouette, but do not reveal their hidden base color. Do not create red, yellow, or blue default fragments.
 
 Flashlights: create three handheld flashlight tools, one red, one yellow, one blue. They should read as small functional tools with a simple handle, lens, and hand-drawn contour. They should not look like flat UI buttons or fixed emitters. Include optional small beam-start accents, but do not bake large beams into the tool sprites.
 
-Bottom fragment floor: create one low horizontal floor / work surface for the bottom band of the play area. It should be quiet, lightly mechanical, and hand-drawn, with enough contrast for grey-white fragments to remain visible. Avoid heavy decoration; the floor exists to make scattered pieces feel physically placed and to constrain flashlight scanning visually.
+Bottom fragment floor: create one low horizontal floor / work surface for the bottom band of the play area. It should borrow from the reference image's dark metal console shelf: old graphite panels, warm bronze seams, subtle screws, and soft worn edges. Keep enough contrast for grey fragments to remain visible. Avoid heavy decoration; the floor exists to make scattered pieces feel physically placed and to constrain flashlight scanning visually.
 
 Bottom-light overlays: create simple transparent-ready overlays for the assembly plate states: off / failed flash / steady on. Off should be nearly invisible; failed flash should be a short muted red-orange warning wash; steady on should be a calm warm repair glow. All overlays must preserve visibility of placed grey-white fragments.
 
-ToolCard frame: create one completion card frame inspired by the active game UI references. It should have hand-drawn border lines, quiet warm paper fill, small reserved zones for title, illustration, crystal sentence, and back-side notes. Do not generate readable text; use blank strips or abstract marks only.
+ToolCard frame: create one completion card frame inspired by the console reference and active game UI references. It should feel like a small brass-rimmed console card or instrument plaque with dark graphite backing, warm ochre edge light, and clean reserved zones for title, illustration, crystal sentence, and back-side notes. Do not generate readable text; use blank strips or abstract marks only.
 
-Texture rule: hand-made feeling should come from continuous ink contours, slight line wobble, broad watercolor pooling, and same-hue tonal variation. Avoid salt-like white speckles, dirty paper artifacts, scan noise, distressed paint chips, dense ornament, glossy digital rendering, vector-perfect outlines, high-saturation candy colors, purple-dominant palettes, and complex machinery.
+Texture rule: hand-made feeling should come from continuous ink contours, slight line wobble, broad painterly pooling, and same-hue tonal variation. Use the reference image's dark textured metal and cloudy sky value structure, but keep runtime assets separated and readable. Avoid salt-like white speckles, dirty scan noise, distressed paint chips, dense ornament, glossy digital rendering, vector-perfect outlines, high-saturation candy colors, purple-dominant palettes, and complex machinery.
 
 ## Acceptance Checklist
 
@@ -67,7 +68,7 @@ Texture rule: hand-made feeling should come from continuous ink contours, slight
 ### Style And Readability
 
 - Clear ink contours remain visible when the image is viewed at 960x640.
-- The palette stays low-saturation: rice white, gray-bronze, dusty blue-gray, muted ochre, clay red, muted green, and restrained purple only for evidence marks.
+- The palette stays low-saturation and dark-console aligned: deep blue-gray, graphite, old bronze, muted ochre, smoky pale grey, clay red accents, muted green, and restrained purple only for evidence marks.
 - The central play area has enough blank space for player-placed fragments.
 - Side evidence marks remain legible without labels or numbers while still belonging to one complete target pattern.
 - Grey-white fragments are distinguishable from the bottom floor at gameplay scale.
@@ -96,6 +97,8 @@ Reject the candidate if any of these are true:
 - The sheet relies on labels or text to explain the mechanic.
 - It becomes a dense fantasy machine instead of a simple repair surface.
 - It reads as soft watercolor atmosphere with weak lines.
+- It ignores the 2026-05-02 console cockpit reference and drifts back to a pale paper UI.
+- It becomes a full decorative cockpit scene instead of separated runtime puzzle assets.
 - It has noisy white speckles inside mechanical color masses.
 - It is not readable in a 960x640 screenshot.
 
