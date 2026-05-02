@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildM01GreyboxLayout } from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
+import {
+  buildM01GreyboxLayout,
+  resolveM01EvidenceFragmentSnapPosition
+} from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
 import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
 import m01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 
@@ -63,4 +66,30 @@ describe("buildM01GreyboxLayout", () => {
       "purple"
     ]);
   });
+
+  it("snaps the two fragments for an evidence pair into partial-overlap poses instead of one pile", () => {
+    const layout = buildM01GreyboxLayout(config);
+    const evidenceConfig = config.evidence[0];
+    const evidence = layout.evidence.find((item) => item.controllerId === evidenceConfig.id);
+
+    expect(evidence).toBeDefined();
+
+    const [firstFragmentId, secondFragmentId] = evidenceConfig.solution.fragmentIds;
+    const firstPosition = resolveM01EvidenceFragmentSnapPosition(evidence!, firstFragmentId);
+    const secondPosition = resolveM01EvidenceFragmentSnapPosition(evidence!, secondFragmentId);
+
+    expect(firstPosition).not.toEqual(evidence!.position);
+    expect(secondPosition).not.toEqual(evidence!.position);
+    expect(distance(firstPosition, secondPosition)).toBeGreaterThanOrEqual(32);
+    expect(midpoint(firstPosition.x, secondPosition.x)).toBeCloseTo(evidence!.position.x, 5);
+    expect(midpoint(firstPosition.y, secondPosition.y)).toBeCloseTo(evidence!.position.y, 5);
+  });
 });
+
+function distance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function midpoint(a: number, b: number): number {
+  return (a + b) / 2;
+}

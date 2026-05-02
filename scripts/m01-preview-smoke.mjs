@@ -34,6 +34,10 @@ function assert(condition, message) {
   }
 }
 
+function pointDistance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 async function readConfig() {
   return JSON.parse(await readFile(configPath, "utf8"));
 }
@@ -622,6 +626,14 @@ async function main() {
     assert(
       realInput.isEvidenceStaged,
       `Expected ${realInput.stageEvidenceId} to be staged after preview interaction path.`
+    );
+    const [firstStagedFragmentId, secondStagedFragmentId] = realInputPlan.stageEvidence.fragmentIds;
+    assert(
+      pointDistance(
+        realInput.stageFragmentPositions[firstStagedFragmentId],
+        realInput.stageFragmentPositions[secondStagedFragmentId]
+      ) >= 32,
+      `Expected staged fragments ${firstStagedFragmentId} and ${secondStagedFragmentId} to land in partial-overlap poses instead of one pile.`
     );
 
     const wrongPairs = buildWrongCandidate(config);

@@ -44,6 +44,7 @@ export interface M01GreyboxTokenNode {
   colorToken: string;
   shapeToken: M01Shape;
   tags: string[];
+  fragmentSnapPositions?: Record<string, M01GreyboxPoint>;
 }
 
 export interface M01GreyboxLayout {
@@ -63,6 +64,7 @@ export interface M01GreyboxLayoutOptions {
 }
 
 const CANVAS: M01GreyboxSize = { width: 960, height: 640 };
+const MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE = 34;
 
 export function buildM01GreyboxLayout(
   config: M01MemoryGearConfig,
@@ -199,6 +201,7 @@ function buildEvidenceNode(
   const color = formatM01ColorLabel(evidence.targetBlendColor, text);
   const shape = formatM01ShapeLabel(evidence.targetShape, text);
   const size = Math.max(evidence.tolerance * 2, 52);
+  const position = readPosition(evidence.position, { x: 0, y: 0 });
   const sourceShapeTags = (evidence.generatedOverlap?.sourceShapes ?? []).map(
     (sourceShape) => `source-shape:${sourceShape}`
   );
@@ -208,11 +211,55 @@ function buildEvidenceNode(
     controllerId: evidence.id,
     kind: "evidence",
     label: formatM01GreyboxText("tokenLabel", { color, shape }, text),
-    position: readPosition(evidence.position, { x: 0, y: 0 }),
+    position,
     size: { width: size, height: size },
     colorToken: evidence.targetBlendColor,
     shapeToken: evidence.targetShape,
-    tags: ["overlap_evidence", ...sourceShapeTags, ...evidence.shapeTags]
+    tags: ["overlap_evidence", ...sourceShapeTags, ...evidence.shapeTags],
+    fragmentSnapPositions: buildEvidenceFragmentSnapPositions(evidence, position)
+  };
+}
+
+export function resolveM01EvidenceFragmentSnapPosition(
+  evidence: M01GreyboxTokenNode,
+  fragmentId: string
+): M01GreyboxPoint {
+  return evidence.fragmentSnapPositions?.[fragmentId] ?? evidence.position;
+}
+
+function buildEvidenceFragmentSnapPositions(
+  evidence: M01OverlapEvidenceDef,
+  evidencePosition: M01GreyboxPoint
+): Record<string, M01GreyboxPoint> {
+  const [firstFragmentId, secondFragmentId] = evidence.solution.fragmentIds;
+  const offset = normalizeEvidenceSnapOffset(evidence.generatedOverlap?.offset);
+
+  return {
+    [firstFragmentId]: {
+      x: evidencePosition.x - offset.x / 2,
+      y: evidencePosition.y - offset.y / 2
+    },
+    [secondFragmentId]: {
+      x: evidencePosition.x + offset.x / 2,
+      y: evidencePosition.y + offset.y / 2
+    }
+  };
+}
+
+function normalizeEvidenceSnapOffset(
+  offset: M01GreyboxPoint | undefined
+): M01GreyboxPoint {
+  const rawOffset = offset ?? { x: MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE, y: 0 };
+  const length = Math.hypot(rawOffset.x, rawOffset.y);
+
+  if (length === 0) {
+    return { x: MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE, y: 0 };
+  }
+
+  const scale = Math.max(1, MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE / length);
+  return {
+    x: rawOffset.x * scale,
+    y: rawOffset.y * scale
   };
 }
 

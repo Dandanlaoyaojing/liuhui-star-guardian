@@ -24,6 +24,7 @@ import {
 import { resolveM01GreyboxDrop } from "./M01GreyboxDrag.ts";
 import {
   buildM01GreyboxLayout,
+  resolveM01EvidenceFragmentSnapPosition,
   type M01GreyboxLayout,
   type M01GreyboxPoint,
   type M01GreyboxTokenNode
@@ -1197,7 +1198,9 @@ export class M01GreyboxBootstrap extends Component {
     const evidence = this.layout?.evidence.find(
       (candidate) => candidate.controllerId === evidenceId
     );
-    const position = evidence?.position ?? fallback;
+    const position = evidence
+      ? resolveM01EvidenceFragmentSnapPosition(evidence, token.controllerId)
+      : fallback;
     node.setPosition(position.x, position.y, 0);
     this.tokenPositions.set(token.controllerId, position);
   }

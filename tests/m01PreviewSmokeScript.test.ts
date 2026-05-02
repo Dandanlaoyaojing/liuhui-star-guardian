@@ -33,6 +33,7 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("usedFallback");
     expect(smokeScript).toContain("blocker");
     expect(smokeScript).toContain("isEvidenceStaged");
+    expect(smokeScript).toContain("partial-overlap poses instead of one pile");
     expect(smokeScript).toContain("observedColor");
   });
 

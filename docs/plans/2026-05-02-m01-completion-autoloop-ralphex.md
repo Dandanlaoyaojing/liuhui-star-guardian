@@ -94,6 +94,7 @@ Completion note:
 - Completion smoke screenshot review found the completed scene still showing the active red flashlight beam across the board, which distracted from the steady bottom light and ToolCard unlock state.
 - `M01GreyboxBootstrap` now stores the hint button root, clears active flashlight id/color/beam target, redraws the beam, and hides the hint button before rendering the completion ToolCard.
 - `npm run smoke:m01-preview:input` now asserts completion also clears the active flashlight beam target and hides the hint button; the fresh completion screenshot is `temp/m01-preview-completion-smoke.png`.
+- A follow-up preview review caught same-evidence fragments snapping into one pile. `M01GreyboxLayout` now derives per-fragment snap poses from each evidence `generatedOverlap.offset`, and strict preview smoke asserts the staged pair lands in separated partial-overlap poses instead of one shared center.
 
 Reframe:
 - This is still not final art. It is the pass that makes the playable M01 state readable and stable enough to hand to a human tester.
