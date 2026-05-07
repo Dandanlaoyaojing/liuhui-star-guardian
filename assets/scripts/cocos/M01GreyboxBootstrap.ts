@@ -1745,7 +1745,9 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const action = resolveM01GreyboxDrop(this.layout, token, dropPosition);
+    const action = resolveM01GreyboxDrop(this.layout, token, dropPosition, {
+      rotation: this.tokenRotations.get(token.controllerId) ?? 0
+    });
     if (action.type === "activate_filter") {
       this.resetTokenNode(node, token);
       this.clearHintTargets();

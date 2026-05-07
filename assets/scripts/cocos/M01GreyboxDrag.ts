@@ -7,6 +7,7 @@ import type {
 } from "./M01GreyboxLayout.ts";
 
 const EVIDENCE_MAGNET_CONTOUR_TOLERANCE = 2;
+const TARGET_PIECE_SNAP_ROTATION_TOLERANCE = 1;
 
 export type M01GreyboxDropAction =
   | {
@@ -44,10 +45,17 @@ export type M01GreyboxDropAction =
       reason: "no_zone" | "wrong_token_kind";
     };
 
+export interface M01GreyboxDropOptions {
+  rotation?: number;
+}
+
+type M01TargetPieceSlotDropResult = M01GreyboxDropAction | "rotation_mismatch" | undefined;
+
 export function resolveM01GreyboxDrop(
   layout: M01GreyboxLayout,
   token: M01GreyboxTokenNode,
-  dropPosition: M01GreyboxPoint
+  dropPosition: M01GreyboxPoint,
+  options: M01GreyboxDropOptions = {}
 ): M01GreyboxDropAction {
   if (token.kind === "flashlight") {
     return { type: "select_flashlight", flashlightId: token.controllerId };
@@ -63,7 +71,7 @@ export function resolveM01GreyboxDrop(
 
   if (token.kind === "fragment") {
     if (layout.evidence.length > 0) {
-      return resolveEvidenceFragmentDrop(layout, token, dropPosition);
+      return resolveEvidenceFragmentDrop(layout, token, dropPosition, options);
     }
 
     const result = resolveFragmentDrop(layout, token, dropPosition);
@@ -82,20 +90,24 @@ export function resolveM01GreyboxDrop(
 function resolveEvidenceFragmentDrop(
   layout: M01GreyboxLayout,
   token: M01GreyboxTokenNode,
-  dropPosition: M01GreyboxPoint
+  dropPosition: M01GreyboxPoint,
+  options: M01GreyboxDropOptions
 ): M01GreyboxDropAction {
   if (!layout.evidenceSnapEnabled) {
-    const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition);
-    return pieceSlotHit ?? {
+    const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition, options);
+    return pieceSlotHit && pieceSlotHit !== "rotation_mismatch" ? pieceSlotHit : {
       type: "place_fragment_freely",
       fragmentId: token.controllerId,
       position: dropPosition
     };
   }
 
-  const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition);
-  if (pieceSlotHit) {
+  const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition, options);
+  if (pieceSlotHit && pieceSlotHit !== "rotation_mismatch") {
     return pieceSlotHit;
+  }
+  if (pieceSlotHit === "rotation_mismatch") {
+    return { type: "place_fragment_freely", fragmentId: token.controllerId, position: dropPosition };
   }
 
   const hitEvidence = layout.evidence
@@ -106,7 +118,8 @@ function resolveEvidenceFragmentDrop(
 
   const tokenTags = new Set(token.tags);
   const shapeCompatibleHits = hitEvidence.filter(({ evidence }) =>
-    evidenceTagMatchScore(evidence, tokenTags) > 0
+    evidenceTagMatchScore(evidence, tokenTags) > 0 &&
+    isExpectedTargetFragmentRotationCompatible(layout, token, options)
   );
 
   if (shapeCompatibleHits.length > 0) {
@@ -133,8 +146,9 @@ function resolveEvidenceFragmentDrop(
 function resolveTargetPieceSlotDrop(
   layout: M01GreyboxLayout,
   token: M01GreyboxTokenNode,
-  dropPosition: M01GreyboxPoint
-): M01GreyboxDropAction | undefined {
+  dropPosition: M01GreyboxPoint,
+  options: M01GreyboxDropOptions
+): M01TargetPieceSlotDropResult {
   const tokenTags = new Set(token.tags);
   const compatibleSlots = layout.targetPieceSlots
     .filter((slot) => !slot.expectedFragmentId || slot.expectedFragmentId === token.controllerId)
@@ -145,7 +159,15 @@ function resolveTargetPieceSlotDrop(
     return undefined;
   }
 
-  const bestSlot = compatibleSlots
+  const rotationCompatibleSlots = compatibleSlots.filter((slot) =>
+    isTargetPieceRotationCompatible(options.rotation, slot.rotation)
+  );
+
+  if (rotationCompatibleSlots.length === 0) {
+    return "rotation_mismatch";
+  }
+
+  const bestSlot = rotationCompatibleSlots
     .slice()
     .sort((a, b) => distanceSquared(a.position, dropPosition) - distanceSquared(b.position, dropPosition))[0];
 
@@ -253,6 +275,31 @@ function slotTagMatchScore(slot: M01GreyboxTokenNode, tokenTags: Set<string>): n
 
 function evidenceTagMatchScore(evidence: M01GreyboxTokenNode, tokenTags: Set<string>): number {
   return evidence.tags.filter((tag) => tag !== "overlap_evidence" && tokenTags.has(tag)).length;
+}
+
+function isTargetPieceRotationCompatible(rotation: number | undefined, targetRotation: number): boolean {
+  return (
+    rotation === undefined ||
+    rotationDistanceDegrees(rotation, targetRotation) <= TARGET_PIECE_SNAP_ROTATION_TOLERANCE
+  );
+}
+
+function isExpectedTargetFragmentRotationCompatible(
+  layout: M01GreyboxLayout,
+  token: M01GreyboxTokenNode,
+  options: M01GreyboxDropOptions
+): boolean {
+  const targetSlot = layout.targetPieceSlots.find((slot) => slot.expectedFragmentId === token.controllerId);
+  return !targetSlot || isTargetPieceRotationCompatible(options.rotation, targetSlot.rotation);
+}
+
+function normalizeRotation(rotation: number): number {
+  return ((rotation % 360) + 360) % 360;
+}
+
+function rotationDistanceDegrees(left: number, right: number): number {
+  const delta = Math.abs(normalizeRotation(left) - normalizeRotation(right));
+  return Math.min(delta, 360 - delta);
 }
 
 function containsEvidenceMagnetContour(

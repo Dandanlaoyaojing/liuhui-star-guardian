@@ -94,6 +94,33 @@ describe("resolveM01GreyboxDrop", () => {
     });
   });
 
+  it("does not snap an expected fragment to a locked target slot when its rotation is wrong", () => {
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
+    const targetPosition = { x: 18, y: -40.5 };
+
+    expect(fragment).toBeDefined();
+    expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
+      type: "place_fragment_freely",
+      fragmentId: "fragment_triangle_blue_1",
+      position: targetPosition
+    });
+  });
+
+  it("does not weak-snap an expected fragment to generated evidence when its rotation is wrong", () => {
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
+    const evidence = layout.evidence.find(
+      (item) => item.controllerId === "current_manual_target_green_triangle_triangle_1"
+    );
+
+    expect(fragment).toBeDefined();
+    expect(evidence).toBeDefined();
+    expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position, { rotation: 0 })).toEqual({
+      type: "place_fragment_freely",
+      fragmentId: "fragment_triangle_blue_1",
+      position: evidence!.position
+    });
+  });
+
   it("keeps narrow target slots hittable after browser coordinate quantization", () => {
     const lockedLayout = buildM01GreyboxLayout({
       ...config,
