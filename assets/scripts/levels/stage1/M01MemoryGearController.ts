@@ -78,6 +78,7 @@ export interface M01OverlapEvidenceDef {
     offset: { x: number; y: number };
     rotation?: number;
     sourceShapes?: M01Shape[];
+    outline?: Array<{ x: number; y: number }>;
   };
   solution: {
     fragmentIds: [string, string];
@@ -95,6 +96,31 @@ export interface M01SlotDef {
   position?: { x: number; y: number };
 }
 
+export interface M01StandardPieceDef {
+  id: string;
+  shape: M01Shape;
+  size: { width: number; height: number };
+  source?: string;
+  pivot?: { x: number; y: number };
+}
+
+export interface M01TargetPieceInstanceDef {
+  id: string;
+  fragmentId?: string;
+  standardPieceId: string;
+  position: { x: number; y: number };
+  rotation?: number;
+  layer?: number;
+}
+
+export interface M01TargetPatternDef {
+  source: "manual_standard_piece_manifest";
+  coordinateSpace: "m01_board_local";
+  pieces: M01TargetPieceInstanceDef[];
+  locked?: boolean;
+  note?: string;
+}
+
 export interface M01MemoryGearConfig extends PuzzleConfig {
   description?: string;
   colors: M01BaseColor[];
@@ -102,6 +128,8 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
   flashlights: M01FlashlightDef[];
   fragments: M01CandidateFragmentDef[];
   evidence: M01OverlapEvidenceDef[];
+  standardPieces?: M01StandardPieceDef[];
+  targetPattern?: M01TargetPatternDef;
   dimensions?: string[];
   shapes?: M01Shape[];
   tuning?: {
@@ -491,6 +519,15 @@ export class M01MemoryGearController {
 
   getStagedEvidenceIds(): string[] {
     return [...this.stagedEvidencePairs.keys()];
+  }
+
+  resetCandidateStructure(): string[] {
+    const stagedFragmentIds = [...new Set([...this.stagedEvidencePairs.values()].flat())];
+    this.stagedEvidencePairs.clear();
+    this.invalidateValidatedStructure();
+    this.bottomLight = "off";
+    this.bottomLightFlashUntil = null;
+    return stagedFragmentIds;
   }
 
   validateCandidateStructure(): M01CandidateValidationResult {

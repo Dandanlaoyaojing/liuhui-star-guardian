@@ -1,0 +1,163 @@
+{
+  "capturedAt": "2026-05-06T16:14:01+08:00",
+  "sourceUrl": "http://127.0.0.1:7456/?scene=a2135734-fc11-4a0e-926d-40bc2301a752&m01ArtPreview=1",
+  "captureMode": "visual_fallback_from_current_browser_view",
+  "programmaticExportAtCapture": {
+    "exportNodeId": "m01-manual-target-export",
+    "placementCount": 0,
+    "evidenceCount": 0,
+    "placementsJson": [],
+    "evidenceJson": []
+  },
+  "notes": [
+    "The current browser view still showed a hand-built target on the M01 gear platform, but the page's hidden export node was empty.",
+    "No reload, click, drag, or address-bar JavaScript was used while making this record.",
+    "Chrome AppleScript JavaScript execution was disabled, so exact live Cocos Node positions could not be extracted from this already-open page.",
+    "Positions below are an approximate visual rescue record in M01 board-local coordinates, intended to preserve the target concept before the page is changed.",
+    "Duplicate fragment ids are guessed where the same shape/color has multiple copies in the config; use the shape/color/position as the authoritative part of this record."
+  ],
+  "coordinateSpace": "m01_board_local_approx",
+  "estimatedPlacements": [
+    {
+      "fragmentIdGuess": "fragment_hexagon_blue_1",
+      "alternateFragmentIds": ["fragment_hexagon_blue_2"],
+      "shapeToken": "hexagon",
+      "colorToken": "blue",
+      "position": {
+        "x": -30,
+        "y": 32
+      },
+      "rotation": 0,
+      "confidence": "medium"
+    },
+    {
+      "fragmentIdGuess": "fragment_circle_red_1",
+      "alternateFragmentIds": ["fragment_circle_red_2"],
+      "shapeToken": "circle",
+      "colorToken": "red",
+      "position": {
+        "x": 8,
+        "y": 42
+      },
+      "rotation": 0,
+      "confidence": "medium"
+    },
+    {
+      "fragmentIdGuess": "fragment_triangle_yellow_1",
+      "alternateFragmentIds": ["fragment_triangle_yellow_2"],
+      "shapeToken": "triangle",
+      "colorToken": "yellow",
+      "position": {
+        "x": 42,
+        "y": 14
+      },
+      "rotation": 0,
+      "confidence": "low"
+    },
+    {
+      "fragmentIdGuess": "fragment_circle_yellow_1",
+      "alternateFragmentIds": [],
+      "shapeToken": "circle",
+      "colorToken": "yellow",
+      "position": {
+        "x": -38,
+        "y": -38
+      },
+      "rotation": 0,
+      "confidence": "medium"
+    },
+    {
+      "fragmentIdGuess": "fragment_triangle_blue_1",
+      "alternateFragmentIds": [],
+      "shapeToken": "triangle",
+      "colorToken": "blue",
+      "position": {
+        "x": 20,
+        "y": -40
+      },
+      "rotation": 180,
+      "confidence": "low"
+    },
+    {
+      "fragmentIdGuess": "fragment_hexagon_red_1",
+      "alternateFragmentIds": ["fragment_hexagon_red_2"],
+      "shapeToken": "hexagon",
+      "colorToken": "red",
+      "position": {
+        "x": 10,
+        "y": -72
+      },
+      "rotation": 0,
+      "confidence": "medium"
+    }
+  ],
+  "lockedTargetPlacementsUsed": [
+    {
+      "fragmentId": "fragment_hexagon_blue_1",
+      "shapeToken": "hexagon",
+      "colorToken": "blue",
+      "position": { "x": -30, "y": 32 },
+      "rotation": 0
+    },
+    {
+      "fragmentId": "fragment_circle_red_1",
+      "shapeToken": "circle",
+      "colorToken": "red",
+      "position": { "x": 8, "y": 42 },
+      "rotation": 0
+    },
+    {
+      "fragmentId": "fragment_triangle_yellow_1",
+      "shapeToken": "triangle",
+      "colorToken": "yellow",
+      "position": { "x": 38, "y": 20 },
+      "rotation": 0
+    },
+    {
+      "fragmentId": "fragment_circle_yellow_1",
+      "shapeToken": "circle",
+      "colorToken": "yellow",
+      "position": { "x": -28, "y": -28 },
+      "rotation": 0
+    },
+    {
+      "fragmentId": "fragment_triangle_blue_1",
+      "shapeToken": "triangle",
+      "colorToken": "blue",
+      "position": { "x": 22, "y": -22 },
+      "rotation": 180
+    },
+    {
+      "fragmentId": "fragment_hexagon_red_1",
+      "shapeToken": "hexagon",
+      "colorToken": "red",
+      "position": { "x": 5, "y": -58 },
+      "rotation": 0
+    }
+  ],
+  "lockedEvidenceIds": [
+    "target_overlap_visual_rescue_purple_hexagon_circle_1",
+    "target_overlap_visual_rescue_orange_circle_triangle_1",
+    "target_overlap_visual_rescue_green_triangle_triangle_1",
+    "target_overlap_visual_rescue_orange_circle_hexagon_1",
+    "target_overlap_visual_rescue_purple_triangle_hexagon_1"
+  ],
+  "visibleOverlapIntent": [
+    {
+      "blendColor": "purple",
+      "sourceShapeColors": ["blue hexagon", "red circle"],
+      "region": "upper-center overlap"
+    },
+    {
+      "blendColor": "green",
+      "sourceShapeColors": ["blue hexagon or blue triangle", "yellow triangle"],
+      "region": "right-center overlap"
+    },
+    {
+      "blendColor": "orange",
+      "sourceShapeColors": ["yellow circle", "red hexagon or red circle"],
+      "region": "lower-left / lower-center overlap"
+    }
+  ],
+  "status": "recorded_as_visual_rescue_only"
+}

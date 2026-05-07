@@ -9,6 +9,7 @@ import {
 } from "../levels/stage1/M01MemoryGearController.ts";
 import type { M01GreyboxPoint } from "./M01GreyboxLayout.ts";
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
+import { resolveM01ConfigWithCurrentTargetEvidence } from "./M01TargetPatternGenerator.ts";
 
 export const M01_OBSERVED_REVEAL_MS = 2_000;
 
@@ -126,8 +127,8 @@ export class M01GreyboxSession {
   >();
 
   private constructor(config: M01MemoryGearConfig, options: M01GreyboxSessionOptions = {}) {
-    this.config = config;
-    this.controller = M01MemoryGearController.fromConfig(config, options);
+    this.config = resolveM01ConfigWithCurrentTargetEvidence(config);
+    this.controller = M01MemoryGearController.fromConfig(this.config, options);
     this.text = options.text ?? {};
     this.now = options.now ?? Date.now;
   }
@@ -479,6 +480,13 @@ export class M01GreyboxSession {
   areAllEvidenceStaged(): boolean {
     const evidence = this.config.evidence ?? [];
     return evidence.length > 0 && evidence.every((candidate) => this.controller.isEvidenceStaged(candidate.id));
+  }
+
+  resetCandidateStructure(): string[] {
+    this.heldFragmentId = undefined;
+    this.selectedFragmentId = undefined;
+    this.lastFeedback = undefined;
+    return this.controller.resetCandidateStructure();
   }
 
   validateCandidateStructure(): {

@@ -1,4 +1,10 @@
-import type { M01GreyboxLayout, M01GreyboxTokenNode } from "./M01GreyboxLayout.ts";
+import {
+  M01_STANDARD_PIECE_DISPLAY_SIZE,
+  type M01GreyboxLayout,
+  type M01GreyboxPoint,
+  type M01GreyboxTokenNode
+} from "./M01GreyboxLayout.ts";
+import type { M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
 
 export type M01GreyboxArtSliceId =
   | "gearStar"
@@ -39,7 +45,11 @@ export type M01GreyboxRuntimeFlashlightId =
   | "flashlight_yellow"
   | "flashlight_blue";
 export type M01GreyboxRuntimeFilterId = "red" | "blue" | "yellow";
-export type M01GreyboxRuntimeSurfaceId = "fragment_floor" | "toolcard_frame";
+export type M01GreyboxRuntimeSurfaceId =
+  | "fragment_floor"
+  | "target_reference_card"
+  | "single_flashlight_tool"
+  | "toolcard_frame";
 export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeFragmentId
   | M01GreyboxRuntimeHiddenFragmentId
@@ -54,6 +64,8 @@ export type M01GreyboxRuntimeSpriteRole =
   | "flashlight_token"
   | "evidence_marker_token"
   | "repair_object_token"
+  | "target_reference_surface"
+  | "flashlight_tool_surface"
   | "fragment_floor_surface"
   | "toolcard_frame_surface";
 
@@ -116,6 +128,17 @@ export interface M01GreyboxArtPreviewLayer {
     width: number;
     height: number;
   };
+  spriteSize?: {
+    width: number;
+    height: number;
+  };
+  rotationDegrees?: number;
+  tintColor?: {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+  };
 }
 
 export interface M01GreyboxArtPreviewPlan {
@@ -136,6 +159,40 @@ export interface M01GreyboxTokenArtPlan {
   tokens: M01GreyboxTokenArtLayer[];
 }
 
+export interface M01GreyboxTargetStandardPieceLayer {
+  id: string;
+  pieceSlotId: string;
+  standardPieceId?: string;
+  shapeToken: M01Shape;
+  interactive: false;
+  position: M01GreyboxPoint;
+  displaySize: {
+    width: number;
+    height: number;
+  };
+  rotationDegrees: number;
+  layer: number;
+}
+
+export interface M01GreyboxTargetStandardPiecePlan {
+  enabledByDefault: false;
+  pieces: M01GreyboxTargetStandardPieceLayer[];
+}
+
+export interface M01GreyboxTargetOverlapEvidenceLayer {
+  id: string;
+  evidenceId: string;
+  colorToken: string;
+  interactive: false;
+  position: M01GreyboxPoint;
+  outline: M01GreyboxPoint[];
+}
+
+export interface M01GreyboxTargetOverlapEvidencePlan {
+  enabledByDefault: false;
+  overlaps: M01GreyboxTargetOverlapEvidenceLayer[];
+}
+
 export const M01_GREYBOX_ART_ASSET_ROOT = "assets/art/stage1-m01";
 export const M01_GREYBOX_ART_RESOURCE_ROOT = "assets/resources/art/stage1-m01";
 export const M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT =
@@ -144,6 +201,8 @@ export const M01_GREYBOX_RUNTIME_SPRITE_ROOT =
   "assets/resources/art/stage1-m01/runtime-sprites";
 export const M01_GREYBOX_ART_SOURCE_SHEET =
   "docs/design/generated-m01-art-slices/m01-runtime-sprite-sheet-candidate-v2.png";
+export const M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET =
+  "docs/design/generated-m01-art-slices/m01-fragment-porcelain-watercolor-contact-20260504.png";
 
 function artSliceFile(filename: string): string {
   return `${M01_GREYBOX_ART_ASSET_ROOT}/${filename}`;
@@ -231,7 +290,7 @@ function runtimeFragmentResource(
     id,
     role: "fragment_token",
     file,
-    sourceFile: `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-memory-fragments-slice-transparent.png`,
+    sourceFile: M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET,
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("fragments", filename),
     runtimeStatus: "isolated_candidate"
@@ -265,10 +324,11 @@ function runtimeHiddenFragmentResource(
     id,
     role: "fragment_token",
     file,
-    sourceFile: `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-memory-fragments-slice-transparent.png`,
+    sourceFile: M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET,
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
-    runtimeStatus: "isolated_candidate"
+    runtimeStatus: "isolated_candidate",
+    displaySize: M01_STANDARD_PIECE_DISPLAY_SIZE
   };
 }
 
@@ -308,7 +368,12 @@ function runtimeFlashlightResource(
 
 function runtimeSurfaceResource(
   id: "gearStar" | M01GreyboxRuntimeSurfaceId,
-  role: "repair_object_token" | "fragment_floor_surface" | "toolcard_frame_surface",
+  role:
+    | "repair_object_token"
+    | "target_reference_surface"
+    | "flashlight_tool_surface"
+    | "fragment_floor_surface"
+    | "toolcard_frame_surface",
   filename: string,
   sourceFile: string,
   displaySize?: { width: number; height: number }
@@ -332,8 +397,8 @@ function runtimeGearResource(): M01GreyboxRuntimeSpriteResource {
     "gearStar",
     "repair_object_token",
     "m01-overlap-memory-gear.png",
-    `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-gear-star-slice-transparent.png`,
-    { width: 300, height: 300 }
+    "docs/design/generated-m01-art-slices/m01-overlap-memory-gear-full-outline-rich-color-runtime.png",
+    { width: 553, height: 553 }
   );
 }
 
@@ -437,6 +502,18 @@ export const M01_GREYBOX_RUNTIME_SURFACE_RESOURCES: M01GreyboxRuntimeSpriteResou
     `${M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT}/m01-nine-slot-tray-slice-transparent.png`
   ),
   runtimeSurfaceResource(
+    "target_reference_card",
+    "target_reference_surface",
+    "m01-target-reference-card.png",
+    "docs/design/generated-m01-art-slices/m01-generated-watercolor-psd-assets/source/m01-locked-knot-target-colored-overlaps-only-v1.png"
+  ),
+  runtimeSurfaceResource(
+    "single_flashlight_tool",
+    "flashlight_tool_surface",
+    "m01-single-flashlight-tool.png",
+    "docs/design/generated-m01-art-slices/m01-single-flashlight-tool-runtime-fixed.png"
+  ),
+  runtimeSurfaceResource(
     "toolcard_frame",
     "toolcard_frame_surface",
     "m01-toolcard-preview-frame.png",
@@ -494,9 +571,7 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
   }
 
   if (token.kind === "flashlight") {
-    return M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES.find(
-      (resource) => resource.id === `flashlight_${token.colorToken}`
-    );
+    return undefined;
   }
 
   if (token.kind === "gear") {
@@ -504,6 +579,45 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
   }
 
   return undefined;
+}
+
+export function buildM01GreyboxTargetStandardPiecePlan(
+  layout: M01GreyboxLayout
+): M01GreyboxTargetStandardPiecePlan {
+  return {
+    enabledByDefault: false,
+    pieces: layout.targetPieceSlots
+      .map((slot): M01GreyboxTargetStandardPieceLayer => ({
+          id: `target_standard_piece_${slot.id}`,
+          pieceSlotId: slot.id,
+          standardPieceId: slot.standardPieceId,
+          shapeToken: slot.shapeToken,
+          interactive: false,
+          position: slot.position,
+          displaySize: slot.size,
+          rotationDegrees: slot.rotation,
+          layer: slot.layer
+        }))
+      .sort((a, b) => a.layer - b.layer)
+  };
+}
+
+export function buildM01GreyboxTargetOverlapEvidencePlan(
+  layout: M01GreyboxLayout
+): M01GreyboxTargetOverlapEvidencePlan {
+  return {
+    enabledByDefault: false,
+    overlaps: layout.evidence
+      .filter((evidence) => (evidence.magnetPolygon?.length ?? 0) >= 3)
+      .map((evidence): M01GreyboxTargetOverlapEvidenceLayer => ({
+        id: `target_overlap_${evidence.controllerId}`,
+        evidenceId: evidence.controllerId,
+        colorToken: evidence.colorToken,
+        interactive: false,
+        position: evidence.sourcePosition ?? evidence.position,
+        outline: evidence.magnetPolygon ?? []
+      }))
+  };
 }
 
 export function buildM01GreyboxArtPreviewPlan(): M01GreyboxArtPreviewPlan {
@@ -555,23 +669,26 @@ export function buildM01GreyboxStaticArtPlan(
   layout?: M01GreyboxLayout
 ): M01GreyboxArtPreviewPlan {
   if (layout && layout.evidence.length > 0) {
-    const fragmentFloor = M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
-      (resource) => resource.id === "fragment_floor"
+    const singleFlashlightTool = M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
+      (resource) => resource.id === "single_flashlight_tool"
     );
+    const layers: M01GreyboxArtPreviewLayer[] = [];
+
+    if (singleFlashlightTool) {
+      layers.push({
+        id: "singleFlashlightTool",
+        role: "flashlight_tool_surface",
+        resourcesLoadPath: singleFlashlightTool.resourcesLoadPath,
+        interactive: false,
+        position: { x: 420, y: 72 },
+        size: { width: 58, height: 128 },
+        rotationDegrees: 168
+      });
+    }
+
     return {
       enabledByDefault: false,
-      layers: fragmentFloor
-        ? [
-            {
-              id: "fragmentFloor",
-              role: "fragment_floor_surface",
-              resourcesLoadPath: fragmentFloor.resourcesLoadPath,
-              interactive: false,
-              position: { x: 0, y: -248 },
-              size: { width: 960, height: 128 }
-            }
-          ]
-        : []
+      layers
     };
   }
 
@@ -602,6 +719,7 @@ export function buildM01GreyboxTokenArtPlan(layout: M01GreyboxLayout): M01Greybo
     ...layout.flashlights,
     ...(layout.filters ?? [])
   ]
+    .filter((token) => token.kind !== "evidence")
     .map((token): M01GreyboxTokenArtLayer | undefined => {
       const resource = getM01GreyboxRuntimeSpriteResourceForToken(token);
       if (!resource) {
@@ -629,6 +747,14 @@ export function getM01GreyboxToolCardFrameResource():
   | undefined {
   return M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
     (resource) => resource.id === "toolcard_frame"
+  );
+}
+
+export function getM01GreyboxTargetReferenceCardResource():
+  | M01GreyboxRuntimeSpriteResource
+  | undefined {
+  return M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
+    (resource) => resource.id === "target_reference_card"
   );
 }
 

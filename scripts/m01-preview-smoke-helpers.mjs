@@ -1,5 +1,7 @@
 const CANVAS_SIZE = { width: 960, height: 640 };
 const FREE_DROP_Y_OFFSET = 92;
+const EVIDENCE_WORK_AREA_CENTER = { x: 0, y: 0 };
+const EVIDENCE_WORK_AREA_SCALE = 0.85;
 
 function assert(condition, message) {
   if (!condition) {
@@ -17,23 +19,79 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function centerOfPoints(points) {
+  const bounds = points.reduce(
+    (current, point) => ({
+      minX: Math.min(current.minX, point.x),
+      maxX: Math.max(current.maxX, point.x),
+      minY: Math.min(current.minY, point.y),
+      maxY: Math.max(current.maxY, point.y)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+  );
+
+  return {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2
+  };
+}
+
+function buildEvidenceWorkPositions(evidenceItems) {
+  const sourceCenter = centerOfPoints(evidenceItems.map((evidence) => evidence.position));
+
+  return Object.fromEntries(
+    evidenceItems.map((evidence) => [
+      evidence.id,
+      {
+        x:
+          EVIDENCE_WORK_AREA_CENTER.x +
+          (evidence.position.x - sourceCenter.x) * EVIDENCE_WORK_AREA_SCALE,
+        y:
+          EVIDENCE_WORK_AREA_CENTER.y +
+          (evidence.position.y - sourceCenter.y) * EVIDENCE_WORK_AREA_SCALE
+      }
+    ])
+  );
+}
+
 export function buildRealInputPlan(config) {
   const flashlight = findById(config.flashlights ?? [], "flashlight_red", "flashlight");
   const revealFragment = findById(config.fragments ?? [], "fragment_circle_blue_1", "fragment");
-  const freePlacementFragment = findById(
-    config.fragments ?? [],
-    "fragment_circle_yellow_1",
-    "fragment"
+  const evidence = config.evidence?.[0];
+  assert(evidence, "Missing first completion evidence.");
+  const [firstStagedFragment, secondStagedFragment] = evidence.solution.fragmentIds.map((fragmentId) =>
+    findById(config.fragments ?? [], fragmentId, "fragment")
   );
-  const firstStagedFragment = findById(config.fragments ?? [], "fragment_circle_red_1", "fragment");
-  const secondStagedFragment = findById(config.fragments ?? [], "fragment_triangle_blue_1", "fragment");
-  const evidence = findById(config.evidence ?? [], "evidence_purple_upper_left", "evidence");
+  const solutionFragmentIds = new Set(
+    (config.evidence ?? []).flatMap((candidate) => candidate.solution.fragmentIds)
+  );
+  const freePlacementFragment = (config.fragments ?? []).find(
+    (fragment) => fragment.id !== revealFragment.id && !solutionFragmentIds.has(fragment.id)
+  );
+  assert(freePlacementFragment, "Need at least one decoy fragment for free-placement smoke.");
+  const evidenceWorkPositions = buildEvidenceWorkPositions(config.evidence ?? []);
+  const flashlightPosition = { x: 420, y: 68 };
+  const flashlightPickerRedPosition = { x: 284, y: 82 };
   const heldFlashlightPosition = { x: -252, y: -202 };
   const completionEvidence = (config.evidence ?? []).map((candidate) => ({
     evidenceId: candidate.id,
-    evidencePosition: candidate.position,
+    evidencePosition: evidenceWorkPositions[candidate.id],
     fragmentIds: [...candidate.solution.fragmentIds]
   }));
+  const completionTargetPieces = config.targetPattern?.locked
+    ? (config.targetPattern.pieces ?? [])
+        .filter((piece) => piece.fragmentId)
+        .map((piece) => ({
+          fragmentId: piece.fragmentId,
+          targetPosition: piece.position,
+          targetRotation: piece.rotation ?? 0
+        }))
+    : [];
   const freeDropPosition = {
     x: 0,
     y: clamp(revealFragment.position.y + FREE_DROP_Y_OFFSET, -CANVAS_SIZE.height / 2 + 24, 0)
@@ -42,7 +100,8 @@ export function buildRealInputPlan(config) {
   return {
     canvasSize: CANVAS_SIZE,
     flashlightId: flashlight.id,
-    flashlightPosition: flashlight.position,
+    flashlightPosition,
+    flashlightPickerRedPosition,
     heldFlashlightPosition,
     revealFragmentId: revealFragment.id,
     revealFragmentPosition: revealFragment.position,
@@ -52,12 +111,16 @@ export function buildRealInputPlan(config) {
       fragmentPosition: freePlacementFragment.position,
       dropPosition: freeDropPosition
     },
+    completionTargetPieces,
     completionEvidence,
     expectedToolCardTitle: config.toolCard?.front?.toolName,
     stageEvidence: {
       evidenceId: evidence.id,
-      evidencePosition: evidence.position,
-      fragmentIds: [firstStagedFragment.id, secondStagedFragment.id]
+      evidencePosition: evidenceWorkPositions[evidence.id],
+      fragmentIds: [firstStagedFragment.id, secondStagedFragment.id],
+      targetPieces: completionTargetPieces.filter((piece) =>
+        evidence.solution.fragmentIds.includes(piece.fragmentId)
+      )
     }
   };
 }

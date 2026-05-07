@@ -1,5 +1,6 @@
 const DEFAULT_MCP_BASE_URL = process.env.M01_COCOS_MCP_URL ?? "http://127.0.0.1:3000";
 const DEFAULT_SMOKE_COMMAND = "npm run smoke:m01-preview";
+const REFRESH_REQUEST_TIMEOUT_MS = 2000;
 const STALE_PREVIEW_SYMPTOMS = [
   "missing fragment_circle_* nodes in smoke output",
   "missing evidence_* nodes in smoke output",
@@ -45,7 +46,8 @@ async function postJson(url, body) {
       headers: {
         "content-type": "application/json"
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REFRESH_REQUEST_TIMEOUT_MS)
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

@@ -7,10 +7,12 @@ import { m01LegacySortConfig as config } from "./m01LegacySortConfig.ts";
 
 const realConfig = m01ConfigJson as unknown as M01MemoryGearConfig;
 const CORRECT_EVIDENCE_PAIRS: Array<[string, [string, string]]> = [
-  ["evidence_purple_upper_left", ["fragment_circle_red_1", "fragment_triangle_blue_1"]],
-  ["evidence_green_upper_right", ["fragment_triangle_yellow_1", "fragment_hexagon_blue_1"]],
-  ["evidence_orange_lower_right", ["fragment_hexagon_red_1", "fragment_hexagon_yellow_1"]],
-  ["evidence_purple_lower_left", ["fragment_hexagon_red_2", "fragment_circle_blue_1"]]
+  ["current_manual_target_green_circle_hexagon_1", ["fragment_circle_yellow_1", "fragment_hexagon_blue_1"]],
+  ["current_manual_target_orange_circle_hexagon_1", ["fragment_circle_yellow_1", "fragment_hexagon_red_2"]],
+  ["current_manual_target_orange_circle_triangle_1", ["fragment_circle_red_2", "fragment_triangle_yellow_2"]],
+  ["current_manual_target_purple_circle_hexagon_1", ["fragment_circle_red_2", "fragment_hexagon_blue_1"]],
+  ["current_manual_target_green_triangle_triangle_1", ["fragment_triangle_blue_1", "fragment_triangle_yellow_2"]],
+  ["current_manual_target_purple_triangle_hexagon_1", ["fragment_triangle_blue_1", "fragment_hexagon_red_2"]]
 ];
 
 function submitCorrectCandidate(session: M01GreyboxSession): void {
@@ -20,9 +22,9 @@ function submitCorrectCandidate(session: M01GreyboxSession): void {
 }
 
 function submitWrongColorCompleteCandidate(session: M01GreyboxSession): void {
-  session.submitEvidencePair("evidence_purple_upper_left", [
-    "fragment_circle_red_1",
-    "fragment_triangle_yellow_2"
+  session.submitEvidencePair("current_manual_target_green_circle_hexagon_1", [
+    "fragment_circle_red_2",
+    "fragment_hexagon_blue_1"
   ]);
   for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
     session.submitEvidencePair(evidenceId, fragmentIds);
@@ -30,9 +32,9 @@ function submitWrongColorCompleteCandidate(session: M01GreyboxSession): void {
 }
 
 function submitWrongFragmentSetCompleteCandidate(session: M01GreyboxSession): void {
-  session.submitEvidencePair("evidence_purple_upper_left", [
-    "fragment_circle_red_2",
-    "fragment_triangle_blue_1"
+  session.submitEvidencePair("current_manual_target_green_circle_hexagon_1", [
+    "fragment_circle_blue_1",
+    "fragment_hexagon_yellow_1"
   ]);
   for (const [evidenceId, fragmentIds] of CORRECT_EVIDENCE_PAIRS.slice(1)) {
     session.submitEvidencePair(evidenceId, fragmentIds);
@@ -260,7 +262,10 @@ describe("M01GreyboxSession", () => {
     });
     expect(session.getFragmentView("fragment_circle_blue_1")).not.toHaveProperty("observedColor");
 
-    session.weakSnapFragmentToEvidence("fragment_circle_blue_1", "evidence_purple_upper_left");
+    session.weakSnapFragmentToEvidence(
+      "fragment_circle_blue_1",
+      "current_manual_target_green_circle_hexagon_1"
+    );
 
     expect(session.getFragmentView("fragment_circle_blue_1")).toMatchObject({
       presentation: "normal"
@@ -335,7 +340,7 @@ describe("M01GreyboxSession", () => {
     expect(session.requestHint()).toMatchObject({
       level: 3,
       text: "HINT EVIDENCE",
-      targetIds: expect.arrayContaining(["evidence_purple_upper_left"])
+      targetIds: expect.arrayContaining(["current_manual_target_green_circle_hexagon_1"])
     });
   });
 
@@ -343,7 +348,10 @@ describe("M01GreyboxSession", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
 
     expect(
-      session.weakSnapFragmentToEvidence("fragment_triangle_red_1", "evidence_purple_upper_left")
+      session.weakSnapFragmentToEvidence(
+        "fragment_hexagon_red_2",
+        "current_manual_target_green_circle_hexagon_1"
+      )
     ).toMatchObject({
       accepted: true,
       completedEvidenceCount: 0,
@@ -355,7 +363,10 @@ describe("M01GreyboxSession", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
 
     expect(
-      session.weakSnapFragmentToEvidence("fragment_hexagon_red_1", "evidence_purple_upper_left")
+      session.weakSnapFragmentToEvidence(
+        "fragment_triangle_red_1",
+        "current_manual_target_green_circle_hexagon_1"
+      )
     ).toMatchObject({
       accepted: false,
       reason: "wrong_shape",
@@ -380,13 +391,13 @@ describe("M01GreyboxSession", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
     submitCorrectCandidate(session);
 
-    expect(session.pickFragment("fragment_circle_red_1")).toMatchObject({
+    expect(session.pickFragment("fragment_circle_yellow_1")).toMatchObject({
       accepted: true,
-      heldFragmentId: "fragment_circle_red_1"
+      heldFragmentId: "fragment_circle_yellow_1"
     });
     expect(session.placeHeldFragment({ x: 320, y: -180 })).toMatchObject({
       accepted: true,
-      fragmentId: "fragment_circle_red_1",
+      fragmentId: "fragment_circle_yellow_1",
       placement: "free"
     });
 
@@ -409,18 +420,18 @@ describe("M01GreyboxSession", () => {
       bottomLight: "flash_then_off"
     });
 
-    expect(session.getFragmentView("fragment_circle_red_1")).toMatchObject({
+    expect(session.getFragmentView("fragment_circle_red_2")).toMatchObject({
       validationColor: "red",
       presentation: "highlighted"
     });
-    expect(session.getFragmentView("fragment_triangle_yellow_2")).toMatchObject({
-      validationColor: "yellow",
+    expect(session.getFragmentView("fragment_hexagon_blue_1")).toMatchObject({
+      validationColor: "blue",
       presentation: "highlighted"
     });
-    expect(session.getFragmentView("fragment_triangle_red_1")).toMatchObject({
+    expect(session.getFragmentView("fragment_hexagon_yellow_1")).toMatchObject({
       presentation: "normal"
     });
-    expect(session.getFragmentView("fragment_triangle_red_1")).not.toHaveProperty("validationColor");
+    expect(session.getFragmentView("fragment_hexagon_yellow_1")).not.toHaveProperty("validationColor");
 
     now += 2_000;
 
@@ -441,15 +452,19 @@ describe("M01GreyboxSession", () => {
       validationLightSeconds: 2,
       completed: false
     });
-    expect(session.getFragmentView("fragment_circle_red_1")).toMatchObject({
+    expect(session.getFragmentView("fragment_circle_red_2")).toMatchObject({
       validationColor: "red",
+      presentation: "highlighted"
+    });
+    expect(session.getFragmentView("fragment_hexagon_blue_1")).toMatchObject({
+      validationColor: "blue",
       presentation: "highlighted"
     });
 
     expect(
-      session.submitEvidencePair("evidence_purple_upper_left", [
-        "fragment_circle_red_1",
-        "fragment_triangle_blue_1"
+      session.submitEvidencePair("current_manual_target_green_circle_hexagon_1", [
+        "fragment_circle_yellow_1",
+        "fragment_hexagon_blue_1"
       ])
     ).toMatchObject({
       accepted: true,
@@ -462,10 +477,10 @@ describe("M01GreyboxSession", () => {
       completed: false,
       bottomLight: "off"
     });
-    expect(session.getFragmentView("fragment_circle_red_1")).toMatchObject({
+    expect(session.getFragmentView("fragment_circle_red_2")).toMatchObject({
       presentation: "normal"
     });
-    expect(session.getFragmentView("fragment_circle_red_1")).not.toHaveProperty("validationColor");
+    expect(session.getFragmentView("fragment_circle_red_2")).not.toHaveProperty("validationColor");
 
     expect(session.validateCandidateStructure()).toMatchObject({
       accepted: true,
@@ -500,6 +515,32 @@ describe("M01GreyboxSession", () => {
     });
   });
 
+  it("can reset a failed overlap-evidence candidate after the validation flash", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    submitWrongColorCompleteCandidate(session);
+
+    expect(session.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      bottomLight: "flash_then_off"
+    });
+    expect(session.areAllEvidenceStaged()).toBe(true);
+
+    expect(session.resetCandidateStructure().sort()).toEqual([
+      "fragment_circle_yellow_1",
+      "fragment_circle_red_2",
+      "fragment_hexagon_blue_1",
+      "fragment_hexagon_red_2",
+      "fragment_triangle_blue_1",
+      "fragment_triangle_yellow_2"
+    ].sort());
+    expect(session.areAllEvidenceStaged()).toBe(false);
+    expect(session.getCompletionState()).toMatchObject({
+      completed: false,
+      bottomLight: "off",
+      reconstructedEvidenceCount: 0
+    });
+  });
+
   it("supports click-pick and click-place so staged fragments can be corrected", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
 
@@ -514,15 +555,15 @@ describe("M01GreyboxSession", () => {
       placement: "free"
     });
 
-    session.submitEvidencePair("evidence_purple_upper_left", [
-      "fragment_circle_red_1",
-      "fragment_triangle_yellow_2"
+    session.submitEvidencePair("current_manual_target_green_circle_hexagon_1", [
+      "fragment_hexagon_blue_2",
+      "fragment_circle_blue_1"
     ]);
 
     expect(
-      session.submitEvidencePair("evidence_purple_upper_left", [
-        "fragment_circle_red_1",
-        "fragment_triangle_blue_1"
+      session.submitEvidencePair("current_manual_target_green_circle_hexagon_1", [
+        "fragment_circle_yellow_1",
+        "fragment_hexagon_blue_1"
       ])
     ).toMatchObject({
       accepted: true,
@@ -536,7 +577,10 @@ describe("M01GreyboxSession", () => {
     session.selectFlashlight("flashlight_red");
     session.pickFragment("fragment_circle_red_1");
     expect(
-      session.weakSnapFragmentToEvidence("fragment_circle_red_1", "evidence_purple_upper_left")
+      session.weakSnapFragmentToEvidence(
+        "fragment_circle_red_1",
+        "current_manual_target_green_circle_hexagon_1"
+      )
     ).toMatchObject({
       accepted: true
     });

@@ -9,12 +9,71 @@ describe("buildRealInputPlan", () => {
     const plan = buildRealInputPlan(m01Config);
 
     expect(plan.completionEvidence).toEqual(
-      m01Config.evidence.map((evidence) => ({
-        evidenceId: evidence.id,
-        evidencePosition: evidence.position,
-        fragmentIds: evidence.solution.fragmentIds
+      expect.arrayContaining(
+        m01Config.evidence.map((evidence) =>
+          expect.objectContaining({
+            evidenceId: evidence.id,
+            fragmentIds: evidence.solution.fragmentIds
+          })
+        )
+      )
+    );
+    expect(
+      plan.completionEvidence.every(
+        (evidence: { evidencePosition: { x: number; y: number } }) =>
+          Math.abs(evidence.evidencePosition.x) <= 150 &&
+          Math.abs(evidence.evidencePosition.y) <= 150
+      )
+    ).toBe(true);
+    expect(Math.abs(plan.stageEvidence.evidencePosition.x)).toBeLessThanOrEqual(150);
+    expect(Math.abs(plan.stageEvidence.evidencePosition.y)).toBeLessThanOrEqual(150);
+    expect(plan.flashlightPosition).toEqual({ x: 420, y: 68 });
+    expect(plan.expectedToolCardTitle).toBe(m01Config.toolCard.front.toolName);
+  });
+
+  it("drives locked target completion by placing each exact target piece once", async () => {
+    // @ts-expect-error The smoke helper is a repo-local Node ESM script without a TS declaration.
+    const { buildRealInputPlan } = await import("../scripts/m01-preview-smoke-helpers.mjs");
+    const plan = buildRealInputPlan(m01Config);
+
+    expect(plan.completionTargetPieces).toEqual(
+      m01Config.targetPattern.pieces.map((piece) => ({
+        fragmentId: piece.fragmentId,
+        targetPosition: piece.position,
+        targetRotation: piece.rotation ?? 0
       }))
     );
-    expect(plan.expectedToolCardTitle).toBe(m01Config.toolCard.front.toolName);
+    expect(plan.stageEvidence.targetPieces).toEqual(
+      plan.completionTargetPieces.filter((piece: { fragmentId: string }) =>
+        plan.stageEvidence.fragmentIds.includes(piece.fragmentId)
+      )
+    );
+  });
+
+  it("uses a decoy fragment for free-placement smoke so staged solution pieces stay at their start positions", async () => {
+    // @ts-expect-error The smoke helper is a repo-local Node ESM script without a TS declaration.
+    const { buildRealInputPlan } = await import("../scripts/m01-preview-smoke-helpers.mjs");
+    const plan = buildRealInputPlan(m01Config);
+    const solutionFragmentIds = new Set(
+      m01Config.evidence.flatMap((evidence) => evidence.solution.fragmentIds)
+    );
+
+    expect(solutionFragmentIds.has(plan.freePlacement.fragmentId)).toBe(false);
+    expect(plan.stageEvidence.fragmentIds).not.toContain(plan.freePlacement.fragmentId);
+  });
+
+  it("builds a complete wrong candidate with a shape-compatible replacement pair", async () => {
+    // @ts-expect-error The smoke script is a repo-local Node ESM script without a TS declaration.
+    const { buildWrongCandidate } = await import("../scripts/m01-preview-smoke.mjs");
+    const wrongPairs = buildWrongCandidate(m01Config);
+    const firstEvidence = m01Config.evidence[0];
+
+    expect(Object.keys(wrongPairs).sort()).toEqual(m01Config.evidence.map((evidence) => evidence.id).sort());
+    expect(wrongPairs[firstEvidence.id]).not.toEqual(firstEvidence.solution.fragmentIds);
+    expect(wrongPairs[firstEvidence.id]).toHaveLength(2);
+    expect(wrongPairs[firstEvidence.id].some((fragmentId: string) => fragmentId.includes("_circle_")))
+      .toBe(true);
+    expect(wrongPairs[firstEvidence.id].some((fragmentId: string) => fragmentId.includes("_hexagon_")))
+      .toBe(true);
   });
 });

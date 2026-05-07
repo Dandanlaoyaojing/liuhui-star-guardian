@@ -38,6 +38,19 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("observedColor");
   });
 
+  it("keeps preview smoke useful while the M01 target manifest is unlocked for manual composition", () => {
+    const smokeScript = readFileSync(
+      join(projectRoot, "scripts/m01-preview-smoke.mjs"),
+      "utf8"
+    );
+
+    expect(smokeScript).toContain("manualTargetCompositionMode");
+    expect(smokeScript).toContain("config.targetPattern?.locked === false");
+    expect(smokeScript).toContain("m01-preview-manual-composition-smoke.png");
+    expect(smokeScript).toContain("manualTargetCompositionMode || browserInputAttempt.isEvidenceStaged");
+    expect(smokeScript).toContain("if (!manualTargetCompositionMode) {");
+  });
+
   it("drives the flashlight as a held tool before revealing fragments", () => {
     const smokeScript = readFileSync(
       join(projectRoot, "scripts/m01-preview-smoke.mjs"),
@@ -62,6 +75,9 @@ describe("M01 preview smoke script", () => {
     );
 
     expect(smokeScript).toContain("completionEvidence");
+    expect(smokeScript).toContain("targetPieceRotations");
+    expect(smokeScript).toContain("targetRotation");
+    expect(smokeScript).toContain("rotationDistance");
     expect(smokeScript).toContain("expectedToolCardTitle");
     expect(smokeScript).toContain('bottomLight === "steady_on"');
     expect(smokeScript).toContain("M01ToolCardTitle");
@@ -79,6 +95,8 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("--capture-clean-qa");
     expect(smokeScript).toContain("m01-preview-clean-qa.png");
     expect(smokeScript).toContain("hidePreviewChrome");
+    expect(smokeScript).toContain("assertNoPrematureToolCard");
+    expect(smokeScript).toContain("ToolCard preview should stay hidden before completion");
   });
 
   it("can temporarily enable art-preview mode for visual QA without changing the default toggle", () => {
@@ -91,6 +109,18 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("enableArtPreviewMode");
     expect(smokeScript).toContain("bootstrap.enableArtPreview = true");
     expect(smokeScript).toContain("m01-art-preview-clean-qa.png");
+    expect(smokeScript).toContain("hasOldTargetReferenceCard");
+    expect(smokeScript).toContain("platformEvidenceNodes");
+    expect(smokeScript).toContain("M01Token_current_manual_target_");
+    expect(smokeScript).toContain("targetOverlapEvidenceNodes");
+    expect(smokeScript).toContain("M01TargetOverlapEvidence_current_manual_target_");
+    expect(smokeScript).toContain("hasSingleFlashlightTool");
+    expect(smokeScript).toContain("hasFragmentFloor");
+    expect(smokeScript).toContain("M01StaticArt_targetReferenceCard");
+    expect(smokeScript).toContain("M01StaticArt_singleFlashlightTool");
     expect(smokeScript).toContain("M01StaticArt_fragmentFloor");
+    expect(smokeScript).toContain("completionArtPreview");
+    expect(smokeScript).toContain("after_flashlight_picker_select");
+    expect(smokeScript).toContain("flashlightPickerRedPosition");
   });
 });

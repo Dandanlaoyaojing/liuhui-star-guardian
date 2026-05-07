@@ -209,6 +209,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("M01ToolCardPreview");
     expect(bootstrap).toContain("M01ToolCardPreviewArtFrame");
     expect(bootstrap).toContain("renderToolCardPreview");
+    expect(bootstrap).toContain("renderToolCardArtFrame");
   });
 
   it("does not leave the completion feedback label underneath the ToolCard preview", () => {
@@ -267,6 +268,21 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validationLightSeconds");
   });
 
+  it("opens an enlarged M01 flashlight button picker in art preview before choosing a light", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("flashlightButtonPickerRoot");
+    expect(bootstrap).toContain("M01FlashlightButtonPicker");
+    expect(bootstrap).toContain("M01FlashlightPickerButton_${color}");
+    expect(bootstrap).toContain('layer.id === "singleFlashlightTool"');
+    expect(bootstrap).toContain("openFlashlightButtonPicker()");
+    expect(bootstrap).toContain("selectFlashlightFromPicker(`flashlight_${color}`)");
+    expect(bootstrap).toContain("this.flashlightBeamLit = true");
+    expect(bootstrap).toContain("colorForFlashlightPickerButton");
+    expect(bootstrap).toContain("blue: new Color(80, 110, 206, 235)");
+    expect(bootstrap).not.toContain("blue: new Color(92, 134, 164, 235)");
+  });
+
   it("keeps M01 overlap evidence staging inside the greybox instead of adding a validation button", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
@@ -298,8 +314,9 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain('token.shapeToken === "branch_lens"');
   });
 
-  it("renders M01 candidate fragments as hidden-color fixed-shape grey pieces", () => {
+  it("renders M01 candidate fragments as own-color fixed-shape pieces", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const layout = readText("assets/scripts/cocos/M01GreyboxLayout.ts");
 
     expect(bootstrap).toContain('token.shapeToken === "triangle"');
     expect(bootstrap).toContain('token.shapeToken === "hexagon"');
@@ -313,7 +330,84 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain('token.shapeToken === "crescent_right"');
     expect(bootstrap).not.toContain('token.shapeToken === "branch_left"');
     expect(bootstrap).not.toContain('token.shapeToken === "branch_right"');
-    expect(bootstrap).toContain('hidden: [');
+    expect(layout).toContain("fragment.hiddenColor ?? fragment.color ?? \"hidden\"");
+    expect(bootstrap).toContain('red: [');
+    expect(bootstrap).toContain("blue: [72, 104, 190]");
+    expect(bootstrap).toContain('yellow: [');
+    expect(bootstrap).not.toContain("return new Color(224, 224, 214, 84)");
+  });
+
+  it("renders M01 platform target as true-color overlap shapes only", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("renderTargetOverlapEvidence");
+    expect(bootstrap).toContain("M01TargetOverlapEvidence_${overlap.evidenceId}");
+    expect(bootstrap).toContain("colorForTargetOverlapEvidence");
+    expect(bootstrap).not.toContain("renderTargetStandardPieces");
+    expect(bootstrap).not.toContain("M01TargetStandardPiece_${piece.pieceSlotId}");
+  });
+
+  it("draws explicit pigment-color overlays where manual target pieces overlap", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("M01ManualTargetBlendOverlay");
+    expect(bootstrap).toContain("manualTargetBlendGraphics");
+    expect(bootstrap).toContain("resolveM01StandardPieceBlendOverlays");
+    expect(bootstrap).toContain("drawManualTargetBlendOverlays");
+    expect(bootstrap).toContain("collectManualTargetBlendPieces");
+    expect(bootstrap).toContain("colorForManualTargetBlendOverlay");
+    expect(bootstrap).toContain("this.drawManualTargetBlendOverlays();");
+  });
+
+  it("keeps generated target evidence off the large repair platform", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).not.toContain("shouldRenderGeneratedTargetEvidence");
+    expect(bootstrap).not.toContain("colorForGeneratedTargetEvidence");
+    expect(bootstrap).toContain("drawPolygon(graphics, token.magnetPolygon)");
+  });
+
+  it("exposes a preview-only helper for exporting generated M01 target evidence", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("__m01ManualTargetTools");
+    expect(bootstrap).toContain("exposeManualTargetTools");
+    expect(bootstrap).toContain("getManualTargetPlacements");
+    expect(bootstrap).toContain("deriveManualTargetEvidence");
+    expect(bootstrap).toContain("deriveM01TargetEvidenceFromPlacements");
+  });
+
+  it("persists manual target draft placements across preview reloads", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const persistence = readText("assets/scripts/cocos/M01ManualTargetPersistence.ts");
+
+    expect(bootstrap).toContain("restoreManualTargetDraft");
+    expect(bootstrap).toContain("persistManualTargetDraft");
+    expect(bootstrap).toContain("readM01ManualTargetPlacements");
+    expect(bootstrap).toContain("writeM01ManualTargetPlacements");
+    expect(bootstrap).toContain("getM01ManualTargetStorage");
+    expect(bootstrap).toContain("restoreDraft: () => this.restoreManualTargetDraft()");
+    expect(bootstrap).toContain("saveDraft: () => this.persistManualTargetDraft()");
+    expect(bootstrap).toContain("syncManualTargetDebugExport");
+    expect(bootstrap).toContain("update(): void");
+    expect(bootstrap).toContain("resolveManualTargetFragmentPosition");
+    expect(bootstrap).toContain("entry?.node.position");
+    expect(bootstrap).toContain('id = "m01-manual-target-export"');
+    expect(bootstrap).toContain('setAttribute("data-placements-json"');
+    expect(bootstrap).toContain('setAttribute("data-evidence-json"');
+    expect(persistence).toContain("M01_MANUAL_TARGET_STORAGE_KEY");
+  });
+
+  it("lets the left target reference thumbnail expand without showing the ToolCard early", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("M01TargetReferenceCircleFrame");
+    expect(bootstrap).toContain("toggleTargetReferenceZoom");
+    expect(bootstrap).toContain("M01TargetReferenceZoom");
+    expect(bootstrap).toContain("M01TargetReferenceZoomCard");
+    expect(bootstrap).toContain("getM01GreyboxTargetReferenceCardResource");
+    expect(bootstrap).toContain('token.kind === "reference_pattern"');
+    expect(bootstrap).not.toContain("M01ToolCardPreviewTitleBeforeCompletion");
   });
 
   it("keeps M01 target SVG polygons on the same regular standard-piece template", () => {
@@ -380,6 +474,114 @@ describe("Cocos Creator project scaffold", () => {
         }
       }
     }
+  });
+
+  it("documents the M01 flashlight art as one tool with three light buttons", () => {
+    const artPrompt = readText(
+      "docs/design/generated-m01-art-slices/m01-overlap-runtime-art-polish-qa-and-prompt.md"
+    );
+    const flashlightCandidate = readText(
+      "docs/design/generated-m01-art-slices/m01-single-flashlight-with-light-buttons-candidate.svg"
+    );
+    const flashlightDecals = readText(
+      "docs/design/generated-m01-art-slices/m01-flashlight-runtime-decals-candidate.svg"
+    );
+
+    expect(artPrompt).toContain("one handheld flashlight tool with three selectable light buttons");
+    expect(artPrompt).toContain("cartoon toy-like proportions");
+    expect(artPrompt).toContain("small runtime overlay decals for button highlights and lens glow");
+    expect(artPrompt).toContain("do not bake the full flashlight beam into an art decal");
+    expect(artPrompt).not.toContain("three handheld flashlight tools");
+    expect(artPrompt).not.toContain("three physical handheld tools");
+    expect(flashlightCandidate).toContain('id="single-flashlight-body"');
+    expect(flashlightCandidate).toContain('id="cartoon-toy-silhouette"');
+    expect(flashlightCandidate).toContain('id="light-button-red"');
+    expect(flashlightCandidate).toContain('id="light-button-yellow"');
+    expect(flashlightCandidate).toContain('id="light-button-blue"');
+    expect(flashlightCandidate).toContain('fill="#4f6fc8"');
+    expect(flashlightCandidate).not.toContain('fill="#78a2b6"');
+    expect(flashlightDecals).toContain('id="lens-glow-decal"');
+    expect(flashlightDecals).toContain('id="button-highlight-red-decal"');
+    expect(flashlightDecals).toContain('id="button-highlight-yellow-decal"');
+    expect(flashlightDecals).toContain('id="button-highlight-blue-decal"');
+    expect(flashlightDecals).toContain('id="beam-mouth-accent-decal"');
+    expect(flashlightDecals).not.toContain('id="full-beam-decal"');
+  });
+
+  it("keeps a complete M01 runtime sticker sheet candidate for visual review", () => {
+    const stickerSheet = readText(
+      "docs/design/generated-m01-art-slices/m01-runtime-sticker-sheet-candidate.svg"
+    );
+
+    for (const requiredId of [
+      "asset-assembly-plate",
+      "asset-target-reference-card",
+      "asset-hidden-fragments",
+      "asset-single-flashlight",
+      "asset-flashlight-decals",
+      "asset-fragment-floor",
+      "asset-bottom-light-overlays",
+      "asset-toolcard-frame"
+    ]) {
+      expect(stickerSheet).toContain(`id="${requiredId}"`);
+    }
+
+    expect(stickerSheet).toContain("m01 runtime sticker sheet candidate");
+    expect(stickerSheet).toContain("reference-style-anchor-2026-04-22");
+    expect(stickerSheet).toContain("assembly-gear-rim");
+    expect(stickerSheet).toContain("paper-tooth");
+    expect(stickerSheet).toContain("watercolor-mottle");
+    expect(stickerSheet).toContain("ink-jitter-lines");
+    expect(stickerSheet).not.toContain('id="full-beam-decal"');
+  });
+
+  it("keeps generated watercolor PSD parts styled from the 2026-04-22 reference", () => {
+    const sliceDir = "docs/design/generated-m01-art-slices/m01-generated-watercolor-psd-assets";
+
+    for (const requiredPsd of [
+      "parts/assembly_gear_empty.psd",
+      "parts/target_reference_card.psd",
+      "parts/flashlight_single_three_buttons.psd",
+      "parts/toolcard_frame_blank.psd",
+      "parts/fragment_floor_strip.psd",
+      "parts/bottom_light_off_overlay.psd",
+      "parts/bottom_light_failed_flash_overlay.psd",
+      "parts/bottom_light_steady_on_overlay.psd",
+      "parts/flashlight_decal_lens_glow.psd",
+      "parts/flashlight_decal_button_red.psd",
+      "parts/flashlight_decal_button_yellow.psd",
+      "parts/flashlight_decal_button_blue.psd",
+      "parts/flashlight_decal_beam_mouth.psd",
+      "parts/hidden_fragment_01_circle.psd",
+      "parts/hidden_fragment_02_triangle.psd",
+      "parts/hidden_fragment_03_hexagon.psd",
+      "parts/hidden_fragment_13_circle.psd",
+      "source/m01-locked-knot-target-reference-source.psd",
+      "source/m01-locked-knot-target-watercolor-paintover-v2.psd",
+      "source/m01-locked-knot-target-clue-only-watercolor-imagegen-v1.psd",
+      "source/m01-watercolor-generated-source-sheet-v1.psd"
+    ]) {
+      expect(existsSync(join(projectRoot, sliceDir, requiredPsd))).toBe(true);
+    }
+    expect(
+      existsSync(
+        join(
+          projectRoot,
+          sliceDir,
+          "m01-generated-watercolor-parts-contact-sheet-v4-clue-only-target.psd"
+        )
+      )
+    ).toBe(true);
+
+    const manifest = readText(`${sliceDir}/README.md`);
+    expect(manifest).toContain("Generated Watercolor PSD Assets");
+    expect(manifest).toContain("style reference, not as a crop source");
+    expect(manifest).toContain("26 individual PSD part files");
+    expect(manifest).toContain("locked knot target structure");
+    expect(manifest).toContain("Use this versioned path to avoid stale preview caching.");
+    expect(manifest).toContain("Full standard-piece outlines are removed");
+    expect(manifest).toContain("hide the full circle / triangle / hexagon outlines");
+    expect(manifest).toContain("Do not use image generation to freely redesign or rearrange this target pattern.");
   });
 
   it("lets the M01 flashlight beam roam with the pointer over the fragment pool", () => {
@@ -458,13 +660,29 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("handleFragmentClick");
     expect(bootstrap).toContain("placeHeldFragmentAt");
     expect(bootstrap).toContain("placeHeldFragmentAtPosition");
-    expect(bootstrap).toContain("this.heldFragmentId && this.heldFragmentId !== token.controllerId");
+    expect(bootstrap).toContain("if (this.heldFragmentId) {\n      this.placeHeldFragmentAtPosition(session.currentPosition);");
     expect(bootstrap).toContain("tryHandleTokenClick");
     expect(bootstrap).toContain("if (!this.dragState.active) {\n      this.clearActiveDrag();");
     expect(bootstrap).toContain("this.heldPointerId !== this.pointerIdForEvent(event)");
     expect(bootstrap).toContain("this.tokenPositions.set(heldFragmentId, position)");
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.width');
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height');
+  });
+
+  it("lets the selected M01 fragment rotate 90 degrees from a board-side edit button", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("private rotateButtonRoot: Node | null = null");
+    expect(bootstrap).toContain("private readonly tokenRotations = new Map<string, number>();");
+    expect(bootstrap).toContain("this.rotateButtonRoot = this.addRotateButton(this.greyboxRoot)");
+    expect(bootstrap).toContain('new Node("M01Rotate90Button")');
+    expect(bootstrap).toContain('this.addButtonLabel(buttonNode, "旋转90°")');
+    expect(bootstrap).toContain("this.suppressRootClickOnce();\n      this.rotateHeldFragmentClockwise();");
+    expect(bootstrap).toContain("rotateHeldFragmentClockwise()");
+    expect(bootstrap).toContain("const nextRotation = (currentRotation + 90) % 360");
+    expect(bootstrap).toContain("entry.node.setRotationFromEuler(0, 0, nextRotation)");
+    expect(bootstrap).toContain("this.tokenRotations.set(heldFragmentId, nextRotation)");
+    expect(bootstrap).toContain("this.setFeedback(\"先选中一个拼片\")");
   });
 
   it("keeps fragment drags alive when mouse move and mouse up finish outside the token node", () => {
@@ -530,8 +748,27 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("M01ArtSprite_");
     expect(bootstrap).toContain("M01StaticArt_");
     expect(bootstrap).toContain("resource.displaySize ?? token.size");
+    expect(bootstrap).not.toContain("minimalArtPreview");
     expect(bootstrap).not.toContain("buildM01GreyboxRuntimeTransparentPlan");
     expect(bootstrap).not.toContain("resources.load(slice.file");
+  });
+
+  it("allows preview links to opt into M01 art-preview mode", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("shouldEnableM01ArtPreviewFromUrl");
+    expect(bootstrap).toContain('searchParams.get("m01ArtPreview") === "1"');
+    expect(bootstrap).toContain("this.enableArtPreview || shouldEnableM01ArtPreviewFromUrl()");
+  });
+
+  it("can rotate and tint static art-preview layers for visual alignment", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const art = readText("assets/scripts/cocos/M01GreyboxArt.ts");
+
+    expect(art).toContain("rotationDegrees?: number");
+    expect(art).toContain("tintColor?:");
+    expect(bootstrap).toContain("layerNode.setRotationFromEuler(0, 0, layer.rotationDegrees)");
+    expect(bootstrap).toContain("sprite.color = new Color");
   });
 
   it("syncs token-level art sprites with greybox presentation state", () => {
@@ -540,7 +777,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("artSprite: Sprite | null");
     expect(bootstrap).toContain("private syncArtSpriteState");
     expect(bootstrap).toContain("this.syncArtSpriteState(entry.artSprite");
-    expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation)");
+    expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation, token)");
+    expect(bootstrap).toContain('token?.kind === "fragment"');
     expect(bootstrap).toContain('dimmed: new Color(255, 255, 255, 56)');
     expect(bootstrap).toContain('placed: new Color(255, 255, 255, 0)');
   });
@@ -563,7 +801,9 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("view.validationColor");
-    expect(bootstrap).toContain("view.validationColor ?? view.observedColor");
+    expect(bootstrap).toContain("validationFlashVisible");
+    expect(bootstrap).toContain("validationColor ?? view.observedColor");
+    expect(bootstrap).toContain('view.validationColor && !this.validationFlashVisible ? "normal"');
   });
 
   it("keeps greybox graphics subdued when art preview is enabled", () => {
@@ -583,9 +823,93 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("showArtPreviewDebugUnderlay = false");
     expect(bootstrap).toContain("shouldRenderArtPreviewUnderlay");
     expect(bootstrap).toContain("this.showArtPreviewDebugUnderlay");
-    expect(bootstrap).toContain('token.kind !== "slot" && token.kind !== "gear"');
+    expect(bootstrap).toContain('Boolean(colorTokenOverride) && token.kind !== "evidence"');
+    expect(bootstrap).toContain('token.kind === "board"');
+    expect(bootstrap).toContain('if (token.kind === "evidence")');
+    expect(bootstrap).toContain('if (token.kind === "fragment")');
     expect(bootstrap).toContain('presentation !== "normal" && presentation !== "repaired"');
     expect(bootstrap).toContain("new Color(0, 0, 0, 0)");
+  });
+
+  it("keeps M01 overlap evidence as layout-only snap data plus non-token target display", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const art = readText("assets/scripts/cocos/M01GreyboxArt.ts");
+
+    expect(bootstrap).not.toContain("for (const evidence of layout.evidence) {\n      this.addShapeNode(this.greyboxRoot, evidence);\n    }");
+    expect(bootstrap).toContain("buildM01GreyboxTargetOverlapEvidencePlan");
+    expect(bootstrap).toContain('if (token.kind === "evidence")');
+    expect(bootstrap).toContain("return false");
+    expect(bootstrap).toContain('if (token.kind === "evidence") {\n      return null;\n    }');
+    expect(art).toContain(".filter((token) => token.kind !== \"evidence\")");
+  });
+
+  it("locks the exact M01 hand-composed target export", () => {
+    const drag = readText("assets/scripts/cocos/M01GreyboxDrag.ts");
+    const layout = readText("assets/scripts/cocos/M01GreyboxLayout.ts");
+    const config = JSON.parse(readText("assets/resources/configs/stage1/m01-memory-gear.json")) as {
+      targetPattern?: { pieces?: Array<{ fragmentId?: string }>; locked?: boolean; note?: string };
+      evidence?: Array<{ id?: string; targetBlendColor?: string; solution?: { fragmentIds?: string[] } }>;
+      fragments?: Array<{ id?: string; tags?: string[] }>;
+    };
+
+    expect(layout).toContain("targetPieceSlots");
+    expect(layout).toContain("targetPattern");
+    expect(layout).not.toContain('targetPieceSnapZone("target_piece_circle_left"');
+    expect(drag).toContain("resolveTargetPieceSlotDrop");
+    expect(drag).toContain("snap_fragment_to_target_piece");
+    expect(drag).toContain("slot.expectedFragmentId === token.controllerId");
+    expect(drag).toContain("rotation: bestSlot.rotation");
+    expect(drag).toContain("shape:${slot.shapeToken}");
+    expect(config.targetPattern?.locked).toBe(true);
+    expect(config.targetPattern?.pieces).toHaveLength(6);
+    expect(config.targetPattern?.note).toContain("2026-05-07 exact manual target export");
+    expect(config.evidence).toHaveLength(6);
+    expect(config.evidence?.every((evidence) => evidence.id?.startsWith("current_manual_target_")))
+      .toBe(true);
+    expect(config.evidence?.map((evidence) => evidence.targetBlendColor)).toEqual([
+      "green",
+      "orange",
+      "orange",
+      "purple",
+      "green",
+      "purple"
+    ]);
+    const solutionFragmentIds = new Set(
+      config.evidence?.flatMap((evidence) => evidence.solution?.fragmentIds ?? []) ?? []
+    );
+    const decoySolutionFragments = (config.fragments ?? []).filter(
+      (fragment) => fragment.id && solutionFragmentIds.has(fragment.id) && fragment.tags?.includes("decoy")
+    );
+    expect(decoySolutionFragments).toEqual([]);
+  });
+
+  it("keeps the old M01 target guide art off the repair platform", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const art = readText("assets/scripts/cocos/M01GreyboxArt.ts");
+    const layout = readText("assets/scripts/cocos/M01GreyboxLayout.ts");
+
+    expect(layout).toContain("M01_STANDARD_PIECE_DISPLAY_SIZE");
+    expect(layout).toContain("M01_TARGET_REFERENCE_PIECE_SLOT_SIZE: M01GreyboxSize = M01_STANDARD_PIECE_DISPLAY_SIZE");
+    expect(art).not.toContain("position: layout.gear.position");
+    expect(art).not.toContain("size: M01_TARGET_REFERENCE_DISPLAY_SIZE");
+    expect(art).not.toContain("spriteSize: M01_TARGET_REFERENCE_DISPLAY_SIZE");
+    expect(art).toContain("buildM01GreyboxTargetOverlapEvidencePlan");
+    expect(art).not.toContain("getM01GreyboxStandardPieceResourceForShape");
+    expect(bootstrap).toContain("renderTargetOverlapEvidence");
+    expect(bootstrap).toContain("M01TargetOverlapEvidence_${overlap.evidenceId}");
+    expect(art).toContain("target_reference_card");
+    expect(bootstrap).toContain('if (token.kind === "evidence") {\n      return null;\n    }');
+    expect(bootstrap).not.toContain("addTargetReferenceCircleFrame(layerNode, layer.size)");
+  });
+
+  it("flashes failed M01 candidates twice in true fragment colors before returning pieces", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("VALIDATION_FAILURE_FLASH_COUNT = 2");
+    expect(bootstrap).toContain("validationFlashVisible");
+    expect(bootstrap).toContain("scheduleFailedCandidateReturn");
+    expect(bootstrap).toContain("resetWeakSnappedCandidate");
+    expect(bootstrap).toContain("this.session.resetCandidateStructure()");
   });
 
   it("restores art preview underlays as a fallback when required art fails to load", () => {
@@ -597,6 +921,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.artPreviewFallbackUnderlayIds.has(token.controllerId)");
     expect(bootstrap).toContain("(this.layout.slots ?? []).map((slot) => slot.controllerId)");
     expect(bootstrap).toContain('layerId === "nineSlotTray"');
+    expect(bootstrap).toContain('layerId === "targetReferenceCard"');
+    expect(bootstrap).toContain('!renderUnderlay && token.kind === "reference_pattern"');
     expect(bootstrap).toContain("this.syncVisualState()");
   });
 

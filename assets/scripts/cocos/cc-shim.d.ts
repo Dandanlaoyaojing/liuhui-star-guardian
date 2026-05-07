@@ -13,10 +13,13 @@ declare module "cc" {
     name: string;
     children: Node[];
     active: boolean;
+    position: { x: number; y: number; z?: number };
     addChild(child: Node): void;
     addComponent<T>(component: new (...args: never[]) => T): T;
+    destroy(): void;
     on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
+    setRotationFromEuler(x: number, y: number, z: number): void;
   }
 
   export class EventTouch {

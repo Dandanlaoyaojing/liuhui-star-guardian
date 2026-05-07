@@ -40,6 +40,15 @@ function pointDistance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function normalizeRotation(rotation) {
+  return ((rotation % 360) + 360) % 360;
+}
+
+function rotationDistance(left, right) {
+  const delta = Math.abs(normalizeRotation(left) - normalizeRotation(right));
+  return Math.min(delta, 360 - delta);
+}
+
 async function readConfig() {
   return JSON.parse(await readFile(configPath, "utf8"));
 }
@@ -81,6 +90,32 @@ async function captureCleanQaScreenshot(page, { artPreview = false } = {}) {
   await canvas.waitFor({ state: "visible", timeout: 30_000 });
   await canvas.screenshot({ path: cleanQaScreenshotPath });
   return cleanQaScreenshotPath;
+}
+
+async function assertNoPrematureToolCard(page) {
+  const hasToolCard = await page.evaluate(() => {
+    const cc = window.cc;
+    const scene = cc && cc.director ? cc.director.getScene() : undefined;
+    function findNode(node, name) {
+      if (!node) {
+        return undefined;
+      }
+      if (node.name === name) {
+        return node;
+      }
+      for (const child of node.children ?? []) {
+        const found = findNode(child, name);
+        if (found) {
+          return found;
+        }
+      }
+      return undefined;
+    }
+
+    return Boolean(findNode(scene, "M01ToolCardPreview")?.active);
+  });
+
+  assert(hasToolCard === false, "ToolCard preview should stay hidden before completion.");
 }
 
 async function enableArtPreviewMode(page) {
@@ -133,11 +168,21 @@ async function enableArtPreviewMode(page) {
     await new Promise((resolve) => setTimeout(resolve, 700));
 
     const names = flattenNames(scene);
+    const staticArtNames = names.filter((name) => name.startsWith("M01StaticArt_"));
+    const targetOverlapEvidenceNodes = names.filter((name) =>
+      name.startsWith("M01TargetOverlapEvidence_current_manual_target_")
+    );
     return {
       enabled: bootstrap.enableArtPreview === true,
       artSpriteCount: names.filter((name) => name.startsWith("M01ArtSprite_")).length,
-      staticArtCount: names.filter((name) => name.startsWith("M01StaticArt_")).length,
-      hasFragmentFloor: names.includes("M01StaticArt_fragmentFloor")
+      staticArtCount: staticArtNames.length,
+      hasOldTargetReferenceCard: names.includes("M01StaticArt_targetReferenceCard"),
+      hasSingleFlashlightTool: names.includes("M01StaticArt_singleFlashlightTool"),
+      hasFragmentFloor: names.includes("M01StaticArt_fragmentFloor"),
+      targetOverlapEvidenceNodes,
+      expectedTargetOverlapEvidenceCount: bootstrap.layout.evidence.filter(
+        (evidence) => (evidence.magnetPolygon?.length ?? 0) >= 3
+      ).length
     };
   });
 
@@ -147,13 +192,26 @@ async function enableArtPreviewMode(page) {
     "Expected art preview mode to render token-level art sprites."
   );
   assert(
-    artPreviewState.hasFragmentFloor,
-    "Expected art preview mode to render the fragment floor surface."
+    artPreviewState.hasOldTargetReferenceCard === false,
+    "Expected art preview mode to omit the old target reference card from the platform."
+  );
+  assert(
+    artPreviewState.hasSingleFlashlightTool,
+    "Expected art preview mode to render the single three-button flashlight tool."
+  );
+  assert(
+    artPreviewState.hasFragmentFloor === false,
+    "Expected art preview mode to omit the floor platform surface."
+  );
+  assert(
+    artPreviewState.targetOverlapEvidenceNodes.length ===
+      artPreviewState.expectedTargetOverlapEvidenceCount,
+    `Expected art preview mode to render target overlap evidence nodes; found ${artPreviewState.targetOverlapEvidenceNodes.join(", ")}.`
   );
   return artPreviewState;
 }
 
-function buildWrongCandidate(config) {
+export function buildWrongCandidate(config) {
   const pairs = Object.fromEntries(
     config.evidence.map((evidence) => [evidence.id, [...evidence.solution.fragmentIds]])
   );
@@ -165,11 +223,48 @@ function buildWrongCandidate(config) {
   } else {
     const firstEvidence = config.evidence[0];
     const firstPair = pairs[firstEvidence.id];
-    const replacement = config.fragments.find((fragment) => !firstPair.includes(fragment.id));
-    assert(replacement, "Need at least one decoy fragment to build a wrong candidate.");
-    pairs[firstEvidence.id] = [firstPair[0], replacement.id];
+    const firstPairShapes = firstEvidence.shapeTags.map((tag) => tag.replace("shape:", ""));
+    const replacementPair = findWrongShapeCompatiblePair(
+      config.fragments ?? [],
+      firstPairShapes,
+      firstPair
+    );
+    pairs[firstEvidence.id] = replacementPair;
   }
   return pairs;
+}
+
+function findWrongShapeCompatiblePair(fragments, shapeTokens, solutionPair) {
+  for (let firstIndex = 0; firstIndex < fragments.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < fragments.length; secondIndex += 1) {
+      const pair = [fragments[firstIndex], fragments[secondIndex]];
+      const pairIds = pair.map((fragment) => fragment.id);
+      if (sameUnorderedPair(pairIds, solutionPair)) {
+        continue;
+      }
+      if (pairMatchesShapeTokens(pair, shapeTokens)) {
+        return pairIds;
+      }
+    }
+  }
+
+  throw new Error("Need a shape-compatible decoy pair to build a wrong candidate.");
+}
+
+function pairMatchesShapeTokens(pair, shapeTokens) {
+  const availableShapes = pair.map((fragment) => fragment.shape ?? fragment.edgeShape);
+  return shapeTokens.every((shape) => {
+    const index = availableShapes.indexOf(shape);
+    if (index === -1) {
+      return false;
+    }
+    availableShapes.splice(index, 1);
+    return true;
+  });
+}
+
+function sameUnorderedPair(left, right) {
+  return left.length === right.length && left.every((item) => right.includes(item));
 }
 
 async function snapshotRuntime(page) {
@@ -302,6 +397,7 @@ async function runRealInputPath(page, realInputPlan) {
       );
       const session = bootstrap?.session;
       const tokenPositions = bootstrap?.tokenPositions;
+      const tokenRotations = bootstrap?.tokenRotations;
       const statusNode = findNode(scene, "M01StatusLabel");
       return {
         step,
@@ -325,6 +421,12 @@ async function runRealInputPath(page, realInputPlan) {
           realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
             fragmentId,
             tokenPositions ? tokenPositions.get(fragmentId) : undefined
+          ])
+        ),
+        stageFragmentRotations: Object.fromEntries(
+          realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
+            fragmentId,
+            tokenRotations ? tokenRotations.get(fragmentId) : undefined
           ])
         ),
         isEvidenceStaged: session
@@ -353,23 +455,25 @@ async function runRealInputPath(page, realInputPlan) {
     await moveMouseToLocalPoint(toLocalPoint, { steps: 10 });
     await page.waitForTimeout(40);
     await page.mouse.up();
+    await page.waitForTimeout(180);
+  };
+  const clickLocalPoint = async (localPoint) => {
+    await moveMouseToLocalPoint(localPoint);
+    await page.mouse.down();
+    await page.waitForTimeout(24);
+    await page.mouse.up();
     await page.waitForTimeout(120);
   };
   const runHeldFlashlightRevealPath = async () => {
-    await moveMouseToLocalPoint(realInputPlan.flashlightPosition);
-    await page.mouse.down();
-    await page.waitForTimeout(24);
-    await page.mouse.up();
-    await page.waitForTimeout(120);
+    await clickLocalPoint(realInputPlan.flashlightPosition);
+    debugSteps.push(await snapshotInteractionState("after_flashlight_picker_open"));
+    await clickLocalPoint(realInputPlan.flashlightPickerRedPosition);
+    debugSteps.push(await snapshotInteractionState("after_flashlight_picker_select"));
     await moveMouseToLocalPoint(realInputPlan.heldFlashlightPosition, { steps: 8 });
     await page.waitForTimeout(80);
     debugSteps.push(await snapshotInteractionState("after_held_flashlight_move"));
-
-    await page.mouse.down();
-    await page.waitForTimeout(24);
     await moveMouseToLocalPoint(realInputPlan.revealFragmentPosition, { steps: 10 });
     await page.waitForTimeout(80);
-    await page.mouse.up();
     await page.waitForTimeout(140);
     debugSteps.push(await snapshotInteractionState("after_held_flashlight_shine"));
   };
@@ -414,7 +518,13 @@ async function runRealInputPath(page, realInputPlan) {
   for (const fragmentId of realInputPlan.stageEvidence.fragmentIds) {
     const fragmentPosition = runtimeFragmentPositions[fragmentId];
     assert(fragmentPosition, `Missing fragment layout position for real-input step: ${fragmentId}`);
-    await dragLocalPoint(fragmentPosition, realInputPlan.stageEvidence.evidencePosition);
+    const targetPiece = realInputPlan.stageEvidence.targetPieces?.find(
+      (piece) => piece.fragmentId === fragmentId
+    );
+    await dragLocalPoint(
+      fragmentPosition,
+      targetPiece?.targetPosition ?? realInputPlan.stageEvidence.evidencePosition
+    );
     debugSteps.push(await snapshotInteractionState(`after_stage_drag:${fragmentId}`));
   }
 
@@ -444,12 +554,19 @@ async function runRealInputPath(page, realInputPlan) {
       throw new Error("M01GreyboxBootstrap session is unavailable in preview runtime.");
     }
     const tokenPositions = bootstrap.tokenPositions;
+    const tokenRotations = bootstrap.tokenRotations;
 
     const freePosition = tokenPositions ? tokenPositions.get(realInputPlan.freePlacement.fragmentId) : undefined;
     const stageFragmentPositions = Object.fromEntries(
       realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
         fragmentId,
         tokenPositions ? tokenPositions.get(fragmentId) : undefined
+      ])
+    );
+    const stageFragmentRotations = Object.fromEntries(
+      realInputPlan.stageEvidence.fragmentIds.map((fragmentId) => [
+        fragmentId,
+        tokenRotations ? tokenRotations.get(fragmentId) : undefined
       ])
     );
 
@@ -471,7 +588,8 @@ async function runRealInputPath(page, realInputPlan) {
       stagedEvidenceId: realInputPlan.stageEvidence.evidenceId,
       isEvidenceStaged: bootstrap.session.isEvidenceStaged(realInputPlan.stageEvidence.evidenceId),
       areAllEvidenceStaged: bootstrap.session.areAllEvidenceStaged(),
-      stageFragmentPositions
+      stageFragmentPositions,
+      stageFragmentRotations
     };
   }, { realInputPlan }).then((result) => ({ ...result, debugSteps }));
 }
@@ -493,6 +611,13 @@ async function runCompletionInputPath(page, realInputPlan) {
     await page.waitForTimeout(24);
     await moveMouseToLocalPoint(toLocalPoint, { steps: 10 });
     await page.waitForTimeout(40);
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+  };
+  const clickLocalPoint = async (localPoint) => {
+    await moveMouseToLocalPoint(localPoint);
+    await page.mouse.down();
+    await page.waitForTimeout(24);
     await page.mouse.up();
     await page.waitForTimeout(120);
   };
@@ -527,8 +652,16 @@ async function runCompletionInputPath(page, realInputPlan) {
       return position;
     }, fragmentId);
 
-  await dragLocalPoint(realInputPlan.flashlightPosition, realInputPlan.revealFragmentPosition);
-  for (const evidence of realInputPlan.completionEvidence) {
+  await clickLocalPoint(realInputPlan.flashlightPosition);
+  await clickLocalPoint(realInputPlan.flashlightPickerRedPosition);
+  if (realInputPlan.completionTargetPieces.length > 0) {
+    for (const targetPiece of realInputPlan.completionTargetPieces) {
+      await dragLocalPoint(
+        await currentFragmentPosition(targetPiece.fragmentId),
+        targetPiece.targetPosition
+      );
+    }
+  } else for (const evidence of realInputPlan.completionEvidence) {
     for (const fragmentId of evidence.fragmentIds) {
       await dragLocalPoint(await currentFragmentPosition(fragmentId), evidence.evidencePosition);
     }
@@ -571,7 +704,13 @@ async function runCompletionInputPath(page, realInputPlan) {
       completionState: bootstrap.session.getCompletionState(),
       hintButtonVisible: hintButton?.active ?? false,
       toolCardTitle: title,
-      status: findNode(scene, "M01StatusLabel")?.getComponent(cc.Label)?.string
+      status: findNode(scene, "M01StatusLabel")?.getComponent(cc.Label)?.string,
+      targetPieceRotations: Object.fromEntries(
+        realInputPlan.completionTargetPieces.map((piece) => [
+          piece.fragmentId,
+          bootstrap.tokenRotations ? bootstrap.tokenRotations.get(piece.fragmentId) : undefined
+        ])
+      )
     };
   }, { realInputPlan });
 }
@@ -686,6 +825,7 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
 async function main() {
   const config = await readConfig();
   const realInputPlan = buildRealInputPlan(config);
+  const manualTargetCompositionMode = config.targetPattern?.locked === false;
   const expectedNodeIds = [
     ...config.fragments.map((fragment) => fragment.id),
     "m01_reference_complete_pattern"
@@ -723,9 +863,16 @@ async function main() {
     const initial = await snapshotRuntime(page);
     assert(initial.hasBootstrap, "M01GreyboxBootstrap was not found in the preview scene.");
     const missing = expectedNodeIds.filter((id) => !initial.nodeNames.includes(id));
+    const platformEvidenceNodes = initial.nodeNames.filter((name) =>
+      name.startsWith("M01Token_current_manual_target_")
+    );
     assert(
       missing.length === 0,
       `Preview runtime is stale or incomplete. Missing current M01 nodes: ${missing.join(", ")}`
+    );
+    assert(
+      platformEvidenceNodes.length === 0,
+      `Expected no visible generated evidence nodes on the repair platform; found ${platformEvidenceNodes.join(", ")}.`
     );
     assert(
       initial.bootstrapKeys.includes("flashlightBeamTarget"),
@@ -740,17 +887,16 @@ async function main() {
     const heldShineStep = browserInputAttempt.debugSteps.find(
       (step) => step.step === "after_held_flashlight_shine"
     );
+    const pickerSelectStep = browserInputAttempt.debugSteps.find(
+      (step) => step.step === "after_flashlight_picker_select"
+    );
     const browserInputStable =
       browserInputAttempt.activeFlashlightId === realInputPlan.flashlightId &&
-      browserInputAttempt.observedColor === realInputPlan.expectedObservedColor &&
-      heldMoveStep?.heldFlashlightId === realInputPlan.flashlightId &&
-      heldMoveStep.flashlightPosition &&
-      Math.abs(
-        heldMoveStep.flashlightPosition.x - realInputPlan.heldFlashlightPosition.x
-      ) <= 1 &&
-      Math.abs(
-        heldMoveStep.flashlightPosition.y - realInputPlan.heldFlashlightPosition.y
-      ) <= 1 &&
+      pickerSelectStep?.activeFlashlightId === realInputPlan.flashlightId &&
+      heldShineStep?.observedColor === realInputPlan.expectedObservedColor &&
+      heldMoveStep?.beamTarget &&
+      Math.abs(heldMoveStep.beamTarget.x - realInputPlan.heldFlashlightPosition.x) <= 1 &&
+      Math.abs(heldMoveStep.beamTarget.y - realInputPlan.heldFlashlightPosition.y) <= 1 &&
       heldShineStep?.beamTarget &&
       Math.abs(heldShineStep.beamTarget.x - realInputPlan.revealFragmentPosition.x) <= 1 &&
       Math.abs(heldShineStep.beamTarget.y - realInputPlan.revealFragmentPosition.y) <= 1 &&
@@ -761,10 +907,11 @@ async function main() {
       Math.abs(
         browserInputAttempt.freePlacement.position.y - realInputPlan.freePlacement.dropPosition.y
       ) <= 1 &&
-      browserInputAttempt.isEvidenceStaged;
+      (manualTargetCompositionMode || browserInputAttempt.isEvidenceStaged);
     const realInput = browserInputStable
       ? {
           ...browserInputAttempt,
+          observedColor: browserInputAttempt.observedColor ?? heldShineStep?.observedColor,
           attemptedBrowserInput: true,
           usedFallback: false
         }
@@ -789,18 +936,21 @@ async function main() {
     const realHeldShineStep = realInput.debugSteps?.find(
       (step) => step.step === "after_held_flashlight_shine"
     );
-    assert(
-      realHeldMoveStep?.heldFlashlightId === realInputPlan.flashlightId,
-      `Expected held flashlight ${realInputPlan.flashlightId} before reveal; got ${realHeldMoveStep?.heldFlashlightId}.`
+    const realPickerSelectStep = realInput.debugSteps?.find(
+      (step) => step.step === "after_flashlight_picker_select"
     );
     assert(
-      realHeldMoveStep.flashlightPosition,
-      `Expected held flashlight position for ${realInputPlan.flashlightId}.`
+      realPickerSelectStep?.activeFlashlightId === realInputPlan.flashlightId,
+      `Expected picker to select ${realInputPlan.flashlightId}; got ${realPickerSelectStep?.activeFlashlightId}.`
     );
     assert(
-      Math.abs(realHeldMoveStep.flashlightPosition.x - realInputPlan.heldFlashlightPosition.x) <= 1 &&
-        Math.abs(realHeldMoveStep.flashlightPosition.y - realInputPlan.heldFlashlightPosition.y) <= 1,
-      `Expected ${realInputPlan.flashlightId} to follow hand to (${realInputPlan.heldFlashlightPosition.x}, ${realInputPlan.heldFlashlightPosition.y}); got (${realHeldMoveStep.flashlightPosition.x}, ${realHeldMoveStep.flashlightPosition.y}).`
+      realHeldMoveStep?.beamTarget,
+      `Expected active flashlight beam to follow pointer before reveal.`
+    );
+    assert(
+      Math.abs(realHeldMoveStep.beamTarget.x - realInputPlan.heldFlashlightPosition.x) <= 1 &&
+        Math.abs(realHeldMoveStep.beamTarget.y - realInputPlan.heldFlashlightPosition.y) <= 1,
+      `Expected ${realInputPlan.flashlightId} beam to follow pointer to (${realInputPlan.heldFlashlightPosition.x}, ${realInputPlan.heldFlashlightPosition.y}); got (${realHeldMoveStep.beamTarget.x}, ${realHeldMoveStep.beamTarget.y}).`
     );
     assert(
       realHeldShineStep?.beamTarget,
@@ -824,73 +974,103 @@ async function main() {
         Math.abs(realInput.freePlacement.position.y - realInputPlan.freePlacement.dropPosition.y) <= 1,
       `Expected ${realInput.freePlacement.fragmentId} to follow pointer to (${realInputPlan.freePlacement.dropPosition.x}, ${realInputPlan.freePlacement.dropPosition.y}); got (${realInput.freePlacement.position.x}, ${realInput.freePlacement.position.y}).`
     );
-    assert(
-      realInput.isEvidenceStaged,
-      `Expected ${realInput.stageEvidenceId} to be staged after preview interaction path.`
-    );
-    const [firstStagedFragmentId, secondStagedFragmentId] = realInputPlan.stageEvidence.fragmentIds;
-    assert(
-      pointDistance(
-        realInput.stageFragmentPositions[firstStagedFragmentId],
-        realInput.stageFragmentPositions[secondStagedFragmentId]
-      ) >= 32,
-      `Expected staged fragments ${firstStagedFragmentId} and ${secondStagedFragmentId} to land in partial-overlap poses instead of one pile.`
+    let failure;
+    let completion;
+    let completionArtPreview;
+    let completionScreenshotPath;
+    const screenshotPath = resolve(
+      screenshotDir,
+      manualTargetCompositionMode
+        ? "m01-preview-manual-composition-smoke.png"
+        : "m01-preview-failed-validation-smoke.png"
     );
 
-    const wrongPairs = buildWrongCandidate(config);
-    const failure = await runFailureValidation(page, wrongPairs);
-    assert(failure.validation.accepted === false, "Wrong candidate should fail validation.");
-    assert(
-      failure.validation.bottomLight === "flash_then_off",
-      `Expected failed validation bottom light flash; got ${failure.validation.bottomLight}.`
-    );
-    assert(
-      failure.duringFlash.validationColor,
-      `Expected ${failure.stagedFragmentId} to expose validationColor during the flash.`
-    );
-    assert(
-      !("validationColor" in failure.afterFlash),
-      `Expected ${failure.stagedFragmentId} to return to grey after the flash window.`
-    );
+    if (!manualTargetCompositionMode) {
+      assert(
+        realInput.isEvidenceStaged,
+        `Expected ${realInput.stageEvidenceId} to be staged after preview interaction path.`
+      );
+      const [firstStagedFragmentId, secondStagedFragmentId] = realInputPlan.stageEvidence.fragmentIds;
+      assert(
+        pointDistance(
+          realInput.stageFragmentPositions[firstStagedFragmentId],
+          realInput.stageFragmentPositions[secondStagedFragmentId]
+        ) >= 32,
+        `Expected staged fragments ${firstStagedFragmentId} and ${secondStagedFragmentId} to land in partial-overlap poses instead of one pile.`
+      );
+      for (const targetPiece of realInputPlan.stageEvidence.targetPieces ?? []) {
+        const actualRotation = realInput.stageFragmentRotations[targetPiece.fragmentId];
+        assert(
+          rotationDistance(actualRotation ?? 0, targetPiece.targetRotation) <= 1,
+          `Expected staged target piece ${targetPiece.fragmentId} rotation ${targetPiece.targetRotation}; got ${actualRotation}.`
+        );
+      }
 
-    const screenshotPath = resolve(screenshotDir, "m01-preview-failed-validation-smoke.png");
+      const wrongPairs = buildWrongCandidate(config);
+      failure = await runFailureValidation(page, wrongPairs);
+      assert(failure.validation.accepted === false, "Wrong candidate should fail validation.");
+      assert(
+        failure.validation.bottomLight === "flash_then_off",
+        `Expected failed validation bottom light flash; got ${failure.validation.bottomLight}.`
+      );
+      assert(
+        failure.duringFlash.validationColor,
+        `Expected ${failure.stagedFragmentId} to expose validationColor during the flash.`
+      );
+      assert(
+        !("validationColor" in failure.afterFlash),
+        `Expected ${failure.stagedFragmentId} to return to grey after the flash window.`
+      );
+    }
+
     await page.screenshot({ path: screenshotPath, fullPage: true });
-    await page.goto(sceneUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-    await page.waitForFunction(() => window.cc?.director?.getScene?.()?.name === "M01Greybox", {
-      timeout: 30_000
-    });
-    await page.waitForTimeout(3_000);
-    const completion = await runCompletionInputPath(page, realInputPlan);
-    assert(
-      completion.areAllEvidenceStaged,
-      "Expected all evidence pairs to be staged through real browser input."
-    );
-    assert(
-      completion.completionState.bottomLight === "steady_on",
-      `Expected M01 completion bottom light steady_on; got ${completion.completionState.bottomLight}.`
-    );
-    assert(completion.completionState.completed, "Expected M01 completion state to be completed.");
-    assert(
-      completion.activeFlashlightId === undefined,
-      `Expected completion to clear the active flashlight beam; got ${completion.activeFlashlightId}.`
-    );
-    assert(
-      completion.flashlightBeamTarget === undefined,
-      `Expected completion to clear the flashlight beam target; got ${JSON.stringify(completion.flashlightBeamTarget)}.`
-    );
-    assert(
-      completion.hintButtonVisible === false,
-      "Expected completion to hide the hint button."
-    );
-    assert(
-      completion.toolCardTitle === realInputPlan.expectedToolCardTitle,
-      `Expected ToolCard title ${realInputPlan.expectedToolCardTitle}; got ${completion.toolCardTitle}.`
-    );
-    const completionScreenshotPath = resolve(screenshotDir, "m01-preview-completion-smoke.png");
-    await page.screenshot({ path: completionScreenshotPath, fullPage: true });
+    await assertNoPrematureToolCard(page);
     const cleanQaScreenshotPath = captureCleanQa
       ? await captureCleanQaScreenshot(page, { artPreview: enableArtPreview })
       : undefined;
+    if (!manualTargetCompositionMode) {
+      await page.goto(sceneUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await page.waitForFunction(() => window.cc?.director?.getScene?.()?.name === "M01Greybox", {
+        timeout: 30_000
+      });
+      await page.waitForTimeout(3_000);
+      completionArtPreview = enableArtPreview ? await enableArtPreviewMode(page) : undefined;
+      completion = await runCompletionInputPath(page, realInputPlan);
+      assert(
+        completion.areAllEvidenceStaged,
+        `Expected all evidence pairs to be staged through real browser input. Completion snapshot: ${JSON.stringify(completion)}`
+      );
+      assert(
+        completion.completionState.bottomLight === "steady_on",
+        `Expected M01 completion bottom light steady_on; got ${completion.completionState.bottomLight}.`
+      );
+      assert(completion.completionState.completed, "Expected M01 completion state to be completed.");
+      assert(
+        completion.activeFlashlightId === undefined,
+        `Expected completion to clear the active flashlight beam; got ${completion.activeFlashlightId}.`
+      );
+      assert(
+        completion.flashlightBeamTarget === undefined,
+        `Expected completion to clear the flashlight beam target; got ${JSON.stringify(completion.flashlightBeamTarget)}.`
+      );
+      assert(
+        completion.hintButtonVisible === false,
+        "Expected completion to hide the hint button."
+      );
+      assert(
+        completion.toolCardTitle === realInputPlan.expectedToolCardTitle,
+        `Expected ToolCard title ${realInputPlan.expectedToolCardTitle}; got ${completion.toolCardTitle}.`
+      );
+      for (const targetPiece of realInputPlan.completionTargetPieces) {
+        const actualRotation = completion.targetPieceRotations[targetPiece.fragmentId];
+        assert(
+          rotationDistance(actualRotation ?? 0, targetPiece.targetRotation) <= 1,
+          `Expected completed target piece ${targetPiece.fragmentId} rotation ${targetPiece.targetRotation}; got ${actualRotation}.`
+        );
+      }
+      completionScreenshotPath = resolve(screenshotDir, "m01-preview-completion-smoke.png");
+      await page.screenshot({ path: completionScreenshotPath, fullPage: true });
+    }
     assert(pageErrors.length === 0, `Preview page errors: ${pageErrors.join(" | ")}`);
     assert(
       consoleMessages.length === 0,
@@ -903,17 +1083,19 @@ async function main() {
           ok: true,
           sceneUrl,
           artPreview,
+          completionArtPreview,
           screenshotPath,
           completionScreenshotPath,
           cleanQaScreenshotPath,
           realInput,
           completion,
-          validation: failure.validation,
-          stagedFragmentId: failure.stagedFragmentId,
-          validationColorDuringFlash: failure.duringFlash.validationColor,
-          hasValidationColorAfterFlash: "validationColor" in failure.afterFlash,
-          statusDuringFlash: failure.statusDuringFlash,
-          statusAfterFlash: failure.statusAfterFlash,
+          validation: failure?.validation,
+          stagedFragmentId: failure?.stagedFragmentId,
+          validationColorDuringFlash: failure?.duringFlash.validationColor,
+          hasValidationColorAfterFlash: failure ? "validationColor" in failure.afterFlash : undefined,
+          statusDuringFlash: failure?.statusDuringFlash,
+          statusAfterFlash: failure?.statusAfterFlash,
+          manualTargetCompositionMode,
           consoleMessages,
           pageErrors
         },

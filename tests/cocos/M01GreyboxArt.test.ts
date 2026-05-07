@@ -7,14 +7,17 @@ import {
   buildM01GreyboxArtPreviewPlan,
   buildM01GreyboxRuntimeTransparentPlan,
   buildM01GreyboxStaticArtPlan,
+  buildM01GreyboxTargetOverlapEvidencePlan,
   buildM01GreyboxTokenArtPlan,
   getM01GreyboxArtSlice,
   getM01GreyboxArtPreviewResource,
   getM01GreyboxRuntimeSpriteResourceForToken,
+  getM01GreyboxTargetReferenceCardResource,
   getM01GreyboxToolCardFrameResource,
   getM01GreyboxRuntimeTransparentResource,
   M01_GREYBOX_ART_ASSET_ROOT,
   M01_GREYBOX_ART_PREVIEW_RESOURCES,
+  M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET,
   M01_GREYBOX_ART_SOURCE_SHEET,
   M01_GREYBOX_ART_SLICES,
   M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES,
@@ -25,7 +28,10 @@ import {
   M01_GREYBOX_RUNTIME_SURFACE_RESOURCES,
   M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES
 } from "../../assets/scripts/cocos/M01GreyboxArt.ts";
-import { buildM01GreyboxLayout } from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
+import {
+  buildM01GreyboxLayout,
+  type M01GreyboxLayout
+} from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
 import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
 import realM01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
 import { m01LegacySortConfig as config } from "./m01LegacySortConfig.ts";
@@ -133,6 +139,34 @@ function countOpaquePixels(image: { data: Uint8Array }): number {
   return count;
 }
 
+function summarizeOpaqueColor(image: { data: Uint8Array }): {
+  averageLuminance: number;
+  averageChannelSpread: number;
+} {
+  let luminance = 0;
+  let channelSpread = 0;
+  let count = 0;
+
+  for (let offset = 0; offset < image.data.length; offset += 4) {
+    if (image.data[offset + 3] < 24) {
+      continue;
+    }
+
+    const r = image.data[offset];
+    const g = image.data[offset + 1];
+    const b = image.data[offset + 2];
+
+    luminance += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    channelSpread += Math.max(r, g, b) - Math.min(r, g, b);
+    count += 1;
+  }
+
+  return {
+    averageLuminance: luminance / count,
+    averageChannelSpread: channelSpread / count
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -222,9 +256,9 @@ describe("M01 greybox art slices", () => {
       const resource = getM01GreyboxArtPreviewResource(slice.id);
 
       expect(resource).toBeDefined();
-      expect(readFileSync(join(projectRoot, resource!.file))).toEqual(
-        readFileSync(join(projectRoot, slice.file))
-      );
+      const resourceBytes = readFileSync(join(projectRoot, resource!.file));
+      const sourceBytes = readFileSync(join(projectRoot, slice.file));
+      expect(resourceBytes.equals(sourceBytes)).toBe(true);
     }
   });
 
@@ -389,6 +423,37 @@ describe("M01 greybox art slices", () => {
     }
   });
 
+  it("keeps isolated fragment sprites in the pale grey-white porcelain material range", () => {
+    const colorsByShape = new Map<string, ReturnType<typeof summarizeOpaqueColor>[]>();
+
+    for (const resource of [
+      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES,
+      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES
+    ]) {
+      const image = readPngRgba(resource.file);
+      const color = summarizeOpaqueColor(image);
+      const shape = resource.id.includes("triangle")
+        ? "triangle"
+        : resource.id.includes("hexagon")
+          ? "hexagon"
+          : "circle";
+
+      expect(color.averageLuminance).toBeGreaterThan(165);
+      expect(color.averageChannelSpread).toBeLessThan(22);
+      expect(resource.sourceFile).toBe(M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET);
+
+      colorsByShape.set(shape, [...(colorsByShape.get(shape) ?? []), color]);
+    }
+
+    for (const colors of colorsByShape.values()) {
+      const luminanceValues = colors.map((color) => color.averageLuminance);
+      const spreadValues = colors.map((color) => color.averageChannelSpread);
+
+      expect(Math.max(...luminanceValues) - Math.min(...luminanceValues)).toBeLessThan(4);
+      expect(Math.max(...spreadValues) - Math.min(...spreadValues)).toBeLessThan(1);
+    }
+  });
+
   it("declares flashlight token sprites and overlap surface resources for the current M01 art inventory", () => {
     expect(M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES.map((resource) => resource.id)).toEqual([
       "flashlight_red",
@@ -397,6 +462,8 @@ describe("M01 greybox art slices", () => {
     ]);
     expect(M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.map((resource) => resource.id)).toEqual([
       "fragment_floor",
+      "target_reference_card",
+      "single_flashlight_tool",
       "toolcard_frame"
     ]);
 
@@ -415,6 +482,10 @@ describe("M01 greybox art slices", () => {
       expect(existsSync(join(projectRoot, resource.file))).toBe(true);
       expect(existsSync(join(projectRoot, `${resource.file}.meta`))).toBe(true);
 
+      if (resource.id === "target_reference_card") {
+        continue;
+      }
+
       const image = readPngRgba(resource.file);
       expect(alphaAt(image, 0, 0)).toBe(0);
       expect(alphaAt(image, image.width - 1, 0)).toBe(0);
@@ -428,6 +499,22 @@ describe("M01 greybox art slices", () => {
       role: "toolcard_frame_surface",
       resourcesLoadPath:
         "art/stage1-m01/runtime-sprites/surfaces/m01-toolcard-preview-frame/spriteFrame"
+    });
+    expect(getM01GreyboxTargetReferenceCardResource()).toMatchObject({
+      id: "target_reference_card",
+      role: "target_reference_surface",
+      resourcesLoadPath:
+        "art/stage1-m01/runtime-sprites/surfaces/m01-target-reference-card/spriteFrame"
+    });
+    expect(
+      M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
+        (resource) => resource.id === "single_flashlight_tool"
+      )
+    ).toMatchObject({
+      id: "single_flashlight_tool",
+      role: "flashlight_tool_surface",
+      sourceFile:
+        "docs/design/generated-m01-art-slices/m01-single-flashlight-tool-runtime-fixed.png"
     });
   });
 
@@ -461,10 +548,14 @@ describe("M01 greybox art slices", () => {
     expect(gearArt).toMatchObject({
       id: "gearStar",
       role: "repair_object_token",
-      displaySize: { width: 300, height: 300 },
+      sourceFile:
+        "docs/design/generated-m01-art-slices/m01-overlap-memory-gear-full-outline-rich-color-runtime.png",
+      displaySize: { width: 553, height: 553 },
       resourcesLoadPath:
         "art/stage1-m01/runtime-sprites/surfaces/m01-overlap-memory-gear/spriteFrame"
     });
+    expect(gearArt?.displaySize).toBeDefined();
+    expect(gearArt!.displaySize!.width / gearArt!.displaySize!.height).toBe(1);
 
     expect(plan.tokens.find((token) => token.controllerId === "fragment_red_circle_1")).toMatchObject({
       controllerId: "fragment_red_circle_1",
@@ -474,84 +565,58 @@ describe("M01 greybox art slices", () => {
     });
   });
 
-  it("maps real M01 overlap-evidence fragments and evidence markers onto non-legacy runtime art", () => {
+  it("maps real M01 overlap-evidence fragments without drawing hidden evidence snap zones", () => {
     const layout = buildM01GreyboxLayout(realM01Config);
     const plan = buildM01GreyboxTokenArtPlan(layout);
 
     expect(M01_GREYBOX_ART_SOURCE_SHEET).toContain("candidate-v2");
     expect(plan.enabledByDefault).toBe(false);
-    expect(plan.tokens).toHaveLength(
-      layout.fragments.length + layout.evidence.length + layout.flashlights.length + 1
-    );
+    expect(plan.tokens).toHaveLength(layout.fragments.length + 1);
     expect(plan.tokens.some((token) => token.role === "filter_token")).toBe(false);
+    expect(plan.tokens.some((token) => token.role === "evidence_marker_token")).toBe(false);
 
-    const hiddenCircle = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[0]);
-    const hiddenCircleBlue = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[1]);
-    const hiddenTriangle = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[4]);
-    const hiddenHexagon = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[8]);
-    const purpleEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[0]);
-    const orangeEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[2]);
+    const redCircle = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[0]);
+    const blueCircle = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[1]);
+    const blueTriangle = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[4]);
+    const blueHexagon = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[8]);
+    const firstEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[0]);
+    const greenTriangleEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[4]);
     const redFlashlight = getM01GreyboxRuntimeSpriteResourceForToken(layout.flashlights[0]);
 
-    expect(hiddenCircle).toMatchObject({
-      id: "hidden_circle",
+    expect(redCircle).toMatchObject({
+      id: "red_circle",
       role: "fragment_token",
       resourcesLoadPath:
-        "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-circle/spriteFrame"
+        "art/stage1-m01/runtime-sprites/fragments/m01-fragment-red-circle/spriteFrame"
     });
-    expect(hiddenCircleBlue).toMatchObject({
-      id: "hidden_circle",
+    expect(blueCircle).toMatchObject({
+      id: "blue_circle",
       role: "fragment_token"
     });
-    expect(hiddenTriangle).toMatchObject({
-      id: "hidden_triangle",
+    expect(blueTriangle).toMatchObject({
+      id: "blue_triangle",
       role: "fragment_token",
       resourcesLoadPath:
-        "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-triangle/spriteFrame"
+        "art/stage1-m01/runtime-sprites/fragments/m01-fragment-blue-triangle/spriteFrame"
     });
-    expect(hiddenHexagon).toMatchObject({
-      id: "hidden_hexagon",
+    expect(blueHexagon).toMatchObject({
+      id: "blue_hexagon",
       role: "fragment_token",
       resourcesLoadPath:
-        "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-hexagon/spriteFrame"
+        "art/stage1-m01/runtime-sprites/fragments/m01-fragment-blue-hexagon/spriteFrame"
     });
-    expect(purpleEvidence).toMatchObject({
-      id: "evidence_purple_circle_triangle",
-      role: "evidence_marker_token",
-      resourcesLoadPath:
-        "art/stage1-m01/runtime-sprites/evidence-markers/m01-evidence-purple-circle-triangle/spriteFrame"
-    });
-    expect(orangeEvidence).toMatchObject({
-      id: "evidence_orange_hexagon_hexagon",
-      role: "evidence_marker_token",
-      resourcesLoadPath:
-        "art/stage1-m01/runtime-sprites/evidence-markers/m01-evidence-orange-hexagon-hexagon/spriteFrame"
-    });
-    expect(redFlashlight).toMatchObject({
-      id: "flashlight_red",
-      role: "flashlight_token",
-      resourcesLoadPath:
-        "art/stage1-m01/runtime-sprites/flashlights/m01-flashlight-red/spriteFrame"
-    });
+    expect(firstEvidence).toBeUndefined();
+    expect(greenTriangleEvidence).toBeUndefined();
+    expect(redFlashlight).toBeUndefined();
 
     expect(plan.tokens.find((token) => token.controllerId === layout.fragments[0]?.controllerId)).toMatchObject({
       controllerId: "fragment_circle_red_1",
-      resourceId: "hidden_circle",
+      resourceId: "red_circle",
       role: "fragment_token",
       interactive: false
     });
-    expect(plan.tokens.find((token) => token.controllerId === layout.evidence[0]?.controllerId)).toMatchObject({
-      controllerId: "evidence_purple_upper_left",
-      resourceId: "evidence_purple_circle_triangle",
-      role: "evidence_marker_token",
-      interactive: false
-    });
-    expect(plan.tokens.find((token) => token.controllerId === layout.flashlights[0]?.controllerId)).toMatchObject({
-      controllerId: "flashlight_red",
-      resourceId: "flashlight_red",
-      role: "flashlight_token",
-      interactive: false
-    });
+    expect(plan.tokens.find((token) => token.controllerId === layout.evidence[0]?.controllerId)).toBeUndefined();
+    expect(plan.tokens.find((token) => token.controllerId === layout.flashlights[0]?.controllerId)).toBeUndefined();
   });
 
   it("builds a static gameplay art plan without fragment or filter composite sheets", () => {
@@ -572,20 +637,113 @@ describe("M01 greybox art slices", () => {
     expect(plan.layers.map((layer) => layer.id)).not.toContain("colorFilters");
   });
 
-  it("does not attach the legacy nine-slot tray to the new overlap evidence greybox", () => {
+  it("omits the old target reference card from the repair platform", () => {
     const layout = buildM01GreyboxLayout(realM01Config);
     const plan = buildM01GreyboxStaticArtPlan(layout);
 
     expect(plan.enabledByDefault).toBe(false);
     expect(plan.layers).toEqual([
       {
-        id: "fragmentFloor",
-        role: "fragment_floor_surface",
+        id: "singleFlashlightTool",
+        role: "flashlight_tool_surface",
         resourcesLoadPath:
-          "art/stage1-m01/runtime-sprites/surfaces/m01-fragment-floor-surface/spriteFrame",
+          "art/stage1-m01/runtime-sprites/surfaces/m01-single-flashlight-tool/spriteFrame",
         interactive: false,
-        position: { x: 0, y: -248 },
-        size: { width: 960, height: 128 }
+        position: { x: 420, y: 72 },
+        size: { width: 58, height: 128 },
+        rotationDegrees: 168
+      }
+    ]);
+    expect(plan.layers.map((layer) => layer.id)).not.toContain("targetReferenceCard");
+    expect(getM01GreyboxTargetReferenceCardResource()).toBeDefined();
+    expect(plan.layers.map((layer) => layer.id)).not.toContain("fragmentFloor");
+  });
+
+  it("renders only true-color target overlap evidence from the current manual outline", () => {
+    const layout = buildM01GreyboxLayout(realM01Config);
+    const plan = buildM01GreyboxStaticArtPlan(layout);
+    const overlapPlan = buildM01GreyboxTargetOverlapEvidencePlan(layout);
+
+    expect(plan.layers.map((layer) => layer.id)).not.toContain("targetReferenceCard");
+    expect(realM01Config.targetPattern).toMatchObject({
+      locked: true
+    });
+    expect(realM01Config.targetPattern?.pieces).toHaveLength(6);
+    expect(layout.targetPieceSlots).toHaveLength(6);
+    expect(overlapPlan.overlaps.map((overlap) => ({
+      evidenceId: overlap.evidenceId,
+      colorToken: overlap.colorToken,
+      position: overlap.position,
+      outline: overlap.outline
+    }))).toEqual([
+      {
+        evidenceId: "current_manual_target_green_circle_hexagon_1",
+        colorToken: "green",
+        position: { x: -34.5, y: -15.62 },
+        outline: realM01Config.evidence[0].generatedOverlap?.outline
+      },
+      {
+        evidenceId: "current_manual_target_orange_circle_hexagon_1",
+        colorToken: "orange",
+        position: { x: -15.76, y: -51.53 },
+        outline: realM01Config.evidence[1].generatedOverlap?.outline
+      },
+      {
+        evidenceId: "current_manual_target_orange_circle_triangle_1",
+        colorToken: "orange",
+        position: { x: 16.96, y: 3.93 },
+        outline: realM01Config.evidence[2].generatedOverlap?.outline
+      },
+      {
+        evidenceId: "current_manual_target_purple_circle_hexagon_1",
+        colorToken: "purple",
+        position: { x: -17.5, y: 8.35 },
+        outline: realM01Config.evidence[3].generatedOverlap?.outline
+      },
+      {
+        evidenceId: "current_manual_target_green_triangle_triangle_1",
+        colorToken: "green",
+        position: { x: 34.87, y: -24.12 },
+        outline: realM01Config.evidence[4].generatedOverlap?.outline
+      },
+      {
+        evidenceId: "current_manual_target_purple_triangle_hexagon_1",
+        colorToken: "purple",
+        position: { x: 10.5, y: -47.33 },
+        outline: realM01Config.evidence[5].generatedOverlap?.outline
+      }
+    ]);
+    expect(overlapPlan.overlaps.every((overlap) => overlap.outline.length >= 3)).toBe(true);
+  });
+
+  it("keeps target overlap evidence independent from hidden sprite resources", () => {
+    const geometryOnlyLayout = {
+      evidence: [
+        {
+          controllerId: "target_overlap_geometry_only",
+          colorToken: "green",
+          position: { x: 12, y: -8 },
+          magnetPolygon: [
+            { x: -4, y: -4 },
+            { x: 4, y: -4 },
+            { x: 0, y: 4 }
+          ]
+        }
+      ]
+    } as unknown as M01GreyboxLayout;
+
+    expect(buildM01GreyboxTargetOverlapEvidencePlan(geometryOnlyLayout).overlaps).toEqual([
+      {
+        id: "target_overlap_target_overlap_geometry_only",
+        evidenceId: "target_overlap_geometry_only",
+        colorToken: "green",
+        interactive: false,
+        position: { x: 12, y: -8 },
+        outline: [
+          { x: -4, y: -4 },
+          { x: 4, y: -4 },
+          { x: 0, y: 4 }
+        ]
       }
     ]);
   });

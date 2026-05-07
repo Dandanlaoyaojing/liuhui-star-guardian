@@ -22,7 +22,7 @@ Do not reuse the old nine-slot sorter brief as a direct prompt. M01 no longer ne
 - **Hidden fragments**: 13 default candidate pieces using only circle, triangle, and hexagon silhouettes. They are grey-white / translucent by default. Hidden red / yellow / blue base colors must not be visible before flashlight observation or validation feedback.
 - **Shape consistency**: circles, triangles, and hexagons in the side target must look like the same reusable fragments shown in the bottom pool, scaled together as a diagram if needed. The runtime fragment standard is one `48x48` token box per piece: circle, triangle, and hexagon all share that same box size. Triangles must use the same straight-edged runtime triangle template every time, circles must stay circular, and hexagons must stay regular six-sided polygons; hand-drawn line wobble is allowed, but warped / stretched / improvised silhouettes are not.
 - **Triangle consistency**: the target diagram may contain two triangle fragments. Every triangle must be the same runtime triangle template at the same diagram scale; never draw one large triangle and one small triangle in the same target reference.
-- **Flashlight tools**: three physical handheld tools for red / yellow / blue light. They are not fixed UI buttons. The flashlight body should be readable as a small object the player can pick up; the beam source is the held flashlight position, and the beam visually stays on the bottom fragment floor.
+- **Flashlight tool**: one handheld flashlight tool with three selectable light buttons for red / yellow / blue. The flashlight body should be readable as a small object the player can pick up; the colored buttons live on the body as mode selectors, the beam source is the held flashlight position, and the beam visually stays on the bottom fragment floor.
 - **Bottom fragment floor**: a designed low, quiet work surface where scattered fragments sit and where flashlight scanning happens. It should focus attention on bottom fragments without becoming a decorative platform.
 - **Bottom-light states**: the central plate needs clear off, failed-flash, and steady-on states. Failed-flash is a short warning glow; steady-on is calm repair confirmation. Neither state should hide the placed fragment silhouettes.
 - **ToolCard preview frame**: a small hand-drawn card frame for completion. It should provide a visual home for real engine text, not bake in readable generated text.
@@ -32,7 +32,7 @@ Do not reuse the old nine-slot sorter brief as a direct prompt. M01 no longer ne
 Use case: stylized-concept
 Asset type: transparent-ready 2D runtime sprite sheet and UI-surface set for a Cocos Creator puzzle prototype
 
-Primary request: Create a clean, separated runtime art sheet for M01 "memory gear overlap evidence" gameplay. The sheet should contain: one empty memory gear / central assembly plate, one side target overlap evidence diagram frame showing a single coherent assembled target pattern made only from overlapping circles, triangles, and hexagons with local evidence marks, thirteen hidden grey-white fragments using only circle / triangle / hexagon silhouettes, three handheld flashlight tools colored red / yellow / blue, one bottom fragment floor surface, bottom-light state overlays for off / failed flash / steady on, and one ToolCard preview frame.
+Primary request: Create a clean, separated runtime art sheet for M01 "memory gear overlap evidence" gameplay. The sheet should contain: one empty memory gear / central assembly plate, one side target overlap evidence diagram frame showing a single coherent assembled target pattern made only from overlapping circles, triangles, and hexagons with local evidence marks, thirteen hidden grey-white fragments using only circle / triangle / hexagon silhouettes, one handheld flashlight tool with three selectable light buttons colored red / yellow / blue, one bottom fragment floor surface, bottom-light state overlays for off / failed flash / steady on, and one ToolCard preview frame.
 
 Style: follow the 2026-04-22 unified hand-drawn style anchor for this M01 pass. Use its warm off-white paper ground, clear charcoal / ink contours with slight hand wobble, simple believable gear-like machinery, low-saturation watercolor fills, grey-bronze mechanical masses, dusty clay red / muted blue-gray / soft ochre fragment colors, and large calm negative space. The image should feel like a hand-painted puzzle prop from the same world as the reference gear and small rabbit scene: tactile, quiet, functional, and slightly imperfect. Preserve line clarity above color. Do not drift into a dark cockpit, glossy sci-fi console, dense fantasy machine, or hard vector diagram.
 
@@ -44,7 +44,7 @@ Side target evidence diagram: create a separate small reference picture surface,
 
 Hidden fragments: create thirteen separate default fragments. Use only three silhouette families: circle, triangle, and hexagon. Keep every default fragment cool grey / smoky pale metal-glass with charcoal outline and slight painterly variation. Some fragments may share the same silhouette, but do not reveal their hidden base color. Do not create red, yellow, or blue default fragments.
 
-Flashlights: create three handheld flashlight tools, one red, one yellow, one blue. They should read as small functional tools with a simple handle, lens, and hand-drawn contour. They should not look like flat UI buttons or fixed emitters. Include optional small beam-start accents, but do not bake large beams into the tool sprites.
+Flashlight: create one handheld flashlight tool with one body and three small selectable light buttons on the top / side: red, yellow, and blue. It should read as a single functional tool with a simple handle, lens, mode buttons, and hand-drawn contour. Use cartoon toy-like proportions: a slightly squat rounded body, oversized soft lens rim, plump button pod, friendly uneven outline, and warm storybook-watercolor material. The buttons should look pressable but integrated into the prop, not like separate floating UI pills. Create small runtime overlay decals for button highlights and lens glow: one soft lens glow, three button-selected highlight rings, and at most a short beam-mouth accent near the lens. Do not bake the full flashlight beam into an art decal; do not bake the full flashlight beam into an art decal as a long cone. The long cone / scanning area must be drawn dynamically by runtime so direction, reach, color, and floor clipping stay correct.
 
 Bottom fragment floor: create one low horizontal floor / work surface for the bottom band of the play area. It should borrow from the 2026-04-22 anchor's thin ground line, small scattered fragments, pale paper dust, and restrained hand-drawn marks. Keep enough contrast for grey fragments to remain visible. Avoid heavy decoration; the floor exists to make scattered pieces feel physically placed and to constrain flashlight scanning visually.
 
@@ -72,7 +72,8 @@ Texture rule: hand-made feeling should come from continuous ink contours, slight
 - No target clue depicts three-layer overlap or a pile of many fragments.
 - Hidden fragments use only circle / triangle / hexagon silhouettes.
 - Default hidden fragments do not show hidden base colors before interaction.
-- Flashlights read as handheld tools, not fixed selector buttons.
+- The flashlight reads as one handheld tool with three integrated red / yellow / blue selector buttons, not three separate tools and not fixed emitters.
+- The flashlight glow art is limited to small runtime overlay decals for button highlights and lens glow; the full beam remains dynamic runtime graphics.
 - The bottom floor clearly belongs to the fragment-scanning band.
 - Bottom-light overlays are state feedback, not answer hints.
 
@@ -93,8 +94,17 @@ Texture rule: hand-made feeling should come from continuous ink contours, slight
 - Background is either true alpha or a flat removable chroma-key color.
 - If chroma-keyed, the key color is perfectly uniform and absent from assets.
 - Transparent extraction leaves no colored fringe around ink lines.
-- Individual sprites can be exported for: assembly plate, reference diagram frame / marks, hidden fragments, flashlights, bottom floor, bottom-light overlays, and ToolCard frame.
+- Individual sprites can be exported for: assembly plate, reference diagram frame / marks, hidden fragments, the single three-button flashlight, bottom floor, bottom-light overlays, and ToolCard frame.
 - Runtime import can keep `enableArtPreview=false` as the safe greybox path until QA accepts the visual pass.
+
+## Generated Watercolor PSD Asset Pass
+
+- The 2026-04-22 watercolor handdrawn reference must be treated as the style reference, not as a literal crop source. Direct crops do not follow the original linework closely enough for production use.
+- Current generated PSD assets live in `m01-generated-watercolor-psd-assets/`. The source sheet was generated from the reference style, then each part was isolated into an individual transparent PNG and same-name PSD.
+- Current output includes 26 individual PSD part files: empty gear assembly plate, target reference card, single three-button flashlight, ToolCard frame, fragment floor, bottom-light overlays, flashlight decals, and 13 hidden grey-white fragments.
+- The target reference card is a special locked-geometry asset. `parts/target_reference_card.psd` must use the approved clue-only watercolor target from `source/m01-locked-knot-target-clue-only-watercolor-imagegen-v1.*`: full circle / triangle / hexagon bodies and outlines outside the colored clues are hidden, and only colored overlap evidence plus local ink boundaries remain. Image generation may paint style around the clues but must not freely redesign, loosen, or rearrange the target pattern.
+- Use these PSD files as visual-review sources for final runtime paintover / import. Do not treat vector SVG approximations as the final watercolor style.
+- Any future generated replacement should preserve the same rule: reference image controls watercolor paper, pigment, broken ink, and muted palette; deterministic geometry controls circles, equilateral triangles, regular hexagons, and true overlap regions.
 
 ## Rejection Triggers
 
@@ -116,6 +126,7 @@ Reject the candidate if any of these are true:
 - The target diagram gives away which fragment IDs or base colors solve the puzzle.
 - Evidence marks imply a three-layer intersection.
 - The sheet relies on labels or text to explain the mechanic.
+- It includes a full-length flashlight beam baked into the art sheet instead of only small lens / button overlay decals.
 - It becomes a dense fantasy machine instead of a simple repair surface.
 - It reads as soft watercolor atmosphere with weak lines.
 - It ignores the 2026-04-22 hand-drawn gear anchor and drifts into a dark cockpit / glossy sci-fi console.
@@ -129,3 +140,8 @@ Reject the candidate if any of these are true:
 - Put accepted runtime sprites under `assets/resources/art/stage1-m01/runtime-sprites/`.
 - Preserve the current greybox path as default.
 - Import art behind the existing preview toggle and verify the full real-input M01 preview smoke after Cocos asset refresh.
+
+## Runtime Correction Notes
+
+- 2026-05-03 platform correction: do not solve the assembly platform by stretching a wide source image at runtime, and do not regress to the earlier process-cut `parts/assembly_gear_empty.png`. The current runtime direction is a square rich-color platform PNG derived from `m01-anchor-cleaned-v2-gear-empty-center-rich-color-candidate.png`; measured inner ring is about `center=(592,598), radius=328px`, exported as `1212x1212`, and displayed uniformly at `553x553`, giving an inner-ring display radius of about `150px`. This version deliberately preserves the source paper ground to avoid color-threshold alpha extraction eating the pale right-upper gear rim. If true transparency is required, create a hand-authored / PSD alpha mask instead of using automatic paper-color removal.
+- 2026-05-04 flashlight cartoon correction: the current corrected source is `m01-single-flashlight-tool-runtime-fixed.png`; it keeps the single three-button flashlight composition but shifts the prop toward cartoon toy-like proportions: squat rounded body, oversized lens rim, large tactile selector buttons, and friendly hand-drawn wobble. Do not rely on runtime tint to rescue a dark flashlight.

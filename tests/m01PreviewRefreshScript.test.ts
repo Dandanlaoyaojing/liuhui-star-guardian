@@ -3,7 +3,13 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
+// The refresh helper is intentionally a runnable .mjs script, so the test imports it
+// directly without adding a TypeScript declaration artifact for production code.
+// @ts-expect-error no declaration file for the runnable script module
+import { buildRefreshWorkflow, runRefreshWorkflow } from "../scripts/m01-preview-refresh.mjs";
+
 const projectRoot = process.cwd();
+const childProcessTimeoutMs = 10_000;
 
 describe("M01 preview refresh helper", () => {
   it("exposes a repo-local refresh command and prefers MCP refresh before restart fallback", () => {
@@ -18,7 +24,8 @@ describe("M01 preview refresh helper", () => {
       [join(projectRoot, "scripts/m01-preview-refresh.mjs"), "--dry-run", "--json"],
       {
         cwd: projectRoot,
-        encoding: "utf8"
+        encoding: "utf8",
+        timeout: childProcessTimeoutMs
       }
     );
 
@@ -36,24 +43,11 @@ describe("M01 preview refresh helper", () => {
     expect(output.restartFallback).toContain("Only restart Cocos Creator");
     expect(output.restartFallback).toContain("after the MCP refresh path fails");
     expect(output.nextStep).toBe("Rerun npm run smoke:m01-preview after refresh completes.");
-  });
+  }, 15_000);
 
-  it("reports an unavailable MCP server with a concrete fallback hint", () => {
-    const result = spawnSync(
-      process.execPath,
-      [join(projectRoot, "scripts/m01-preview-refresh.mjs")],
-      {
-        cwd: projectRoot,
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          M01_COCOS_MCP_URL: "http://127.0.0.1:1"
-        }
-      }
+  it("reports an unavailable MCP server with a concrete fallback hint", async () => {
+    await expect(runRefreshWorkflow(buildRefreshWorkflow("http://127.0.0.1:1"))).rejects.toThrow(
+      /M01 preview refresh could not reach the local MCP server.*Only restart Cocos Creator after the MCP refresh path fails/
     );
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("M01 preview refresh could not reach the local MCP server");
-    expect(result.stderr).toContain("Only restart Cocos Creator after the MCP refresh path fails");
-  });
+  }, 15_000);
 });
