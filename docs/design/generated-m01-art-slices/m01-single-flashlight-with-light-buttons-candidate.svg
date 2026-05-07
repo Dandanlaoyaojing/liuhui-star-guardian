@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="500" viewBox="0 0 300 500">
+  <defs>
+    <linearGradient id="flashlight-body-wash" x1="88" y1="104" x2="208" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#eadbb9" stop-opacity="0.98" />
+      <stop offset="0.42" stop-color="#bcb489" stop-opacity="0.96" />
+      <stop offset="1" stop-color="#7f7962" stop-opacity="0.98" />
+    </linearGradient>
+    <radialGradient id="lens-wash" cx="150" cy="72" r="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff5cc" stop-opacity="0.98" />
+      <stop offset="0.58" stop-color="#e2d49b" stop-opacity="0.84" />
+      <stop offset="1" stop-color="#746f5d" stop-opacity="0.72" />
+    </radialGradient>
+    <filter id="watercolor-mottle" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.027" numOctaves="3" seed="18" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.1" />
+    </filter>
+  </defs>
+
+  <rect width="300" height="500" fill="none" />
+  <g id="single-flashlight-asset" stroke-linecap="round" stroke-linejoin="round" filter="url(#watercolor-mottle)">
+    <g id="cartoon-toy-silhouette">
+      <path id="toy-lens-glow"
+        d="M82 44 C98 15, 202 15, 218 44 C244 61, 238 111, 212 125 C181 139, 117 139, 88 125 C62 110, 56 61, 82 44 Z"
+        fill="url(#lens-wash)" stroke="#201d18" stroke-width="5" />
+      <path id="single-flashlight-body"
+        d="M88 111 C104 92, 196 92, 212 111 C228 157, 230 331, 213 395 C194 424, 107 424, 88 395 C70 331, 72 157, 88 111 Z"
+        fill="url(#flashlight-body-wash)" stroke="#201d18" stroke-width="5" />
+      <path id="soft-bottom-cap"
+        d="M82 387 C96 364, 204 364, 218 387 C228 410, 207 435, 151 438 C94 435, 72 410, 82 387 Z"
+        fill="#b7aa7d" stroke="#201d18" stroke-width="4" />
+    </g>
+
+    <path id="cartoon-highlight-lines"
+      d="M96 122 C117 110, 177 108, 202 122 M92 382 C118 399, 186 400, 211 382 M94 178 C116 188, 136 190, 157 184 M93 280 C118 291, 142 292, 165 284"
+      fill="none" stroke="#f5ead0" stroke-width="3" stroke-opacity="0.36" />
+    <path id="soft-grip-lines"
+      d="M72 174 C91 181, 103 184, 119 183 M70 215 C91 223, 104 225, 122 223 M70 256 C92 264, 106 266, 125 263 M74 333 C95 341, 109 342, 128 338"
+      fill="none" stroke="#2a261f" stroke-width="2.2" stroke-opacity="0.42" />
+
+    <g id="button-pod">
+      <path d="M111 157 C124 144, 176 144, 189 157 C201 190, 201 303, 189 335 C176 349, 124 349, 111 335 C99 303, 99 190, 111 157 Z"
+        fill="#4d473a" stroke="#201d18" stroke-width="4" />
+      <g id="light-button-red">
+        <circle cx="150" cy="197" r="21" fill="#bf6e5c" stroke="#201d18" stroke-width="3" />
+        <circle cx="143" cy="190" r="7" fill="#ffd0b6" fill-opacity="0.72" />
+      </g>
+      <g id="light-button-yellow">
+        <circle cx="150" cy="247" r="21" fill="#d7b95f" stroke="#201d18" stroke-width="3" />
+        <circle cx="143" cy="240" r="7" fill="#fff1b4" fill-opacity="0.72" />
+      </g>
+      <g id="light-button-blue">
+        <circle cx="150" cy="297" r="21" fill="#4f6fc8" stroke="#201d18" stroke-width="3" />
+        <circle cx="143" cy="290" r="7" fill="#d7e0ff" fill-opacity="0.72" />
+      </g>
+    </g>
+
+    <g id="ink-wobble-detail" fill="none" stroke="#201d18" stroke-width="1.6" stroke-opacity="0.42">
+      <path d="M83 50 C114 38, 185 37, 216 51" />
+      <path d="M84 111 C111 126, 190 126, 216 111" />
+      <path d="M94 408 C122 421, 180 421, 207 408" />
+      <path d="M210 171 C203 200, 203 243, 209 279" />
+      <path d="M91 139 C83 178, 83 257, 90 305" />
+    </g>
+  </g>
+</svg>

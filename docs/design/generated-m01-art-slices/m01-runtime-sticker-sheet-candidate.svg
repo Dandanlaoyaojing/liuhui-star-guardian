@@ -1,0 +1,234 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <desc>m01 runtime sticker sheet candidate, restyled against 2026-04-22 handdrawn gear reference</desc>
+  <defs>
+    <circle id="std-circle" cx="0" cy="0" r="48" />
+    <polygon id="std-triangle" points="0,-41.569 -48,41.569 48,41.569" />
+    <polygon id="std-hexagon" points="-48,0 -24,-41.569 24,-41.569 48,0 24,41.569 -24,41.569" />
+
+    <radialGradient id="paper-wash" cx="0.46" cy="0.24" r="0.88">
+      <stop offset="0" stop-color="#fbf5e5" />
+      <stop offset="0.62" stop-color="#f1e8d1" />
+      <stop offset="1" stop-color="#e5dac0" />
+    </radialGradient>
+    <linearGradient id="olive-watercolor" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b9b29a" />
+      <stop offset="0.48" stop-color="#827d67" />
+      <stop offset="1" stop-color="#595645" />
+    </linearGradient>
+    <linearGradient id="bone-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2e8ce" />
+      <stop offset="0.62" stop-color="#d4c6a8" />
+      <stop offset="1" stop-color="#a79a80" />
+    </linearGradient>
+    <linearGradient id="cool-fragment" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9e4d2" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#a7aca0" stop-opacity="0.82" />
+    </linearGradient>
+    <radialGradient id="repair-glow" cx="0.5" cy="0.5" r="0.58">
+      <stop offset="0" stop-color="#e8be58" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#e8be58" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="fail-glow" cx="0.5" cy="0.5" r="0.58">
+      <stop offset="0" stop-color="#b9614c" stop-opacity="0.5" />
+      <stop offset="1" stop-color="#b9614c" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="lens-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff3b7" stop-opacity="0.8" />
+      <stop offset="1" stop-color="#e5ba58" stop-opacity="0" />
+    </radialGradient>
+    <filter id="paper-tooth" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="422" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.45 0 0 0 0 0.39 0 0 0 0 0.29 0 0 0 0.18 0" />
+    </filter>
+    <filter id="watercolor-mottle" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="4" seed="224" result="mottle" />
+      <feDisplacementMap in="SourceGraphic" in2="mottle" scale="1.6" />
+    </filter>
+    <filter id="soft-ground-shadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#2b2924" flood-opacity="0.13" />
+    </filter>
+    <g id="ink-hatch" fill="none" stroke="#161411" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-4 -3 L4 -4 M-2 4 L5 3" stroke-width="1.1" stroke-opacity="0.55" />
+      <path d="M-6 1 L-1 0 M2 6 L8 5" stroke-width="0.8" stroke-opacity="0.35" />
+    </g>
+  </defs>
+
+  <rect id="reference-style-anchor-2026-04-22" width="1000" height="1000" fill="url(#paper-wash)" />
+  <rect width="1000" height="1000" filter="url(#paper-tooth)" opacity="0.9" />
+  <g id="paper-dust-and-ground" fill="none" stroke-linecap="round">
+    <path d="M72 928 C235 905, 372 915, 535 924 C692 934, 823 922, 962 906"
+      stroke="#27231e" stroke-width="2.4" stroke-dasharray="10 18" stroke-opacity="0.62" />
+    <path d="M70 919 C248 890, 412 904, 545 914 C718 927, 832 909, 964 894"
+      stroke="#b8aa86" stroke-width="1.5" stroke-opacity="0.34" />
+    <path d="M38 84 L62 81 M120 100 L148 97 M224 70 L250 67 M788 72 L821 68 M899 111 L935 108"
+      stroke="#978a70" stroke-width="1" stroke-opacity="0.2" />
+    <path d="M118 943 L135 940 M214 930 L238 927 M518 949 L546 946 M720 935 L744 932 M880 944 L910 941"
+      stroke="#211f1b" stroke-width="1.2" stroke-opacity="0.18" />
+  </g>
+
+  <g id="asset-assembly-plate" transform="translate(80 74) scale(0.82)" filter="url(#soft-ground-shadow)">
+    <path id="assembly-gear-rim"
+      d="M205 11 L239 54 L296 42 L313 95 L366 120 L344 174 L371 226 L317 254 L303 310 L244 301 L205 346 L166 301 L107 310 L93 254 L39 226 L66 174 L44 120 L97 95 L114 42 L171 54 Z"
+      fill="url(#bone-rim)" stroke="#171512" stroke-width="4.2" stroke-linejoin="round" />
+    <path
+      d="M205 36 L232 71 L279 61 L292 106 L336 127 L318 174 L341 217 L296 241 L284 287 L236 280 L205 317 L174 280 L126 287 L114 241 L69 217 L92 174 L74 127 L118 106 L131 61 L178 71 Z"
+      fill="url(#olive-watercolor)" stroke="#1b1814" stroke-width="2.5" stroke-linejoin="round" filter="url(#watercolor-mottle)" opacity="0.95" />
+    <circle cx="205" cy="174" r="122" fill="#eee2c7" stroke="#1b1814" stroke-width="3.2" />
+    <circle cx="205" cy="174" r="107" fill="#f7ecd3" fill-opacity="0.7" stroke="#6f604a" stroke-width="1.7" stroke-opacity="0.75" />
+    <circle cx="205" cy="174" r="83" fill="none" stroke="#8b8068" stroke-width="1.2" stroke-opacity="0.35" />
+    <g fill="none" stroke="#12100e" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M206 9 L241 52 M294 43 L315 96 M365 120 L344 174 M370 227 L318 254 M302 312 L244 302 M205 347 L166 303 M107 311 L93 254 M39 226 L65 173 M44 119 L97 96 M114 42 L170 53"
+        stroke-width="1.3" stroke-opacity="0.58" />
+      <path d="M97 82 C131 48, 166 40, 202 40 M279 58 C321 78, 348 112, 354 154 M339 232 C313 278, 270 307, 223 318 M130 290 C88 263, 64 221, 65 176"
+        stroke-width="1.1" stroke-opacity="0.4" />
+    </g>
+    <g id="assembly-watercolor-bloom" fill="#f2e8ce" opacity="0.32">
+      <path d="M70 135 C116 109, 151 122, 137 152 C122 183, 77 183, 56 161 C45 150, 49 143, 70 135 Z" />
+      <path d="M263 75 C304 67, 326 91, 314 121 C303 149, 263 147, 248 123 C236 103, 242 82, 263 75 Z" />
+      <path d="M119 238 C154 218, 187 230, 177 260 C166 291, 124 289, 106 266 C95 250, 99 243, 119 238 Z" />
+    </g>
+    <g id="ink-jitter-lines">
+      <use href="#ink-hatch" transform="translate(118 62) rotate(-8)" />
+      <use href="#ink-hatch" transform="translate(304 104) rotate(16)" />
+      <use href="#ink-hatch" transform="translate(330 238) rotate(-12)" />
+      <use href="#ink-hatch" transform="translate(112 286) rotate(10)" />
+      <use href="#ink-hatch" transform="translate(64 177) rotate(-20)" />
+    </g>
+  </g>
+
+  <g id="asset-target-reference-card" transform="translate(545 96) scale(0.78)" filter="url(#soft-ground-shadow)">
+    <rect x="0" y="0" width="500" height="296" rx="8" fill="#f3e8cf" stroke="#191613" stroke-width="3.2" />
+    <rect x="18" y="20" width="464" height="252" rx="7" fill="#fbefd4" stroke="#7f725a" stroke-width="1.6" />
+    <path d="M31 39 C152 25, 336 28, 456 42 M44 254 C170 268, 336 267, 455 251"
+      fill="none" stroke="#8f8269" stroke-width="1.2" stroke-opacity="0.34" stroke-linecap="round" />
+    <g transform="translate(24 -10)" fill="url(#cool-fragment)" fill-opacity="0.78" stroke="#181512" stroke-width="3" stroke-linejoin="round">
+      <use href="#std-circle" transform="translate(190 183)" />
+      <use href="#std-triangle" transform="translate(232 117)" />
+      <use href="#std-hexagon" transform="translate(281 136)" />
+      <use href="#std-circle" transform="translate(341 121)" />
+      <use href="#std-triangle" transform="translate(302 185)" />
+      <use href="#std-hexagon" transform="translate(252 220)" />
+    </g>
+    <g transform="translate(24 -10)" fill-opacity="0.72" stroke="#171512" stroke-width="1" stroke-opacity="0.48">
+      <path d="M232 75.431 L184 158.569 L280 158.569 Z" fill="#9a78ad" opacity="0.76" />
+      <path d="M233 136 L257 94.431 L305 94.431 L329 136 L305 177.569 L257 177.569 Z" fill="#c18348" opacity="0.72" />
+      <path d="M297 220 L321 178.431 L369 178.431 L393 220 L369 261.569 L321 261.569 Z" fill="#8fa97f" opacity="0.66" />
+    </g>
+    <g id="target-reference-ink-overlays" transform="translate(24 -10)" fill="none" stroke="#11100e" stroke-width="1.2" stroke-linejoin="round" stroke-opacity="0.76">
+      <use href="#std-circle" transform="translate(190 183)" />
+      <use href="#std-triangle" transform="translate(232 117)" />
+      <use href="#std-hexagon" transform="translate(281 136)" />
+      <use href="#std-circle" transform="translate(341 121)" />
+      <use href="#std-triangle" transform="translate(302 185)" />
+      <use href="#std-hexagon" transform="translate(252 220)" />
+      <path d="M142 184 C160 154, 198 142, 228 158 M256 94 C278 89, 305 94, 325 115 M326 86 C360 77, 391 96, 400 129 M278 217 C292 190, 318 174, 348 177"
+        stroke-width="0.8" stroke-opacity="0.35" />
+    </g>
+    <g fill="#efe5ca" opacity="0.34">
+      <path d="M79 47 C142 32, 190 41, 174 72 C158 103, 98 94, 67 73 C49 60, 54 53, 79 47 Z" />
+      <path d="M332 210 C389 196, 428 210, 414 239 C400 266, 346 260, 318 238 C301 224, 306 216, 332 210 Z" />
+    </g>
+  </g>
+
+  <g id="asset-hidden-fragments" transform="translate(62 402) scale(0.68)" fill="url(#cool-fragment)" stroke="#191613" stroke-width="3.1" stroke-linejoin="round">
+    <g id="hidden-fragment-row-a">
+      <use href="#std-circle" transform="translate(44 45)" />
+      <use href="#std-triangle" transform="translate(152 45)" />
+      <use href="#std-hexagon" transform="translate(260 45)" />
+      <use href="#std-circle" transform="translate(368 45)" />
+      <use href="#std-triangle" transform="translate(476 45)" />
+      <use href="#std-hexagon" transform="translate(584 45)" />
+    </g>
+    <g id="hidden-fragment-row-b" transform="translate(54 118)">
+      <use href="#std-circle" transform="translate(44 45)" />
+      <use href="#std-triangle" transform="translate(152 45)" />
+      <use href="#std-hexagon" transform="translate(260 45)" />
+      <use href="#std-circle" transform="translate(368 45)" />
+      <use href="#std-triangle" transform="translate(476 45)" />
+      <use href="#std-hexagon" transform="translate(584 45)" />
+      <use href="#std-circle" transform="translate(692 45)" />
+    </g>
+    <g fill="none" stroke="#f7efd9" stroke-width="2" stroke-opacity="0.28" stroke-linecap="round">
+      <path d="M18 33 C42 20, 66 23, 79 39 M220 40 C246 24, 274 27, 294 44 M362 32 C389 22, 414 25, 429 42" />
+      <path d="M70 160 C95 147, 121 151, 138 168 M335 159 C361 145, 388 149, 404 166 M694 159 C721 147, 748 150, 765 168" />
+    </g>
+    <g fill="none" stroke="#171512" stroke-width="0.9" stroke-opacity="0.38" stroke-linecap="round">
+      <path d="M-3 68 L14 65 M110 66 L124 62 M236 78 L254 74 M440 68 L459 64 M631 71 L651 68" />
+      <path d="M66 204 L86 200 M219 197 L235 194 M410 202 L428 198 M583 197 L599 193 M744 201 L760 198" />
+    </g>
+  </g>
+
+  <g id="asset-single-flashlight" transform="translate(623 492) rotate(-9)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 70 C18 44, 50 29, 84 33 L176 47 C198 50, 211 63, 211 80 C211 98, 196 111, 175 114 L80 126 C45 130, 15 113, 0 84 Z"
+      fill="url(#olive-watercolor)" stroke="#171512" stroke-width="4.5" filter="url(#watercolor-mottle)" />
+    <path d="M198 45 C222 34, 251 38, 269 56 C272 67, 272 78, 267 90 C248 105, 222 108, 198 97 C210 80, 210 62, 198 45 Z"
+      fill="#c8c6b4" stroke="#171512" stroke-width="4.5" />
+    <ellipse cx="246" cy="72" rx="13" ry="22" fill="#f2e8cf" fill-opacity="0.42" stroke="#2b2924" stroke-width="1.6" stroke-opacity="0.4" />
+    <g stroke="#171512" stroke-width="2.2">
+      <g id="asset-single-flashlight-button-red"><circle cx="77" cy="40" r="12" fill="#a85e50" /></g>
+      <g id="asset-single-flashlight-button-yellow"><circle cx="109" cy="44" r="12" fill="#c1a251" /></g>
+      <g id="asset-single-flashlight-button-blue"><circle cx="141" cy="49" r="12" fill="#4f6fc8" /></g>
+    </g>
+    <path d="M31 62 C59 52, 91 55, 128 62 C152 67, 173 71, 194 69"
+      fill="none" stroke="#f1e8cf" stroke-width="2" stroke-opacity="0.32" />
+    <path d="M12 91 C31 115, 60 124, 96 118 M207 50 C223 43, 247 45, 263 59"
+      fill="none" stroke="#0f0e0c" stroke-width="1.2" stroke-opacity="0.48" />
+  </g>
+
+  <g id="asset-flashlight-decals" transform="translate(594 686) scale(0.78)">
+    <g id="asset-decal-lens-glow" transform="translate(0 0)">
+      <circle r="38" fill="url(#lens-glow)" />
+      <circle r="16" fill="#fff1bd" fill-opacity="0.28" />
+    </g>
+    <g id="asset-decal-button-red" transform="translate(88 0)">
+      <circle r="22" fill="#e7a294" fill-opacity="0.24" />
+      <circle r="13" fill="none" stroke="#eec0b5" stroke-width="3" stroke-opacity="0.72" />
+    </g>
+    <g id="asset-decal-button-yellow" transform="translate(148 0)">
+      <circle r="22" fill="#ecd98e" fill-opacity="0.3" />
+      <circle r="13" fill="none" stroke="#f3e5a0" stroke-width="3" stroke-opacity="0.72" />
+    </g>
+    <g id="asset-decal-button-blue" transform="translate(208 0)">
+      <circle r="22" fill="#9fb4ff" fill-opacity="0.32" />
+      <circle r="13" fill="none" stroke="#d7e0ff" stroke-width="3" stroke-opacity="0.72" />
+    </g>
+    <g id="asset-decal-beam-mouth" transform="translate(270 0)" stroke-linecap="round">
+      <path d="M0 -18 C31 -31, 60 -32, 89 -22" fill="none" stroke="#f1d080" stroke-width="7" stroke-opacity="0.26" />
+      <path d="M0 18 C33 30, 62 31, 91 19" fill="none" stroke="#f1d080" stroke-width="7" stroke-opacity="0.22" />
+    </g>
+  </g>
+
+  <g id="asset-bottom-light-overlays" transform="translate(78 728) scale(0.82)">
+    <g id="bottom-light-off-overlay" transform="translate(0 0)">
+      <ellipse cx="68" cy="42" rx="64" ry="32" fill="#e9dfc3" fill-opacity="0.05" stroke="#7f7158" stroke-width="1" stroke-opacity="0.12" />
+    </g>
+    <g id="bottom-light-failed-flash-overlay" transform="translate(170 0)">
+      <ellipse cx="68" cy="42" rx="66" ry="34" fill="url(#fail-glow)" />
+      <path d="M27 42 C51 27, 87 27, 110 43" fill="none" stroke="#b9614c" stroke-width="2" stroke-opacity="0.3" />
+    </g>
+    <g id="bottom-light-steady-on-overlay" transform="translate(340 0)">
+      <ellipse cx="68" cy="42" rx="68" ry="35" fill="url(#repair-glow)" />
+      <path d="M25 43 C52 26, 88 27, 113 43" fill="none" stroke="#cba356" stroke-width="2" stroke-opacity="0.32" />
+    </g>
+  </g>
+
+  <g id="asset-toolcard-frame" transform="translate(744 728) scale(0.88)" filter="url(#soft-ground-shadow)">
+    <rect x="0" y="0" width="236" height="174" rx="10" fill="#f5e9cf" stroke="#171512" stroke-width="3" />
+    <rect x="16" y="18" width="204" height="40" rx="7" fill="#e2d5b8" stroke="#766a55" stroke-width="1.4" />
+    <rect x="16" y="72" width="76" height="82" rx="7" fill="#d9cfb4" stroke="#766a55" stroke-width="1.4" />
+    <path d="M108 80 L208 80 M108 104 L200 104 M108 128 L210 128 M108 150 L178 150"
+      fill="none" stroke="#8f8269" stroke-width="1.9" stroke-linecap="round" stroke-opacity="0.48" />
+    <circle cx="54" cy="113" r="22" fill="#bdbead" stroke="#171512" stroke-width="1.4" stroke-opacity="0.65" />
+    <path d="M8 13 C40 4, 139 4, 226 13 M10 164 C73 176, 159 176, 226 164"
+      fill="none" stroke="#11100e" stroke-width="0.9" stroke-opacity="0.34" stroke-linecap="round" />
+  </g>
+
+  <g id="asset-fragment-floor" transform="translate(58 860) scale(0.86)">
+    <path d="M0 74 C154 48, 356 46, 532 59 C672 69, 817 74, 1030 52"
+      fill="none" stroke="#211f1b" stroke-width="2.6" stroke-dasharray="9 18" stroke-opacity="0.7" />
+    <path d="M17 47 C149 22, 325 25, 506 37 C651 47, 807 50, 1014 31"
+      fill="none" stroke="#b5a987" stroke-width="1.8" stroke-opacity="0.34" />
+    <path d="M87 83 L105 80 M196 78 L226 75 M418 88 L443 85 M696 79 L719 76 M862 84 L893 81"
+      fill="none" stroke="#4d4639" stroke-width="1" stroke-opacity="0.24" />
+  </g>
+</svg>

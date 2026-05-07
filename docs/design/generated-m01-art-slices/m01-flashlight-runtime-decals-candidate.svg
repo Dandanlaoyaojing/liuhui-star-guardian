@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="220" viewBox="0 0 520 220">
+  <defs>
+    <radialGradient id="warm-lens-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff2bc" stop-opacity="0.88" />
+      <stop offset="0.44" stop-color="#f0d279" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#f0d279" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="red-button-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffb4a3" stop-opacity="0.76" />
+      <stop offset="1" stop-color="#b96d61" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="yellow-button-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff0a8" stop-opacity="0.8" />
+      <stop offset="1" stop-color="#d0b05f" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="blue-button-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#c9d6ff" stop-opacity="0.78" />
+      <stop offset="1" stop-color="#526fd0" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="beam-mouth-warm" x1="392" y1="110" x2="484" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe8a8" stop-opacity="0.5" />
+      <stop offset="1" stop-color="#ffe8a8" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <rect width="520" height="220" fill="none" />
+
+  <g id="lens-glow-decal" transform="translate(92 110)">
+    <circle r="48" fill="url(#warm-lens-glow)" />
+    <circle r="21" fill="#fff1bd" fill-opacity="0.34" />
+    <path d="M-15 -8 C-4 -14, 9 -13, 18 -5 M-17 10 C-5 16, 9 15, 19 8"
+      fill="none" stroke="#fff5d8" stroke-width="2" stroke-opacity="0.46" stroke-linecap="round" />
+  </g>
+
+  <g id="button-highlight-red-decal" transform="translate(202 110)">
+    <circle r="28" fill="url(#red-button-glow)" />
+    <circle r="16" fill="none" stroke="#ffd0c4" stroke-width="4" stroke-opacity="0.78" />
+    <circle r="11" fill="none" stroke="#5c302c" stroke-width="1.4" stroke-opacity="0.42" />
+  </g>
+
+  <g id="button-highlight-yellow-decal" transform="translate(278 110)">
+    <circle r="28" fill="url(#yellow-button-glow)" />
+    <circle r="16" fill="none" stroke="#fff2aa" stroke-width="4" stroke-opacity="0.78" />
+    <circle r="11" fill="none" stroke="#68552a" stroke-width="1.4" stroke-opacity="0.38" />
+  </g>
+
+  <g id="button-highlight-blue-decal" transform="translate(354 110)">
+    <circle r="28" fill="url(#blue-button-glow)" />
+    <circle r="16" fill="none" stroke="#d7e0ff" stroke-width="4" stroke-opacity="0.76" />
+    <circle r="11" fill="none" stroke="#263b86" stroke-width="1.4" stroke-opacity="0.4" />
+  </g>
+
+  <g id="beam-mouth-accent-decal" stroke-linecap="round">
+    <path d="M392 92 C423 79, 452 78, 481 88"
+      fill="none" stroke="url(#beam-mouth-warm)" stroke-width="8" stroke-opacity="0.58" />
+    <path d="M392 127 C425 139, 454 140, 483 128"
+      fill="none" stroke="url(#beam-mouth-warm)" stroke-width="8" stroke-opacity="0.48" />
+    <path d="M392 110 C421 105, 448 105, 476 111"
+      fill="none" stroke="#fff3c8" stroke-width="2" stroke-opacity="0.36" />
+  </g>
+</svg>
