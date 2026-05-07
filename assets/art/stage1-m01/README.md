@@ -8,6 +8,7 @@ This directory is reserved for the first M01 art-calibrated slice. It should con
 - nine-slot classification tray
 - memory fragments
 - color filters
+- single three-button flashlight tool
 - ToolCard thumbnail basis
 
 Use the active references in `docs/design/style-references/README.md`, with `docs/design/style-references/2026-04-22-unified-handdrawn-style-anchor.png` as the primary game-style reference. The UI/card references are secondary and should only inform panel or ToolCard language. Do not use the older Stage 1 scene batch as the production style target.
@@ -20,12 +21,14 @@ Generated review candidates still live outside the Cocos `assets/` tree at `docs
 - `m01-nine-slot-tray-slice.png`
 - `m01-memory-fragments-slice.png`
 - `m01-color-filters-slice.png`
+- `m01-single-flashlight-tool.png`
 - `m01-toolcard-thumbnail-slice.png`
 
 ## Acceptance
 
 - Clear charcoal ink contours.
-- Low-saturation clay red, dusty blue-gray, muted ochre, rice-gray, and gray-bronze palette.
+- For isolated runtime puzzle fragments, use one consistent pale grey-white ceramic tile material over saturated body fills. Hidden color families must not create separate warm / cool undertones; the first read should be porcelain pieces with shape differences only.
+- Low-saturation clay red, dusty blue-gray, muted ochre, rice-gray, and gray-bronze palette for larger devices and UI-adjacent props.
 - No baked-in readable text.
 - Soft low-contrast paper grain and natural watercolor pooling are acceptable.
 - No high-contrast white speckle, scattered white flecks, salt-and-pepper noise, or distressed paint chips inside mechanical color masses.
