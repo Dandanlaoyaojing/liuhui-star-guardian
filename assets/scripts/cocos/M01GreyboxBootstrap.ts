@@ -53,6 +53,7 @@ import type {
 } from "./M01GreyboxSession.ts";
 import type {
   M01BaseColor,
+  M01BlendColor,
   M01BottomLightState,
   M01MemoryGearConfig
 } from "../levels/stage1/M01MemoryGearController.ts";
@@ -160,6 +161,7 @@ export class M01GreyboxBootstrap extends Component {
     { node: Node; token: M01GreyboxTokenNode; graphics: Graphics; artSprite: Sprite | null }
   >();
   private readonly artPreviewFallbackUnderlayIds = new Set<string>();
+  private readonly artSpriteResourcePaths = new Map<Sprite, string>();
   private readonly weakSnappedFragmentsByEvidence = new Map<string, string[]>();
   private readonly tokenPositions = new Map<string, M01GreyboxPoint>();
   private readonly tokenRotations = new Map<string, number>();
@@ -342,6 +344,7 @@ export class M01GreyboxBootstrap extends Component {
   private renderGreybox(layout: M01GreyboxLayout): void {
     this.greyboxNodes.clear();
     this.artPreviewFallbackUnderlayIds.clear();
+    this.artSpriteResourcePaths.clear();
     this.greyboxRoot = new Node("M01GreyboxRuntime");
     this.node.addChild(this.greyboxRoot);
     const rootTransform = this.greyboxRoot.addComponent(UITransform);
@@ -964,7 +967,7 @@ export class M01GreyboxBootstrap extends Component {
     const color = colorForToken(colorTokenOverride ?? token.colorToken, token.kind, presentation);
     const forceFallbackUnderlay =
       this.artPreviewFallbackUnderlayIds.has(token.controllerId) ||
-      (Boolean(colorTokenOverride) && token.kind !== "evidence");
+      (Boolean(colorTokenOverride) && token.kind !== "evidence" && token.kind !== "fragment");
     const renderStandardPieceGeometry = this.enableArtPreview && isM01StandardPieceToken(token);
     const renderUnderlay =
       !this.enableArtPreview ||
@@ -1004,9 +1007,6 @@ export class M01GreyboxBootstrap extends Component {
     if (token.kind === "evidence") {
       return null;
     }
-    if (isM01StandardPieceToken(token)) {
-      return null;
-    }
 
     const resource = getM01GreyboxRuntimeSpriteResourceForToken(token);
     if (!resource) {
@@ -1023,17 +1023,6 @@ export class M01GreyboxBootstrap extends Component {
     const sprite = spriteNode.addComponent(Sprite);
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
     this.syncArtSpriteState(sprite, "normal", token);
-    resources.load(resource.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
-      if (error || !spriteFrame) {
-        this.setFeedback(
-          this.formatText("loadFailed", { reason: error?.message ?? resource.resourcesLoadPath })
-        );
-        this.markArtPreviewUnderlayFallback(token.controllerId);
-        spriteNode.active = false;
-        return;
-      }
-      sprite.spriteFrame = spriteFrame;
-    });
     return sprite;
   }
 
@@ -2288,7 +2277,12 @@ export class M01GreyboxBootstrap extends Component {
           view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1,
           validationColor ?? view.observedColor
         );
-        this.syncArtSpriteState(entry.artSprite, presentation, entry.token);
+        this.syncArtSpriteState(
+          entry.artSprite,
+          presentation,
+          entry.token,
+          validationColor ?? view.observedColor
+        );
       } else if (entry.token.kind === "slot") {
         const view = this.session.getSlotView(entry.token.controllerId);
         this.applyTokenGraphicsState(
@@ -2359,13 +2353,51 @@ export class M01GreyboxBootstrap extends Component {
       | M01GreyboxFilterPresentation
       | M01GreyboxRepairPresentation
       | "normal",
-    token?: M01GreyboxTokenNode
+    token?: M01GreyboxTokenNode,
+    colorTokenOverride?: M01BlendColor
   ): void {
     if (!sprite) {
       return;
     }
 
+    this.syncArtSpriteFrame(sprite, token, colorTokenOverride);
     sprite.color = colorForArtSprite(presentation, token);
+  }
+
+  private syncArtSpriteFrame(
+    sprite: Sprite,
+    token?: M01GreyboxTokenNode,
+    colorTokenOverride?: M01BlendColor
+  ): void {
+    if (!token) {
+      return;
+    }
+
+    const resource = getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride);
+    if (!resource) {
+      return;
+    }
+
+    if (this.artSpriteResourcePaths.get(sprite) === resource.resourcesLoadPath) {
+      return;
+    }
+
+    this.artSpriteResourcePaths.set(sprite, resource.resourcesLoadPath);
+    sprite.node.name = `M01ArtSprite_${resource.id}`;
+
+    resources.load(resource.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame) {
+        this.artSpriteResourcePaths.delete(sprite);
+        this.setFeedback(
+          this.formatText("loadFailed", { reason: error?.message ?? resource.resourcesLoadPath })
+        );
+        this.markArtPreviewUnderlayFallback(token.controllerId);
+        sprite.node.active = false;
+        return;
+      }
+      sprite.node.active = true;
+      sprite.spriteFrame = spriteFrame;
+    });
   }
 
   private formatText(
@@ -3038,7 +3070,7 @@ function shouldRenderArtPreviewUnderlay(
     return false;
   }
   if (token.kind === "fragment") {
-    return presentation !== "placed";
+    return presentation !== "normal" && presentation !== "placed";
   }
   if (token.kind !== "slot" && token.kind !== "gear") {
     return true;
@@ -3105,7 +3137,7 @@ function colorForArtSprite(
   token?: M01GreyboxTokenNode
 ): Color {
   if (token?.kind === "fragment" && presentation === "normal") {
-    return new Color(232, 226, 202, 255);
+    return new Color(255, 255, 255, 255);
   }
 
   const colors: Record<string, Color> = {

@@ -4,7 +4,7 @@ import {
   type M01GreyboxPoint,
   type M01GreyboxTokenNode
 } from "./M01GreyboxLayout.ts";
-import type { M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
+import type { M01BlendColor, M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
 
 export type M01GreyboxArtSliceId =
   | "gearStar"
@@ -30,7 +30,16 @@ export type M01GreyboxRuntimeFragmentId =
   | "blue_hexagon"
   | "yellow_circle"
   | "yellow_triangle"
-  | "yellow_hexagon";
+  | "yellow_hexagon"
+  | "purple_circle"
+  | "purple_triangle"
+  | "purple_hexagon"
+  | "orange_circle"
+  | "orange_triangle"
+  | "orange_hexagon"
+  | "green_circle"
+  | "green_triangle"
+  | "green_hexagon";
 export type M01GreyboxRuntimeHiddenFragmentId =
   | "hidden_circle"
   | "hidden_triangle"
@@ -201,8 +210,10 @@ export const M01_GREYBOX_RUNTIME_SPRITE_ROOT =
   "assets/resources/art/stage1-m01/runtime-sprites";
 export const M01_GREYBOX_ART_SOURCE_SHEET =
   "docs/design/generated-m01-art-slices/m01-runtime-sprite-sheet-candidate-v2.png";
-export const M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET =
-  "docs/design/generated-m01-art-slices/m01-fragment-porcelain-watercolor-contact-20260504.png";
+export const M01_GREYBOX_FRAGMENT_REFERENCE_STYLE_SOURCE_SHEET =
+  "docs/design/generated-m01-art-slices/m01-reference-style-pieces-contact-sheet.png";
+export const M01_GREYBOX_HIDDEN_FRAGMENT_DIRECT_SOURCE_IMAGE =
+  "docs/design/generated-m01-art-slices/m01-direct-grey-hidden-pieces-source.png";
 
 function artSliceFile(filename: string): string {
   return `${M01_GREYBOX_ART_ASSET_ROOT}/${filename}`;
@@ -290,7 +301,7 @@ function runtimeFragmentResource(
     id,
     role: "fragment_token",
     file,
-    sourceFile: M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET,
+    sourceFile: M01_GREYBOX_FRAGMENT_REFERENCE_STYLE_SOURCE_SHEET,
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("fragments", filename),
     runtimeStatus: "isolated_candidate"
@@ -324,7 +335,7 @@ function runtimeHiddenFragmentResource(
     id,
     role: "fragment_token",
     file,
-    sourceFile: M01_GREYBOX_FRAGMENT_PORCELAIN_SOURCE_SHEET,
+    sourceFile: M01_GREYBOX_HIDDEN_FRAGMENT_DIRECT_SOURCE_IMAGE,
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
     runtimeStatus: "isolated_candidate",
@@ -450,7 +461,16 @@ export const M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES: M01GreyboxRuntimeSpriteReso
   runtimeFragmentResource("blue_hexagon", "m01-fragment-blue-hexagon.png"),
   runtimeFragmentResource("yellow_circle", "m01-fragment-yellow-circle.png"),
   runtimeFragmentResource("yellow_triangle", "m01-fragment-yellow-triangle.png"),
-  runtimeFragmentResource("yellow_hexagon", "m01-fragment-yellow-hexagon.png")
+  runtimeFragmentResource("yellow_hexagon", "m01-fragment-yellow-hexagon.png"),
+  runtimeFragmentResource("purple_circle", "m01-fragment-purple-circle.png"),
+  runtimeFragmentResource("purple_triangle", "m01-fragment-purple-triangle.png"),
+  runtimeFragmentResource("purple_hexagon", "m01-fragment-purple-hexagon.png"),
+  runtimeFragmentResource("orange_circle", "m01-fragment-orange-circle.png"),
+  runtimeFragmentResource("orange_triangle", "m01-fragment-orange-triangle.png"),
+  runtimeFragmentResource("orange_hexagon", "m01-fragment-orange-hexagon.png"),
+  runtimeFragmentResource("green_circle", "m01-fragment-green-circle.png"),
+  runtimeFragmentResource("green_triangle", "m01-fragment-green-triangle.png"),
+  runtimeFragmentResource("green_hexagon", "m01-fragment-green-hexagon.png")
 ];
 
 export const M01_GREYBOX_RUNTIME_FILTER_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
@@ -538,18 +558,22 @@ export function getM01GreyboxRuntimeTransparentResource(
 }
 
 export function getM01GreyboxRuntimeSpriteResourceForToken(
-  token: M01GreyboxTokenNode
+  token: M01GreyboxTokenNode,
+  colorTokenOverride?: M01BlendColor
 ): M01GreyboxRuntimeSpriteResource | undefined {
   if (token.kind === "fragment") {
-    if (token.colorToken === "hidden") {
+    const colorToken = colorTokenOverride ?? "hidden";
+    if (colorToken === "hidden") {
       return M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES.find(
         (resource) => resource.id === `hidden_${token.shapeToken}`
       );
     }
 
-    return M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES.find(
-      (resource) => resource.id === `${token.colorToken}_${token.shapeToken}`
-    );
+    if (!isM01RuntimeFragmentColor(colorToken)) {
+      return undefined;
+    }
+
+    return getM01GreyboxRuntimeFragmentSpriteResource(colorToken, token.shapeToken);
   }
 
   if (token.kind === "evidence") {
@@ -579,6 +603,26 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
   }
 
   return undefined;
+}
+
+function isM01RuntimeFragmentColor(colorToken: string): colorToken is M01BlendColor {
+  return (
+    colorToken === "red" ||
+    colorToken === "yellow" ||
+    colorToken === "blue" ||
+    colorToken === "orange" ||
+    colorToken === "green" ||
+    colorToken === "purple"
+  );
+}
+
+export function getM01GreyboxRuntimeFragmentSpriteResource(
+  colorToken: M01BlendColor,
+  shapeToken: M01Shape
+): M01GreyboxRuntimeSpriteResource | undefined {
+  return M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES.find(
+    (resource) => resource.id === `${colorToken}_${shapeToken}`
+  );
 }
 
 export function buildM01GreyboxTargetStandardPiecePlan(

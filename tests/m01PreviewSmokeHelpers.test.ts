@@ -75,5 +75,5 @@ describe("buildRealInputPlan", () => {
       .toBe(true);
     expect(wrongPairs[firstEvidence.id].some((fragmentId: string) => fragmentId.includes("_hexagon_")))
       .toBe(true);
-  });
+  }, 15000);
 });

@@ -823,12 +823,27 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("showArtPreviewDebugUnderlay = false");
     expect(bootstrap).toContain("shouldRenderArtPreviewUnderlay");
     expect(bootstrap).toContain("this.showArtPreviewDebugUnderlay");
-    expect(bootstrap).toContain('Boolean(colorTokenOverride) && token.kind !== "evidence"');
+    expect(bootstrap).toContain(
+      'Boolean(colorTokenOverride) && token.kind !== "evidence" && token.kind !== "fragment"'
+    );
     expect(bootstrap).toContain('token.kind === "board"');
     expect(bootstrap).toContain('if (token.kind === "evidence")');
     expect(bootstrap).toContain('if (token.kind === "fragment")');
     expect(bootstrap).toContain('presentation !== "normal" && presentation !== "repaired"');
     expect(bootstrap).toContain("new Color(0, 0, 0, 0)");
+  });
+
+  it("uses runtime watercolor sprites for M01 standard pieces in art preview", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("getM01GreyboxRuntimeSpriteResourceForToken(token)");
+    expect(bootstrap).toContain(
+      "getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride)"
+    );
+    expect(bootstrap).toContain("validationColor ?? view.observedColor");
+    expect(bootstrap).not.toContain('if (isM01StandardPieceToken(token)) {\n      return null;\n    }');
+    expect(bootstrap).toContain('if (token.kind === "fragment")');
+    expect(bootstrap).toContain('presentation !== "normal" && presentation !== "placed"');
   });
 
   it("keeps M01 overlap evidence as layout-only snap data plus non-token target display", () => {

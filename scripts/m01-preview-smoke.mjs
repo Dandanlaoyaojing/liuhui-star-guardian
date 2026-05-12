@@ -29,6 +29,7 @@ const screenshotDir = resolve(rootDir, "temp");
 const requireBrowserInput = process.argv.includes("--require-browser-input");
 const captureCleanQa = process.argv.includes("--capture-clean-qa");
 const enableArtPreview = process.argv.includes("--enable-art-preview");
+const ROTATE_BUTTON_POSITION = { x: 328, y: 156 };
 
 function assert(condition, message) {
   if (!condition) {
@@ -47,6 +48,10 @@ function normalizeRotation(rotation) {
 function rotationDistance(left, right) {
   const delta = Math.abs(normalizeRotation(left) - normalizeRotation(right));
   return Math.min(delta, 360 - delta);
+}
+
+function quarterTurnsToRotation(rotation) {
+  return Math.round(normalizeRotation(rotation) / 90) % 4;
 }
 
 async function readConfig() {
@@ -464,6 +469,19 @@ async function runRealInputPath(page, realInputPlan) {
     await page.mouse.up();
     await page.waitForTimeout(120);
   };
+  const placeFragmentAtTargetPiece = async (fragmentPosition, targetPiece, fallbackPosition) => {
+    const turnCount = targetPiece ? quarterTurnsToRotation(targetPiece.targetRotation) : 0;
+    if (!targetPiece || turnCount === 0) {
+      await dragLocalPoint(fragmentPosition, targetPiece?.targetPosition ?? fallbackPosition);
+      return;
+    }
+
+    await clickLocalPoint(fragmentPosition);
+    for (let turn = 0; turn < turnCount; turn += 1) {
+      await clickLocalPoint(ROTATE_BUTTON_POSITION);
+    }
+    await dragLocalPoint(fragmentPosition, targetPiece.targetPosition);
+  };
   const runHeldFlashlightRevealPath = async () => {
     await clickLocalPoint(realInputPlan.flashlightPosition);
     debugSteps.push(await snapshotInteractionState("after_flashlight_picker_open"));
@@ -521,9 +539,10 @@ async function runRealInputPath(page, realInputPlan) {
     const targetPiece = realInputPlan.stageEvidence.targetPieces?.find(
       (piece) => piece.fragmentId === fragmentId
     );
-    await dragLocalPoint(
+    await placeFragmentAtTargetPiece(
       fragmentPosition,
-      targetPiece?.targetPosition ?? realInputPlan.stageEvidence.evidencePosition
+      targetPiece,
+      realInputPlan.stageEvidence.evidencePosition
     );
     debugSteps.push(await snapshotInteractionState(`after_stage_drag:${fragmentId}`));
   }
@@ -651,15 +670,26 @@ async function runCompletionInputPath(page, realInputPlan) {
       }
       return position;
     }, fragmentId);
+  const placeFragmentAtTargetPiece = async (targetPiece) => {
+    const fragmentPosition = await currentFragmentPosition(targetPiece.fragmentId);
+    const turnCount = quarterTurnsToRotation(targetPiece.targetRotation);
+    if (turnCount === 0) {
+      await dragLocalPoint(fragmentPosition, targetPiece.targetPosition);
+      return;
+    }
+
+    await clickLocalPoint(fragmentPosition);
+    for (let turn = 0; turn < turnCount; turn += 1) {
+      await clickLocalPoint(ROTATE_BUTTON_POSITION);
+    }
+    await dragLocalPoint(await currentFragmentPosition(targetPiece.fragmentId), targetPiece.targetPosition);
+  };
 
   await clickLocalPoint(realInputPlan.flashlightPosition);
   await clickLocalPoint(realInputPlan.flashlightPickerRedPosition);
   if (realInputPlan.completionTargetPieces.length > 0) {
     for (const targetPiece of realInputPlan.completionTargetPieces) {
-      await dragLocalPoint(
-        await currentFragmentPosition(targetPiece.fragmentId),
-        targetPiece.targetPosition
-      );
+      await placeFragmentAtTargetPiece(targetPiece);
     }
   } else for (const evidence of realInputPlan.completionEvidence) {
     for (const fragmentId of evidence.fragmentIds) {
@@ -709,6 +739,18 @@ async function runCompletionInputPath(page, realInputPlan) {
         realInputPlan.completionTargetPieces.map((piece) => [
           piece.fragmentId,
           bootstrap.tokenRotations ? bootstrap.tokenRotations.get(piece.fragmentId) : undefined
+        ])
+      ),
+      targetPiecePositions: Object.fromEntries(
+        realInputPlan.completionTargetPieces.map((piece) => [
+          piece.fragmentId,
+          bootstrap.tokenPositions ? bootstrap.tokenPositions.get(piece.fragmentId) : undefined
+        ])
+      ),
+      stagedEvidence: Object.fromEntries(
+        realInputPlan.completionEvidence.map((evidence) => [
+          evidence.evidenceId,
+          bootstrap.session.isEvidenceStaged(evidence.evidenceId)
         ])
       )
     };
