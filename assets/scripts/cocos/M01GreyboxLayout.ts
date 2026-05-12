@@ -100,7 +100,7 @@ export const M01_TARGET_REFERENCE_DISPLAY_SIZE: M01GreyboxSize = { width: 196, h
 export const M01_TARGET_REFERENCE_PIECE_SLOT_SIZE: M01GreyboxSize = M01_STANDARD_PIECE_DISPLAY_SIZE;
 const REFERENCE_PATTERN_CENTER: M01GreyboxPoint = { x: -360, y: 120 };
 const REFERENCE_PATTERN_SCALE = 0.4;
-const EVIDENCE_WORK_AREA_CENTER: M01GreyboxPoint = { x: 0, y: 0 };
+const EVIDENCE_WORK_AREA_CENTER: M01GreyboxPoint = { x: -60, y: 0 };
 const EVIDENCE_WORK_AREA_SCALE = 0.85;
 
 export function buildM01GreyboxLayout(
@@ -179,14 +179,7 @@ function buildReferencePatternNode(
 }
 
 function buildGearNode(config: M01MemoryGearConfig): M01GreyboxTokenNode {
-  const gear = config.entities?.find((entity) => {
-    if (!isRecord(entity)) {
-      return false;
-    }
-
-    return entity.id === "entity_memory_gear";
-  });
-  const position = readPosition(isRecord(gear) ? gear.position : undefined, { x: 0, y: 0 });
+  const position = readPosition(findEntityPosition(config, "entity_memory_gear"), { x: 0, y: 0 });
 
   return {
     id: "entity_memory_gear",
@@ -207,7 +200,7 @@ function buildBoardNode(): M01GreyboxTokenNode {
     controllerId: "m01_overlap_board",
     kind: "board",
     label: "拼接盘",
-    position: { x: 0, y: 0 },
+    position: { x: -60, y: 0 },
     size: { width: 430, height: 430 },
     colorToken: "neutral",
     shapeToken: "board",
@@ -287,9 +280,9 @@ function buildFlashlightNode(
 
 function positionForFlashlightButton(color: M01FlashlightDef["color"]): M01GreyboxPoint {
   const positions: Record<M01FlashlightDef["color"], M01GreyboxPoint> = {
-    red: { x: 420, y: 68 },
-    yellow: { x: 424, y: 85 },
-    blue: { x: 428, y: 102 }
+    red: { x: 360, y: 68 },
+    yellow: { x: 364, y: 85 },
+    blue: { x: 368, y: 102 }
   };
 
   return positions[color];

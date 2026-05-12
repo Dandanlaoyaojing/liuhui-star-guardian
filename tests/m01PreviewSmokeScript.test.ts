@@ -51,7 +51,7 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("if (!manualTargetCompositionMode) {");
   });
 
-  it("drives the flashlight as a held tool before revealing fragments", () => {
+  it("drives the flashlight as a fixed floodlight that reveals every candidate at once", () => {
     const smokeScript = readFileSync(
       join(projectRoot, "scripts/m01-preview-smoke.mjs"),
       "utf8"
@@ -61,11 +61,18 @@ describe("M01 preview smoke script", () => {
       "utf8"
     );
 
-    expect(smokeScript).toContain("runHeldFlashlightRevealPath");
-    expect(smokeScript).toContain("heldFlashlightId");
-    expect(smokeScript).toContain("flashlightPosition");
-    expect(smokeScript).toContain("beamTarget");
-    expect(smokeHelpers).toContain("heldFlashlightPosition");
+    expect(smokeScript).toContain("runFixedFlashlightFloodlightPath");
+    expect(smokeScript).toContain("observedColorsByFragment");
+    expect(smokeScript).toContain("artSpriteNamesByFragment");
+    expect(smokeScript).toContain("graphicsFillAlphaByFragment");
+    expect(smokeScript).toContain("M01ArtSprite_purple_circle");
+    expect(smokeScript).toContain("Expected texture-backed observed sprite");
+    expect(smokeScript).toContain("Expected art-preview reveal graphics underlay to stay transparent");
+    expect(smokeScript).toContain("flashlightBeamTargetPosition");
+    expect(smokeScript).not.toContain("runHeldFlashlightRevealPath");
+    expect(smokeHelpers).toContain("revealFragmentIds");
+    expect(smokeHelpers).toContain("expectedObservedColorsByFragment");
+    expect(smokeHelpers).not.toContain("heldFlashlightPosition");
   });
 
   it("asserts the successful completion path reaches steady_on and the ToolCard preview", () => {
@@ -120,7 +127,7 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("M01StaticArt_singleFlashlightTool");
     expect(smokeScript).toContain("M01StaticArt_fragmentFloor");
     expect(smokeScript).toContain("completionArtPreview");
-    expect(smokeScript).toContain("after_flashlight_picker_select");
+    expect(smokeScript).toContain("after_fixed_flashlight_floodlight");
     expect(smokeScript).toContain("flashlightPickerRedPosition");
   });
 });

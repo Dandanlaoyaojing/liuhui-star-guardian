@@ -212,6 +212,12 @@ export const M01_GREYBOX_ART_SOURCE_SHEET =
   "docs/design/generated-m01-art-slices/m01-runtime-sprite-sheet-candidate-v2.png";
 export const M01_GREYBOX_FRAGMENT_REFERENCE_STYLE_SOURCE_SHEET =
   "docs/design/generated-m01-art-slices/m01-reference-style-pieces-contact-sheet.png";
+export const M01_GREYBOX_FRAGMENT_RGB_SOURCE_SHEET =
+  "docs/design/generated-m01-art-slices/final-puzzle-piece-textures/m01-puzzle-piece-rgb-texture-sheet-selected-v1.png";
+export const M01_GREYBOX_FRAGMENT_COLOR_PATTERN_SOURCE_SHEET =
+  "docs/design/generated-m01-art-slices/final-puzzle-piece-textures/m01-puzzle-piece-color-pattern-reference.png";
+export const M01_GREYBOX_FINAL_DIRECT_FRAGMENT_SOURCE_ROOT =
+  "docs/design/generated-m01-art-slices/final-puzzle-piece-textures/direct-piece-slices";
 export const M01_GREYBOX_HIDDEN_FRAGMENT_DIRECT_SOURCE_IMAGE =
   "docs/design/generated-m01-art-slices/m01-direct-grey-hidden-pieces-source.png";
 
@@ -301,11 +307,15 @@ function runtimeFragmentResource(
     id,
     role: "fragment_token",
     file,
-    sourceFile: M01_GREYBOX_FRAGMENT_REFERENCE_STYLE_SOURCE_SHEET,
+    sourceFile: runtimeFragmentSourceFile(id),
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("fragments", filename),
     runtimeStatus: "isolated_candidate"
   };
+}
+
+function runtimeFragmentSourceFile(id: M01GreyboxRuntimeFragmentId): string {
+  return directFragmentSourceFile(id.replace("_", "-"));
 }
 
 function runtimeFilterResource(
@@ -335,12 +345,16 @@ function runtimeHiddenFragmentResource(
     id,
     role: "fragment_token",
     file,
-    sourceFile: M01_GREYBOX_HIDDEN_FRAGMENT_DIRECT_SOURCE_IMAGE,
+    sourceFile: directFragmentSourceFile(id.replace("hidden_", "hidden-")),
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
     runtimeStatus: "isolated_candidate",
     displaySize: M01_STANDARD_PIECE_DISPLAY_SIZE
   };
+}
+
+function directFragmentSourceFile(sourceId: string): string {
+  return `${M01_GREYBOX_FINAL_DIRECT_FRAGMENT_SOURCE_ROOT}/m01-final-fragment-${sourceId}.png`;
 }
 
 function runtimeEvidenceResource(
@@ -724,7 +738,7 @@ export function buildM01GreyboxStaticArtPlan(
         role: "flashlight_tool_surface",
         resourcesLoadPath: singleFlashlightTool.resourcesLoadPath,
         interactive: false,
-        position: { x: 420, y: 72 },
+        position: { x: 360, y: 72 },
         size: { width: 58, height: 128 },
         rotationDegrees: 168
       });

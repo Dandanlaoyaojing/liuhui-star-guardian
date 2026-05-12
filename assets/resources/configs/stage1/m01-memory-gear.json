@@ -122,7 +122,7 @@
         "id": "target_piece_circle_yellow_1",
         "standardPieceId": "standard_circle",
         "position": {
-          "x": -38,
+          "x": -98,
           "y": -38.5
         },
         "rotation": 0,
@@ -133,7 +133,7 @@
         "id": "target_piece_circle_red_2",
         "standardPieceId": "standard_circle",
         "position": {
-          "x": -2,
+          "x": -62,
           "y": 14.5
         },
         "rotation": 0,
@@ -144,7 +144,7 @@
         "id": "target_piece_triangle_blue_1",
         "standardPieceId": "standard_triangle",
         "position": {
-          "x": 18,
+          "x": -42,
           "y": -40.5
         },
         "rotation": 90,
@@ -155,7 +155,7 @@
         "id": "target_piece_triangle_yellow_2",
         "standardPieceId": "standard_triangle",
         "position": {
-          "x": 36,
+          "x": -24,
           "y": -11.5
         },
         "rotation": 180,
@@ -166,7 +166,7 @@
         "id": "target_piece_hexagon_blue_1",
         "standardPieceId": "standard_hexagon",
         "position": {
-          "x": -33,
+          "x": -93,
           "y": 3.5
         },
         "rotation": 0,
@@ -177,7 +177,7 @@
         "id": "target_piece_hexagon_red_2",
         "standardPieceId": "standard_hexagon",
         "position": {
-          "x": 3,
+          "x": -57,
           "y": -62.5
         },
         "rotation": 90,
@@ -188,31 +188,18 @@
   },
   "fragments": [
     {
-      "id": "fragment_circle_red_1",
-      "hiddenColor": "red",
-      "shape": "circle",
-      "edgeShape": "circle",
-      "tags": [
-        "fragment",
-        "shape:circle"
-      ],
-      "position": {
-        "x": -300,
-        "y": -238
-      }
-    },
-    {
       "id": "fragment_circle_blue_1",
       "hiddenColor": "blue",
       "shape": "circle",
       "edgeShape": "circle",
       "tags": [
         "fragment",
-        "shape:circle"
+        "shape:circle",
+        "decoy"
       ],
       "position": {
-        "x": -242,
-        "y": -238
+        "x": 272,
+        "y": -74
       }
     },
     {
@@ -225,8 +212,8 @@
         "shape:circle"
       ],
       "position": {
-        "x": -184,
-        "y": -238
+        "x": 332,
+        "y": -74
       }
     },
     {
@@ -239,8 +226,8 @@
         "shape:circle"
       ],
       "position": {
-        "x": -126,
-        "y": -238
+        "x": 392,
+        "y": -74
       }
     },
     {
@@ -253,8 +240,8 @@
         "shape:triangle"
       ],
       "position": {
-        "x": -68,
-        "y": -238
+        "x": 272,
+        "y": -138
       }
     },
     {
@@ -268,22 +255,8 @@
         "decoy"
       ],
       "position": {
-        "x": -10,
-        "y": -238
-      }
-    },
-    {
-      "id": "fragment_triangle_red_1",
-      "hiddenColor": "red",
-      "shape": "triangle",
-      "edgeShape": "triangle",
-      "tags": [
-        "fragment",
-        "shape:triangle"
-      ],
-      "position": {
-        "x": 48,
-        "y": -238
+        "x": 332,
+        "y": -138
       }
     },
     {
@@ -296,8 +269,8 @@
         "shape:triangle"
       ],
       "position": {
-        "x": 106,
-        "y": -238
+        "x": 392,
+        "y": -138
       }
     },
     {
@@ -310,22 +283,8 @@
         "shape:hexagon"
       ],
       "position": {
-        "x": 164,
-        "y": -238
-      }
-    },
-    {
-      "id": "fragment_hexagon_red_1",
-      "hiddenColor": "red",
-      "shape": "hexagon",
-      "edgeShape": "hexagon",
-      "tags": [
-        "fragment",
-        "shape:hexagon"
-      ],
-      "position": {
-        "x": 222,
-        "y": -238
+        "x": 272,
+        "y": -202
       }
     },
     {
@@ -335,11 +294,12 @@
       "edgeShape": "hexagon",
       "tags": [
         "fragment",
-        "shape:hexagon"
+        "shape:hexagon",
+        "decoy"
       ],
       "position": {
-        "x": 280,
-        "y": -238
+        "x": 332,
+        "y": -202
       }
     },
     {
@@ -352,23 +312,8 @@
         "shape:hexagon"
       ],
       "position": {
-        "x": 338,
-        "y": -238
-      }
-    },
-    {
-      "id": "fragment_hexagon_blue_2",
-      "hiddenColor": "blue",
-      "shape": "hexagon",
-      "edgeShape": "hexagon",
-      "tags": [
-        "fragment",
-        "shape:hexagon",
-        "decoy"
-      ],
-      "position": {
-        "x": 396,
-        "y": -238
+        "x": 392,
+        "y": -202
       }
     }
   ],
@@ -886,7 +831,7 @@
         "type": "animated",
         "sprite": "stage1/m01/gear-star-dim",
         "position": {
-          "x": 0,
+          "x": -60,
           "y": 0
         },
         "properties": {},

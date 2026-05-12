@@ -109,6 +109,13 @@ export type M01GreyboxPlaceResult =
       status: string;
     };
 
+export interface M01GreyboxRevealResult {
+  accepted: boolean;
+  fragmentId: string;
+  revealedColor?: M01BlendColor;
+  status: string;
+}
+
 export class M01GreyboxSession {
   private readonly controller: M01MemoryGearController;
   private readonly config: M01MemoryGearConfig;
@@ -291,12 +298,7 @@ export class M01GreyboxSession {
     };
   }
 
-  revealFragment(fragmentId: string): {
-    accepted: boolean;
-    fragmentId: string;
-    revealedColor?: M01BlendColor;
-    status: string;
-  } {
+  revealFragment(fragmentId: string): M01GreyboxRevealResult {
     if (!this.activeFlashlightColor) {
       return {
         accepted: false,
@@ -331,6 +333,10 @@ export class M01GreyboxSession {
         color: result.revealedColor
       })
     };
+  }
+
+  revealFragments(fragmentIds: string[]): M01GreyboxRevealResult[] {
+    return fragmentIds.map((fragmentId) => this.revealFragment(fragmentId));
   }
 
   pickFragment(fragmentId: string): {

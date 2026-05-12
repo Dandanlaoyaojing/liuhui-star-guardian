@@ -273,6 +273,32 @@ describe("M01GreyboxSession", () => {
     expect(session.getFragmentView("fragment_circle_blue_1")).not.toHaveProperty("observedColor");
   });
 
+  it("reveals every candidate fragment for the selected fixed flashlight color", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    const fragmentIds = realConfig.fragments.map((fragment) => fragment.id);
+
+    session.selectFlashlight("flashlight_red");
+    const revealed = session.revealFragments(fragmentIds);
+
+    expect(revealed).toHaveLength(9);
+    expect(
+      Object.fromEntries(revealed.map((result) => [result.fragmentId, result.revealedColor]))
+    ).toMatchObject({
+      fragment_circle_blue_1: "purple",
+      fragment_circle_yellow_1: "orange",
+      fragment_circle_red_2: "red",
+      fragment_triangle_blue_1: "purple",
+      fragment_triangle_yellow_1: "orange",
+      fragment_triangle_yellow_2: "orange",
+      fragment_hexagon_blue_1: "purple",
+      fragment_hexagon_yellow_1: "orange",
+      fragment_hexagon_red_2: "red"
+    });
+    for (const fragmentId of fragmentIds) {
+      expect(session.getFragmentView(fragmentId).observedColor).toBeDefined();
+    }
+  });
+
   it("expires observed flashlight colors after a short reveal window", () => {
     let now = 1_000;
     const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });
@@ -332,10 +358,10 @@ describe("M01GreyboxSession", () => {
     expect(session.requestHint()).toMatchObject({
       level: 2,
       text: "HINT OBSERVE",
-      targetIds: expect.arrayContaining(["fragment_circle_red_1", "fragment_circle_blue_1"])
+      targetIds: expect.arrayContaining(["fragment_circle_blue_1", "fragment_circle_yellow_1"])
     });
 
-    session.pickFragment("fragment_circle_red_1");
+    session.pickFragment("fragment_circle_blue_1");
 
     expect(session.requestHint()).toMatchObject({
       level: 3,
@@ -364,7 +390,7 @@ describe("M01GreyboxSession", () => {
 
     expect(
       session.weakSnapFragmentToEvidence(
-        "fragment_triangle_red_1",
+        "fragment_triangle_yellow_1",
         "current_manual_target_green_circle_hexagon_1"
       )
     ).toMatchObject({
@@ -435,10 +461,10 @@ describe("M01GreyboxSession", () => {
 
     now += 2_000;
 
-    expect(session.getFragmentView("fragment_circle_red_1")).toMatchObject({
+    expect(session.getFragmentView("fragment_circle_blue_1")).toMatchObject({
       presentation: "normal"
     });
-    expect(session.getFragmentView("fragment_circle_red_1")).not.toHaveProperty("validationColor");
+    expect(session.getFragmentView("fragment_circle_blue_1")).not.toHaveProperty("validationColor");
   });
 
   it("clears failed-validation flash state as soon as the wrong evidence pair is corrected", () => {
@@ -544,19 +570,19 @@ describe("M01GreyboxSession", () => {
   it("supports click-pick and click-place so staged fragments can be corrected", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
 
-    expect(session.pickFragment("fragment_circle_red_1")).toMatchObject({
+    expect(session.pickFragment("fragment_circle_blue_1")).toMatchObject({
       accepted: true,
-      heldFragmentId: "fragment_circle_red_1"
+      heldFragmentId: "fragment_circle_blue_1"
     });
 
     expect(session.placeHeldFragment({ x: 320, y: -180 })).toMatchObject({
       accepted: true,
-      fragmentId: "fragment_circle_red_1",
+      fragmentId: "fragment_circle_blue_1",
       placement: "free"
     });
 
     session.submitEvidencePair("current_manual_target_green_circle_hexagon_1", [
-      "fragment_hexagon_blue_2",
+      "fragment_hexagon_yellow_1",
       "fragment_circle_blue_1"
     ]);
 
@@ -575,10 +601,10 @@ describe("M01GreyboxSession", () => {
     const session = M01GreyboxSession.fromConfig(realConfig);
 
     session.selectFlashlight("flashlight_red");
-    session.pickFragment("fragment_circle_red_1");
+    session.pickFragment("fragment_circle_blue_1");
     expect(
       session.weakSnapFragmentToEvidence(
-        "fragment_circle_red_1",
+        "fragment_circle_blue_1",
         "current_manual_target_green_circle_hexagon_1"
       )
     ).toMatchObject({

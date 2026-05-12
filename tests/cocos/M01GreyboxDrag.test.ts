@@ -28,7 +28,7 @@ describe("resolveM01GreyboxDrop", () => {
         locked: false
       }
     });
-    const fragment = manualLayout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
+    const fragment = manualLayout.fragments.find((item) => item.controllerId === "fragment_triangle_yellow_1");
     const evidence = manualLayout.evidence.find(
       (item) => item.controllerId === "current_manual_target_green_circle_hexagon_1"
     );
@@ -37,7 +37,7 @@ describe("resolveM01GreyboxDrop", () => {
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(manualLayout, fragment!, evidence!.position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_triangle_red_1",
+      fragmentId: "fragment_triangle_yellow_1",
       position: evidence!.position
     });
   });
@@ -61,7 +61,7 @@ describe("resolveM01GreyboxDrop", () => {
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_hexagon_blue_1",
       pieceSlotId: "target_piece_hexagon_blue_1",
-      position: { x: -33, y: 3.5 },
+      position: { x: -93, y: 3.5 },
       rotation: 0
     });
   });
@@ -85,18 +85,18 @@ describe("resolveM01GreyboxDrop", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
 
     expect(fragment).toBeDefined();
-    expect(resolveM01GreyboxDrop(layout, fragment!, { x: 18, y: -40.5 })).toEqual({
+    expect(resolveM01GreyboxDrop(layout, fragment!, { x: -42, y: -40.5 })).toEqual({
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_triangle_blue_1",
       pieceSlotId: "target_piece_triangle_blue_1",
-      position: { x: 18, y: -40.5 },
+      position: { x: -42, y: -40.5 },
       rotation: 90
     });
   });
 
   it("does not snap an expected fragment to a locked target slot when its rotation is wrong", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
-    const targetPosition = { x: 18, y: -40.5 };
+    const targetPosition = { x: -42, y: -40.5 };
 
     expect(fragment).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
@@ -145,7 +145,7 @@ describe("resolveM01GreyboxDrop", () => {
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_circle_red_2",
       pieceSlotId: "target_piece_circle_red_2",
-      position: { x: -2, y: 14.5 },
+      position: { x: -62, y: 14.5 },
       rotation: 0
     });
   });
@@ -201,7 +201,7 @@ describe("resolveM01GreyboxDrop", () => {
   });
 
   it("does not snap a mismatched shape to a target piece slot", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_yellow_1");
     const oldTargetPosition = { x: 68.92, y: 20.49 };
 
     expect(fragment).toBeDefined();
@@ -212,7 +212,7 @@ describe("resolveM01GreyboxDrop", () => {
   });
 
   it("does not weak-snap a shape that cannot produce the generated overlap target", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_yellow_1");
     const evidence = layout.evidence.find(
       (item) => item.controllerId === "current_manual_target_green_circle_hexagon_1"
     );
@@ -221,19 +221,19 @@ describe("resolveM01GreyboxDrop", () => {
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_triangle_red_1",
+      fragmentId: "fragment_triangle_yellow_1",
       position: evidence!.position
     });
   });
 
   it("returns a fragment to free placement when no evidence shape is nearby", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_circle_red_1");
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_circle_blue_1");
     const position = { x: 420, y: -260 };
 
     expect(fragment).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_circle_red_1",
+      fragmentId: "fragment_circle_blue_1",
       position
     });
   });

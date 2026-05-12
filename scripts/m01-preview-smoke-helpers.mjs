@@ -59,9 +59,38 @@ function buildEvidenceWorkPositions(evidenceItems) {
   );
 }
 
+function blendPigmentColors(a, b) {
+  if (a === b) {
+    return a;
+  }
+
+  const key = [a, b].sort().join("+");
+  const blends = {
+    "blue+red": "purple",
+    "blue+yellow": "green",
+    "red+yellow": "orange"
+  };
+  return blends[key];
+}
+
 export function buildRealInputPlan(config) {
   const flashlight = findById(config.flashlights ?? [], "flashlight_red", "flashlight");
   const revealFragment = findById(config.fragments ?? [], "fragment_circle_blue_1", "fragment");
+  const revealFragmentIds = (config.fragments ?? []).map((fragment) => fragment.id);
+  const expectedObservedColorsByFragment = Object.fromEntries(
+    (config.fragments ?? []).map((fragment) => [
+      fragment.id,
+      blendPigmentColors(fragment.hiddenColor, flashlight.color)
+    ])
+  );
+  const flashlightBeamTargetPosition = {
+    x:
+      (config.fragments ?? []).reduce((sum, fragment) => sum + fragment.position.x, 0) /
+      Math.max((config.fragments ?? []).length, 1),
+    y:
+      (config.fragments ?? []).reduce((sum, fragment) => sum + fragment.position.y, 0) /
+      Math.max((config.fragments ?? []).length, 1)
+  };
   const evidence = config.evidence?.[0];
   assert(evidence, "Missing first completion evidence.");
   const [firstStagedFragment, secondStagedFragment] = evidence.solution.fragmentIds.map((fragmentId) =>
@@ -75,9 +104,8 @@ export function buildRealInputPlan(config) {
   );
   assert(freePlacementFragment, "Need at least one decoy fragment for free-placement smoke.");
   const evidenceWorkPositions = buildEvidenceWorkPositions(config.evidence ?? []);
-  const flashlightPosition = { x: 420, y: 68 };
-  const flashlightPickerRedPosition = { x: 284, y: 82 };
-  const heldFlashlightPosition = { x: -252, y: -202 };
+  const flashlightPosition = { x: 360, y: 68 };
+  const flashlightPickerRedPosition = { x: 224, y: 82 };
   const completionEvidence = (config.evidence ?? []).map((candidate) => ({
     evidenceId: candidate.id,
     evidencePosition: evidenceWorkPositions[candidate.id],
@@ -102,10 +130,12 @@ export function buildRealInputPlan(config) {
     flashlightId: flashlight.id,
     flashlightPosition,
     flashlightPickerRedPosition,
-    heldFlashlightPosition,
+    flashlightBeamTargetPosition,
+    revealFragmentIds,
     revealFragmentId: revealFragment.id,
     revealFragmentPosition: revealFragment.position,
     expectedObservedColor: "purple",
+    expectedObservedColorsByFragment,
     freePlacement: {
       fragmentId: freePlacementFragment.id,
       fragmentPosition: freePlacementFragment.position,

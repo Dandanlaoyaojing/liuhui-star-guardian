@@ -16,13 +16,15 @@ describe("buildM01GreyboxLayout", () => {
 
     expect(layout.canvas).toEqual({ width: 960, height: 640 });
     expect(layout.gear.id).toBe("entity_memory_gear");
+    expect(layout.gear.position).toEqual({ x: -60, y: 0 });
     expect(layout.gear.size).toEqual({ width: 430, height: 430 });
+    expect(layout.board.position).toEqual({ x: -60, y: 0 });
     expect(layout.board.size).toEqual({ width: 430, height: 430 });
     expect(layout.flashlights).toHaveLength(3);
     expect(layout.flashlights.map((flashlight) => flashlight.position)).toEqual([
-      { x: 420, y: 68 },
-      { x: 424, y: 85 },
-      { x: 428, y: 102 }
+      { x: 360, y: 68 },
+      { x: 364, y: 85 },
+      { x: 368, y: 102 }
     ]);
     expect(layout.flashlights.map((flashlight) => flashlight.size)).toEqual([
       { width: 18, height: 18 },
@@ -120,13 +122,26 @@ describe("buildM01GreyboxLayout", () => {
     );
   });
 
-  it("keeps candidate fragments as a compact bottom-floor pool", () => {
+  it("keeps only nine candidate fragments grouped below the flashlight", () => {
     const layout = buildM01GreyboxLayout(config);
-
-    expect(layout.fragments.every((fragment) => fragment.position.y <= -210)).toBe(true);
-    expect(Math.max(...layout.fragments.map((fragment) => fragment.position.y))).toBeLessThan(
-      layout.board.position.y - layout.board.size.height / 2
+    const shapeCounts = layout.fragments.reduce<Record<string, number>>((counts, fragment) => {
+      counts[fragment.shapeToken] = (counts[fragment.shapeToken] ?? 0) + 1;
+      return counts;
+    }, {});
+    const flashlightBottomY = Math.min(...layout.flashlights.map((flashlight) => flashlight.position.y));
+    const columns = [...new Set(layout.fragments.map((fragment) => fragment.position.x))].sort(
+      (left, right) => left - right
     );
+
+    expect(layout.fragments).toHaveLength(9);
+    expect(shapeCounts).toEqual({
+      circle: 3,
+      triangle: 3,
+      hexagon: 3
+    });
+    expect(columns).toEqual([272, 332, 392]);
+    expect(layout.fragments.every((fragment) => fragment.position.y < flashlightBottomY - 40))
+      .toBe(true);
   });
 
   it("uses only circle, triangle, and hexagon as fragment display shapes", () => {
@@ -154,42 +169,42 @@ describe("buildM01GreyboxLayout", () => {
         id: "target_piece_circle_yellow_1",
         standardPieceId: "standard_circle",
         fragmentId: "fragment_circle_yellow_1",
-        position: { x: -38, y: -38.5 },
+        position: { x: -98, y: -38.5 },
         rotation: 0
       }),
       expect.objectContaining({
         id: "target_piece_circle_red_2",
         standardPieceId: "standard_circle",
         fragmentId: "fragment_circle_red_2",
-        position: { x: -2, y: 14.5 },
+        position: { x: -62, y: 14.5 },
         rotation: 0
       }),
       expect.objectContaining({
         id: "target_piece_triangle_blue_1",
         standardPieceId: "standard_triangle",
         fragmentId: "fragment_triangle_blue_1",
-        position: { x: 18, y: -40.5 },
+        position: { x: -42, y: -40.5 },
         rotation: 90
       }),
       expect.objectContaining({
         id: "target_piece_triangle_yellow_2",
         standardPieceId: "standard_triangle",
         fragmentId: "fragment_triangle_yellow_2",
-        position: { x: 36, y: -11.5 },
+        position: { x: -24, y: -11.5 },
         rotation: 180
       }),
       expect.objectContaining({
         id: "target_piece_hexagon_blue_1",
         standardPieceId: "standard_hexagon",
         fragmentId: "fragment_hexagon_blue_1",
-        position: { x: -33, y: 3.5 },
+        position: { x: -93, y: 3.5 },
         rotation: 0
       }),
       expect.objectContaining({
         id: "target_piece_hexagon_red_2",
         standardPieceId: "standard_hexagon",
         fragmentId: "fragment_hexagon_red_2",
-        position: { x: 3, y: -62.5 },
+        position: { x: -57, y: -62.5 },
         rotation: 90
       })
     ]);

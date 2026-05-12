@@ -4,10 +4,18 @@ import { deflateSync, inflateSync } from "node:zlib";
 
 const projectRoot = new URL("..", import.meta.url).pathname;
 const referencePath =
-  process.argv[2] ?? "/Users/danmac/Desktop/ig_023dc6d93fbd68670169f6ae779270819aa6a0e7cc7853e67b.png";
+  process.argv[2] ??
+  join(
+    projectRoot,
+    "docs/design/generated-m01-art-slices/final-puzzle-piece-textures/m01-puzzle-piece-color-pattern-reference.png"
+  );
 const directGreyHiddenSourcePath = join(
   projectRoot,
   "docs/design/generated-m01-art-slices/m01-direct-grey-hidden-pieces-source.png"
+);
+const directPieceSliceRoot = join(
+  projectRoot,
+  "docs/design/generated-m01-art-slices/final-puzzle-piece-textures/direct-piece-slices"
 );
 
 const sheetPath = join(
@@ -33,13 +41,13 @@ const columns = 3;
 const rows = 7;
 
 const colorSpecs = [
-  { id: "hidden", label: "hidden", rgb: [154, 149, 130], texture: "hidden", pigment: 0.2, paper: 0.9, folder: hiddenRoot },
-  { id: "red", label: "red", rgb: [158, 82, 70], texture: "orange", pigment: 0.58, paper: 0.56, folder: fragmentRoot },
-  { id: "blue", label: "blue", rgb: [67, 112, 130], texture: "purple", pigment: 0.58, paper: 0.56, folder: fragmentRoot },
-  { id: "yellow", label: "yellow", rgb: [186, 143, 45], texture: "orange", pigment: 0.54, paper: 0.6, folder: fragmentRoot },
-  { id: "purple", label: "purple", texture: "purple", pigment: 0.54, paper: 0.58, folder: fragmentRoot },
-  { id: "orange", label: "orange", texture: "orange", pigment: 0.56, paper: 0.56, folder: fragmentRoot },
-  { id: "green", label: "green", texture: "green", pigment: 0.55, paper: 0.58, folder: fragmentRoot }
+  { id: "hidden", label: "hidden", directSlice: true, folder: hiddenRoot },
+  { id: "red", label: "red", directSlice: true, folder: fragmentRoot },
+  { id: "blue", label: "blue", directSlice: true, folder: fragmentRoot },
+  { id: "yellow", label: "yellow", directSlice: true, folder: fragmentRoot },
+  { id: "purple", label: "purple", directSlice: true, folder: fragmentRoot },
+  { id: "orange", label: "orange", directSlice: true, folder: fragmentRoot },
+  { id: "green", label: "green", directSlice: true, folder: fragmentRoot }
 ];
 
 const shapes = [
@@ -60,13 +68,14 @@ const referenceSamples = buildReferenceSamples(reference);
 const textureRegions = buildTextureRegions(reference);
 const colors = colorSpecs.map((color) => ({
   ...color,
-  rgb: color.rgb ?? averageTextureRegionColor(color.texture)
+  rgb: color.directSlice ? undefined : color.rgb ?? averageTextureRegionColor(color.texture)
 }));
 const sprites = new Map();
 
 for (const color of colors) {
   for (const shape of shapes) {
     const sprite = renderPiece(color, shape);
+    addCocosTrimGuard(sprite.data, sprite.width, sprite.height);
     sprites.set(`${color.id}_${shape.id}`, sprite);
 
     const filename =
@@ -94,8 +103,8 @@ console.log(
 );
 
 function renderPiece(color, shape) {
-  if (color.id === "hidden") {
-    return renderDirectGreyHiddenPiece(shape);
+  if (color.directSlice) {
+    return renderDirectPieceSlice(color.id, shape.id);
   }
 
   const high = new Uint8Array(ss * ss * 4);
@@ -169,6 +178,69 @@ function renderPiece(color, shape) {
   return sprite;
 }
 
+function renderDirectPieceSlice(colorId, shapeId) {
+  const source = readPng(directPieceSlicePath(colorId, shapeId));
+  const bounds = opaquePixelBounds(source);
+  const data = new Uint8Array(size * size * 4);
+  const squareSize = Math.max(bounds.width, bounds.height);
+  const centerX = (bounds.minX + bounds.maxX + 1) / 2;
+  const centerY = (bounds.minY + bounds.maxY + 1) / 2;
+  const cropX = centerX - squareSize / 2;
+  const cropY = centerY - squareSize / 2;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const sx = cropX + ((x + 0.5) / size) * squareSize;
+      const sy = cropY + ((y + 0.5) / size) * squareSize;
+      const sampled = sampleRgbaBilinear(source, sx, sy);
+      const offset = (y * size + x) * 4;
+      data[offset] = sampled[0];
+      data[offset + 1] = sampled[1];
+      data[offset + 2] = sampled[2];
+      data[offset + 3] = sampled[3] >= 32 ? 255 : 0;
+    }
+  }
+  addCocosTrimGuard(data, size, size);
+
+  return { width: size, height: size, data };
+}
+
+function directPieceSlicePath(colorId, shapeId) {
+  return join(directPieceSliceRoot, `m01-final-fragment-${colorId}-${shapeId}.png`);
+}
+
+function opaquePixelBounds(image) {
+  let minX = image.width;
+  let minY = image.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (image.data[(y * image.width + x) * 4 + 3] < 24) {
+        continue;
+      }
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    throw new Error("Direct piece slice has no opaque pixels");
+  }
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1
+  };
+}
+
 function renderDirectGreyHiddenPiece(shape) {
   const crop = directGreyHiddenCropBoxes[shape.id];
   if (!crop) {
@@ -196,8 +268,20 @@ function renderDirectGreyHiddenPiece(shape) {
     data[offset + 3] = background[pixel] ? 0 : 255;
   }
   trimLightPaperHalo(data, size, size, 8);
+  addCocosTrimGuard(data, size, size);
 
   return { width: size, height: size, data };
+}
+
+function addCocosTrimGuard(data, width, height) {
+  for (const [x, y] of [
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1]
+  ]) {
+    data[(y * width + x) * 4 + 3] = 2;
+  }
 }
 
 function buildDarkOutlineMask(data, width, height) {
@@ -549,11 +633,46 @@ function sampleBilinear(image, x, y) {
   return mixSample(top, bottom, ty);
 }
 
+function sampleRgbaBilinear(image, x, y) {
+  if (x < 0 || y < 0 || x > image.width - 1 || y > image.height - 1) {
+    return [0, 0, 0, 0];
+  }
+
+  const x0 = Math.max(0, Math.min(image.width - 1, Math.floor(x)));
+  const y0 = Math.max(0, Math.min(image.height - 1, Math.floor(y)));
+  const x1 = Math.max(0, Math.min(image.width - 1, x0 + 1));
+  const y1 = Math.max(0, Math.min(image.height - 1, y0 + 1));
+  const tx = x - x0;
+  const ty = y - y0;
+  const top = mixRgbaSample(readRgbaPixel(image, x0, y0), readRgbaPixel(image, x1, y0), tx);
+  const bottom = mixRgbaSample(readRgbaPixel(image, x0, y1), readRgbaPixel(image, x1, y1), tx);
+  return mixRgbaSample(top, bottom, ty);
+}
+
+function readRgbaPixel(image, x, y) {
+  const offset = (y * image.width + x) * 4;
+  return [
+    image.data[offset],
+    image.data[offset + 1],
+    image.data[offset + 2],
+    image.data[offset + 3]
+  ];
+}
+
 function mixSample(a, b, t) {
   return [
     clampByte(a[0] * (1 - t) + b[0] * t),
     clampByte(a[1] * (1 - t) + b[1] * t),
     clampByte(a[2] * (1 - t) + b[2] * t)
+  ];
+}
+
+function mixRgbaSample(a, b, t) {
+  return [
+    clampByte(a[0] * (1 - t) + b[0] * t),
+    clampByte(a[1] * (1 - t) + b[1] * t),
+    clampByte(a[2] * (1 - t) + b[2] * t),
+    clampByte(a[3] * (1 - t) + b[3] * t)
   ];
 }
 

@@ -27,7 +27,21 @@ describe("buildRealInputPlan", () => {
     ).toBe(true);
     expect(Math.abs(plan.stageEvidence.evidencePosition.x)).toBeLessThanOrEqual(150);
     expect(Math.abs(plan.stageEvidence.evidencePosition.y)).toBeLessThanOrEqual(150);
-    expect(plan.flashlightPosition).toEqual({ x: 420, y: 68 });
+    expect(plan.flashlightPosition).toEqual({ x: 360, y: 68 });
+    expect(plan.flashlightBeamTargetPosition).toEqual({ x: 332, y: -138 });
+    expect(plan.revealFragmentIds).toEqual(m01Config.fragments.map((fragment) => fragment.id));
+    expect(plan.expectedObservedColorsByFragment).toMatchObject({
+      fragment_circle_blue_1: "purple",
+      fragment_circle_yellow_1: "orange",
+      fragment_circle_red_2: "red",
+      fragment_triangle_blue_1: "purple",
+      fragment_triangle_yellow_1: "orange",
+      fragment_triangle_yellow_2: "orange",
+      fragment_hexagon_blue_1: "purple",
+      fragment_hexagon_yellow_1: "orange",
+      fragment_hexagon_red_2: "red"
+    });
+    expect(plan).not.toHaveProperty("heldFlashlightPosition");
     expect(plan.expectedToolCardTitle).toBe(m01Config.toolCard.front.toolName);
   });
 

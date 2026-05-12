@@ -76,10 +76,10 @@ const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
 const VALIDATION_FAILURE_FLASH_COUNT = 2;
 const FRAGMENT_FLOOR = {
-  minX: -480,
-  maxX: 480,
-  minY: -320,
-  maxY: -176
+  minX: 200,
+  maxX: 440,
+  minY: -260,
+  maxY: 120
 };
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
@@ -1106,7 +1106,7 @@ export class M01GreyboxBootstrap extends Component {
     this.closeFlashlightButtonPicker();
 
     const pickerRoot = new Node("M01FlashlightButtonPicker");
-    pickerRoot.setPosition(330, 82, 0);
+    pickerRoot.setPosition(270, 82, 0);
     this.greyboxRoot.addChild(pickerRoot);
     this.flashlightButtonPickerRoot = pickerRoot;
 
@@ -1187,16 +1187,7 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.heldFlashlightId = undefined;
-    this.heldFlashlightPointerId = undefined;
-    this.activeFlashlightId = selected.activeFlashlightId;
-    this.activeFlashlightColor = selected.activeFlashlightColor;
-    this.flashlightBeamAnchor = token.position;
-    this.flashlightBeamLit = true;
-    this.flashlightBeamTarget = undefined;
-    this.tokenPositions.set(token.controllerId, token.position);
-    this.clearObservedColorReset();
-    this.syncVisualState();
+    this.activateFixedFlashlightBeam(token, selected);
   }
 
   private addTargetReferenceCircleFrame(parent: Node, size: { width: number; height: number }): void {
@@ -1345,7 +1336,6 @@ export class M01GreyboxBootstrap extends Component {
     this.suppressHeldFlashlightFollow = Boolean(
       hitToken && hitToken.controllerId !== this.heldFlashlightId
     );
-    this.beginFlashlightBeamGesture(event);
   }
 
   private beginTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
@@ -1382,11 +1372,6 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    if (this.updateFlashlightBeamGesture(event)) {
-      return;
-    }
-
-    this.moveFlashlightBeamWithPointer(event);
     this.moveHeldFlashlightWithPointer(event);
     this.moveHeldFragmentWithPointer(event);
   }
@@ -1400,11 +1385,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.flashlightBeamTarget = this.eventToLocalPoint(event);
-    const revealed = this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget);
-    if (revealed) {
-      return;
-    }
-
+    this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget);
     this.drawFlashlightBeam();
   }
 
@@ -1670,8 +1651,8 @@ export class M01GreyboxBootstrap extends Component {
   private handleFlashlightClick(
     node: Node,
     token: M01GreyboxTokenNode,
-    position: M01GreyboxPoint,
-    pointerId: string | number
+    _position: M01GreyboxPoint,
+    _pointerId: string | number
   ): void {
     if (!this.session) {
       this.resetTokenNode(node, token);
@@ -1688,17 +1669,9 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.heldFlashlightId = token.controllerId;
-    this.heldFlashlightPointerId = undefined;
-    this.activeFlashlightId = selected.activeFlashlightId;
-    this.activeFlashlightColor = selected.activeFlashlightColor;
-    this.flashlightBeamLit = false;
-    this.flashlightBeamAnchor = position;
-    this.flashlightBeamTarget = undefined;
-    node.setPosition(position.x, position.y, 0);
-    this.tokenPositions.set(token.controllerId, position);
-    this.clearObservedColorReset();
-    this.syncVisualState();
+    node.setPosition(token.position.x, token.position.y, 0);
+    this.tokenPositions.set(token.controllerId, token.position);
+    this.activateFixedFlashlightBeam(token, selected);
   }
 
   private stopTouchPropagation(event: EventTouch): void {
@@ -1748,27 +1721,12 @@ export class M01GreyboxBootstrap extends Component {
       this.resetTokenNode(node, token);
       const selected = this.session.selectFlashlight(action.flashlightId);
       if (selected.accepted) {
-        this.activeFlashlightId = selected.activeFlashlightId;
-        this.activeFlashlightColor = selected.activeFlashlightColor;
-        this.heldFlashlightId = action.flashlightId;
-        this.heldFlashlightPointerId = undefined;
-        this.flashlightBeamAnchor =
-          this.tokenPositions.get(action.flashlightId) ?? token.position;
-        this.flashlightBeamLit = true;
-        this.flashlightBeamTarget = dropPosition;
-        this.clearObservedColorReset();
+        this.activateFixedFlashlightBeam(token, selected);
       }
-      const revealed = selected.accepted
-        ? this.tryRevealFragmentAtPosition(dropPosition)
-        : undefined;
-      this.setStatus(revealed?.status ?? selected.status);
+      this.setStatus(selected.status);
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
-      this.scheduleObservedColorReset(revealed);
-      if (selected.accepted) {
-        this.releaseHeldFlashlightAfterBeamGesture();
-      }
       return;
     }
 
@@ -1925,6 +1883,44 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.handleTokenDrop(entry.node, entry.token, position);
+  }
+
+  private activateFixedFlashlightBeam(
+    token: M01GreyboxTokenNode,
+    selected: ReturnType<M01GreyboxSession["selectFlashlight"]>
+  ): void {
+    if (!selected.accepted) {
+      return;
+    }
+
+    const source = this.tokenPositions.get(token.controllerId) ?? token.position;
+    this.heldFlashlightId = undefined;
+    this.heldFlashlightPointerId = undefined;
+    this.flashlightBeamGesturePointerId = undefined;
+    this.suppressHeldFlashlightFollow = false;
+    this.activeFlashlightId = selected.activeFlashlightId;
+    this.activeFlashlightColor = selected.activeFlashlightColor;
+    this.flashlightBeamAnchor = source;
+    this.flashlightBeamLit = true;
+    this.flashlightBeamTarget = undefined;
+    this.flashlightBeamTarget = this.getFlashlightBeamTarget();
+    this.tokenPositions.set(token.controllerId, source);
+    this.clearObservedColorReset();
+    const revealed = this.revealAllFragmentsWithActiveFlashlight();
+    this.syncVisualState();
+    this.scheduleObservedColorResets(revealed);
+  }
+
+  private revealAllFragmentsWithActiveFlashlight(): ReturnType<
+    M01GreyboxSession["revealFragments"]
+  > {
+    if (!this.session || !this.layout) {
+      return [];
+    }
+
+    return this.session.revealFragments(
+      this.layout.fragments.map((fragment) => fragment.controllerId)
+    );
   }
 
   private tryRevealFragmentAtPosition(
@@ -2156,6 +2152,14 @@ export class M01GreyboxBootstrap extends Component {
     this.observedColorResetScheduler.schedule(revealed.fragmentId, M01_OBSERVED_REVEAL_MS);
   }
 
+  private scheduleObservedColorResets(
+    revealed: ReturnType<M01GreyboxSession["revealFragments"]>
+  ): void {
+    for (const result of revealed) {
+      this.scheduleObservedColorReset(result);
+    }
+  }
+
   private clearObservedColorReset(): void {
     this.observedColorResetScheduler.clearAll();
   }
@@ -2267,21 +2271,27 @@ export class M01GreyboxBootstrap extends Component {
       if (entry.token.kind === "fragment") {
         const view = this.session.getFragmentView(entry.token.controllerId);
         const validationColor = this.validationFlashVisible ? view.validationColor : undefined;
+        const fragmentColorOverride = validationColor ?? view.observedColor;
+        const textureBackedFragmentReveal = this.shouldUseTextureBackedFragmentReveal(
+          entry.token,
+          entry.artSprite,
+          fragmentColorOverride
+        );
         const presentation =
           view.validationColor && !this.validationFlashVisible ? "normal" : view.presentation;
         entry.node.active = !view.placed;
         this.applyTokenGraphicsState(
           entry.graphics,
           entry.token,
-          presentation,
+          textureBackedFragmentReveal ? "normal" : presentation,
           view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1,
-          validationColor ?? view.observedColor
+          textureBackedFragmentReveal ? undefined : fragmentColorOverride
         );
         this.syncArtSpriteState(
           entry.artSprite,
           presentation,
           entry.token,
-          validationColor ?? view.observedColor
+          fragmentColorOverride
         );
       } else if (entry.token.kind === "slot") {
         const view = this.session.getSlotView(entry.token.controllerId);
@@ -2327,6 +2337,20 @@ export class M01GreyboxBootstrap extends Component {
     this.drawBottomLight(bottomLight);
     this.drawFlashlightBeam();
     this.drawManualTargetBlendOverlays();
+  }
+
+  private shouldUseTextureBackedFragmentReveal(
+    token: M01GreyboxTokenNode,
+    sprite: Sprite | null,
+    colorTokenOverride: M01BlendColor | undefined
+  ): boolean {
+    return Boolean(
+      this.enableArtPreview &&
+        sprite &&
+        colorTokenOverride &&
+        token.kind === "fragment" &&
+        !this.artPreviewFallbackUnderlayIds.has(token.controllerId)
+    );
   }
 
   private markArtPreviewUnderlayFallback(controllerId: string): void {

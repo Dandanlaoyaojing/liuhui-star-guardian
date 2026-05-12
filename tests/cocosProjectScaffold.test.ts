@@ -584,35 +584,76 @@ describe("Cocos Creator project scaffold", () => {
     expect(manifest).toContain("Do not use image generation to freely redesign or rearrange this target pattern.");
   });
 
-  it("lets the M01 flashlight beam roam with the pointer over the fragment pool", () => {
+  it("reveals all M01 candidates with a fixed floodlight after a flashlight color is selected", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("flashlightBeamTarget");
     expect(bootstrap).toContain("flashlightBeamReach");
     expect(bootstrap).toContain("setFlashlightBeamReach");
-    expect(bootstrap).toContain("moveFlashlightBeamWithPointer");
-    expect(bootstrap).toContain("scanFlashlightBeamAtTarget");
-    expect(bootstrap).toContain("this.scanFlashlightBeamAtTarget(this.flashlightBeamTarget)");
+    expect(bootstrap).toContain("activateFixedFlashlightBeam");
+    expect(bootstrap).toContain("revealAllFragmentsWithActiveFlashlight");
+    expect(bootstrap).toContain("scheduleObservedColorResets");
+    expect(bootstrap).toContain("this.flashlightBeamTarget = this.getFlashlightBeamTarget();");
     expect(bootstrap).toContain("getFlashlightBeamTarget");
     expect(bootstrap).toContain("getFlashlightBeamReach");
     expect(bootstrap).toContain("if (this.flashlightBeamTarget)");
     expect(bootstrap).toContain("this.layout.fragments");
     expect(bootstrap).not.toContain("const target = this.layout.board.position");
+
+    const dragBlock = bootstrap.slice(
+      bootstrap.indexOf("private moveActivePointerDrag"),
+      bootstrap.indexOf("private moveFlashlightBeamWithPointer")
+    );
+    expect(dragBlock).not.toContain("moveFlashlightBeamWithPointer");
+    expect(dragBlock).not.toContain("updateFlashlightBeamGesture");
   });
 
-  it("treats M01 flashlights as held tools instead of fixed emitters", () => {
+  it("keeps the M01 flashlight beam visible over the current right-side fragment grid", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("maxY: 120");
+    expect(bootstrap).toContain("minY: -260");
+    expect(bootstrap).toContain("minX: 200");
+    expect(bootstrap).toContain("maxX: 440");
+  });
+
+  it("does not let pointer movement steer the selected M01 flashlight beam", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const dragBlock = bootstrap.slice(
+      bootstrap.indexOf("private moveActivePointerDrag"),
+      bootstrap.indexOf("private moveFlashlightBeamWithPointer")
+    );
+    const rootPressBlock = bootstrap.slice(
+      bootstrap.indexOf("private beginActivePointerPress"),
+      bootstrap.indexOf("private beginTokenDrag")
+    );
+
+    expect(dragBlock).not.toContain("moveFlashlightBeamWithPointer");
+    expect(dragBlock).not.toContain("updateFlashlightBeamGesture");
+    expect(rootPressBlock).not.toContain("beginFlashlightBeamGesture");
+  });
+
+  it("treats M01 flashlights as fixed color emitters instead of held tools", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const clickBlock = bootstrap.slice(
+      bootstrap.indexOf("private handleFlashlightClick"),
+      bootstrap.indexOf("private stopTouchPropagation")
+    );
+    const dropBlock = bootstrap.slice(
+      bootstrap.indexOf('if (action.type === "select_flashlight")'),
+      bootstrap.indexOf('if (action.type === "place_fragment")')
+    );
 
     expect(bootstrap).toContain("heldFlashlightId");
     expect(bootstrap).toContain("handleFlashlightClick");
-    expect(bootstrap).toContain("moveHeldFlashlightWithPointer");
-    expect(bootstrap).toContain("beginFlashlightBeamGesture");
-    expect(bootstrap).toContain("updateFlashlightBeamGesture");
+    expect(clickBlock).toContain("this.activateFixedFlashlightBeam(token, selected);");
+    expect(clickBlock).not.toContain("this.heldFlashlightId = token.controllerId");
+    expect(clickBlock).not.toContain("this.flashlightBeamLit = false");
+    expect(dropBlock).toContain("this.activateFixedFlashlightBeam(token, selected);");
+    expect(dropBlock).not.toContain("this.releaseHeldFlashlightAfterBeamGesture();");
     expect(bootstrap).toContain("flashlightBeamAnchor");
     expect(bootstrap).toContain("flashlightBeamLit");
     expect(bootstrap).toContain('token.kind === "flashlight"');
-    expect(bootstrap).toContain("if (this.flashlightBeamLit) {\n        this.releaseHeldFlashlightAfterBeamGesture();");
-    expect(bootstrap).toContain("if (selected.accepted) {\n        this.releaseHeldFlashlightAfterBeamGesture();");
     expect(bootstrap).toContain("Input.EventType.MOUSE_DOWN");
     expect(bootstrap).toContain("Input.EventType.TOUCH_START");
   });
@@ -788,7 +829,9 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain("view.observedColor");
     expect(bootstrap).toContain("colorTokenOverride");
-    expect(bootstrap).toContain("colorForToken(colorTokenOverride ?? token.colorToken");
+    expect(bootstrap).toContain("shouldUseTextureBackedFragmentReveal");
+    expect(bootstrap).toContain("textureBackedFragmentReveal ? \"normal\" : presentation");
+    expect(bootstrap).toContain("textureBackedFragmentReveal ? undefined : fragmentColorOverride");
     expect(bootstrap).toContain("ObservedResetScheduler");
     expect(bootstrap).toContain("observedColorResetScheduler");
     expect(bootstrap).toContain("this.observedColorResetScheduler.schedule");
@@ -841,6 +884,7 @@ describe("Cocos Creator project scaffold", () => {
       "getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride)"
     );
     expect(bootstrap).toContain("validationColor ?? view.observedColor");
+    expect(bootstrap).toContain("shouldUseTextureBackedFragmentReveal");
     expect(bootstrap).not.toContain('if (isM01StandardPieceToken(token)) {\n      return null;\n    }');
     expect(bootstrap).toContain('if (token.kind === "fragment")');
     expect(bootstrap).toContain('presentation !== "normal" && presentation !== "placed"');

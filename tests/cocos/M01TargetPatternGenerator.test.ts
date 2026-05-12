@@ -16,7 +16,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
   it("turns standard-piece intersections into overlap evidence targets", () => {
     const placements: M01ManualTargetPiecePlacement[] = [
       {
-        fragmentId: "fragment_circle_red_1",
+        fragmentId: "fragment_circle_red_2",
         position: { x: 0, y: 0 }
       },
       {
@@ -42,7 +42,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
         offset: { x: 24, y: 0 }
       },
       solution: {
-        fragmentIds: ["fragment_circle_red_1", "fragment_circle_blue_1"]
+        fragmentIds: ["fragment_circle_red_2", "fragment_circle_blue_1"]
       }
     });
     expect(evidence[0].generatedOverlap?.outline).toEqual(
@@ -59,7 +59,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
   it("uses generated overlap outlines as the magnetic hit contour", () => {
     const generatedEvidence = deriveM01TargetEvidenceFromPlacements(config, [
       {
-        fragmentId: "fragment_circle_red_1",
+        fragmentId: "fragment_circle_red_2",
         position: { x: 0, y: 0 }
       },
       {
@@ -79,7 +79,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
     const layout = buildM01GreyboxLayout(generatedConfig);
     const evidence = layout.evidence[0];
     const fragment = layout.fragments.find(
-      (candidate) => candidate.controllerId === "fragment_circle_red_1"
+      (candidate) => candidate.controllerId === "fragment_circle_red_2"
     );
     const sameShapeWrongColorFragment = layout.fragments.find(
       (candidate) => candidate.controllerId === "fragment_circle_yellow_1"
@@ -112,7 +112,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
       })
     ).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_circle_red_1",
+      fragmentId: "fragment_circle_red_2",
       position: {
         x: evidence.position.x + evidence.size.width / 2 - 2,
         y: evidence.position.y + evidence.size.height / 2 - 2
@@ -128,9 +128,9 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
         locked: true,
         pieces: [
           {
-            id: "target_piece_circle_red_1",
+            id: "target_piece_circle_red_2",
             standardPieceId: "standard_circle",
-            fragmentId: "fragment_circle_red_1",
+            fragmentId: "fragment_circle_red_2",
             position: { x: 0, y: 0 },
             rotation: 0
           },
@@ -162,7 +162,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
       id: "current_manual_target_purple_circle_circle_1",
       targetBlendColor: "purple",
       solution: {
-        fragmentIds: ["fragment_circle_red_1", "fragment_circle_blue_1"]
+        fragmentIds: ["fragment_circle_red_2", "fragment_circle_blue_1"]
       },
       generatedOverlap: {
         offset: { x: 24, y: 0 },
