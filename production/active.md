@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-05-12
+Last updated: 2026-05-13
 
 ## Current Objective
 
@@ -9,6 +9,8 @@ Last updated: 2026-05-12
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
 **当前执行焦点**：M01 第一关已完成本轮“完整可玩灰盒原型”阶段，可作为 P1-a 安全原型的当前基线。旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`，本轮 completion handoff 见 `docs/plans/completed/2026-05-02-m01-completion-autoloop-ralphex.md`。2026-05-02 曾短暂创建 M30 autoloop 计划，但未产生任何 M30 代码/配置改动；该计划已标记 PAUSED，不再作为当前 handoff。M30 及所有其他关卡仍暂停，直到 operator 明确下达恢复指令。
+
+2026-05-13 M01 手电筒融合候选 / C 版接入：用户要求保留圆润三按钮手电的线条，但融合硬朗手电的米灰 / 旧铜 / 橄榄灰配色，并确保红黄蓝三个按钮保留在正面。本轮新增可复现脚本 `scripts/generate-m01-flashlight-candidates.mjs`，以 `flashlight_single_three_buttons-lemmy-pink-v3.png` 为形状母版、`m01-single-flashlight-tool.png` 为配色参考，生成 review-only 候选目录 `docs/design/generated-m01-art-slices/m01-flashlight-round-lines-hard-palette-v1/`。用户选择 C（`m01-flashlight-round-lines-hard-palette-v1-c-rice-gray-rim.png`），已同步覆盖 `assets/resources/art/stage1-m01/runtime-sprites/surfaces/m01-single-flashlight-tool.png`、`assets/art/stage1-m01/m01-single-flashlight-tool.png`、`docs/design/generated-m01-art-slices/m01-single-flashlight-tool-runtime-fixed.png` 与 `parts/flashlight_single_three_buttons.png`；Cocos refresh 更新了两处 `m01-single-flashlight-tool.png.meta` 的 trim 数据，以匹配 C 版更高的圆头轮廓。验证：五处 PNG 均为 `198x437` RGBA 且 SHA-256 一致；`npm test -- tests/cocos/M01GreyboxArt.test.ts tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeHelpers.test.ts` 成功（83 tests）；`npm run typecheck` 成功；`git diff --check` 成功；Cocos MCP 刷新 scripts / config / art surfaces 成功；`npm run smoke:m01-preview:input -- --enable-art-preview --capture-clean-qa` 成功，`hasSingleFlashlightTool = true`、三色换灯 art sprite 正确、completion `completed = true`、console/page error 为空，截图见 `temp/m01-art-preview-clean-qa.png`。
 
 2026-05-06 当前用户任务：接手隔壁线程报错后的 M01 art-preview 标准件 / 手动目标编辑工作。范围限定为复验当前未提交改动、确认报错是否仍存在、补齐 handoff；不自动提交，不恢复 M30 / 下一关。
 

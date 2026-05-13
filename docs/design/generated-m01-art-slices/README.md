@@ -15,6 +15,7 @@ These PNGs are generated or cropped art candidates for M01 visual QA. They inten
 - `m01-toolcard-thumbnail-slice-candidate-v1.png` — cropped QA candidate from v1; possible card-front basis.
 - `m01-anchor-cleaned-v2-gear-empty-center-rich-color-candidate.png` — current preferred empty-gear visual prototype. This is the 16:37 rich-color gear edit selected by visual review; keep its stronger gray-bronze watercolor variation as the art baseline. Do not continue tuning its color or contour unless explicitly requested.
 - `m01-anchor-cleaned-v2-gear-empty-center-rich-color-outline-tidy-candidate.png` — later outline-tidy experiment; retained for comparison, but no longer the preferred prototype because it moves away from the selected 16:37 feel.
+- `m01-flashlight-round-lines-hard-palette-v1/` — fused flashlight candidates. These preserve the rounded three-button flashlight silhouette from `flashlight_single_three_buttons-lemmy-pink-v3.png` while shifting the body palette toward the harder rice-gray / old-bronze / olive-gray runtime flashlight reference. Candidate C, `m01-flashlight-round-lines-hard-palette-v1-c-rice-gray-rim.png`, is the selected runtime source; all candidates keep exactly three front buttons: red, yellow, and blue.
 
 ## Acceptance Rule
 
