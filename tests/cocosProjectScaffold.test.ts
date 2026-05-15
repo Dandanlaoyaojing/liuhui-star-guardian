@@ -242,9 +242,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain(
       'const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";'
     );
+    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 37, height: 50 };");
     expect(hintButtonBlock).toContain("this.addHintIcon(buttonNode);");
     expect(hintButtonBlock).not.toContain('this.addButtonLabel(buttonNode, this.formatText("hintButton"))');
     expect(bootstrap).toContain('const iconNode = new Node("M01HintButtonIcon");');
+    expect(hintButtonBlock).toContain(
+      "transform.setContentSize(M01_HINT_ICON_DISPLAY_SIZE.width, M01_HINT_ICON_DISPLAY_SIZE.height);"
+    );
     expect(bootstrap).toContain("resources.load(M01_HINT_ICON_RESOURCE_PATH, SpriteFrame");
   });
 

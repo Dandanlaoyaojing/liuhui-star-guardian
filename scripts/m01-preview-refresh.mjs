@@ -4,6 +4,7 @@ const REFRESH_REQUEST_TIMEOUT_MS = 2000;
 const STALE_PREVIEW_SYMPTOMS = [
   "missing fragment_circle_* nodes in smoke output",
   "missing evidence_* nodes in smoke output",
+  "updated hint icon or runtime art still shows the old image in preview",
   "preview runtime returns stale bundle or missing scene nodes"
 ];
 
@@ -18,6 +19,16 @@ function buildRefreshSteps(baseUrl = DEFAULT_MCP_BASE_URL) {
       label: "refresh_assets:stage1-config",
       url: `${baseUrl}/api/project/refresh_assets`,
       body: { folder: "db://assets/resources/configs/stage1" }
+    },
+    {
+      label: "refresh_assets:resource-icons",
+      url: `${baseUrl}/api/project/refresh_assets`,
+      body: { folder: "db://assets/resources/art/icons" }
+    },
+    {
+      label: "refresh_assets:source-icons",
+      url: `${baseUrl}/api/project/refresh_assets`,
+      body: { folder: "db://assets/art/icons" }
     },
     {
       label: "soft_reload_scene",

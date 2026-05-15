@@ -35,9 +35,12 @@ describe("M01 preview refresh helper", () => {
     const output = JSON.parse(result.stdout);
     expect(output.symptoms).toContain("missing fragment_circle_* nodes in smoke output");
     expect(output.symptoms).toContain("missing evidence_* nodes in smoke output");
+    expect(output.symptoms).toContain("updated hint icon or runtime art still shows the old image in preview");
     expect(output.steps.map((step: { label: string }) => step.label)).toEqual([
       "refresh_assets:scripts",
       "refresh_assets:stage1-config",
+      "refresh_assets:resource-icons",
+      "refresh_assets:source-icons",
       "soft_reload_scene"
     ]);
     expect(output.restartFallback).toContain("Only restart Cocos Creator");

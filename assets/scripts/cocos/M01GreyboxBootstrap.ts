@@ -76,6 +76,7 @@ const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
 const VALIDATION_FAILURE_FLASH_COUNT = 2;
 const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";
+const M01_HINT_ICON_DISPLAY_SIZE = { width: 37, height: 50 };
 const FIXED_FLASHLIGHT_BEAM_ANCHOR: M01GreyboxPoint = { x: 360, y: 110 };
 const FRAGMENT_FLOOR = {
   minX: 200,
@@ -912,7 +913,7 @@ export class M01GreyboxBootstrap extends Component {
     parent.addChild(iconNode);
 
     const transform = iconNode.addComponent(UITransform);
-    transform.setContentSize(50, 50);
+    transform.setContentSize(M01_HINT_ICON_DISPLAY_SIZE.width, M01_HINT_ICON_DISPLAY_SIZE.height);
 
     const sprite = iconNode.addComponent(Sprite);
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
