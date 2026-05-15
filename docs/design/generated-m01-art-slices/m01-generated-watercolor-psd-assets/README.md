@@ -9,7 +9,7 @@ This directory contains generated M01 art parts. The 2026-04-22 watercolor gear 
 - `source/m01-locked-knot-target-clue-only-watercolor-imagegen-v1.png` and `.psd`: approved clue-only target card. Full standard-piece outlines are removed; only colored overlap clues and their local ink boundaries remain.
 - `source/m01-handdrawn-flashlight-lemmy-style-v1-source.png`: generated chroma-key source for the current hand-drawn single flashlight, using the Lemmy rabbit reference as style guidance.
 - `parts/flashlight_single_three_buttons-lemmy-pink-v3.png`: review export for the earlier pink hand-drawn flashlight colorway.
-- `parts/flashlight_single_three_buttons.png`: current production-sized export, selected from `../m01-flashlight-round-lines-hard-palette-v1/m01-flashlight-round-lines-hard-palette-v1-c-rice-gray-rim.png`.
+- `parts/flashlight_single_three_buttons.png`: current production-sized export, generated from `../../../../assets/art/stage1-tools/M02-flashlight.png` via `scripts/sync-m01-lens-down-flashlight.mjs`.
 - `../m01-fragment-porcelain-watercolor-contact-20260504.png`: current review sheet for the runtime fragment material pass. The accepted direction is one consistent pale grey-white ceramic tile tone across all puzzle pieces, with low-contrast watercolor bloom, soft graphite contour wobble, and hairline crackle; avoid returning to thick red / blue / yellow body fills or separate warm / cool undertones by hidden color.
 - `parts/*.png`: transparent review exports after chroma-key removal.
 - `parts/*.psd`: one PSD file per individual part.

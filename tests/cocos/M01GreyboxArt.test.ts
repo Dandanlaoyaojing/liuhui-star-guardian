@@ -392,6 +392,35 @@ function lightNeutralOuterEdgeRatio(image: {
   return lightNeutral / boundary;
 }
 
+function outerContourAverageLuminance(image: {
+  width: number;
+  height: number;
+  data: Uint8Array;
+}): number {
+  let contourPixels = 0;
+  let luminanceSum = 0;
+
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      const offset = (y * image.width + x) * 4;
+      if (image.data[offset + 3] < 24) {
+        continue;
+      }
+      if (nearestTransparentDistance(image.data, image.width, image.height, x, y, 3) > 3) {
+        continue;
+      }
+
+      const r = image.data[offset];
+      const g = image.data[offset + 1];
+      const b = image.data[offset + 2];
+      luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      contourPixels += 1;
+    }
+  }
+
+  return luminanceSum / contourPixels;
+}
+
 const directHiddenCropBoxes = {
   circle: { x: 459, y: 448, size: 332 },
   triangle: { x: 84, y: 434, size: 334 },
@@ -461,21 +490,24 @@ function buildDirectHiddenCropSprite(
 }
 
 function buildDirectPieceSliceSprite(
-  source: { width: number; height: number; data: Uint8Array }
+  source: { width: number; height: number; data: Uint8Array },
+  shape?: RuntimeFragmentShape
 ): { width: number; height: number; data: Uint8Array } {
   const size = 112;
   const bounds = sourceOpaqueBounds(source);
   const data = new Uint8Array(size * size * 4);
-  const squareSize = Math.max(bounds.width, bounds.height);
+  const targetAspect = shape ? expectedRuntimeShapeAspect(shape) : 1;
+  const cropWidth = bounds.width;
+  const cropHeight = bounds.height * targetAspect;
   const centerX = (bounds.minX + bounds.maxX + 1) / 2;
   const centerY = (bounds.minY + bounds.maxY + 1) / 2;
-  const cropX = centerX - squareSize / 2;
-  const cropY = centerY - squareSize / 2;
+  const cropX = centerX - cropWidth / 2;
+  const cropY = centerY - cropHeight / 2;
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const sx = cropX + ((x + 0.5) / size) * squareSize;
-      const sy = cropY + ((y + 0.5) / size) * squareSize;
+      const sx = cropX + ((x + 0.5) / size) * cropWidth;
+      const sy = cropY + ((y + 0.5) / size) * cropHeight;
       const sampled = sampleRgbaBilinear(source, sx, sy);
       const offset = (y * size + x) * 4;
       data[offset] = sampled[0];
@@ -484,9 +516,81 @@ function buildDirectPieceSliceSprite(
       data[offset + 3] = sampled[3] >= 32 ? 255 : 0;
     }
   }
+  thickenDirectPieceOutline(data, size, size);
   addCocosTrimGuard(data, size, size);
 
   return { width: size, height: size, data };
+}
+
+function expectedRuntimeShapeAspect(shape: RuntimeFragmentShape): number {
+  if (shape === "circle") {
+    return 1;
+  }
+
+  return 2 / Math.sqrt(3);
+}
+
+function thickenDirectPieceOutline(data: Uint8Array, width: number, height: number): void {
+  const ink = [7, 7, 6];
+  const radius = 6.2;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      if (data[offset + 3] < 24) {
+        continue;
+      }
+
+      const distance = nearestTransparentDistance(data, width, height, x, y, Math.ceil(radius));
+      if (distance > radius) {
+        continue;
+      }
+
+      const fade = Math.pow((radius - distance) / radius, 0.78);
+      const strength = Math.max(0, Math.min(fade * 0.88, 0.9));
+      data[offset] = Math.round(data[offset] * (1 - strength) + ink[0] * strength);
+      data[offset + 1] = Math.round(data[offset + 1] * (1 - strength) + ink[1] * strength);
+      data[offset + 2] = Math.round(data[offset + 2] * (1 - strength) + ink[2] * strength);
+    }
+  }
+}
+
+function nearestTransparentDistance(
+  data: Uint8Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  radius: number
+): number {
+  let nearest = Infinity;
+  for (let yy = y - radius; yy <= y + radius; yy += 1) {
+    for (let xx = x - radius; xx <= x + radius; xx += 1) {
+      if (xx < 0 || yy < 0 || xx >= width || yy >= height) {
+        nearest = Math.min(nearest, Math.hypot(xx - x, yy - y));
+        continue;
+      }
+      if (data[(yy * width + xx) * 4 + 3] >= 24) {
+        continue;
+      }
+      nearest = Math.min(nearest, Math.hypot(xx - x, yy - y));
+    }
+  }
+  return nearest;
+}
+
+function shapeFromRuntimeFragmentResourceId(resourceId: string): RuntimeFragmentShape {
+  if (resourceId.endsWith("_circle")) {
+    return "circle";
+  }
+  if (resourceId.endsWith("_triangle")) {
+    return "triangle";
+  }
+  if (resourceId.endsWith("_hexagon")) {
+    return "hexagon";
+  }
+
+  throw new Error(`Unable to read runtime fragment shape: ${resourceId}`);
 }
 
 function sourceOpaqueBounds(image: { width: number; height: number; data: Uint8Array }): {
@@ -1278,7 +1382,7 @@ describe("M01 greybox art slices", () => {
     for (const { resource, color } of coloredSprites) {
       expect(color.averageLuminance).toBeGreaterThan(70);
       expect(color.averageLuminance).toBeLessThan(205);
-      expect(color.averageChannelSpread).toBeGreaterThan(14);
+      expect(color.averageChannelSpread).toBeGreaterThan(12);
       expect(color.averageChannelSpread).toBeLessThan(112);
       expect(resource.sourceFile).toBe(
         `${M01_GREYBOX_FINAL_DIRECT_FRAGMENT_SOURCE_ROOT}/m01-final-fragment-${resource.id.replace("_", "-")}.png`
@@ -1310,9 +1414,27 @@ describe("M01 greybox art slices", () => {
     ]) {
       const source = readPngRgba(resource.sourceFile);
       const runtime = readPngRgba(resource.file);
-      const expected = buildDirectPieceSliceSprite(source);
+      const expected = buildDirectPieceSliceSprite(
+        source,
+        shapeFromRuntimeFragmentResourceId(resource.id)
+      );
 
       expect(averageAbsoluteDifference(runtime, expected)).toBeLessThan(1);
+    }
+  });
+
+  it("keeps direct standard piece artwork proportional to target geometry", () => {
+    for (const resource of [
+      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
+      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
+    ]) {
+      const image = readPngRgba(resource.file);
+      const bounds = opaqueBounds(image);
+      const shape = shapeFromRuntimeFragmentResourceId(resource.id);
+      const aspect = bounds.width / bounds.height;
+      const expectedAspect = expectedRuntimeShapeAspect(shape);
+
+      expect(Math.abs(aspect - expectedAspect)).toBeLessThanOrEqual(0.018);
     }
   });
 
@@ -1341,9 +1463,11 @@ describe("M01 greybox art slices", () => {
     ]) {
       const image = readPngRgba(resource.file);
       const bounds = opaqueBounds(image);
+      const shape = shapeFromRuntimeFragmentResourceId(resource.id);
+      const minHeightRatio = shape === "circle" ? 0.88 : 0.84;
 
       expect(bounds.width / image.width).toBeGreaterThan(0.88);
-      expect(bounds.height / image.height).toBeGreaterThan(0.88);
+      expect(bounds.height / image.height).toBeGreaterThan(minHeightRatio);
     }
   });
 
@@ -1363,6 +1487,17 @@ describe("M01 greybox art slices", () => {
       const image = readPngRgba(resource.file);
 
       expect(translucentOuterEdgeRatio(image)).toBeLessThan(0.05);
+    }
+  });
+
+  it("keeps standard piece outer contours dark and bold like the gear ink line", () => {
+    for (const resource of [
+      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
+      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
+    ]) {
+      const image = readPngRgba(resource.file);
+
+      expect(outerContourAverageLuminance(image)).toBeLessThan(76);
     }
   });
 
@@ -1580,7 +1715,7 @@ describe("M01 greybox art slices", () => {
         interactive: false,
         position: { x: 360, y: 72 },
         size: { width: 58, height: 128 },
-        rotationDegrees: 168
+        rotationDegrees: 0
       }
     ]);
     expect(plan.layers.map((layer) => layer.id)).not.toContain("targetReferenceCard");

@@ -113,7 +113,12 @@ export interface M01GreyboxRevealResult {
   accepted: boolean;
   fragmentId: string;
   revealedColor?: M01BlendColor;
+  persistent?: boolean;
   status: string;
+}
+
+export interface M01GreyboxRevealOptions {
+  persistent?: boolean;
 }
 
 export class M01GreyboxSession {
@@ -130,7 +135,7 @@ export class M01GreyboxSession {
   private lastFeedback: M01GreyboxFeedback | undefined;
   private readonly observedFragmentColors = new Map<
     string,
-    { color: M01BlendColor; expiresAt: number }
+    { color: M01BlendColor; expiresAt?: number }
   >();
 
   private constructor(config: M01MemoryGearConfig, options: M01GreyboxSessionOptions = {}) {
@@ -298,7 +303,10 @@ export class M01GreyboxSession {
     };
   }
 
-  revealFragment(fragmentId: string): M01GreyboxRevealResult {
+  revealFragment(
+    fragmentId: string,
+    options: M01GreyboxRevealOptions = {}
+  ): M01GreyboxRevealResult {
     if (!this.activeFlashlightColor) {
       return {
         accepted: false,
@@ -319,15 +327,21 @@ export class M01GreyboxSession {
       };
     }
 
-    this.observedFragmentColors.set(fragmentId, {
-      color: result.revealedColor,
-      expiresAt: this.now() + M01_OBSERVED_REVEAL_MS
-    });
+    this.observedFragmentColors.set(
+      fragmentId,
+      options.persistent
+        ? { color: result.revealedColor }
+        : {
+            color: result.revealedColor,
+            expiresAt: this.now() + M01_OBSERVED_REVEAL_MS
+          }
+    );
 
     return {
       accepted: true,
       fragmentId,
       revealedColor: result.revealedColor,
+      persistent: options.persistent,
       status: this.format("fragmentRevealed", {
         fragmentId,
         color: result.revealedColor
@@ -335,8 +349,17 @@ export class M01GreyboxSession {
     };
   }
 
-  revealFragments(fragmentIds: string[]): M01GreyboxRevealResult[] {
-    return fragmentIds.map((fragmentId) => this.revealFragment(fragmentId));
+  revealFragments(
+    fragmentIds: string[],
+    options: M01GreyboxRevealOptions = {}
+  ): M01GreyboxRevealResult[] {
+    return fragmentIds.map((fragmentId) => this.revealFragment(fragmentId, options));
+  }
+
+  clearObservedFragmentColors(): string[] {
+    const fragmentIds = [...this.observedFragmentColors.keys()];
+    this.observedFragmentColors.clear();
+    return fragmentIds;
   }
 
   pickFragment(fragmentId: string): {
@@ -713,7 +736,7 @@ export class M01GreyboxSession {
       return undefined;
     }
 
-    if (observed.expiresAt <= this.now()) {
+    if (observed.expiresAt !== undefined && observed.expiresAt <= this.now()) {
       this.observedFragmentColors.delete(fragmentId);
       return undefined;
     }

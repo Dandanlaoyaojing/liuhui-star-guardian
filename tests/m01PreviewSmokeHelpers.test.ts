@@ -27,7 +27,7 @@ describe("buildRealInputPlan", () => {
     ).toBe(true);
     expect(Math.abs(plan.stageEvidence.evidencePosition.x)).toBeLessThanOrEqual(150);
     expect(Math.abs(plan.stageEvidence.evidencePosition.y)).toBeLessThanOrEqual(150);
-    expect(plan.flashlightPosition).toEqual({ x: 360, y: 68 });
+    expect(plan.flashlightPosition).toEqual({ x: 359, y: 53 });
     expect(plan.flashlightBeamTargetPosition).toEqual({ x: 332, y: -138 });
     expect(plan.revealFragmentIds).toEqual(m01Config.fragments.map((fragment) => fragment.id));
     expect(plan.expectedObservedColorsByFragment).toMatchObject({
@@ -42,7 +42,74 @@ describe("buildRealInputPlan", () => {
       fragment_hexagon_red_2: "red"
     });
     expect(plan).not.toHaveProperty("heldFlashlightPosition");
+    expect(plan.flashlightBeamAnchorPosition).toEqual({ x: 360, y: 110 });
     expect(plan.expectedToolCardTitle).toBe(m01Config.toolCard.front.toolName);
+  });
+
+  it("checks every fixed flashlight color against its expected art-backed reveal colors", async () => {
+    // @ts-expect-error The smoke helper is a repo-local Node ESM script without a TS declaration.
+    const { buildRealInputPlan } = await import("../scripts/m01-preview-smoke-helpers.mjs");
+    const plan = buildRealInputPlan(m01Config);
+
+    expect(
+      plan.flashlightChecks.map(
+        (check: {
+          flashlightId: string;
+          buttonPosition: { x: number; y: number };
+          expectedObservedColorsByFragment: Record<string, string>;
+        }) => ({
+          flashlightId: check.flashlightId,
+          buttonPosition: check.buttonPosition,
+          expectedObservedColorsByFragment: check.expectedObservedColorsByFragment
+        })
+      )
+    ).toEqual([
+      {
+        flashlightId: "flashlight_yellow",
+        buttonPosition: { x: 360, y: 42 },
+        expectedObservedColorsByFragment: {
+          fragment_circle_blue_1: "green",
+          fragment_circle_yellow_1: "yellow",
+          fragment_circle_red_2: "orange",
+          fragment_triangle_blue_1: "green",
+          fragment_triangle_yellow_1: "yellow",
+          fragment_triangle_yellow_2: "yellow",
+          fragment_hexagon_blue_1: "green",
+          fragment_hexagon_yellow_1: "yellow",
+          fragment_hexagon_red_2: "orange"
+        }
+      },
+      {
+        flashlightId: "flashlight_blue",
+        buttonPosition: { x: 358, y: 30 },
+        expectedObservedColorsByFragment: {
+          fragment_circle_blue_1: "blue",
+          fragment_circle_yellow_1: "green",
+          fragment_circle_red_2: "purple",
+          fragment_triangle_blue_1: "blue",
+          fragment_triangle_yellow_1: "green",
+          fragment_triangle_yellow_2: "green",
+          fragment_hexagon_blue_1: "blue",
+          fragment_hexagon_yellow_1: "green",
+          fragment_hexagon_red_2: "purple"
+        }
+      },
+      {
+        flashlightId: "flashlight_red",
+        buttonPosition: { x: 359, y: 53 },
+        expectedObservedColorsByFragment: {
+          fragment_circle_blue_1: "purple",
+          fragment_circle_yellow_1: "orange",
+          fragment_circle_red_2: "red",
+          fragment_triangle_blue_1: "purple",
+          fragment_triangle_yellow_1: "orange",
+          fragment_triangle_yellow_2: "orange",
+          fragment_hexagon_blue_1: "purple",
+          fragment_hexagon_yellow_1: "orange",
+          fragment_hexagon_red_2: "red"
+        }
+      }
+    ]);
   });
 
   it("drives locked target completion by placing each exact target piece once", async () => {

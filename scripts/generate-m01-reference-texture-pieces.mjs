@@ -182,16 +182,18 @@ function renderDirectPieceSlice(colorId, shapeId) {
   const source = readPng(directPieceSlicePath(colorId, shapeId));
   const bounds = opaquePixelBounds(source);
   const data = new Uint8Array(size * size * 4);
-  const squareSize = Math.max(bounds.width, bounds.height);
+  const targetAspect = directPieceTargetAspect(shapeId);
+  const cropWidth = bounds.width;
+  const cropHeight = bounds.height * targetAspect;
   const centerX = (bounds.minX + bounds.maxX + 1) / 2;
   const centerY = (bounds.minY + bounds.maxY + 1) / 2;
-  const cropX = centerX - squareSize / 2;
-  const cropY = centerY - squareSize / 2;
+  const cropX = centerX - cropWidth / 2;
+  const cropY = centerY - cropHeight / 2;
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const sx = cropX + ((x + 0.5) / size) * squareSize;
-      const sy = cropY + ((y + 0.5) / size) * squareSize;
+      const sx = cropX + ((x + 0.5) / size) * cropWidth;
+      const sy = cropY + ((y + 0.5) / size) * cropHeight;
       const sampled = sampleRgbaBilinear(source, sx, sy);
       const offset = (y * size + x) * 4;
       data[offset] = sampled[0];
@@ -200,9 +202,18 @@ function renderDirectPieceSlice(colorId, shapeId) {
       data[offset + 3] = sampled[3] >= 32 ? 255 : 0;
     }
   }
+  thickenDirectPieceOutline(data, size, size);
   addCocosTrimGuard(data, size, size);
 
   return { width: size, height: size, data };
+}
+
+function directPieceTargetAspect(shapeId) {
+  if (shapeId === "circle") {
+    return 1;
+  }
+
+  return 2 / Math.sqrt(3);
 }
 
 function directPieceSlicePath(colorId, shapeId) {
@@ -282,6 +293,48 @@ function addCocosTrimGuard(data, width, height) {
   ]) {
     data[(y * width + x) * 4 + 3] = 2;
   }
+}
+
+function thickenDirectPieceOutline(data, width, height) {
+  const ink = [7, 7, 6];
+  const radius = 6.2;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      if (data[offset + 3] < 24) {
+        continue;
+      }
+
+      const distance = nearestTransparentDistance(data, width, height, x, y, Math.ceil(radius));
+      if (distance > radius) {
+        continue;
+      }
+
+      const fade = Math.pow((radius - distance) / radius, 0.78);
+      const strength = clamp(fade * 0.88, 0, 0.9);
+      data[offset] = clampByte(data[offset] * (1 - strength) + ink[0] * strength);
+      data[offset + 1] = clampByte(data[offset + 1] * (1 - strength) + ink[1] * strength);
+      data[offset + 2] = clampByte(data[offset + 2] * (1 - strength) + ink[2] * strength);
+    }
+  }
+}
+
+function nearestTransparentDistance(data, width, height, x, y, radius) {
+  let nearest = Infinity;
+  for (let yy = y - radius; yy <= y + radius; yy += 1) {
+    for (let xx = x - radius; xx <= x + radius; xx += 1) {
+      if (xx < 0 || yy < 0 || xx >= width || yy >= height) {
+        nearest = Math.min(nearest, Math.hypot(xx - x, yy - y));
+        continue;
+      }
+      if (data[(yy * width + xx) * 4 + 3] >= 24) {
+        continue;
+      }
+      nearest = Math.min(nearest, Math.hypot(xx - x, yy - y));
+    }
+  }
+  return nearest;
 }
 
 function buildDarkOutlineMask(data, width, height) {

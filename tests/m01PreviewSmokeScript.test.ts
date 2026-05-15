@@ -69,6 +69,10 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("Expected texture-backed observed sprite");
     expect(smokeScript).toContain("Expected art-preview reveal graphics underlay to stay transparent");
     expect(smokeScript).toContain("flashlightBeamTargetPosition");
+    expect(smokeScript).toContain("observedColorsAreCleared");
+    expect(smokeScript).toContain("hiddenArtSpriteNamesMatch");
+    expect(smokeScript).toContain("Expected fragment movement to turn off the fixed floodlight");
+    expect(smokeScript).toContain("Expected fragment movement to clear observed colors");
     expect(smokeScript).not.toContain("runHeldFlashlightRevealPath");
     expect(smokeHelpers).toContain("revealFragmentIds");
     expect(smokeHelpers).toContain("expectedObservedColorsByFragment");
@@ -128,6 +132,9 @@ describe("M01 preview smoke script", () => {
     expect(smokeScript).toContain("M01StaticArt_fragmentFloor");
     expect(smokeScript).toContain("completionArtPreview");
     expect(smokeScript).toContain("after_fixed_flashlight_floodlight");
-    expect(smokeScript).toContain("flashlightPickerRedPosition");
+    expect(smokeScript).toContain("flashlightButtonRedPosition");
+    expect(smokeScript).toContain("flashlightBeamAnchorPosition");
+    expect(smokeScript).toContain("Expected fixed red flashlight button hit zone to stay");
+    expect(smokeScript).not.toContain("after_flashlight_picker_open");
   });
 });

@@ -299,6 +299,58 @@ describe("M01GreyboxSession", () => {
     }
   });
 
+  it("keeps fixed floodlight reveal colors visible while the flashlight remains selected", () => {
+    let now = 1_000;
+    const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });
+    const fragmentIds = realConfig.fragments.map((fragment) => fragment.id);
+
+    session.selectFlashlight("flashlight_yellow");
+    (
+      session as unknown as {
+        revealFragments: (
+          ids: string[],
+          options?: { persistent?: boolean }
+        ) => ReturnType<M01GreyboxSession["revealFragments"]>;
+      }
+    ).revealFragments(fragmentIds, { persistent: true });
+
+    now += 10_000;
+
+    expect(
+      Object.fromEntries(
+        fragmentIds.map((fragmentId) => [
+          fragmentId,
+          session.getFragmentView(fragmentId).observedColor
+        ])
+      )
+    ).toMatchObject({
+      fragment_circle_blue_1: "green",
+      fragment_circle_yellow_1: "yellow",
+      fragment_circle_red_2: "orange",
+      fragment_triangle_blue_1: "green",
+      fragment_triangle_yellow_1: "yellow",
+      fragment_triangle_yellow_2: "yellow",
+      fragment_hexagon_blue_1: "green",
+      fragment_hexagon_yellow_1: "yellow",
+      fragment_hexagon_red_2: "orange"
+    });
+  });
+
+  it("clears fixed floodlight observed colors when fragment movement starts", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    const fragmentIds = realConfig.fragments.map((fragment) => fragment.id);
+
+    session.selectFlashlight("flashlight_red");
+    session.revealFragments(fragmentIds, { persistent: true });
+
+    const clearedFragmentIds = session.clearObservedFragmentColors();
+
+    expect(clearedFragmentIds).toEqual(fragmentIds);
+    for (const fragmentId of fragmentIds) {
+      expect(session.getFragmentView(fragmentId)).not.toHaveProperty("observedColor");
+    }
+  });
+
   it("expires observed flashlight colors after a short reveal window", () => {
     let now = 1_000;
     const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });

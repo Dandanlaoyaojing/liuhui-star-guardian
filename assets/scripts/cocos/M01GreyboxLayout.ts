@@ -271,7 +271,7 @@ function buildFlashlightNode(
     kind: "flashlight",
     label: flashlight.label ?? `${color}手电`,
     position: positionForFlashlightButton(flashlight.color),
-    size: { width: 18, height: 18 },
+    size: { width: 10, height: 10 },
     colorToken: flashlight.color,
     shapeToken: "flashlight",
     tags: ["flashlight", flashlight.color]
@@ -280,9 +280,9 @@ function buildFlashlightNode(
 
 function positionForFlashlightButton(color: M01FlashlightDef["color"]): M01GreyboxPoint {
   const positions: Record<M01FlashlightDef["color"], M01GreyboxPoint> = {
-    red: { x: 360, y: 68 },
-    yellow: { x: 364, y: 85 },
-    blue: { x: 368, y: 102 }
+    red: { x: 359, y: 53 },
+    yellow: { x: 360, y: 42 },
+    blue: { x: 358, y: 30 }
   };
 
   return positions[color];

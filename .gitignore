@@ -3,6 +3,7 @@
 
 # Claude Code user-local overrides
 .claude/settings.local.json
+.claude/worktrees/
 
 # Ephemeral session context (codex session IDs, etc.)
 .context/

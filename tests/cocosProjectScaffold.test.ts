@@ -231,6 +231,23 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.hintButtonRoot.active = false");
   });
 
+  it("renders the M01 hint button with the hand-drawn lightbulb icon instead of text", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const hintButtonBlock = bootstrap.slice(
+      bootstrap.indexOf("private addHintButton"),
+      bootstrap.indexOf("private addRotateButton")
+    );
+
+    expect(existsSync(join(projectRoot, "assets/resources/art/icons/icon-hint.png"))).toBe(true);
+    expect(bootstrap).toContain(
+      'const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";'
+    );
+    expect(hintButtonBlock).toContain("this.addHintIcon(buttonNode);");
+    expect(hintButtonBlock).not.toContain('this.addButtonLabel(buttonNode, this.formatText("hintButton"))');
+    expect(bootstrap).toContain('const iconNode = new Node("M01HintButtonIcon");');
+    expect(bootstrap).toContain("resources.load(M01_HINT_ICON_RESOURCE_PATH, SpriteFrame");
+  });
+
   it("wires the M01 greybox runtime to drag sessions and drop resolution", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
@@ -268,19 +285,34 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validationLightSeconds");
   });
 
-  it("opens an enlarged M01 flashlight button picker in art preview before choosing a light", () => {
+  it("uses the fixed buttons on the M01 flashlight art directly instead of opening a color picker", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("flashlightButtonPickerRoot");
-    expect(bootstrap).toContain("M01FlashlightButtonPicker");
-    expect(bootstrap).toContain("M01FlashlightPickerButton_${color}");
+    expect(bootstrap).not.toContain("flashlightButtonPickerRoot");
+    expect(bootstrap).not.toContain("M01FlashlightButtonPicker");
+    expect(bootstrap).not.toContain("M01FlashlightPickerButton_${color}");
     expect(bootstrap).toContain('layer.id === "singleFlashlightTool"');
-    expect(bootstrap).toContain("openFlashlightButtonPicker()");
-    expect(bootstrap).toContain("selectFlashlightFromPicker(`flashlight_${color}`)");
+    expect(bootstrap).not.toContain("openFlashlightButtonPicker()");
+    expect(bootstrap).toContain("selectFixedFlashlightButton(token.controllerId)");
     expect(bootstrap).toContain("this.flashlightBeamLit = true");
-    expect(bootstrap).toContain("colorForFlashlightPickerButton");
-    expect(bootstrap).toContain("blue: new Color(80, 110, 206, 235)");
-    expect(bootstrap).not.toContain("blue: new Color(92, 134, 164, 235)");
+    expect(bootstrap).not.toContain("colorForFlashlightPickerButton");
+    expect(bootstrap).toContain("this.activateFixedFlashlightBeam(token, selected)");
+    expect(bootstrap).toContain("FIXED_FLASHLIGHT_BEAM_ANCHOR");
+    expect(bootstrap).toContain("this.resolveFixedFlashlightBeamAnchor(token, tokenPosition)");
+    expect(readText("assets/scripts/cocos/M01GreyboxLayout.ts")).toContain(
+      "size: { width: 10, height: 10 }"
+    );
+    expect(readText("assets/scripts/cocos/M01GreyboxLayout.ts")).toContain(
+      "red: { x: 359, y: 53 }"
+    );
+  });
+
+  it("syncs the M01 flashlight runtime art from the shared M02 flashlight source", () => {
+    const syncScript = readText("scripts/sync-m01-lens-down-flashlight.mjs");
+
+    expect(existsSync(join(projectRoot, "assets/art/stage1-tools/M02-flashlight.png"))).toBe(true);
+    expect(syncScript).toContain('"assets/art/stage1-tools/M02-flashlight.png"');
+    expect(syncScript).not.toContain("m01-single-flashlight-tool-lens-down-candidate-v1.png");
   });
 
   it("keeps M01 overlap evidence staging inside the greybox instead of adding a validation button", () => {
@@ -658,19 +690,28 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("Input.EventType.TOUCH_START");
   });
 
-  it("suspends held flashlight follow and beam state when a fragment press begins", () => {
+  it("turns off fixed flashlight reveal state when a fragment press begins", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const suspendBlock = bootstrap.slice(
+      bootstrap.indexOf("private suspendHeldFlashlightInteraction"),
+      bootstrap.indexOf("private releaseHeldFlashlightAfterBeamGesture")
+    );
 
     expect(bootstrap).toContain("private suspendHeldFlashlightInteraction(): void");
     expect(bootstrap).toContain("private releaseHeldFlashlightAfterBeamGesture(): void");
     expect(bootstrap).toContain('if (hitToken?.kind === "fragment") {');
     expect(bootstrap).toContain("this.suspendHeldFlashlightInteraction();");
-    expect(bootstrap).toContain("if (this.flashlightBeamGesturePointerId !== undefined) {\n      this.releaseHeldFlashlightAfterBeamGesture();");
-    expect(bootstrap).toContain("this.flashlightBeamGesturePointerId = undefined;");
-    expect(bootstrap).toContain("this.flashlightBeamLit = false;");
-    expect(bootstrap).toContain("this.flashlightBeamAnchor = undefined;");
-    expect(bootstrap).toContain("this.flashlightBeamTarget = undefined;");
-    expect(bootstrap).toContain("this.drawFlashlightBeam();");
+    expect(suspendBlock).toContain("this.activeFlashlightId = undefined;");
+    expect(suspendBlock).toContain("this.activeFlashlightColor = undefined;");
+    expect(suspendBlock).toContain("this.heldFlashlightId = undefined;");
+    expect(suspendBlock).toContain("this.flashlightBeamGesturePointerId = undefined;");
+    expect(suspendBlock).toContain("this.flashlightBeamLit = false;");
+    expect(suspendBlock).toContain("this.flashlightBeamAnchor = undefined;");
+    expect(suspendBlock).toContain("this.flashlightBeamTarget = undefined;");
+    expect(suspendBlock).toContain("this.clearObservedColorReset();");
+    expect(suspendBlock).toContain("this.session?.clearObservedFragmentColors();");
+    expect(suspendBlock).toContain("this.syncVisualState();");
+    expect(suspendBlock).toContain("this.drawFlashlightBeam();");
   });
 
   it("lets player input adjust the M01 flashlight beam reach", () => {
@@ -741,9 +782,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("M01BottomLight");
     expect(bootstrap).toContain("M01BottomLightNote");
     expect(bootstrap).toContain("drawFlashlightBeam");
+    expect(bootstrap).toContain("SOFT_FLASHLIGHT_BEAM_LAYERS");
+    expect(bootstrap).toContain("FLASHLIGHT_BEAM_GLOW_STOPS");
+    expect(bootstrap).toContain("drawSoftFlashlightBeam");
+    expect(bootstrap).toContain("drawSoftFlashlightBeamLayer");
+    expect(bootstrap).toContain("drawFlashlightGlowTrail");
+    expect(bootstrap).toContain("drawFlashlightLensGlow");
     expect(bootstrap).toContain("drawBottomLight");
     expect(bootstrap).toContain("drawBottomLightHintNote");
     expect(bootstrap).toContain("colorForBeam");
+    expect(bootstrap).toContain("red: new Color(238, 116, 108, 104)");
+    expect(bootstrap).not.toContain("colorForBeamStroke");
     expect(bootstrap).toContain("colorForBottomLightFill");
     expect(bootstrap).toContain('bottomLight === "steady_on"');
     expect(bootstrap).toContain('bottomLight === "flash_then_off"');

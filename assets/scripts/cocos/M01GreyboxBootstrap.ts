@@ -75,12 +75,39 @@ const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
 const VALIDATION_FAILURE_FLASH_COUNT = 2;
+const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";
+const FIXED_FLASHLIGHT_BEAM_ANCHOR: M01GreyboxPoint = { x: 360, y: 110 };
 const FRAGMENT_FLOOR = {
   minX: 200,
   maxX: 440,
   minY: -260,
   maxY: 120
 };
+const SOFT_FLASHLIGHT_BEAM_LAYERS = [
+  { nearWidth: 18, farWidthScale: 0.42, alphaScale: 0.045 },
+  { nearWidth: 10, farWidthScale: 0.26, alphaScale: 0.075 },
+  { nearWidth: 5, farWidthScale: 0.12, alphaScale: 0.09 }
+] as const;
+const FLASHLIGHT_BEAM_GLOW_STOPS = [
+  { t: 0.06, radiusScale: 0.16, alphaScale: 0.085 },
+  { t: 0.12, radiusScale: 0.22, alphaScale: 0.08 },
+  { t: 0.18, radiusScale: 0.3, alphaScale: 0.075 },
+  { t: 0.25, radiusScale: 0.38, alphaScale: 0.07 },
+  { t: 0.32, radiusScale: 0.46, alphaScale: 0.065 },
+  { t: 0.4, radiusScale: 0.54, alphaScale: 0.06 },
+  { t: 0.48, radiusScale: 0.62, alphaScale: 0.055 },
+  { t: 0.56, radiusScale: 0.7, alphaScale: 0.052 },
+  { t: 0.64, radiusScale: 0.77, alphaScale: 0.049 },
+  { t: 0.72, radiusScale: 0.84, alphaScale: 0.046 },
+  { t: 0.8, radiusScale: 0.9, alphaScale: 0.043 },
+  { t: 0.88, radiusScale: 0.95, alphaScale: 0.039 },
+  { t: 0.96, radiusScale: 1, alphaScale: 0.034 }
+] as const;
+const FLASHLIGHT_LENS_GLOW_LAYERS = [
+  { radius: 38, alphaScale: 0.18 },
+  { radius: 24, alphaScale: 0.28 },
+  { radius: 12, alphaScale: 0.44 }
+] as const;
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
@@ -124,7 +151,6 @@ export class M01GreyboxBootstrap extends Component {
   private greyboxRoot: Node | null = null;
   private toolCardRoot: Node | null = null;
   private targetReferenceZoomRoot: Node | null = null;
-  private flashlightButtonPickerRoot: Node | null = null;
   private hintButtonRoot: Node | null = null;
   private rotateButtonRoot: Node | null = null;
   private feedbackLabel: Label | null = null;
@@ -184,7 +210,6 @@ export class M01GreyboxBootstrap extends Component {
       this.layout = buildM01GreyboxLayout(m01Config, { text: this.text });
       this.toolCardRoot = null;
       this.targetReferenceZoomRoot = null;
-      this.flashlightButtonPickerRoot = null;
       this.hintButtonRoot = null;
       this.rotateButtonRoot = null;
       this.feedbackLabel = null;
@@ -703,27 +728,74 @@ export class M01GreyboxBootstrap extends Component {
     const length = Math.max(Math.hypot(dx, dy), 1);
     const normalX = -dy / length;
     const normalY = dx / length;
-    const nearWidth = 24;
     const farWidth = this.getFlashlightBeamReach();
+    const color = colorForBeam(this.activeFlashlightColor);
 
-    graphics.fillColor = colorForBeam(this.activeFlashlightColor);
-    graphics.strokeColor = colorForBeamStroke(this.activeFlashlightColor);
-    graphics.lineWidth = 1.5;
+    this.drawSoftFlashlightBeam(
+      graphics,
+      clippedSource,
+      clippedTarget,
+      normalX,
+      normalY,
+      farWidth,
+      color
+    );
+  }
+
+  private drawSoftFlashlightBeam(
+    graphics: Graphics,
+    source: M01GreyboxPoint,
+    target: M01GreyboxPoint,
+    normalX: number,
+    normalY: number,
+    farWidth: number,
+    color: Color
+  ): void {
+    this.drawFlashlightLensGlow(graphics, source, color);
+    this.drawFlashlightGlowTrail(graphics, source, target, farWidth, color);
+
+    for (const layer of SOFT_FLASHLIGHT_BEAM_LAYERS) {
+      this.drawSoftFlashlightBeamLayer(
+        graphics,
+        source,
+        target,
+        normalX,
+        normalY,
+        layer.nearWidth,
+        farWidth * layer.farWidthScale,
+        withAlpha(color, Math.round(color.a * layer.alphaScale))
+      );
+    }
+  }
+
+  private drawSoftFlashlightBeamLayer(
+    graphics: Graphics,
+    source: M01GreyboxPoint,
+    target: M01GreyboxPoint,
+    normalX: number,
+    normalY: number,
+    nearWidth: number,
+    farWidth: number,
+    color: Color
+  ): void {
+    graphics.fillColor = color;
+    graphics.strokeColor = new Color(0, 0, 0, 0);
+    graphics.lineWidth = 0;
     const nearLeft = clampPointToFragmentFloor({
-      x: clippedSource.x + normalX * nearWidth,
-      y: clippedSource.y + normalY * nearWidth
+      x: source.x + normalX * nearWidth,
+      y: source.y + normalY * nearWidth
     });
     const farLeft = clampPointToFragmentFloor({
-      x: clippedTarget.x + normalX * farWidth,
-      y: clippedTarget.y + normalY * farWidth
+      x: target.x + normalX * farWidth,
+      y: target.y + normalY * farWidth
     });
     const farRight = clampPointToFragmentFloor({
-      x: clippedTarget.x - normalX * farWidth,
-      y: clippedTarget.y - normalY * farWidth
+      x: target.x - normalX * farWidth,
+      y: target.y - normalY * farWidth
     });
     const nearRight = clampPointToFragmentFloor({
-      x: clippedSource.x - normalX * nearWidth,
-      y: clippedSource.y - normalY * nearWidth
+      x: source.x - normalX * nearWidth,
+      y: source.y - normalY * nearWidth
     });
 
     graphics.moveTo(nearLeft.x, nearLeft.y);
@@ -732,7 +804,41 @@ export class M01GreyboxBootstrap extends Component {
     graphics.lineTo(nearRight.x, nearRight.y);
     graphics.close();
     graphics.fill();
-    graphics.stroke();
+  }
+
+  private drawFlashlightGlowTrail(
+    graphics: Graphics,
+    source: M01GreyboxPoint,
+    target: M01GreyboxPoint,
+    farWidth: number,
+    color: Color
+  ): void {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+
+    graphics.strokeColor = new Color(0, 0, 0, 0);
+    graphics.lineWidth = 0;
+
+    for (const stop of FLASHLIGHT_BEAM_GLOW_STOPS) {
+      graphics.fillColor = withAlpha(color, Math.round(color.a * stop.alphaScale));
+      graphics.circle(
+        source.x + dx * stop.t,
+        source.y + dy * stop.t,
+        Math.max(18, farWidth * stop.radiusScale)
+      );
+      graphics.fill();
+    }
+  }
+
+  private drawFlashlightLensGlow(graphics: Graphics, source: M01GreyboxPoint, color: Color): void {
+    graphics.strokeColor = new Color(0, 0, 0, 0);
+    graphics.lineWidth = 0;
+
+    for (const layer of FLASHLIGHT_LENS_GLOW_LAYERS) {
+      graphics.fillColor = withAlpha(color, Math.round(color.a * layer.alphaScale));
+      graphics.circle(source.x, source.y, layer.radius);
+      graphics.fill();
+    }
   }
 
   private getFlashlightBeamTarget(): M01GreyboxPoint {
@@ -794,19 +900,36 @@ export class M01GreyboxBootstrap extends Component {
     parent.addChild(buttonNode);
 
     const transform = buttonNode.addComponent(UITransform);
-    transform.setContentSize(82, 34);
+    transform.setContentSize(54, 54);
 
-    const graphics = buttonNode.addComponent(Graphics);
-    graphics.lineWidth = 2;
-    graphics.strokeColor = new Color(44, 43, 38, 255);
-    graphics.fillColor = new Color(239, 231, 203, 230);
-    graphics.rect(-41, -17, 82, 34);
-    graphics.fill();
-    graphics.stroke();
-
-    this.addButtonLabel(buttonNode, this.formatText("hintButton"));
+    this.addHintIcon(buttonNode);
     buttonNode.on("touch-end", () => this.requestHint(), this);
     return buttonNode;
+  }
+
+  private addHintIcon(parent: Node): Sprite {
+    const iconNode = new Node("M01HintButtonIcon");
+    parent.addChild(iconNode);
+
+    const transform = iconNode.addComponent(UITransform);
+    transform.setContentSize(50, 50);
+
+    const sprite = iconNode.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    resources.load(M01_HINT_ICON_RESOURCE_PATH, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame) {
+        this.setFeedback(
+          this.formatText("loadFailed", {
+            reason: error?.message ?? M01_HINT_ICON_RESOURCE_PATH
+          })
+        );
+        iconNode.active = false;
+        return;
+      }
+
+      sprite.spriteFrame = spriteFrame;
+    });
+    return sprite;
   }
 
   private addRotateButton(parent: Node): Node {
@@ -1069,10 +1192,7 @@ export class M01GreyboxBootstrap extends Component {
       });
 
       if (layer.id === "singleFlashlightTool") {
-        layerNode.on("touch-end", (event: EventTouch) => {
-          this.stopTouchPropagation(event);
-          this.openFlashlightButtonPicker();
-        }, this);
+        layerNode.on("touch-end", (event: EventTouch) => this.stopTouchPropagation(event), this);
       }
     }
   }
@@ -1098,77 +1218,7 @@ export class M01GreyboxBootstrap extends Component {
     }
   }
 
-  private openFlashlightButtonPicker(): void {
-    if (!this.greyboxRoot || !this.layout) {
-      return;
-    }
-
-    this.closeFlashlightButtonPicker();
-
-    const pickerRoot = new Node("M01FlashlightButtonPicker");
-    pickerRoot.setPosition(270, 82, 0);
-    this.greyboxRoot.addChild(pickerRoot);
-    this.flashlightButtonPickerRoot = pickerRoot;
-
-    const transform = pickerRoot.addComponent(UITransform);
-    transform.setContentSize(164, 70);
-    pickerRoot.on("touch-end", (event: EventTouch) => this.stopTouchPropagation(event), this);
-
-    const background = pickerRoot.addComponent(Graphics);
-    background.lineWidth = 2;
-    background.strokeColor = new Color(44, 43, 38, 190);
-    background.fillColor = new Color(248, 241, 220, 226);
-    background.rect(-82, -35, 164, 70);
-    background.fill();
-    background.stroke();
-
-    const options: Array<{ color: M01BaseColor; x: number }> = [
-      { color: "red", x: -46 },
-      { color: "yellow", x: 0 },
-      { color: "blue", x: 46 }
-    ];
-
-    for (const option of options) {
-      this.addFlashlightPickerButton(pickerRoot, option.color, option.x);
-    }
-  }
-
-  private closeFlashlightButtonPicker(): void {
-    if (!this.flashlightButtonPickerRoot) {
-      return;
-    }
-
-    this.flashlightButtonPickerRoot.destroy();
-    this.flashlightButtonPickerRoot = null;
-  }
-
-  private addFlashlightPickerButton(parent: Node, color: M01BaseColor, x: number): void {
-    const buttonNode = new Node(`M01FlashlightPickerButton_${color}`);
-    buttonNode.setPosition(x, 0, 0);
-    parent.addChild(buttonNode);
-
-    const transform = buttonNode.addComponent(UITransform);
-    transform.setContentSize(40, 40);
-
-    const graphics = buttonNode.addComponent(Graphics);
-    graphics.lineWidth = 2;
-    graphics.strokeColor = new Color(44, 43, 38, 215);
-    graphics.fillColor = colorForFlashlightPickerButton(color);
-    graphics.circle(0, 0, 18);
-    graphics.fill();
-    graphics.stroke();
-
-    graphics.fillColor = new Color(255, 246, 214, 84);
-    graphics.circle(-5, 6, 7);
-    graphics.fill();
-
-    buttonNode.on("touch-end", (event: EventTouch) => {
-      this.stopTouchPropagation(event);
-      this.selectFlashlightFromPicker(`flashlight_${color}`);
-    }, this);
-  }
-
-  private selectFlashlightFromPicker(flashlightId: string): void {
+  private selectFixedFlashlightButton(flashlightId: string): void {
     if (!this.session || !this.layout) {
       return;
     }
@@ -1180,7 +1230,6 @@ export class M01GreyboxBootstrap extends Component {
     this.setStatus(selected.status);
     this.clearHintTargets();
     this.syncFeedbackFromSession();
-    this.closeFlashlightButtonPicker();
 
     if (!selected.accepted || !token) {
       this.syncVisualState();
@@ -1219,7 +1268,7 @@ export class M01GreyboxBootstrap extends Component {
     if (token.kind === "flashlight" && this.enableArtPreview) {
       node.on("touch-end", (event: EventTouch) => {
         this.stopTouchPropagation(event);
-        this.openFlashlightButtonPicker();
+        this.selectFixedFlashlightButton(token.controllerId);
       }, this);
       return;
     }
@@ -1569,8 +1618,18 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private suspendHeldFlashlightInteraction(): void {
-    this.releaseHeldFlashlightAfterBeamGesture();
+    this.activeFlashlightId = undefined;
+    this.activeFlashlightColor = undefined;
+    this.heldFlashlightId = undefined;
+    this.heldFlashlightPointerId = undefined;
+    this.flashlightBeamAnchor = undefined;
+    this.flashlightBeamGesturePointerId = undefined;
+    this.flashlightBeamLit = false;
     this.flashlightBeamTarget = undefined;
+    this.suppressHeldFlashlightFollow = false;
+    this.clearObservedColorReset();
+    this.session?.clearObservedFragmentColors();
+    this.syncVisualState();
     this.drawFlashlightBeam();
   }
 
@@ -1893,7 +1952,8 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const source = this.tokenPositions.get(token.controllerId) ?? token.position;
+    const tokenPosition = this.tokenPositions.get(token.controllerId) ?? token.position;
+    const source = this.resolveFixedFlashlightBeamAnchor(token, tokenPosition);
     this.heldFlashlightId = undefined;
     this.heldFlashlightPointerId = undefined;
     this.flashlightBeamGesturePointerId = undefined;
@@ -1904,11 +1964,22 @@ export class M01GreyboxBootstrap extends Component {
     this.flashlightBeamLit = true;
     this.flashlightBeamTarget = undefined;
     this.flashlightBeamTarget = this.getFlashlightBeamTarget();
-    this.tokenPositions.set(token.controllerId, source);
+    this.tokenPositions.set(token.controllerId, tokenPosition);
     this.clearObservedColorReset();
     const revealed = this.revealAllFragmentsWithActiveFlashlight();
     this.syncVisualState();
     this.scheduleObservedColorResets(revealed);
+  }
+
+  private resolveFixedFlashlightBeamAnchor(
+    token: M01GreyboxTokenNode,
+    tokenPosition: M01GreyboxPoint
+  ): M01GreyboxPoint {
+    if (this.enableArtPreview) {
+      return FIXED_FLASHLIGHT_BEAM_ANCHOR;
+    }
+
+    return tokenPosition;
   }
 
   private revealAllFragmentsWithActiveFlashlight(): ReturnType<
@@ -1919,7 +1990,8 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     return this.session.revealFragments(
-      this.layout.fragments.map((fragment) => fragment.controllerId)
+      this.layout.fragments.map((fragment) => fragment.controllerId),
+      { persistent: true }
     );
   }
 
@@ -2145,7 +2217,7 @@ export class M01GreyboxBootstrap extends Component {
   private scheduleObservedColorReset(
     revealed: ReturnType<M01GreyboxSession["revealFragment"]> | undefined
   ): void {
-    if (!revealed?.accepted) {
+    if (!revealed?.accepted || revealed.persistent) {
       return;
     }
 
@@ -2910,29 +2982,9 @@ function clampPointToFragmentFloor(point: M01GreyboxPoint): M01GreyboxPoint {
 
 function colorForBeam(color: M01BaseColor): Color {
   const colors: Record<M01BaseColor, Color> = {
-    red: new Color(215, 88, 72, 46),
-    yellow: new Color(226, 188, 88, 54),
-    blue: new Color(74, 112, 206, 52)
-  };
-
-  return colors[color];
-}
-
-function colorForBeamStroke(color: M01BaseColor): Color {
-  const colors: Record<M01BaseColor, Color> = {
-    red: new Color(185, 82, 66, 72),
-    yellow: new Color(190, 148, 48, 76),
-    blue: new Color(66, 96, 188, 76)
-  };
-
-  return colors[color];
-}
-
-function colorForFlashlightPickerButton(color: M01BaseColor): Color {
-  const colors: Record<M01BaseColor, Color> = {
-    red: new Color(204, 95, 116, 235),
-    yellow: new Color(225, 174, 73, 235),
-    blue: new Color(80, 110, 206, 235)
+    red: new Color(238, 116, 108, 104),
+    yellow: new Color(224, 176, 42, 130),
+    blue: new Color(74, 112, 206, 136)
   };
 
   return colors[color];

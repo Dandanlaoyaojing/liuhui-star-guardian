@@ -2,6 +2,13 @@ const CANVAS_SIZE = { width: 960, height: 640 };
 const FREE_DROP_Y_OFFSET = 92;
 const EVIDENCE_WORK_AREA_CENTER = { x: 0, y: 0 };
 const EVIDENCE_WORK_AREA_SCALE = 0.85;
+const FLASHLIGHT_BUTTON_POSITIONS = {
+  yellow: { x: 360, y: 42 },
+  blue: { x: 358, y: 30 },
+  red: { x: 359, y: 53 }
+};
+const FLASHLIGHT_BEAM_ANCHOR_POSITION = { x: 360, y: 110 };
+const FLASHLIGHT_CHECK_ORDER = ["yellow", "blue", "red"];
 
 function assert(condition, message) {
   if (!condition) {
@@ -83,6 +90,24 @@ export function buildRealInputPlan(config) {
       blendPigmentColors(fragment.hiddenColor, flashlight.color)
     ])
   );
+  const flashlightChecks = FLASHLIGHT_CHECK_ORDER.map((color) => {
+    const checkFlashlight = findById(
+      config.flashlights ?? [],
+      `flashlight_${color}`,
+      "flashlight"
+    );
+    return {
+      flashlightId: checkFlashlight.id,
+      flashlightColor: checkFlashlight.color,
+      buttonPosition: FLASHLIGHT_BUTTON_POSITIONS[color],
+      expectedObservedColorsByFragment: Object.fromEntries(
+        (config.fragments ?? []).map((fragment) => [
+          fragment.id,
+          blendPigmentColors(fragment.hiddenColor, checkFlashlight.color)
+        ])
+      )
+    };
+  });
   const flashlightBeamTargetPosition = {
     x:
       (config.fragments ?? []).reduce((sum, fragment) => sum + fragment.position.x, 0) /
@@ -104,8 +129,8 @@ export function buildRealInputPlan(config) {
   );
   assert(freePlacementFragment, "Need at least one decoy fragment for free-placement smoke.");
   const evidenceWorkPositions = buildEvidenceWorkPositions(config.evidence ?? []);
-  const flashlightPosition = { x: 360, y: 68 };
-  const flashlightPickerRedPosition = { x: 224, y: 82 };
+  const flashlightPosition = { x: 359, y: 53 };
+  const flashlightButtonRedPosition = FLASHLIGHT_BUTTON_POSITIONS.red;
   const completionEvidence = (config.evidence ?? []).map((candidate) => ({
     evidenceId: candidate.id,
     evidencePosition: evidenceWorkPositions[candidate.id],
@@ -129,7 +154,9 @@ export function buildRealInputPlan(config) {
     canvasSize: CANVAS_SIZE,
     flashlightId: flashlight.id,
     flashlightPosition,
-    flashlightPickerRedPosition,
+    flashlightBeamAnchorPosition: FLASHLIGHT_BEAM_ANCHOR_POSITION,
+    flashlightButtonRedPosition,
+    flashlightChecks,
     flashlightBeamTargetPosition,
     revealFragmentIds,
     revealFragmentId: revealFragment.id,

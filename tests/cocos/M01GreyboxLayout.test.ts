@@ -22,20 +22,63 @@ describe("buildM01GreyboxLayout", () => {
     expect(layout.board.size).toEqual({ width: 430, height: 430 });
     expect(layout.flashlights).toHaveLength(3);
     expect(layout.flashlights.map((flashlight) => flashlight.position)).toEqual([
-      { x: 360, y: 68 },
-      { x: 364, y: 85 },
-      { x: 368, y: 102 }
+      { x: 359, y: 53 },
+      { x: 360, y: 42 },
+      { x: 358, y: 30 }
     ]);
     expect(layout.flashlights.map((flashlight) => flashlight.size)).toEqual([
-      { width: 18, height: 18 },
-      { width: 18, height: 18 },
-      { width: 18, height: 18 }
+      { width: 10, height: 10 },
+      { width: 10, height: 10 },
+      { width: 10, height: 10 }
     ]);
     expect(layout.fragments).toHaveLength(config.fragments.length);
     expect(layout.evidence).toHaveLength(config.evidence.length);
     expect(layout.targetPieceSlots).toHaveLength(config.targetPattern?.pieces.length ?? 0);
     expect(layout.board.kind).toBe("board");
     expect(layout.slots).toBeUndefined();
+  });
+
+  it("keeps fixed flashlight button hit zones on the visible single-tool buttons", () => {
+    const layout = buildM01GreyboxLayout(config);
+    const buttons = layout.flashlights;
+
+    expect(buttons.map((button) => ({
+      id: button.id,
+      position: button.position,
+      size: button.size
+    }))).toEqual([
+      {
+        id: "flashlight_red",
+        position: { x: 359, y: 53 },
+        size: { width: 10, height: 10 }
+      },
+      {
+        id: "flashlight_yellow",
+        position: { x: 360, y: 42 },
+        size: { width: 10, height: 10 }
+      },
+      {
+        id: "flashlight_blue",
+        position: { x: 358, y: 30 },
+        size: { width: 10, height: 10 }
+      }
+    ]);
+
+    for (const source of buttons) {
+      const halfWidth = source.size.width / 2;
+      const halfHeight = source.size.height / 2;
+
+      for (const target of buttons) {
+        if (source.id === target.id) {
+          continue;
+        }
+
+        expect(
+          Math.abs(source.position.x - target.position.x) > halfWidth ||
+            Math.abs(source.position.y - target.position.y) > halfHeight
+        ).toBe(true);
+      }
+    }
   });
 
   it("uses each candidate fragment's own color on its standard piece", () => {

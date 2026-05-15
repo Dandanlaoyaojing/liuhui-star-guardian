@@ -740,7 +740,7 @@ export function buildM01GreyboxStaticArtPlan(
         interactive: false,
         position: { x: 360, y: 72 },
         size: { width: 58, height: 128 },
-        rotationDegrees: 168
+        rotationDegrees: 0
       });
     }
 
