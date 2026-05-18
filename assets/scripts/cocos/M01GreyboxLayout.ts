@@ -98,6 +98,7 @@ const MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE = 34;
 export const M01_STANDARD_PIECE_DISPLAY_SIZE: M01GreyboxSize = { width: 56, height: 56 };
 export const M01_TARGET_REFERENCE_DISPLAY_SIZE: M01GreyboxSize = { width: 196, height: 170.32 };
 export const M01_TARGET_REFERENCE_PIECE_SLOT_SIZE: M01GreyboxSize = M01_STANDARD_PIECE_DISPLAY_SIZE;
+export const M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE: M01GreyboxSize = { width: 14, height: 14 };
 const REFERENCE_PATTERN_CENTER: M01GreyboxPoint = { x: -360, y: 120 };
 const REFERENCE_PATTERN_SCALE = 0.4;
 const EVIDENCE_WORK_AREA_CENTER: M01GreyboxPoint = { x: -60, y: 0 };
@@ -271,7 +272,7 @@ function buildFlashlightNode(
     kind: "flashlight",
     label: flashlight.label ?? `${color}手电`,
     position: positionForFlashlightButton(flashlight.color),
-    size: { width: 10, height: 10 },
+    size: M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE,
     colorToken: flashlight.color,
     shapeToken: "flashlight",
     tags: ["flashlight", flashlight.color]
@@ -280,9 +281,9 @@ function buildFlashlightNode(
 
 function positionForFlashlightButton(color: M01FlashlightDef["color"]): M01GreyboxPoint {
   const positions: Record<M01FlashlightDef["color"], M01GreyboxPoint> = {
-    red: { x: 359, y: 53 },
-    yellow: { x: 360, y: 42 },
-    blue: { x: 358, y: 30 }
+    red: { x: 361, y: 77 },
+    yellow: { x: 360, y: 59 },
+    blue: { x: 359, y: 43 }
   };
 
   return positions[color];

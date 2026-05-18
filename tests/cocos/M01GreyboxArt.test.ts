@@ -1714,7 +1714,7 @@ describe("M01 greybox art slices", () => {
           "art/stage1-m01/runtime-sprites/surfaces/m01-single-flashlight-tool/spriteFrame",
         interactive: false,
         position: { x: 360, y: 72 },
-        size: { width: 58, height: 128 },
+        size: { width: 50, height: 128 },
         rotationDegrees: 0
       }
     ]);

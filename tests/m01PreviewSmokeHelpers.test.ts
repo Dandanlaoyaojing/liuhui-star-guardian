@@ -27,7 +27,7 @@ describe("buildRealInputPlan", () => {
     ).toBe(true);
     expect(Math.abs(plan.stageEvidence.evidencePosition.x)).toBeLessThanOrEqual(150);
     expect(Math.abs(plan.stageEvidence.evidencePosition.y)).toBeLessThanOrEqual(150);
-    expect(plan.flashlightPosition).toEqual({ x: 359, y: 53 });
+    expect(plan.flashlightPosition).toEqual({ x: 361, y: 77 });
     expect(plan.flashlightBeamTargetPosition).toEqual({ x: 332, y: -138 });
     expect(plan.revealFragmentIds).toEqual(m01Config.fragments.map((fragment) => fragment.id));
     expect(plan.expectedObservedColorsByFragment).toMatchObject({
@@ -66,7 +66,7 @@ describe("buildRealInputPlan", () => {
     ).toEqual([
       {
         flashlightId: "flashlight_yellow",
-        buttonPosition: { x: 360, y: 42 },
+        buttonPosition: { x: 360, y: 59 },
         expectedObservedColorsByFragment: {
           fragment_circle_blue_1: "green",
           fragment_circle_yellow_1: "yellow",
@@ -81,7 +81,7 @@ describe("buildRealInputPlan", () => {
       },
       {
         flashlightId: "flashlight_blue",
-        buttonPosition: { x: 358, y: 30 },
+        buttonPosition: { x: 359, y: 43 },
         expectedObservedColorsByFragment: {
           fragment_circle_blue_1: "blue",
           fragment_circle_yellow_1: "green",
@@ -96,7 +96,7 @@ describe("buildRealInputPlan", () => {
       },
       {
         flashlightId: "flashlight_red",
-        buttonPosition: { x: 359, y: 53 },
+        buttonPosition: { x: 361, y: 77 },
         expectedObservedColorsByFragment: {
           fragment_circle_blue_1: "purple",
           fragment_circle_yellow_1: "orange",

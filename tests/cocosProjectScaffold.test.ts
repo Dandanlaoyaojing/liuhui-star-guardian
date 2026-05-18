@@ -291,6 +291,7 @@ describe("Cocos Creator project scaffold", () => {
 
   it("uses the fixed buttons on the M01 flashlight art directly instead of opening a color picker", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const layout = readText("assets/scripts/cocos/M01GreyboxLayout.ts");
 
     expect(bootstrap).not.toContain("flashlightButtonPickerRoot");
     expect(bootstrap).not.toContain("M01FlashlightButtonPicker");
@@ -303,12 +304,11 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.activateFixedFlashlightBeam(token, selected)");
     expect(bootstrap).toContain("FIXED_FLASHLIGHT_BEAM_ANCHOR");
     expect(bootstrap).toContain("this.resolveFixedFlashlightBeamAnchor(token, tokenPosition)");
-    expect(readText("assets/scripts/cocos/M01GreyboxLayout.ts")).toContain(
-      "size: { width: 10, height: 10 }"
-    );
-    expect(readText("assets/scripts/cocos/M01GreyboxLayout.ts")).toContain(
-      "red: { x: 359, y: 53 }"
-    );
+    expect(layout).toContain("M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE");
+    expect(layout).toContain("size: M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE");
+    expect(layout).toContain("red: { x: 361, y: 77 }");
+    expect(layout).toContain("yellow: { x: 360, y: 59 }");
+    expect(layout).toContain("blue: { x: 359, y: 43 }");
   });
 
   it("syncs the M01 flashlight runtime art from the shared M02 flashlight source", () => {

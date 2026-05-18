@@ -6,6 +6,8 @@ import {
 } from "./M01GreyboxLayout.ts";
 import type { M01BlendColor, M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
 
+const M01_SINGLE_FLASHLIGHT_TOOL_DISPLAY_SIZE = { width: 50, height: 128 };
+
 export type M01GreyboxArtSliceId =
   | "gearStar"
   | "nineSlotTray"
@@ -739,7 +741,7 @@ export function buildM01GreyboxStaticArtPlan(
         resourcesLoadPath: singleFlashlightTool.resourcesLoadPath,
         interactive: false,
         position: { x: 360, y: 72 },
-        size: { width: 58, height: 128 },
+        size: M01_SINGLE_FLASHLIGHT_TOOL_DISPLAY_SIZE,
         rotationDegrees: 0
       });
     }

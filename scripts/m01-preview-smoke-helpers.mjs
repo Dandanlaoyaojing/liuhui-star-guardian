@@ -3,9 +3,9 @@ const FREE_DROP_Y_OFFSET = 92;
 const EVIDENCE_WORK_AREA_CENTER = { x: 0, y: 0 };
 const EVIDENCE_WORK_AREA_SCALE = 0.85;
 const FLASHLIGHT_BUTTON_POSITIONS = {
-  yellow: { x: 360, y: 42 },
-  blue: { x: 358, y: 30 },
-  red: { x: 359, y: 53 }
+  yellow: { x: 360, y: 59 },
+  blue: { x: 359, y: 43 },
+  red: { x: 361, y: 77 }
 };
 const FLASHLIGHT_BEAM_ANCHOR_POSITION = { x: 360, y: 110 };
 const FLASHLIGHT_CHECK_ORDER = ["yellow", "blue", "red"];
@@ -129,7 +129,7 @@ export function buildRealInputPlan(config) {
   );
   assert(freePlacementFragment, "Need at least one decoy fragment for free-placement smoke.");
   const evidenceWorkPositions = buildEvidenceWorkPositions(config.evidence ?? []);
-  const flashlightPosition = { x: 359, y: 53 };
+  const flashlightPosition = FLASHLIGHT_BUTTON_POSITIONS.red;
   const flashlightButtonRedPosition = FLASHLIGHT_BUTTON_POSITIONS.red;
   const completionEvidence = (config.evidence ?? []).map((candidate) => ({
     evidenceId: candidate.id,

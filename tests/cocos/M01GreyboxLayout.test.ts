@@ -22,14 +22,14 @@ describe("buildM01GreyboxLayout", () => {
     expect(layout.board.size).toEqual({ width: 430, height: 430 });
     expect(layout.flashlights).toHaveLength(3);
     expect(layout.flashlights.map((flashlight) => flashlight.position)).toEqual([
-      { x: 359, y: 53 },
-      { x: 360, y: 42 },
-      { x: 358, y: 30 }
+      { x: 361, y: 77 },
+      { x: 360, y: 59 },
+      { x: 359, y: 43 }
     ]);
     expect(layout.flashlights.map((flashlight) => flashlight.size)).toEqual([
-      { width: 10, height: 10 },
-      { width: 10, height: 10 },
-      { width: 10, height: 10 }
+      { width: 14, height: 14 },
+      { width: 14, height: 14 },
+      { width: 14, height: 14 }
     ]);
     expect(layout.fragments).toHaveLength(config.fragments.length);
     expect(layout.evidence).toHaveLength(config.evidence.length);
@@ -49,18 +49,18 @@ describe("buildM01GreyboxLayout", () => {
     }))).toEqual([
       {
         id: "flashlight_red",
-        position: { x: 359, y: 53 },
-        size: { width: 10, height: 10 }
+        position: { x: 361, y: 77 },
+        size: { width: 14, height: 14 }
       },
       {
         id: "flashlight_yellow",
-        position: { x: 360, y: 42 },
-        size: { width: 10, height: 10 }
+        position: { x: 360, y: 59 },
+        size: { width: 14, height: 14 }
       },
       {
         id: "flashlight_blue",
-        position: { x: 358, y: 30 },
-        size: { width: 10, height: 10 }
+        position: { x: 359, y: 43 },
+        size: { width: 14, height: 14 }
       }
     ]);
 
