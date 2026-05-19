@@ -147,7 +147,7 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
       requiredFragments: "solution_defined";
       evidenceCount: [4, 6];
       maxLayersPerEvidence: 2;
-      validationLightSeconds: 2;
+      validationLightSeconds: number;
       baseColors: M01BaseColor[];
       blendColors: Exclude<M01BlendColor, M01BaseColor>[];
     };
@@ -214,7 +214,7 @@ export type M01CandidateValidationResult =
       accepted: false;
       reason: "incomplete_candidate" | "wrong_blend_color" | "wrong_fragment_set";
       bottomLight: "flash_then_off";
-      validationLightSeconds: 2;
+      validationLightSeconds: number;
       completed: false;
       revealedEvidence: Array<{
         evidenceId: string;
@@ -736,7 +736,7 @@ export class M01MemoryGearController {
       accepted: false,
       reason,
       bottomLight: "flash_then_off",
-      validationLightSeconds: 2,
+      validationLightSeconds: this.config.goal.params.validationLightSeconds,
       completed: false,
       revealedEvidence
     };

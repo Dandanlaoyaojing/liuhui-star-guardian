@@ -523,7 +523,7 @@ export class M01GreyboxSession {
     reason?: string;
     completedEvidenceCount: number;
     bottomLight: "flash_then_off" | "steady_on";
-    validationLightSeconds: 2 | null;
+    validationLightSeconds: number | null;
     completed: boolean;
     status: string;
   } {

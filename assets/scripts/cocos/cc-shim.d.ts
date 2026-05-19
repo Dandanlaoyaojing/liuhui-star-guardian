@@ -4,6 +4,8 @@ declare module "cc" {
     function property(type?: unknown): PropertyDecorator;
   }
 
+  export const CCBoolean: BooleanConstructor;
+
   export class Component {
     node: Node;
   }

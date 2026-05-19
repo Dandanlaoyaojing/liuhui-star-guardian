@@ -325,6 +325,20 @@ describe("M01MemoryGearController", () => {
     });
   });
 
+  it("reports the configured failed-validation flash duration", () => {
+    const config = JSON.parse(JSON.stringify(makeRealConfig())) as M01MemoryGearConfig;
+    config.goal.params.validationLightSeconds =
+      3 as M01MemoryGearConfig["goal"]["params"]["validationLightSeconds"];
+    const controller = M01MemoryGearController.fromConfig(config);
+    stageWrongColorCompleteCandidate(controller);
+
+    expect(controller.validateCandidateStructure()).toMatchObject({
+      accepted: false,
+      bottomLight: "flash_then_off",
+      validationLightSeconds: 3
+    });
+  });
+
   it("rejects validation while the candidate is still incomplete", () => {
     const controller = M01MemoryGearController.fromConfig(makeRealConfig());
     controller.stageEvidencePair("current_manual_target_green_circle_hexagon_1", [

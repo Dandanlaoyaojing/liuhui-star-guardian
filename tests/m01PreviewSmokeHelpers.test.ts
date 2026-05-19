@@ -43,10 +43,11 @@ describe("buildRealInputPlan", () => {
     });
     expect(plan).not.toHaveProperty("heldFlashlightPosition");
     expect(plan.flashlightBeamAnchorPosition).toEqual({ x: 360, y: 110 });
+    expect(plan.flashlightCycleTapPosition).toEqual({ x: 360, y: 20 });
     expect(plan.expectedToolCardTitle).toBe(m01Config.toolCard.front.toolName);
   });
 
-  it("checks every fixed flashlight color against its expected art-backed reveal colors", async () => {
+  it("checks every cyclic flashlight color against its expected art-backed reveal colors", async () => {
     // @ts-expect-error The smoke helper is a repo-local Node ESM script without a TS declaration.
     const { buildRealInputPlan } = await import("../scripts/m01-preview-smoke-helpers.mjs");
     const plan = buildRealInputPlan(m01Config);
@@ -55,18 +56,33 @@ describe("buildRealInputPlan", () => {
       plan.flashlightChecks.map(
         (check: {
           flashlightId: string;
-          buttonPosition: { x: number; y: number };
+          tapPosition: { x: number; y: number };
           expectedObservedColorsByFragment: Record<string, string>;
         }) => ({
           flashlightId: check.flashlightId,
-          buttonPosition: check.buttonPosition,
+          tapPosition: check.tapPosition,
           expectedObservedColorsByFragment: check.expectedObservedColorsByFragment
         })
       )
     ).toEqual([
       {
+        flashlightId: "flashlight_red",
+        tapPosition: { x: 360, y: 20 },
+        expectedObservedColorsByFragment: {
+          fragment_circle_blue_1: "purple",
+          fragment_circle_yellow_1: "orange",
+          fragment_circle_red_2: "red",
+          fragment_triangle_blue_1: "purple",
+          fragment_triangle_yellow_1: "orange",
+          fragment_triangle_yellow_2: "orange",
+          fragment_hexagon_blue_1: "purple",
+          fragment_hexagon_yellow_1: "orange",
+          fragment_hexagon_red_2: "red"
+        }
+      },
+      {
         flashlightId: "flashlight_yellow",
-        buttonPosition: { x: 360, y: 59 },
+        tapPosition: { x: 360, y: 20 },
         expectedObservedColorsByFragment: {
           fragment_circle_blue_1: "green",
           fragment_circle_yellow_1: "yellow",
@@ -81,7 +97,7 @@ describe("buildRealInputPlan", () => {
       },
       {
         flashlightId: "flashlight_blue",
-        buttonPosition: { x: 359, y: 43 },
+        tapPosition: { x: 360, y: 20 },
         expectedObservedColorsByFragment: {
           fragment_circle_blue_1: "blue",
           fragment_circle_yellow_1: "green",
@@ -92,21 +108,6 @@ describe("buildRealInputPlan", () => {
           fragment_hexagon_blue_1: "blue",
           fragment_hexagon_yellow_1: "green",
           fragment_hexagon_red_2: "purple"
-        }
-      },
-      {
-        flashlightId: "flashlight_red",
-        buttonPosition: { x: 361, y: 77 },
-        expectedObservedColorsByFragment: {
-          fragment_circle_blue_1: "purple",
-          fragment_circle_yellow_1: "orange",
-          fragment_circle_red_2: "red",
-          fragment_triangle_blue_1: "purple",
-          fragment_triangle_yellow_1: "orange",
-          fragment_triangle_yellow_2: "orange",
-          fragment_hexagon_blue_1: "purple",
-          fragment_hexagon_yellow_1: "orange",
-          fragment_hexagon_red_2: "red"
         }
       }
     ]);

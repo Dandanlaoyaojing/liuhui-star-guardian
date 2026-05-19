@@ -7,8 +7,9 @@ const FLASHLIGHT_BUTTON_POSITIONS = {
   blue: { x: 359, y: 43 },
   red: { x: 361, y: 77 }
 };
+const FLASHLIGHT_ART_CYCLE_TAP_POSITION = { x: 360, y: 20 };
 const FLASHLIGHT_BEAM_ANCHOR_POSITION = { x: 360, y: 110 };
-const FLASHLIGHT_CHECK_ORDER = ["yellow", "blue", "red"];
+const FLASHLIGHT_CHECK_ORDER = ["red", "yellow", "blue"];
 
 function assert(condition, message) {
   if (!condition) {
@@ -99,7 +100,7 @@ export function buildRealInputPlan(config) {
     return {
       flashlightId: checkFlashlight.id,
       flashlightColor: checkFlashlight.color,
-      buttonPosition: FLASHLIGHT_BUTTON_POSITIONS[color],
+      tapPosition: FLASHLIGHT_ART_CYCLE_TAP_POSITION,
       expectedObservedColorsByFragment: Object.fromEntries(
         (config.fragments ?? []).map((fragment) => [
           fragment.id,
@@ -130,7 +131,7 @@ export function buildRealInputPlan(config) {
   assert(freePlacementFragment, "Need at least one decoy fragment for free-placement smoke.");
   const evidenceWorkPositions = buildEvidenceWorkPositions(config.evidence ?? []);
   const flashlightPosition = FLASHLIGHT_BUTTON_POSITIONS.red;
-  const flashlightButtonRedPosition = FLASHLIGHT_BUTTON_POSITIONS.red;
+  const flashlightCycleTapPosition = FLASHLIGHT_ART_CYCLE_TAP_POSITION;
   const completionEvidence = (config.evidence ?? []).map((candidate) => ({
     evidenceId: candidate.id,
     evidencePosition: evidenceWorkPositions[candidate.id],
@@ -155,7 +156,7 @@ export function buildRealInputPlan(config) {
     flashlightId: flashlight.id,
     flashlightPosition,
     flashlightBeamAnchorPosition: FLASHLIGHT_BEAM_ANCHOR_POSITION,
-    flashlightButtonRedPosition,
+    flashlightCycleTapPosition,
     flashlightChecks,
     flashlightBeamTargetPosition,
     revealFragmentIds,

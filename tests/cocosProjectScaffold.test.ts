@@ -242,7 +242,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain(
       'const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";'
     );
-    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 37, height: 50 };");
+    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 22.2, height: 30 };");
     expect(hintButtonBlock).toContain("this.addHintIcon(buttonNode);");
     expect(hintButtonBlock).not.toContain('this.addButtonLabel(buttonNode, this.formatText("hintButton"))');
     expect(bootstrap).toContain('const iconNode = new Node("M01HintButtonIcon");');
@@ -289,7 +289,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validationLightSeconds");
   });
 
-  it("uses the fixed buttons on the M01 flashlight art directly instead of opening a color picker", () => {
+  it("cycles fixed flashlight colors from the whole flashlight art instead of tiny buttons", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const layout = readText("assets/scripts/cocos/M01GreyboxLayout.ts");
 
@@ -297,8 +297,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("M01FlashlightButtonPicker");
     expect(bootstrap).not.toContain("M01FlashlightPickerButton_${color}");
     expect(bootstrap).toContain('layer.id === "singleFlashlightTool"');
+    expect(bootstrap).toContain("this.cycleFixedFlashlight()");
+    expect(bootstrap).toContain("private cycleFixedFlashlight(): void");
+    expect(bootstrap).toContain("private getNextFixedFlashlightToken(): M01GreyboxTokenNode | undefined");
+    expect(bootstrap).toContain("const currentIndex = flashlights.findIndex");
+    expect(bootstrap).toContain("return flashlights[(currentIndex + 1) % flashlights.length];");
     expect(bootstrap).not.toContain("openFlashlightButtonPicker()");
-    expect(bootstrap).toContain("selectFixedFlashlightButton(token.controllerId)");
+    expect(bootstrap).toContain("this.selectFixedFlashlight(token.controllerId)");
     expect(bootstrap).toContain("this.flashlightBeamLit = true");
     expect(bootstrap).not.toContain("colorForFlashlightPickerButton");
     expect(bootstrap).toContain("this.activateFixedFlashlightBeam(token, selected)");
@@ -682,7 +687,7 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain("heldFlashlightId");
     expect(bootstrap).toContain("handleFlashlightClick");
-    expect(clickBlock).toContain("this.activateFixedFlashlightBeam(token, selected);");
+    expect(clickBlock).toContain("this.cycleFixedFlashlight();");
     expect(clickBlock).not.toContain("this.heldFlashlightId = token.controllerId");
     expect(clickBlock).not.toContain("this.flashlightBeamLit = false");
     expect(dropBlock).toContain("this.activateFixedFlashlightBeam(token, selected);");
@@ -830,7 +835,8 @@ describe("Cocos Creator project scaffold", () => {
   it("keeps the M01 art preview path optional and non-authoritative", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("@property({ type: Boolean })");
+    expect(bootstrap).toContain("CCBoolean");
+    expect(bootstrap).toContain("@property({ type: CCBoolean })");
     expect(bootstrap).toContain("enableArtPreview = false");
     expect(bootstrap).toContain("buildM01GreyboxStaticArtPlan");
     expect(bootstrap).toContain("getM01GreyboxToolCardFrameResource");
@@ -845,6 +851,15 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("minimalArtPreview");
     expect(bootstrap).not.toContain("buildM01GreyboxRuntimeTransparentPlan");
     expect(bootstrap).not.toContain("resources.load(slice.file");
+  });
+
+  it("ignores stale async art sprite load callbacks after a fragment sprite changes", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("const requestedPath = resource.resourcesLoadPath");
+    expect(bootstrap).toContain("this.artSpriteResourcePaths.set(sprite, requestedPath)");
+    expect(bootstrap).toContain("this.artSpriteResourcePaths.get(sprite) !== requestedPath");
+    expect(bootstrap).toContain("resources.load(requestedPath, SpriteFrame");
   });
 
   it("allows preview links to opt into M01 art-preview mode", () => {
@@ -871,7 +886,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("artSprite: Sprite | null");
     expect(bootstrap).toContain("private syncArtSpriteState");
     expect(bootstrap).toContain("this.syncArtSpriteState(entry.artSprite");
-    expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation, token)");
+    expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation, token, colorTokenOverride)");
     expect(bootstrap).toContain('token?.kind === "fragment"');
     expect(bootstrap).toContain('dimmed: new Color(255, 255, 255, 56)');
     expect(bootstrap).toContain('placed: new Color(255, 255, 255, 0)');
@@ -891,6 +906,38 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("scheduleObservedColorReset");
     expect(bootstrap).toContain("clearObservedColorReset");
     expect(bootstrap).toContain("M01_OBSERVED_REVEAL_MS");
+  });
+
+  it("keeps translucent hidden fragment sprites while tinting observed flashlight colors", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("this.syncArtSpriteFrame(sprite, token);");
+    expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation, token, colorTokenOverride)");
+    expect(bootstrap).toContain("const OBSERVED_FRAGMENT_TINT_ALPHA = 255;");
+    expect(bootstrap).toContain("const M01_BASE_RGB: Record");
+    expect(bootstrap).toContain("const M01_BEAM_RGB: Record");
+    expect(bootstrap).toContain("function multiplyRgb");
+    expect(bootstrap).toContain(
+      "const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, number]> = {"
+    );
+    expect(bootstrap).toContain("yellow: multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow)");
+    expect(bootstrap).toContain("orange: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.yellow)");
+    expect(bootstrap).toContain("blue:   multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue)");
+    expect(bootstrap).toContain("purple: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.blue)");
+    expect(bootstrap).toContain("function colorForObservedFragmentTint(colorToken: M01BlendColor): Color");
+    expect(bootstrap).toContain("return colorForObservedFragmentTint(colorTokenOverride);");
+    expect(bootstrap).toContain(
+      "return new Color(r, g, b, OBSERVED_FRAGMENT_TINT_ALPHA);"
+    );
+    expect(bootstrap).not.toContain(
+      "return withAlpha(colorForToken(colorTokenOverride, token.kind, presentation), OBSERVED_FRAGMENT_TINT_ALPHA)"
+    );
+    expect(bootstrap).not.toContain(
+      "this.syncArtSpriteFrame(sprite, token, colorTokenOverride);"
+    );
+    expect(bootstrap).not.toContain(
+      "getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride)"
+    );
   });
 
   it("uses failed-validation flash colors when redrawing staged M01 fragments", () => {
@@ -933,9 +980,7 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("getM01GreyboxRuntimeSpriteResourceForToken(token)");
-    expect(bootstrap).toContain(
-      "getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride)"
-    );
+    expect(bootstrap).not.toContain("getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride)");
     expect(bootstrap).toContain("validationColor ?? view.observedColor");
     expect(bootstrap).toContain("shouldUseTextureBackedFragmentReveal");
     expect(bootstrap).not.toContain('if (isM01StandardPieceToken(token)) {\n      return null;\n    }');

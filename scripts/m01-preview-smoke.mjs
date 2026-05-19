@@ -29,7 +29,37 @@ const screenshotDir = resolve(rootDir, "temp");
 const requireBrowserInput = process.argv.includes("--require-browser-input");
 const captureCleanQa = process.argv.includes("--capture-clean-qa");
 const enableArtPreview = process.argv.includes("--enable-art-preview");
+const OBSERVED_ART_SPRITE_TINT_MAX_ALPHA = 255;
+const M01_BASE_RGB = {
+  red: [230, 120, 110],
+  yellow: [240, 220, 130],
+  blue: [115, 150, 215]
+};
+const M01_BEAM_RGB = {
+  red: [255, 130, 110],
+  yellow: [255, 235, 130],
+  blue: [120, 160, 240]
+};
+function multiplyRgb(a, b) {
+  return [
+    Math.round((a[0] * b[0]) / 255),
+    Math.round((a[1] * b[1]) / 255),
+    Math.round((a[2] * b[2]) / 255)
+  ];
+}
+const OBSERVED_ART_SPRITE_TINT_COLORS = {
+  red: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.red)),
+  yellow: rgbToColor(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow)),
+  blue: rgbToColor(multiplyRgb(M01_BASE_RGB.blue, M01_BEAM_RGB.blue)),
+  orange: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.yellow)),
+  green: rgbToColor(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.blue)),
+  purple: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.blue))
+};
 const ROTATE_BUTTON_POSITION = { x: 328, y: 156 };
+
+function rgbToColor([r, g, b]) {
+  return { r, g, b, a: OBSERVED_ART_SPRITE_TINT_MAX_ALPHA };
+}
 
 function assert(condition, message) {
   if (!condition) {
@@ -68,13 +98,6 @@ function shapeTokenFromFragmentId(fragmentId) {
   return undefined;
 }
 
-function observedArtSpriteNamesMatch(actual = {}, expectedColors = {}) {
-  return Object.entries(expectedColors).every(([fragmentId, color]) => {
-    const shapeToken = shapeTokenFromFragmentId(fragmentId);
-    return actual?.[fragmentId] === `M01ArtSprite_${color}_${shapeToken}`;
-  });
-}
-
 function observedGraphicsUnderlaysAreTransparent(actual = {}, expectedColors = {}) {
   return Object.keys(expectedColors).every((fragmentId) => (actual?.[fragmentId] ?? 255) === 0);
 }
@@ -87,6 +110,27 @@ function hiddenArtSpriteNamesMatch(actual = {}, fragmentIds = []) {
   return fragmentIds.every((fragmentId) => {
     const shapeToken = shapeTokenFromFragmentId(fragmentId);
     return actual?.[fragmentId] === `M01ArtSprite_hidden_${shapeToken}`;
+  });
+}
+
+function observedArtSpriteTintIsTranslucent(actual = {}, expectedColors = {}) {
+  return Object.keys(expectedColors).every((fragmentId) => {
+    const alpha = actual?.[fragmentId];
+    return typeof alpha === "number" && alpha > 0 && alpha <= OBSERVED_ART_SPRITE_TINT_MAX_ALPHA;
+  });
+}
+
+function observedArtSpriteTintColorsMatch(actual = {}, expectedColors = {}) {
+  return Object.entries(expectedColors).every(([fragmentId, colorToken]) => {
+    const actualColor = actual?.[fragmentId];
+    const expectedColor = OBSERVED_ART_SPRITE_TINT_COLORS[colorToken];
+    return (
+      Boolean(actualColor && expectedColor) &&
+      actualColor.r === expectedColor.r &&
+      actualColor.g === expectedColor.g &&
+      actualColor.b === expectedColor.b &&
+      actualColor.a === expectedColor.a
+    );
   });
 }
 
@@ -454,12 +498,35 @@ async function runRealInputPath(page, realInputPlan) {
             ])
           )
         : {};
-      const artSpriteNamesByFragment = Object.fromEntries(
+      const artSpriteNodesByFragment = Object.fromEntries(
         realInputPlan.revealFragmentIds.map((fragmentId) => [
           fragmentId,
           fragmentEntries[fragmentId]?.node?.children?.find((child) =>
             child.name?.startsWith("M01ArtSprite_")
-          )?.name
+          )
+        ])
+      );
+      const artSpriteNamesByFragment = Object.fromEntries(
+        realInputPlan.revealFragmentIds.map((fragmentId) => [
+          fragmentId,
+          artSpriteNodesByFragment[fragmentId]?.name
+        ])
+      );
+      const artSpriteColorByFragment = Object.fromEntries(
+        realInputPlan.revealFragmentIds.map((fragmentId) => {
+          const color = artSpriteNodesByFragment[fragmentId]?.components?.find(
+            (component) => component.constructor?.name === "Sprite"
+          )?.color;
+          return [
+            fragmentId,
+            color ? { r: color.r, g: color.g, b: color.b, a: color.a } : undefined
+          ];
+        })
+      );
+      const artSpriteColorAlphaByFragment = Object.fromEntries(
+        realInputPlan.revealFragmentIds.map((fragmentId) => [
+          fragmentId,
+          artSpriteColorByFragment[fragmentId]?.a
         ])
       );
       const graphicsFillAlphaByFragment = Object.fromEntries(
@@ -483,6 +550,8 @@ async function runRealInputPath(page, realInputPlan) {
         observedColor: observedColorsByFragment[realInputPlan.revealFragmentId],
         observedColorsByFragment,
         artSpriteNamesByFragment,
+        artSpriteColorByFragment,
+        artSpriteColorAlphaByFragment,
         graphicsFillAlphaByFragment,
         freePlacementPosition: tokenPositions
           ? tokenPositions.get(realInputPlan.freePlacement.fragmentId)
@@ -551,13 +620,14 @@ async function runRealInputPath(page, realInputPlan) {
     const flashlightChecks = realInputPlan.flashlightChecks ?? [
       {
         flashlightId: realInputPlan.flashlightId,
-        buttonPosition: realInputPlan.flashlightButtonRedPosition,
+        tapPosition: realInputPlan.flashlightCycleTapPosition,
         expectedObservedColorsByFragment: realInputPlan.expectedObservedColorsByFragment
       }
     ];
+    const persistentFlashlightCheck = flashlightChecks[flashlightChecks.length - 1];
 
     for (const check of flashlightChecks) {
-      await clickLocalPoint(check.buttonPosition);
+      await clickLocalPoint(check.tapPosition);
       await page.waitForTimeout(260);
       debugSteps.push(
         await snapshotInteractionState(`after_fixed_flashlight_floodlight:${check.flashlightId}`)
@@ -566,7 +636,7 @@ async function runRealInputPath(page, realInputPlan) {
 
     await page.waitForTimeout(2_200);
     debugSteps.push(
-      await snapshotInteractionState(`after_fixed_flashlight_persistent:${realInputPlan.flashlightId}`)
+      await snapshotInteractionState(`after_fixed_flashlight_persistent:${persistentFlashlightCheck.flashlightId}`)
     );
   };
   await runFixedFlashlightFloodlightPath();
@@ -674,12 +744,35 @@ async function runRealInputPath(page, realInputPlan) {
         bootstrap.greyboxNodes.get(fragmentId)
       ])
     );
-    const artSpriteNamesByFragment = Object.fromEntries(
+    const artSpriteNodesByFragment = Object.fromEntries(
       realInputPlan.revealFragmentIds.map((fragmentId) => [
         fragmentId,
         fragmentEntries[fragmentId]?.node?.children?.find((child) =>
           child.name?.startsWith("M01ArtSprite_")
-        )?.name
+        )
+      ])
+    );
+    const artSpriteNamesByFragment = Object.fromEntries(
+      realInputPlan.revealFragmentIds.map((fragmentId) => [
+        fragmentId,
+        artSpriteNodesByFragment[fragmentId]?.name
+      ])
+    );
+    const artSpriteColorByFragment = Object.fromEntries(
+      realInputPlan.revealFragmentIds.map((fragmentId) => {
+        const color = artSpriteNodesByFragment[fragmentId]?.components?.find(
+          (component) => component.constructor?.name === "Sprite"
+        )?.color;
+        return [
+          fragmentId,
+          color ? { r: color.r, g: color.g, b: color.b, a: color.a } : undefined
+        ];
+      })
+    );
+    const artSpriteColorAlphaByFragment = Object.fromEntries(
+      realInputPlan.revealFragmentIds.map((fragmentId) => [
+        fragmentId,
+        artSpriteColorByFragment[fragmentId]?.a
       ])
     );
     const graphicsFillAlphaByFragment = Object.fromEntries(
@@ -701,6 +794,8 @@ async function runRealInputPath(page, realInputPlan) {
       observedColor: observedColorsByFragment[realInputPlan.revealFragmentId],
       observedColorsByFragment,
       artSpriteNamesByFragment,
+      artSpriteColorByFragment,
+      artSpriteColorAlphaByFragment,
       graphicsFillAlphaByFragment,
       freePlacement: {
         fragmentId: realInputPlan.freePlacement.fragmentId,
@@ -787,7 +882,7 @@ async function runCompletionInputPath(page, realInputPlan) {
     await dragLocalPoint(await currentFragmentPosition(targetPiece.fragmentId), targetPiece.targetPosition);
   };
 
-  await clickLocalPoint(realInputPlan.flashlightButtonRedPosition);
+  await clickLocalPoint(realInputPlan.flashlightCycleTapPosition);
   if (realInputPlan.completionTargetPieces.length > 0) {
     for (const targetPiece of realInputPlan.completionTargetPieces) {
       await placeFragmentAtTargetPiece(targetPiece);
@@ -909,14 +1004,37 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
         bootstrap.session.getFragmentView(fragmentId).observedColor
       ])
     );
-    const fixedFloodlightArtSpriteNamesByFragment = Object.fromEntries(
+    const fixedFloodlightArtSpritesByFragment = Object.fromEntries(
       realInputPlan.revealFragmentIds.map((fragmentId) => {
         const entry = bootstrap.greyboxNodes.get(fragmentId);
         return [
           fragmentId,
-          entry?.node?.children?.find((child) => child.name?.startsWith("M01ArtSprite_"))?.name
+          entry?.node?.children?.find((child) => child.name?.startsWith("M01ArtSprite_"))
         ];
       })
+    );
+    const fixedFloodlightArtSpriteNamesByFragment = Object.fromEntries(
+      realInputPlan.revealFragmentIds.map((fragmentId) => [
+        fragmentId,
+        fixedFloodlightArtSpritesByFragment[fragmentId]?.name
+      ])
+    );
+    const fixedFloodlightArtSpriteColorByFragment = Object.fromEntries(
+      realInputPlan.revealFragmentIds.map((fragmentId) => {
+        const color = fixedFloodlightArtSpritesByFragment[fragmentId]?.components?.find(
+          (component) => component.constructor?.name === "Sprite"
+        )?.color;
+        return [
+          fragmentId,
+          color ? { r: color.r, g: color.g, b: color.b, a: color.a } : undefined
+        ];
+      })
+    );
+    const fixedFloodlightArtSpriteColorAlphaByFragment = Object.fromEntries(
+      realInputPlan.revealFragmentIds.map((fragmentId) => [
+        fragmentId,
+        fixedFloodlightArtSpriteColorByFragment[fragmentId]?.a
+      ])
     );
     const fixedFloodlightGraphicsFillAlphaByFragment = Object.fromEntries(
       realInputPlan.revealFragmentIds.map((fragmentId) => [
@@ -937,6 +1055,8 @@ async function runRuntimeEquivalentInputPath(page, realInputPlan) {
       observedColor: fixedFloodlightObservedColorsByFragment[realInputPlan.revealFragmentId],
       observedColorsByFragment: fixedFloodlightObservedColorsByFragment,
       artSpriteNamesByFragment: fixedFloodlightArtSpriteNamesByFragment,
+      artSpriteColorByFragment: fixedFloodlightArtSpriteColorByFragment,
+      artSpriteColorAlphaByFragment: fixedFloodlightArtSpriteColorAlphaByFragment,
       graphicsFillAlphaByFragment: fixedFloodlightGraphicsFillAlphaByFragment
     };
     const persistentFloodlightStep = {
@@ -1106,11 +1226,13 @@ async function main() {
         expectedObservedColorsByFragment: realInputPlan.expectedObservedColorsByFragment
       }
     ];
+    const firstFlashlightCheck = flashlightChecks[0];
+    const persistentFlashlightCheck = flashlightChecks[flashlightChecks.length - 1];
     const fixedFloodlightStep = browserInputAttempt.debugSteps.find(
-      (step) => step.step === `after_fixed_flashlight_floodlight:${realInputPlan.flashlightId}`
+      (step) => step.step === `after_fixed_flashlight_floodlight:${firstFlashlightCheck.flashlightId}`
     );
     const persistentFloodlightStep = browserInputAttempt.debugSteps.find(
-      (step) => step.step === `after_fixed_flashlight_persistent:${realInputPlan.flashlightId}`
+      (step) => step.step === `after_fixed_flashlight_persistent:${persistentFlashlightCheck.flashlightId}`
     );
     const freeFragmentDragStep = browserInputAttempt.debugSteps.find(
       (step) => step.step === "after_free_fragment_drag"
@@ -1124,8 +1246,18 @@ async function main() {
         step.heldFlashlightId === undefined &&
         observedColorsMatch(step.observedColorsByFragment, check.expectedObservedColorsByFragment) &&
         (!enableArtPreview ||
-          observedArtSpriteNamesMatch(
+          hiddenArtSpriteNamesMatch(
             step.artSpriteNamesByFragment,
+            realInputPlan.revealFragmentIds
+          )) &&
+        (!enableArtPreview ||
+          observedArtSpriteTintIsTranslucent(
+            step.artSpriteColorAlphaByFragment,
+            check.expectedObservedColorsByFragment
+          )) &&
+        (!enableArtPreview ||
+          observedArtSpriteTintColorsMatch(
+            step.artSpriteColorByFragment,
             check.expectedObservedColorsByFragment
           )) &&
         (!enableArtPreview ||
@@ -1141,21 +1273,31 @@ async function main() {
       );
     });
     const persistentFloodlightStable =
-      persistentFloodlightStep?.activeFlashlightId === realInputPlan.flashlightId &&
+      persistentFloodlightStep?.activeFlashlightId === persistentFlashlightCheck.flashlightId &&
       persistentFloodlightStep.flashlightBeamLit === true &&
       observedColorsMatch(
         persistentFloodlightStep.observedColorsByFragment,
-        realInputPlan.expectedObservedColorsByFragment
+        persistentFlashlightCheck.expectedObservedColorsByFragment
       ) &&
       (!enableArtPreview ||
-        observedArtSpriteNamesMatch(
+        hiddenArtSpriteNamesMatch(
           persistentFloodlightStep.artSpriteNamesByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          realInputPlan.revealFragmentIds
+        )) &&
+      (!enableArtPreview ||
+        observedArtSpriteTintIsTranslucent(
+          persistentFloodlightStep.artSpriteColorAlphaByFragment,
+          persistentFlashlightCheck.expectedObservedColorsByFragment
+        )) &&
+      (!enableArtPreview ||
+        observedArtSpriteTintColorsMatch(
+          persistentFloodlightStep.artSpriteColorByFragment,
+          persistentFlashlightCheck.expectedObservedColorsByFragment
         )) &&
       (!enableArtPreview ||
         observedGraphicsUnderlaysAreTransparent(
           persistentFloodlightStep.graphicsFillAlphaByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          persistentFlashlightCheck.expectedObservedColorsByFragment
         )
       );
     const freeFragmentDragExtinguished =
@@ -1180,24 +1322,34 @@ async function main() {
         browserInputAttempt.observedColorsByFragment,
         realInputPlan.revealFragmentIds
       ) &&
-      fixedFloodlightStep?.activeFlashlightId === realInputPlan.flashlightId &&
+      fixedFloodlightStep?.activeFlashlightId === firstFlashlightCheck.flashlightId &&
       fixedFloodlightStep?.heldFlashlightId === undefined &&
       fixedFloodlightChecksStable &&
       persistentFloodlightStable &&
       freeFragmentDragExtinguished &&
       observedColorsMatch(
         fixedFloodlightStep?.observedColorsByFragment,
-        realInputPlan.expectedObservedColorsByFragment
+        firstFlashlightCheck.expectedObservedColorsByFragment
       ) &&
       (!enableArtPreview ||
-        observedArtSpriteNamesMatch(
+        hiddenArtSpriteNamesMatch(
           fixedFloodlightStep?.artSpriteNamesByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          realInputPlan.revealFragmentIds
+        )) &&
+      (!enableArtPreview ||
+        observedArtSpriteTintIsTranslucent(
+          fixedFloodlightStep?.artSpriteColorAlphaByFragment,
+          firstFlashlightCheck.expectedObservedColorsByFragment
+        )) &&
+      (!enableArtPreview ||
+        observedArtSpriteTintColorsMatch(
+          fixedFloodlightStep?.artSpriteColorByFragment,
+          firstFlashlightCheck.expectedObservedColorsByFragment
         )) &&
       (!enableArtPreview ||
         observedGraphicsUnderlaysAreTransparent(
           fixedFloodlightStep?.graphicsFillAlphaByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          firstFlashlightCheck.expectedObservedColorsByFragment
         )) &&
       fixedFloodlightStep?.beamAnchor &&
       pointDistance(fixedFloodlightStep.beamAnchor, realInputPlan.flashlightBeamAnchorPosition) <=
@@ -1233,10 +1385,10 @@ async function main() {
       `Browser-input smoke required a real canvas input path, but Cocos preview required fallback. ${realInput.blocker ?? ""}`
     );
     const realFixedFloodlightStep = realInput.debugSteps?.find(
-      (step) => step.step === `after_fixed_flashlight_floodlight:${realInputPlan.flashlightId}`
+      (step) => step.step === `after_fixed_flashlight_floodlight:${firstFlashlightCheck.flashlightId}`
     );
     const realPersistentFloodlightStep = realInput.debugSteps?.find(
-      (step) => step.step === `after_fixed_flashlight_persistent:${realInputPlan.flashlightId}`
+      (step) => step.step === `after_fixed_flashlight_persistent:${persistentFlashlightCheck.flashlightId}`
     );
     const realFreeFragmentDragStep = realInput.debugSteps?.find(
       (step) => step.step === "after_free_fragment_drag"
@@ -1256,17 +1408,33 @@ async function main() {
       if (enableArtPreview) {
         assert(
           !step ||
-            observedArtSpriteNamesMatch(
+            hiddenArtSpriteNamesMatch(
               step.artSpriteNamesByFragment,
+              realInputPlan.revealFragmentIds
+            ),
+          `Expected ${check.flashlightId} to tint translucent hidden sprites; got ${JSON.stringify(step?.artSpriteNamesByFragment)}.`
+        );
+        assert(
+          !step ||
+            observedArtSpriteTintIsTranslucent(
+              step.artSpriteColorAlphaByFragment,
               check.expectedObservedColorsByFragment
             ),
-          `Expected ${check.flashlightId} to use art-backed observed sprites; got ${JSON.stringify(step?.artSpriteNamesByFragment)}.`
+          `Expected ${check.flashlightId} observed sprite tint alpha to stay translucent; got ${JSON.stringify(step?.artSpriteColorAlphaByFragment)}.`
+        );
+        assert(
+          !step ||
+            observedArtSpriteTintColorsMatch(
+              step.artSpriteColorByFragment,
+              check.expectedObservedColorsByFragment
+            ),
+          `Expected ${check.flashlightId} observed sprite tint colors to stay separated; got ${JSON.stringify(step?.artSpriteColorByFragment)}.`
         );
       }
     }
     assert(
-      !realFixedFloodlightStep || realFixedFloodlightStep.activeFlashlightId === realInputPlan.flashlightId,
-      `Expected fixed floodlight to select ${realInputPlan.flashlightId}; got ${realFixedFloodlightStep?.activeFlashlightId}.`
+      !realFixedFloodlightStep || realFixedFloodlightStep.activeFlashlightId === firstFlashlightCheck.flashlightId,
+      `Expected fixed floodlight to select ${firstFlashlightCheck.flashlightId}; got ${realFixedFloodlightStep?.activeFlashlightId}.`
     );
     assert(
       !realFixedFloodlightStep || realFixedFloodlightStep.heldFlashlightId === undefined,
@@ -1276,7 +1444,7 @@ async function main() {
       !realPersistentFloodlightStep ||
         observedColorsMatch(
           realPersistentFloodlightStep.observedColorsByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          persistentFlashlightCheck.expectedObservedColorsByFragment
         ),
       `Expected fixed floodlight reveal to persist; got ${JSON.stringify(realPersistentFloodlightStep?.observedColorsByFragment)}.`
     );
@@ -1290,11 +1458,11 @@ async function main() {
     );
     assert(
       realInput.flashlightPosition,
-      `Expected fixed red flashlight button hit zone to remain available.`
+      `Expected fixed flashlight art tap to cycle through the color sequence.`
     );
     assert(
       pointDistance(realInput.flashlightPosition, realInputPlan.flashlightPosition) <= 1,
-      `Expected fixed red flashlight button hit zone to stay at (${realInputPlan.flashlightPosition.x}, ${realInputPlan.flashlightPosition.y}); got (${realInput.flashlightPosition.x}, ${realInput.flashlightPosition.y}).`
+      `Expected fixed flashlight art cycle to keep the active token at (${realInputPlan.flashlightPosition.x}, ${realInputPlan.flashlightPosition.y}); got (${realInput.flashlightPosition.x}, ${realInput.flashlightPosition.y}).`
     );
     assert(
       realFixedFloodlightStep?.beamAnchor,
@@ -1312,22 +1480,36 @@ async function main() {
     assert(
       observedColorsMatch(
         realFixedFloodlightStep?.observedColorsByFragment,
-        realInputPlan.expectedObservedColorsByFragment
+        firstFlashlightCheck.expectedObservedColorsByFragment
       ),
-      `Expected all fixed floodlight observed colors ${JSON.stringify(realInputPlan.expectedObservedColorsByFragment)}; got ${JSON.stringify(realFixedFloodlightStep?.observedColorsByFragment)}.`
+      `Expected all fixed floodlight observed colors ${JSON.stringify(firstFlashlightCheck.expectedObservedColorsByFragment)}; got ${JSON.stringify(realFixedFloodlightStep?.observedColorsByFragment)}.`
     );
     if (enableArtPreview) {
       assert(
-        observedArtSpriteNamesMatch(
+        hiddenArtSpriteNamesMatch(
           realFixedFloodlightStep?.artSpriteNamesByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          realInputPlan.revealFragmentIds
         ),
-        `Expected texture-backed observed sprite such as M01ArtSprite_purple_circle; got ${JSON.stringify(realFixedFloodlightStep?.artSpriteNamesByFragment)}.`
+        `Expected texture-backed observed tint on M01ArtSprite_hidden_circle; got ${JSON.stringify(realFixedFloodlightStep?.artSpriteNamesByFragment)}.`
+      );
+      assert(
+        observedArtSpriteTintIsTranslucent(
+          realFixedFloodlightStep?.artSpriteColorAlphaByFragment,
+          firstFlashlightCheck.expectedObservedColorsByFragment
+        ),
+        `Expected texture-backed observed tint to keep translucency; got alpha ${JSON.stringify(realFixedFloodlightStep?.artSpriteColorAlphaByFragment)}.`
+      );
+      assert(
+        observedArtSpriteTintColorsMatch(
+          realFixedFloodlightStep?.artSpriteColorByFragment,
+          firstFlashlightCheck.expectedObservedColorsByFragment
+        ),
+        `Expected texture-backed observed tint colors to stay separated; got ${JSON.stringify(realFixedFloodlightStep?.artSpriteColorByFragment)}.`
       );
       assert(
         observedGraphicsUnderlaysAreTransparent(
           realFixedFloodlightStep?.graphicsFillAlphaByFragment,
-          realInputPlan.expectedObservedColorsByFragment
+          firstFlashlightCheck.expectedObservedColorsByFragment
         ),
         `Expected art-preview reveal graphics underlay to stay transparent; got fill alphas ${JSON.stringify(realFixedFloodlightStep?.graphicsFillAlphaByFragment)}.`
       );

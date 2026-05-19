@@ -1,5 +1,6 @@
 import {
   _decorator,
+  CCBoolean,
   Color,
   Component,
   EventTouch,
@@ -76,7 +77,38 @@ const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
 const VALIDATION_FAILURE_FLASH_COUNT = 2;
 const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";
-const M01_HINT_ICON_DISPLAY_SIZE = { width: 37, height: 50 };
+const M01_HINT_ICON_DISPLAY_SIZE = { width: 22.2, height: 30 };
+const OBSERVED_FRAGMENT_TINT_ALPHA = 255;
+// Source RGBs: tune these 6 to drive the 6 derived blend colors via real multiply math.
+// Pigment-mixing model: visible = base_rgb × beam_rgb / 255 per channel.
+const M01_BASE_RGB: Record<"red" | "yellow" | "blue", [number, number, number]> = {
+  red:    [230, 120, 110],
+  yellow: [240, 220, 130],
+  blue:   [115, 150, 215]
+};
+const M01_BEAM_RGB: Record<"red" | "yellow" | "blue", [number, number, number]> = {
+  red:    [255, 130, 110],
+  yellow: [255, 235, 130],
+  blue:   [120, 160, 240]
+};
+function multiplyRgb(
+  a: [number, number, number],
+  b: [number, number, number]
+): [number, number, number] {
+  return [
+    Math.round((a[0] * b[0]) / 255),
+    Math.round((a[1] * b[1]) / 255),
+    Math.round((a[2] * b[2]) / 255)
+  ];
+}
+const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, number]> = {
+  red:    multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.red),
+  yellow: multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow),
+  blue:   multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue),
+  orange: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.yellow),
+  green:  multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.blue),
+  purple: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.blue)
+};
 const FIXED_FLASHLIGHT_BEAM_ANCHOR: M01GreyboxPoint = { x: 360, y: 110 };
 const FRAGMENT_FLOOR = {
   minX: 200,
@@ -140,10 +172,10 @@ export class M01GreyboxBootstrap extends Component {
   @property(Label)
   statusLabel: Label | null = null;
 
-  @property({ type: Boolean })
+  @property({ type: CCBoolean })
   enableArtPreview = false;
 
-  @property({ type: Boolean })
+  @property({ type: CCBoolean })
   showArtPreviewDebugUnderlay = false;
 
   private session: M01GreyboxSession | null = null;
@@ -1193,7 +1225,10 @@ export class M01GreyboxBootstrap extends Component {
       });
 
       if (layer.id === "singleFlashlightTool") {
-        layerNode.on("touch-end", (event: EventTouch) => this.stopTouchPropagation(event), this);
+        layerNode.on("touch-end", (event: EventTouch) => {
+          this.stopTouchPropagation(event);
+          this.cycleFixedFlashlight();
+        }, this);
       }
     }
   }
@@ -1219,7 +1254,28 @@ export class M01GreyboxBootstrap extends Component {
     }
   }
 
-  private selectFixedFlashlightButton(flashlightId: string): void {
+  private cycleFixedFlashlight(): void {
+    const token = this.getNextFixedFlashlightToken();
+    if (!token) {
+      return;
+    }
+
+    this.selectFixedFlashlight(token.controllerId);
+  }
+
+  private getNextFixedFlashlightToken(): M01GreyboxTokenNode | undefined {
+    const flashlights = this.layout?.flashlights ?? [];
+    if (flashlights.length === 0) {
+      return undefined;
+    }
+
+    const currentIndex = flashlights.findIndex(
+      (candidate) => candidate.controllerId === this.activeFlashlightId
+    );
+    return flashlights[(currentIndex + 1) % flashlights.length];
+  }
+
+  private selectFixedFlashlight(flashlightId: string): void {
     if (!this.session || !this.layout) {
       return;
     }
@@ -1269,7 +1325,7 @@ export class M01GreyboxBootstrap extends Component {
     if (token.kind === "flashlight" && this.enableArtPreview) {
       node.on("touch-end", (event: EventTouch) => {
         this.stopTouchPropagation(event);
-        this.selectFixedFlashlightButton(token.controllerId);
+        this.cycleFixedFlashlight();
       }, this);
       return;
     }
@@ -1719,19 +1775,9 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const selected = this.session.selectFlashlight(token.controllerId);
-    this.setStatus(selected.status);
-    this.clearHintTargets();
-    this.syncFeedbackFromSession();
-    if (!selected.accepted) {
-      this.resetTokenNode(node, token);
-      this.syncVisualState();
-      return;
-    }
-
     node.setPosition(token.position.x, token.position.y, 0);
     this.tokenPositions.set(token.controllerId, token.position);
-    this.activateFixedFlashlightBeam(token, selected);
+    this.cycleFixedFlashlight();
   }
 
   private stopTouchPropagation(event: EventTouch): void {
@@ -2457,36 +2503,36 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.syncArtSpriteFrame(sprite, token, colorTokenOverride);
-    sprite.color = colorForArtSprite(presentation, token);
+    this.syncArtSpriteFrame(sprite, token);
+    sprite.color = colorForArtSprite(presentation, token, colorTokenOverride);
   }
 
-  private syncArtSpriteFrame(
-    sprite: Sprite,
-    token?: M01GreyboxTokenNode,
-    colorTokenOverride?: M01BlendColor
-  ): void {
+  private syncArtSpriteFrame(sprite: Sprite, token?: M01GreyboxTokenNode): void {
     if (!token) {
       return;
     }
 
-    const resource = getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride);
+    const resource = getM01GreyboxRuntimeSpriteResourceForToken(token);
     if (!resource) {
       return;
     }
 
-    if (this.artSpriteResourcePaths.get(sprite) === resource.resourcesLoadPath) {
+    const requestedPath = resource.resourcesLoadPath;
+    if (this.artSpriteResourcePaths.get(sprite) === requestedPath) {
       return;
     }
 
-    this.artSpriteResourcePaths.set(sprite, resource.resourcesLoadPath);
+    this.artSpriteResourcePaths.set(sprite, requestedPath);
     sprite.node.name = `M01ArtSprite_${resource.id}`;
 
-    resources.load(resource.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
+    resources.load(requestedPath, SpriteFrame, (error, spriteFrame) => {
+      if (this.artSpriteResourcePaths.get(sprite) !== requestedPath) {
+        return;
+      }
       if (error || !spriteFrame) {
         this.artSpriteResourcePaths.delete(sprite);
         this.setFeedback(
-          this.formatText("loadFailed", { reason: error?.message ?? resource.resourcesLoadPath })
+          this.formatText("loadFailed", { reason: error?.message ?? requestedPath })
         );
         this.markArtPreviewUnderlayFallback(token.controllerId);
         sprite.node.active = false;
@@ -3205,14 +3251,24 @@ function withAlpha(color: Color, alpha: number): Color {
   return new Color(color.r, color.g, color.b, alpha);
 }
 
+function colorForObservedFragmentTint(colorToken: M01BlendColor): Color {
+  const [r, g, b] = OBSERVED_FRAGMENT_TINT_COLORS[colorToken];
+  return new Color(r, g, b, OBSERVED_FRAGMENT_TINT_ALPHA);
+}
+
 function colorForArtSprite(
   presentation:
     | M01GreyboxFragmentPresentation
     | M01GreyboxFilterPresentation
     | M01GreyboxRepairPresentation
     | "normal",
-  token?: M01GreyboxTokenNode
+  token?: M01GreyboxTokenNode,
+  colorTokenOverride?: M01BlendColor
 ): Color {
+  if (token?.kind === "fragment" && colorTokenOverride) {
+    return colorForObservedFragmentTint(colorTokenOverride);
+  }
+
   if (token?.kind === "fragment" && presentation === "normal") {
     return new Color(255, 255, 255, 255);
   }

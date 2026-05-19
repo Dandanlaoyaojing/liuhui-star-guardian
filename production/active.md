@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-05-15
+Last updated: 2026-05-19
 
 ## Current Objective
 
@@ -9,6 +9,12 @@ Last updated: 2026-05-15
 - **P1-b 危险原型**：M30 隐喻熔炉（概念融合）—— 验证 Stage 5 "命名仪式"能否产生真实认知动作体验。选 M30 而非 M31 的理由：M30 概念融合是 Stage 5 里打分最高、最典型的"范式生成"动作（Codex Round 4 独立评分 9/10），用最硬的关卡试金石失败了才真正证明 Stage 5 不成立。此原型若失败，Stage 5 整体砍掉或重构。
 
 **当前执行焦点**：M01 第一关已完成本轮“完整可玩灰盒原型”阶段，可作为 P1-a 安全原型的当前基线。旧版主计划见 `docs/plans/2026-04-29-m01-overlap-evidence-greybox-plan.md`，已完成的非美术自动续跑计划见 `docs/plans/completed/2026-05-02-m01-non-art-autoloop-ralphex.md`，本轮 completion handoff 见 `docs/plans/completed/2026-05-02-m01-completion-autoloop-ralphex.md`。2026-05-02 曾短暂创建 M30 autoloop 计划，但未产生任何 M30 代码/配置改动；该计划已标记 PAUSED，不再作为当前 handoff。M30 及所有其他关卡仍暂停，直到 operator 明确下达恢复指令。
+
+2026-05-15 M01 零框架审阅后修复：按本轮全代码审阅结果修复四处风险。1) 最新 `M02-flashlight.png` / runtime 手电图的三色按钮视觉中心已变化，旧热区仍停在红 `(359,53)` / 黄 `(360,42)` / 蓝 `(358,30)`；已更新为红 `(361,77)` / 黄 `(360,59)` / 蓝 `(359,43)`，并把按钮 hit size 抽成 `M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE = 14x14`，smoke helper 同步。2) `syncArtSpriteFrame()` 增加 `requestedPath` 门禁，异步 `resources.load()` 回调返回时若 sprite 已切到新资源则忽略旧回调，避免手电显色时被旧 hidden sprite 反盖。3) Cocos 编辑器布尔属性从 `Boolean` 改为 `CCBoolean`，减少 3.8 属性类型警告。4) 失败校验灯返回的 `validationLightSeconds` 改为读取 config，不再硬编码 `2`。验证：先新增/更新回归并确认旧代码红灯；修复后定向 `npm test -- tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeHelpers.test.ts tests/levels/stage1/M01MemoryGearController.test.ts` 成功（3 files / 85 tests）；最终 `npm test` 成功（21 files / 211 tests）；`npm run typecheck` 成功；`git diff --check` 成功。
+
+2026-05-19 M01 拼片显色半透明 / 色相区分修复：用户确认当前颜色方向可以，但手电照亮后拼片失去隐藏态的半透明气质；随后指出黄/橘、蓝/紫区分不够。本轮保留 child Sprite 方案，但显色时不再切换到 colored fragment PNG；`M01GreyboxBootstrap.syncArtSpriteState()` 始终使用 `M01ArtSprite_hidden_*` 贴图，只通过 `sprite.color` 应用手电 / 混色 tint。当前实现改为用 `M01_BASE_RGB` 与 `M01_BEAM_RGB` 做逐通道 multiply，红/黄/蓝/橘/绿/紫全部由同一颜料模型推导，`OBSERVED_FRAGMENT_TINT_ALPHA = 255`；这样保持灰白水彩贴图的透明纹理气质，同时用更强的 RGB 差距拉开黄/橘与蓝/紫。`scripts/m01-preview-smoke.mjs` 同步从“检查 colored art sprite 名称”改为“检查 hidden sprite 名称 + observed art sprite RGBA 符合 multiply 推导色 + Graphics underlay alpha = 0”，防止未来回退到彩色贴片覆盖或低区分 tint。验证：`npm test -- tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeScript.test.ts` 成功（65 tests）；`npm run smoke:m01-preview-refresh && node scripts/m01-preview-smoke.mjs --enable-art-preview` 成功，真实预览中固定光照路径的 hidden sprite tint alpha 为 `255`，移动拼片后 `observedColorsByFragment` 清空且 hidden sprite 颜色回到白色未 tint 状态。
+
+2026-05-19 M01 手电筒整支点击循环：用户反馈三颗手电按钮太小、容易点不到，要求“只要按到手电筒任意位置就亮一个灯，再按就切换一个灯，红黄蓝轮番亮”。本轮把 static `singleFlashlightTool` 美术层、art-preview 下的 flashlight token touch-end、以及非 art-preview 的手电点击路径都接到 `cycleFixedFlashlight()`；循环顺序为红 → 黄 → 蓝，当前未选中时第一次点击选红灯。smoke helper 不再依赖小按钮坐标，统一使用手电下半部整支热区测试点 `{ x: 360, y: 20 }` 连续点击三次，并分别断言红、黄、蓝固定泛光下的九片显色结果；completion 流程也改用同一个整支热区点亮手电。验证：`npm test -- tests/cocosProjectScaffold.test.ts tests/m01PreviewSmokeHelpers.test.ts tests/m01PreviewSmokeScript.test.ts` 成功（70 tests）；`npm run smoke:m01-preview-refresh && node scripts/m01-preview-smoke.mjs --enable-art-preview` 成功，真实预览 `usedFallback=false`，连续点击同一手电位置可依次得到 `flashlight_red` / `flashlight_yellow` / `flashlight_blue`，拖动拼片后灯光熄灭并回到灰白未显色。
 
 2026-05-15 提示灯泡图标黑边版：用户提供 `/Users/danmac/Desktop/image-1778729785284.png`，要求加清楚黑色外轮廓并调整为适合作为以后提示按钮小灯泡图标的尺寸。本轮从源图透明前景 bbox `(129,126,335x468)` 裁切，等比缩放进 `256x256` RGBA 画布，保留透明底和水彩纸纹，新增约 `8px` 黑色手绘外轮廓与内侧边缘加深；同步覆盖 `assets/resources/art/icons/icon-hint.png` 与 `assets/art/icons/icon-hint.png`，并保留临时预览 `temp/icon-hint-outlined-256.png`。验证：三处输出均为 `256 x 256` RGBA；后续验证命令见本轮最终回复。
 
