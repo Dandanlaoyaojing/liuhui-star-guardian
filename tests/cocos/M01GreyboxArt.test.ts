@@ -23,7 +23,6 @@ import {
   M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES,
   M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES,
   M01_GREYBOX_RUNTIME_FILTER_RESOURCES,
-  M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES,
   M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
   M01_GREYBOX_RUNTIME_SURFACE_RESOURCES,
   M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES
@@ -127,80 +126,6 @@ function readPngRgba(path: string): {
   return { width, height, data: output };
 }
 
-function readPngRgbOrRgba(path: string): {
-  width: number;
-  height: number;
-  data: Uint8Array;
-} {
-  const bytes = readFileSync(join(projectRoot, path));
-  const width = bytes.readUInt32BE(16);
-  const height = bytes.readUInt32BE(20);
-  const bitDepth = bytes[24];
-  const colorType = bytes[25];
-  const channels = colorType === 6 ? 4 : 3;
-  const idatChunks: Buffer[] = [];
-
-  expect(bitDepth).toBe(8);
-  expect(colorType === 2 || colorType === 6).toBe(true);
-
-  let offset = 8;
-  while (offset < bytes.length) {
-    const length = bytes.readUInt32BE(offset);
-    const type = bytes.subarray(offset + 4, offset + 8).toString("ascii");
-    const data = bytes.subarray(offset + 8, offset + 8 + length);
-    if (type === "IDAT") {
-      idatChunks.push(data);
-    }
-    if (type === "IEND") {
-      break;
-    }
-    offset += length + 12;
-  }
-
-  const inflated = inflateSync(Buffer.concat(idatChunks));
-  const sourceStride = width * channels;
-  const outputStride = width * 4;
-  const unfiltered = new Uint8Array(width * height * channels);
-  const output = new Uint8Array(width * height * 4);
-  let sourceOffset = 0;
-
-  for (let y = 0; y < height; y += 1) {
-    const filter = inflated[sourceOffset];
-    sourceOffset += 1;
-    for (let x = 0; x < sourceStride; x += 1) {
-      const raw = inflated[sourceOffset + x];
-      const left = x >= channels ? unfiltered[y * sourceStride + x - channels] : 0;
-      const up = y > 0 ? unfiltered[(y - 1) * sourceStride + x] : 0;
-      const upLeft =
-        y > 0 && x >= channels ? unfiltered[(y - 1) * sourceStride + x - channels] : 0;
-      const value =
-        filter === 0
-          ? raw
-          : filter === 1
-            ? raw + left
-            : filter === 2
-              ? raw + up
-              : filter === 3
-                ? raw + Math.floor((left + up) / 2)
-                : raw + paethPredictor(left, up, upLeft);
-
-      unfiltered[y * sourceStride + x] = value & 0xff;
-    }
-    sourceOffset += sourceStride;
-
-    for (let x = 0; x < width; x += 1) {
-      const sourcePixel = y * sourceStride + x * channels;
-      const outputPixel = y * outputStride + x * 4;
-      output[outputPixel] = unfiltered[sourcePixel];
-      output[outputPixel + 1] = unfiltered[sourcePixel + 1];
-      output[outputPixel + 2] = unfiltered[sourcePixel + 2];
-      output[outputPixel + 3] = channels === 4 ? unfiltered[sourcePixel + 3] : 255;
-    }
-  }
-
-  return { width, height, data: output };
-}
-
 function paethPredictor(left: number, up: number, upLeft: number): number {
   const estimate = left + up - upLeft;
   const leftDelta = Math.abs(estimate - left);
@@ -259,50 +184,6 @@ function opaqueBounds(image: { width: number; height: number; data: Uint8Array }
     width: maxX - minX + 1,
     height: maxY - minY + 1
   };
-}
-
-function brightWarmOuterEdgeRatio(image: {
-  width: number;
-  height: number;
-  data: Uint8Array;
-}): number {
-  let brightWarm = 0;
-  let boundary = 0;
-
-  for (let y = 0; y < image.height; y += 1) {
-    for (let x = 0; x < image.width; x += 1) {
-      const offset = (y * image.width + x) * 4;
-      if (image.data[offset + 3] < 24) {
-        continue;
-      }
-
-      const touchesTransparentOutside = [
-        { x: x - 1, y },
-        { x: x + 1, y },
-        { x, y: y - 1 },
-        { x, y: y + 1 }
-      ].some((point) => {
-        if (point.x < 0 || point.y < 0 || point.x >= image.width || point.y >= image.height) {
-          return true;
-        }
-        return alphaAt(image, point.x, point.y) < 16;
-      });
-
-      if (!touchesTransparentOutside) {
-        continue;
-      }
-
-      boundary += 1;
-      const r = image.data[offset];
-      const g = image.data[offset + 1];
-      const b = image.data[offset + 2];
-      if (r > 215 && g > 195 && b > 150 && Math.max(r, g, b) - Math.min(r, g, b) < 90) {
-        brightWarm += 1;
-      }
-    }
-  }
-
-  return brightWarm / boundary;
 }
 
 function translucentOuterEdgeRatio(image: {
@@ -454,74 +335,6 @@ const finalColorPatternRows = {
 } as const;
 
 type RuntimeFragmentShape = keyof typeof finalSheetColumns;
-type FinalRgbColor = keyof typeof finalRgbRows;
-type FinalColorPatternColor = keyof typeof finalColorPatternRows;
-
-function buildDirectHiddenCropSprite(
-  source: { width: number; height: number; data: Uint8Array },
-  shape: DirectHiddenShape
-): { width: number; height: number; data: Uint8Array } {
-  const size = 112;
-  const crop = directHiddenCropBoxes[shape];
-  const data = new Uint8Array(size * size * 4);
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const sx = crop.x + ((x + 0.5) / size) * crop.size;
-      const sy = crop.y + ((y + 0.5) / size) * crop.size;
-      const sampled = sampleBilinear(source, sx, sy);
-      const offset = (y * size + x) * 4;
-      data[offset] = sampled[0];
-      data[offset + 1] = sampled[1];
-      data[offset + 2] = sampled[2];
-      data[offset + 3] = 255;
-    }
-  }
-
-  const outlineBarrier = dilateMask(buildDarkOutlineMask(data, size, size), size, size, 1);
-  const background = floodFillBackground(outlineBarrier, size, size);
-  for (let offset = 0; offset < data.length; offset += 4) {
-    data[offset + 3] = background[offset / 4] ? 0 : 255;
-  }
-  trimLightPaperHalo(data, size, size, 8);
-  addCocosTrimGuard(data, size, size);
-
-  return { width: size, height: size, data };
-}
-
-function buildDirectPieceSliceSprite(
-  source: { width: number; height: number; data: Uint8Array },
-  shape?: RuntimeFragmentShape
-): { width: number; height: number; data: Uint8Array } {
-  const size = 112;
-  const bounds = sourceOpaqueBounds(source);
-  const data = new Uint8Array(size * size * 4);
-  const targetAspect = shape ? expectedRuntimeShapeAspect(shape) : 1;
-  const cropWidth = bounds.width;
-  const cropHeight = bounds.height * targetAspect;
-  const centerX = (bounds.minX + bounds.maxX + 1) / 2;
-  const centerY = (bounds.minY + bounds.maxY + 1) / 2;
-  const cropX = centerX - cropWidth / 2;
-  const cropY = centerY - cropHeight / 2;
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const sx = cropX + ((x + 0.5) / size) * cropWidth;
-      const sy = cropY + ((y + 0.5) / size) * cropHeight;
-      const sampled = sampleRgbaBilinear(source, sx, sy);
-      const offset = (y * size + x) * 4;
-      data[offset] = sampled[0];
-      data[offset + 1] = sampled[1];
-      data[offset + 2] = sampled[2];
-      data[offset + 3] = sampled[3] >= 32 ? 255 : 0;
-    }
-  }
-  thickenDirectPieceOutline(data, size, size);
-  addCocosTrimGuard(data, size, size);
-
-  return { width: size, height: size, data };
-}
-
 function expectedRuntimeShapeAspect(shape: RuntimeFragmentShape): number {
   if (shape === "circle") {
     return 1;
@@ -537,11 +350,14 @@ function expectedCurrentRuntimeShapeAspectRange(shape: RuntimeFragmentShape): {
   if (shape === "circle") {
     return { min: 0.98, max: 1.03 };
   }
+  // Canonical equilateral / regular hexagon aspect is 2/√3 ≈ 1.155.
+  // Stroke AA shifts the opaque bbox slightly; allow a band around the
+  // canonical ratio.
   if (shape === "triangle") {
-    return { min: 1.04, max: 1.12 };
+    return { min: 1.04, max: 1.18 };
   }
 
-  return { min: 1.09, max: 1.16 };
+  return { min: 1.09, max: 1.18 };
 }
 
 function thickenDirectPieceOutline(data: Uint8Array, width: number, height: number): void {
@@ -640,49 +456,6 @@ function sourceOpaqueBounds(image: { width: number; height: number; data: Uint8A
     width: maxX - minX + 1,
     height: maxY - minY + 1
   };
-}
-
-function buildFinalSheetCropSprite(
-  source: { width: number; height: number; data: Uint8Array },
-  shape: RuntimeFragmentShape,
-  rowIndex: number,
-  rowCount: number
-): { width: number; height: number; data: Uint8Array } {
-  const bounds = findFinalSheetPieceBounds(
-    source,
-    shape,
-    finalSheetColumns[shape],
-    rowIndex,
-    rowCount
-  );
-  const size = 112;
-  const data = new Uint8Array(size * size * 4);
-  const squareSize = bounds.height * 1.035;
-  const centerX = (bounds.minX + bounds.maxX + 1) / 2;
-  const centerY = (bounds.minY + bounds.maxY + 1) / 2;
-  const cropX = centerX - squareSize / 2;
-  const cropY = centerY - squareSize / 2;
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const sx = cropX + ((x + 0.5) / size) * squareSize;
-      const sy = cropY + ((y + 0.5) / size) * squareSize;
-      const sampled = sampleRgbaBilinear(source, sx, sy);
-      const signedDistance = shapeSignedDistance(shape, x + 0.5, y + 0.5);
-      const insideShape =
-        signedDistance <= finalSheetShapeMaskLimit(shape) ||
-        (signedDistance <= 3 && isFinalSheetOutlineSample(sampled));
-      const offset = (y * size + x) * 4;
-      data[offset] = sampled[0];
-      data[offset + 1] = sampled[1];
-      data[offset + 2] = sampled[2];
-      data[offset + 3] = insideShape && sampled[3] >= 128 ? 255 : 0;
-    }
-  }
-  trimLightPaperHalo(data, size, size, 2);
-  addCocosTrimGuard(data, size, size);
-
-  return { width: size, height: size, data };
 }
 
 function finalSheetShapeMaskLimit(shape: RuntimeFragmentShape): number {
@@ -1065,18 +838,6 @@ function mixRgbaSample(
   ];
 }
 
-function averageAbsoluteDifference(
-  a: { data: Uint8Array },
-  b: { data: Uint8Array }
-): number {
-  expect(a.data).toHaveLength(b.data.length);
-  let total = 0;
-  for (let index = 0; index < a.data.length; index += 1) {
-    total += Math.abs(a.data[index] - b.data[index]);
-  }
-  return total / a.data.length;
-}
-
 function summarizeOpaqueColor(image: { data: Uint8Array }): {
   averageLuminance: number;
   averageChannelSpread: number;
@@ -1296,37 +1057,14 @@ describe("M01 greybox art slices", () => {
     });
   });
 
-  it("declares isolated fragment and filter runtime sprites for token-level presentation", () => {
-    expect(M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES.map((resource) => resource.id)).toEqual([
-      "red_circle",
-      "red_triangle",
-      "red_hexagon",
-      "blue_circle",
-      "blue_triangle",
-      "blue_hexagon",
-      "yellow_circle",
-      "yellow_triangle",
-      "yellow_hexagon",
-      "purple_circle",
-      "purple_triangle",
-      "purple_hexagon",
-      "orange_circle",
-      "orange_triangle",
-      "orange_hexagon",
-      "green_circle",
-      "green_triangle",
-      "green_hexagon"
-    ]);
+  it("declares filter runtime sprites for token-level presentation", () => {
     expect(M01_GREYBOX_RUNTIME_FILTER_RESOURCES.map((resource) => resource.id)).toEqual([
       "red",
       "blue",
       "yellow"
     ]);
 
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FILTER_RESOURCES
-    ]) {
+    for (const resource of M01_GREYBOX_RUNTIME_FILTER_RESOURCES) {
       expect(resource.file).toMatch(
         /^assets\/resources\/art\/stage1-m01\/runtime-sprites\/(fragments|filters)\/m01-.+\.png$/
       );
@@ -1389,60 +1127,28 @@ describe("M01 greybox art slices", () => {
       );
     }
 
-    const coloredSprites = M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES.map((resource) => ({
-      resource,
-      color: summarizeOpaqueColor(readPngRgba(resource.file))
-    }));
-    for (const { resource, color } of coloredSprites) {
-      expect(color.averageLuminance).toBeGreaterThan(70);
-      expect(color.averageLuminance).toBeLessThan(205);
-      expect(color.averageChannelSpread).toBeGreaterThan(12);
-      expect(color.averageChannelSpread).toBeLessThan(112);
-      expect(resource.sourceFile).toBe(
-        `${M01_GREYBOX_FINAL_DIRECT_FRAGMENT_SOURCE_ROOT}/m01-final-fragment-${resource.id.replace("_", "-")}.png`
-      );
-    }
-
-    const red = coloredSprites.filter(({ resource }) => resource.id.startsWith("red_"));
-    const yellow = coloredSprites.filter(({ resource }) => resource.id.startsWith("yellow_"));
-    const blue = coloredSprites.filter(({ resource }) => resource.id.startsWith("blue_"));
-    const purple = coloredSprites.filter(({ resource }) => resource.id.startsWith("purple_"));
-    const orange = coloredSprites.filter(({ resource }) => resource.id.startsWith("orange_"));
-    const green = coloredSprites.filter(({ resource }) => resource.id.startsWith("green_"));
-
-    expect(red.every(({ color }) => color.averageRed > color.averageBlue + 28)).toBe(true);
-    expect(yellow.every(({ color }) => color.averageRed > color.averageBlue + 35)).toBe(true);
-    expect(yellow.every(({ color }) => color.averageGreen > color.averageBlue + 22)).toBe(true);
-    expect(blue.every(({ color }) => color.averageBlue > color.averageRed)).toBe(true);
-    expect(blue.every(({ color }) => color.averageGreen > color.averageRed + 6)).toBe(true);
-    expect(purple.every(({ color }) => color.averageRed > color.averageGreen + 7)).toBe(true);
-    expect(orange.every(({ color }) => color.averageRed > color.averageGreen + 20)).toBe(true);
-    expect(orange.every(({ color }) => color.averageGreen > color.averageBlue + 20)).toBe(true);
-    expect(green.every(({ color }) => color.averageGreen > color.averageBlue + 20)).toBe(true);
   });
 
   it("keeps standard piece sprites connected to prepared transparent source slices", () => {
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
-    ]) {
+    for (const resource of M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES) {
       const source = readPngRgba(resource.sourceFile);
       const runtime = readPngRgba(resource.file);
 
       expect(source.width).toBeGreaterThan(90);
       expect(source.height).toBeGreaterThan(90);
-      expect(runtime.width).toBe(112);
-      expect(runtime.height).toBe(112);
+      // Hidden circle uses a 120×120 canvas (60×60 sprite contentSize) so the
+      // canonical-radius outline AA does not clip at canvas edges; the other
+      // shapes keep the 112×112 canonical canvas.
+      const expectedSize = resource.id === "hidden_circle" ? 120 : 112;
+      expect(runtime.width).toBe(expectedSize);
+      expect(runtime.height).toBe(expectedSize);
       expectVisuallyTransparentCorners(runtime);
       expect(countOpaquePixels(runtime)).toBeGreaterThan(runtime.width * runtime.height * 0.45);
     }
   });
 
   it("keeps current hand-painted standard piece artwork proportional to target geometry", () => {
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
-    ]) {
+    for (const resource of M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES) {
       const image = readPngRgba(resource.file);
       const bounds = opaqueBounds(image);
       const shape = shapeFromRuntimeFragmentResourceId(resource.id);
@@ -1454,32 +1160,29 @@ describe("M01 greybox art slices", () => {
     }
   });
 
-  it("keeps standard piece sprite frames close to the full 112px canvas", () => {
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
-    ]) {
+  it("keeps standard piece sprite frames close to their canonical canvas", () => {
+    for (const resource of M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES) {
       const userData = readSpriteFrameUserData(join(projectRoot, `${resource.file}.meta`));
+      // Circle uses 120×120 to give canonical-radius outline AA breathing room;
+      // triangle and hexagon stay on the 112×112 canonical canvas.
+      const expectedSize = resource.id === "hidden_circle" ? 120 : 112;
 
       expect(userData).toMatchObject({
         trimX: 0,
-        width: 112,
-        rawWidth: 112,
-        rawHeight: 112
+        width: expectedSize,
+        rawWidth: expectedSize,
+        rawHeight: expectedSize
       });
       expect(userData.trimY).toEqual(expect.any(Number));
       expect(userData.trimY as number).toBeGreaterThanOrEqual(0);
       expect(userData.trimY as number).toBeLessThanOrEqual(5);
       expect(userData.height as number).toBeGreaterThanOrEqual(102);
-      expect(userData.height as number).toBeLessThanOrEqual(112);
+      expect(userData.height as number).toBeLessThanOrEqual(expectedSize);
     }
   });
 
   it("keeps standard piece artwork large enough to visually match target geometry", () => {
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
-    ]) {
+    for (const resource of M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES) {
       const image = readPngRgba(resource.file);
       const bounds = opaqueBounds(image);
       const shape = shapeFromRuntimeFragmentResourceId(resource.id);
@@ -1490,19 +1193,8 @@ describe("M01 greybox art slices", () => {
     }
   });
 
-  it("keeps colored standard piece outer edges within the current watercolor rim range", () => {
-    for (const resource of M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES) {
-      const image = readPngRgba(resource.file);
-
-      expect(brightWarmOuterEdgeRatio(image)).toBeLessThan(0.45);
-    }
-  });
-
   it("keeps standard piece outer contours intentionally translucent", () => {
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
-    ]) {
+    for (const resource of M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES) {
       const image = readPngRgba(resource.file);
 
       expect(translucentOuterEdgeRatio(image)).toBeGreaterThan(0.6);
@@ -1510,10 +1202,7 @@ describe("M01 greybox art slices", () => {
   });
 
   it("keeps standard piece outer contours in the graphite watercolor luminance band", () => {
-    for (const resource of [
-      ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
-      ...M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES
-    ]) {
+    for (const resource of M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES) {
       const image = readPngRgba(resource.file);
 
       expect(outerContourAverageLuminance(image)).toBeGreaterThan(95);
@@ -1610,12 +1299,6 @@ describe("M01 greybox art slices", () => {
       resourcesLoadPath:
         "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-circle/spriteFrame"
     });
-    expect(getM01GreyboxRuntimeSpriteResourceForToken(redCircle, "red")).toMatchObject({
-      id: "red_circle",
-      role: "fragment_token",
-      resourcesLoadPath: "art/stage1-m01/runtime-sprites/fragments/m01-fragment-red-circle/spriteFrame"
-    });
-
     const redFilter = (layout.filters ?? []).find((filter) => filter.controllerId === "filter_red")!;
     const redFilterArt = getM01GreyboxRuntimeSpriteResourceForToken(redFilter);
     expect(redFilterArt).toMatchObject({
@@ -1684,10 +1367,6 @@ describe("M01 greybox art slices", () => {
       role: "fragment_token",
       resourcesLoadPath:
         "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-hexagon/spriteFrame"
-    });
-    expect(getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[0], "red")).toMatchObject({
-      id: "red_circle",
-      resourcesLoadPath: "art/stage1-m01/runtime-sprites/fragments/m01-fragment-red-circle/spriteFrame"
     });
     expect(firstEvidence).toBeUndefined();
     expect(greenTriangleEvidence).toBeUndefined();

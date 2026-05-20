@@ -2,9 +2,10 @@ import {
   M01_STANDARD_PIECE_DISPLAY_SIZE,
   type M01GreyboxLayout,
   type M01GreyboxPoint,
+  type M01GreyboxSize,
   type M01GreyboxTokenNode
 } from "./M01GreyboxLayout.ts";
-import type { M01BlendColor, M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
+import type { M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
 
 const M01_SINGLE_FLASHLIGHT_TOOL_DISPLAY_SIZE = { width: 50, height: 128 };
 
@@ -23,25 +24,6 @@ export type M01GreyboxArtRole =
   | "toolcard_basis";
 
 export type M01GreyboxArtRuntimeStatus = "paper_backed_candidate" | "transparent_candidate";
-export type M01GreyboxRuntimeFragmentId =
-  | "red_circle"
-  | "red_triangle"
-  | "red_hexagon"
-  | "blue_circle"
-  | "blue_triangle"
-  | "blue_hexagon"
-  | "yellow_circle"
-  | "yellow_triangle"
-  | "yellow_hexagon"
-  | "purple_circle"
-  | "purple_triangle"
-  | "purple_hexagon"
-  | "orange_circle"
-  | "orange_triangle"
-  | "orange_hexagon"
-  | "green_circle"
-  | "green_triangle"
-  | "green_hexagon";
 export type M01GreyboxRuntimeHiddenFragmentId =
   | "hidden_circle"
   | "hidden_triangle"
@@ -62,7 +44,6 @@ export type M01GreyboxRuntimeSurfaceId =
   | "single_flashlight_tool"
   | "toolcard_frame";
 export type M01GreyboxRuntimeSpriteId =
-  | M01GreyboxRuntimeFragmentId
   | M01GreyboxRuntimeHiddenFragmentId
   | M01GreyboxRuntimeEvidenceSpriteId
   | M01GreyboxRuntimeFlashlightId
@@ -299,27 +280,6 @@ function transparentRuntimeResourceForPreview(
   };
 }
 
-function runtimeFragmentResource(
-  id: M01GreyboxRuntimeFragmentId,
-  filename: string
-): M01GreyboxRuntimeSpriteResource {
-  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/fragments/${filename}`;
-
-  return {
-    id,
-    role: "fragment_token",
-    file,
-    sourceFile: runtimeFragmentSourceFile(id),
-    assetDatabaseUrl: `db://${file}`,
-    resourcesLoadPath: runtimeSpriteResourceLoadPath("fragments", filename),
-    runtimeStatus: "isolated_candidate"
-  };
-}
-
-function runtimeFragmentSourceFile(id: M01GreyboxRuntimeFragmentId): string {
-  return directFragmentSourceFile(id.replace("_", "-"));
-}
-
 function runtimeFilterResource(
   id: M01GreyboxRuntimeFilterId,
   filename: string
@@ -337,6 +297,16 @@ function runtimeFilterResource(
   };
 }
 
+// Circle outline AA pixels would clip at 56×56 contentSize because the canonical
+// display radius (28) equals exactly half the slot. Give the circle a slightly
+// larger sprite contentSize so the outline has 2px breathing room on each side,
+// while snap geometry (56×56) and visual radius (28 display) remain canonical.
+const HIDDEN_FRAGMENT_DISPLAY_SIZE_OVERRIDES: Partial<
+  Record<M01GreyboxRuntimeHiddenFragmentId, M01GreyboxSize>
+> = {
+  hidden_circle: { width: 60, height: 60 }
+};
+
 function runtimeHiddenFragmentResource(
   id: M01GreyboxRuntimeHiddenFragmentId,
   filename: string
@@ -351,7 +321,8 @@ function runtimeHiddenFragmentResource(
     assetDatabaseUrl: `db://${file}`,
     resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
     runtimeStatus: "isolated_candidate",
-    displaySize: M01_STANDARD_PIECE_DISPLAY_SIZE
+    displaySize:
+      HIDDEN_FRAGMENT_DISPLAY_SIZE_OVERRIDES[id] ?? M01_STANDARD_PIECE_DISPLAY_SIZE
   };
 }
 
@@ -468,27 +439,6 @@ export const M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES: M01GreyboxRuntimeTranspa
     transparentRuntimeResourceForPreview(resource)
   );
 
-export const M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
-  runtimeFragmentResource("red_circle", "m01-fragment-red-circle.png"),
-  runtimeFragmentResource("red_triangle", "m01-fragment-red-triangle.png"),
-  runtimeFragmentResource("red_hexagon", "m01-fragment-red-hexagon.png"),
-  runtimeFragmentResource("blue_circle", "m01-fragment-blue-circle.png"),
-  runtimeFragmentResource("blue_triangle", "m01-fragment-blue-triangle.png"),
-  runtimeFragmentResource("blue_hexagon", "m01-fragment-blue-hexagon.png"),
-  runtimeFragmentResource("yellow_circle", "m01-fragment-yellow-circle.png"),
-  runtimeFragmentResource("yellow_triangle", "m01-fragment-yellow-triangle.png"),
-  runtimeFragmentResource("yellow_hexagon", "m01-fragment-yellow-hexagon.png"),
-  runtimeFragmentResource("purple_circle", "m01-fragment-purple-circle.png"),
-  runtimeFragmentResource("purple_triangle", "m01-fragment-purple-triangle.png"),
-  runtimeFragmentResource("purple_hexagon", "m01-fragment-purple-hexagon.png"),
-  runtimeFragmentResource("orange_circle", "m01-fragment-orange-circle.png"),
-  runtimeFragmentResource("orange_triangle", "m01-fragment-orange-triangle.png"),
-  runtimeFragmentResource("orange_hexagon", "m01-fragment-orange-hexagon.png"),
-  runtimeFragmentResource("green_circle", "m01-fragment-green-circle.png"),
-  runtimeFragmentResource("green_triangle", "m01-fragment-green-triangle.png"),
-  runtimeFragmentResource("green_hexagon", "m01-fragment-green-hexagon.png")
-];
-
 export const M01_GREYBOX_RUNTIME_FILTER_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
   runtimeFilterResource("red", "m01-filter-red.png"),
   runtimeFilterResource("blue", "m01-filter-blue.png"),
@@ -574,22 +524,16 @@ export function getM01GreyboxRuntimeTransparentResource(
 }
 
 export function getM01GreyboxRuntimeSpriteResourceForToken(
-  token: M01GreyboxTokenNode,
-  colorTokenOverride?: M01BlendColor
+  token: M01GreyboxTokenNode
 ): M01GreyboxRuntimeSpriteResource | undefined {
   if (token.kind === "fragment") {
-    const colorToken = colorTokenOverride ?? "hidden";
-    if (colorToken === "hidden") {
-      return M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES.find(
-        (resource) => resource.id === `hidden_${token.shapeToken}`
-      );
-    }
-
-    if (!isM01RuntimeFragmentColor(colorToken)) {
-      return undefined;
-    }
-
-    return getM01GreyboxRuntimeFragmentSpriteResource(colorToken, token.shapeToken);
+    // Fragments always render the hidden-shape sprite plus a `sprite.color`
+    // multiply tint (base × beam) computed at the render site. The legacy
+    // per-color colored sprite path was removed when M01 switched to that
+    // runtime tint pipeline.
+    return M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES.find(
+      (resource) => resource.id === `hidden_${token.shapeToken}`
+    );
   }
 
   if (token.kind === "evidence") {
@@ -619,26 +563,6 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
   }
 
   return undefined;
-}
-
-function isM01RuntimeFragmentColor(colorToken: string): colorToken is M01BlendColor {
-  return (
-    colorToken === "red" ||
-    colorToken === "yellow" ||
-    colorToken === "blue" ||
-    colorToken === "orange" ||
-    colorToken === "green" ||
-    colorToken === "purple"
-  );
-}
-
-export function getM01GreyboxRuntimeFragmentSpriteResource(
-  colorToken: M01BlendColor,
-  shapeToken: M01Shape
-): M01GreyboxRuntimeSpriteResource | undefined {
-  return M01_GREYBOX_RUNTIME_FRAGMENT_RESOURCES.find(
-    (resource) => resource.id === `${colorToken}_${shapeToken}`
-  );
 }
 
 export function buildM01GreyboxTargetStandardPiecePlan(
