@@ -28,6 +28,14 @@ export type M01GreyboxRuntimeHiddenFragmentId =
   | "hidden_circle"
   | "hidden_triangle"
   | "hidden_hexagon";
+export type M01GreyboxRuntimeLightMaskFragmentId =
+  | "light_mask_circle"
+  | "light_mask_triangle"
+  | "light_mask_hexagon";
+export type M01GreyboxRuntimeLightEdgeFragmentId =
+  | "light_edge_circle"
+  | "light_edge_triangle"
+  | "light_edge_hexagon";
 export type M01GreyboxRuntimeEvidenceSpriteId =
   | "evidence_purple_circle_triangle"
   | "evidence_green_triangle_hexagon"
@@ -45,6 +53,8 @@ export type M01GreyboxRuntimeSurfaceId =
   | "toolcard_frame";
 export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeHiddenFragmentId
+  | M01GreyboxRuntimeLightMaskFragmentId
+  | M01GreyboxRuntimeLightEdgeFragmentId
   | M01GreyboxRuntimeEvidenceSpriteId
   | M01GreyboxRuntimeFlashlightId
   | M01GreyboxRuntimeFilterId
@@ -326,6 +336,52 @@ function runtimeHiddenFragmentResource(
   };
 }
 
+function runtimeLightMaskFragmentResource(
+  id: M01GreyboxRuntimeLightMaskFragmentId,
+  filename: string
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/hidden-fragments/${filename}`;
+  const hiddenId = id.replace("light_mask_", "hidden_") as M01GreyboxRuntimeHiddenFragmentId;
+
+  return {
+    id,
+    role: "fragment_token",
+    file,
+    sourceFile: `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/hidden-fragments/${filename.replace(
+      "light-mask",
+      "hidden"
+    )}`,
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
+    runtimeStatus: "isolated_candidate",
+    displaySize:
+      HIDDEN_FRAGMENT_DISPLAY_SIZE_OVERRIDES[hiddenId] ?? M01_STANDARD_PIECE_DISPLAY_SIZE
+  };
+}
+
+function runtimeLightEdgeFragmentResource(
+  id: M01GreyboxRuntimeLightEdgeFragmentId,
+  filename: string
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/hidden-fragments/${filename}`;
+  const hiddenId = id.replace("light_edge_", "hidden_") as M01GreyboxRuntimeHiddenFragmentId;
+
+  return {
+    id,
+    role: "fragment_token",
+    file,
+    sourceFile: `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/hidden-fragments/${filename.replace(
+      "light-edge",
+      "hidden"
+    )}`,
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("hidden-fragments", filename),
+    runtimeStatus: "isolated_candidate",
+    displaySize:
+      HIDDEN_FRAGMENT_DISPLAY_SIZE_OVERRIDES[hiddenId] ?? M01_STANDARD_PIECE_DISPLAY_SIZE
+  };
+}
+
 function directFragmentSourceFile(sourceId: string): string {
   return `${M01_GREYBOX_FINAL_DIRECT_FRAGMENT_SOURCE_ROOT}/m01-final-fragment-${sourceId}.png`;
 }
@@ -451,6 +507,18 @@ export const M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES: M01GreyboxRuntimeSpr
   runtimeHiddenFragmentResource("hidden_hexagon", "m01-fragment-hidden-hexagon.png")
 ];
 
+export const M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeLightMaskFragmentResource("light_mask_circle", "m01-fragment-light-mask-circle.png"),
+  runtimeLightMaskFragmentResource("light_mask_triangle", "m01-fragment-light-mask-triangle.png"),
+  runtimeLightMaskFragmentResource("light_mask_hexagon", "m01-fragment-light-mask-hexagon.png")
+];
+
+export const M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeLightEdgeFragmentResource("light_edge_circle", "m01-fragment-light-edge-circle.png"),
+  runtimeLightEdgeFragmentResource("light_edge_triangle", "m01-fragment-light-edge-triangle.png"),
+  runtimeLightEdgeFragmentResource("light_edge_hexagon", "m01-fragment-light-edge-hexagon.png")
+];
+
 export const M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
   runtimeEvidenceResource(
     "evidence_purple_circle_triangle",
@@ -563,6 +631,30 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
   }
 
   return undefined;
+}
+
+export function getM01GreyboxRuntimeLightMaskResourceForToken(
+  token: M01GreyboxTokenNode
+): M01GreyboxRuntimeSpriteResource | undefined {
+  if (token.kind !== "fragment") {
+    return undefined;
+  }
+
+  return M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES.find(
+    (resource) => resource.id === `light_mask_${token.shapeToken}`
+  );
+}
+
+export function getM01GreyboxRuntimeLightEdgeResourceForToken(
+  token: M01GreyboxTokenNode
+): M01GreyboxRuntimeSpriteResource | undefined {
+  if (token.kind !== "fragment") {
+    return undefined;
+  }
+
+  return M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES.find(
+    (resource) => resource.id === `light_edge_${token.shapeToken}`
+  );
 }
 
 export function buildM01GreyboxTargetStandardPiecePlan(

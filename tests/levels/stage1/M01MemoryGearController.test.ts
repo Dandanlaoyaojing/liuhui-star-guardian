@@ -416,15 +416,15 @@ describe("M01MemoryGearController", () => {
       "fragment_hexagon_yellow_1"
     ]);
     controller.stageEvidencePair("current_manual_target_orange_circle_triangle_1", [
-      "fragment_circle_red_2",
-      "fragment_triangle_yellow_1"
+      "fragment_circle_yellow_1",
+      "fragment_triangle_red_1"
     ]);
     controller.stageEvidencePair("current_manual_target_purple_circle_hexagon_1", [
       "fragment_circle_blue_1",
       "fragment_hexagon_red_2"
     ]);
     controller.stageEvidencePair("current_manual_target_green_triangle_triangle_1", [
-      "fragment_triangle_yellow_1",
+      "fragment_triangle_yellow_2",
       "fragment_triangle_blue_1"
     ]);
     controller.stageEvidencePair("current_manual_target_purple_triangle_hexagon_1", [

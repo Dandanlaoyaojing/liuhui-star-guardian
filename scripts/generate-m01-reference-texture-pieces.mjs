@@ -39,6 +39,7 @@ const cellHeight = 138;
 const labelHeight = 22;
 const columns = 3;
 const rows = 7;
+const lightMaskInkLuminanceThreshold = 180;
 
 const colorSpecs = [
   { id: "hidden", label: "hidden", directSlice: true, folder: hiddenRoot },
@@ -76,14 +77,43 @@ for (const color of colors) {
   for (const shape of shapes) {
     const sprite = renderPiece(color, shape);
     addCocosTrimGuard(sprite.data, sprite.width, sprite.height);
-    sprites.set(`${color.id}_${shape.id}`, sprite);
 
     const filename =
       color.id === "hidden"
         ? `m01-fragment-hidden-${shape.id}.png`
         : `m01-fragment-${color.id}-${shape.id}.png`;
-    writePng(join(color.folder, filename), sprite.width, sprite.height, sprite.data);
+    const outputPath = join(color.folder, filename);
+    const runtimeSprite =
+      color.id === "hidden" && existsSync(outputPath) ? readPng(outputPath) : sprite;
+
+    sprites.set(`${color.id}_${shape.id}`, runtimeSprite);
+
+    if (color.id !== "hidden" || !existsSync(outputPath)) {
+      writePng(outputPath, sprite.width, sprite.height, sprite.data);
+    }
   }
+}
+
+for (const shape of shapes) {
+  const hiddenSprite = sprites.get(`hidden_${shape.id}`);
+  const maskSprite = renderLightMaskPiece(hiddenSprite);
+  const edgeSprite = renderLightEdgePiece(hiddenSprite);
+  addCocosTrimGuard(maskSprite.data, maskSprite.width, maskSprite.height);
+  addCocosTrimGuard(edgeSprite.data, edgeSprite.width, edgeSprite.height);
+  sprites.set(`light_mask_${shape.id}`, maskSprite);
+  sprites.set(`light_edge_${shape.id}`, edgeSprite);
+  writePng(
+    join(hiddenRoot, `m01-fragment-light-mask-${shape.id}.png`),
+    maskSprite.width,
+    maskSprite.height,
+    maskSprite.data
+  );
+  writePng(
+    join(hiddenRoot, `m01-fragment-light-edge-${shape.id}.png`),
+    edgeSprite.width,
+    edgeSprite.height,
+    edgeSprite.data
+  );
 }
 
 writePng(sheetPath, cellWidth * columns, cellHeight * rows, buildContactSheet());
@@ -206,6 +236,53 @@ function renderDirectPieceSlice(colorId, shapeId) {
   addCocosTrimGuard(data, size, size);
 
   return { width: size, height: size, data };
+}
+
+function renderLightMaskPiece(hiddenSprite) {
+  if (!hiddenSprite) {
+    throw new Error("Missing hidden sprite for light mask generation");
+  }
+
+  const data = new Uint8Array(hiddenSprite.data);
+  for (let offset = 0; offset < data.length; offset += 4) {
+    if (data[offset + 3] < 16) {
+      continue;
+    }
+
+    const luminance = 0.2126 * data[offset] + 0.7152 * data[offset + 1] + 0.0722 * data[offset + 2];
+    if (luminance < lightMaskInkLuminanceThreshold) {
+      data[offset + 3] = 0;
+      continue;
+    }
+
+    data[offset] = 255;
+    data[offset + 1] = 255;
+    data[offset + 2] = 255;
+  }
+
+  return { width: hiddenSprite.width, height: hiddenSprite.height, data };
+}
+
+function renderLightEdgePiece(hiddenSprite) {
+  if (!hiddenSprite) {
+    throw new Error("Missing hidden sprite for light edge generation");
+  }
+
+  const data = new Uint8Array(hiddenSprite.data);
+  for (let offset = 0; offset < data.length; offset += 4) {
+    if (data[offset + 3] < 16) {
+      continue;
+    }
+
+    const luminance = 0.2126 * data[offset] + 0.7152 * data[offset + 1] + 0.0722 * data[offset + 2];
+    if (luminance < lightMaskInkLuminanceThreshold) {
+      continue;
+    }
+
+    data[offset + 3] = 0;
+  }
+
+  return { width: hiddenSprite.width, height: hiddenSprite.height, data };
 }
 
 function directPieceTargetAspect(shapeId) {

@@ -288,7 +288,7 @@ describe("M01GreyboxSession", () => {
       fragment_circle_yellow_1: "orange",
       fragment_circle_red_2: "red",
       fragment_triangle_blue_1: "purple",
-      fragment_triangle_yellow_1: "orange",
+      fragment_triangle_red_1: "red",
       fragment_triangle_yellow_2: "orange",
       fragment_hexagon_blue_1: "purple",
       fragment_hexagon_yellow_1: "orange",
@@ -328,7 +328,7 @@ describe("M01GreyboxSession", () => {
       fragment_circle_yellow_1: "yellow",
       fragment_circle_red_2: "orange",
       fragment_triangle_blue_1: "green",
-      fragment_triangle_yellow_1: "yellow",
+      fragment_triangle_red_1: "orange",
       fragment_triangle_yellow_2: "yellow",
       fragment_hexagon_blue_1: "green",
       fragment_hexagon_yellow_1: "yellow",
@@ -442,7 +442,7 @@ describe("M01GreyboxSession", () => {
 
     expect(
       session.weakSnapFragmentToEvidence(
-        "fragment_triangle_yellow_1",
+        "fragment_triangle_red_1",
         "current_manual_target_green_circle_hexagon_1"
       )
     ).toMatchObject({

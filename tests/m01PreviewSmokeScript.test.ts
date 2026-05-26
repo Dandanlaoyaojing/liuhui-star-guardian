@@ -62,15 +62,22 @@ describe("M01 preview smoke script", () => {
     );
 
     expect(smokeScript).toContain("runFixedFlashlightFloodlightPath");
+    expect(smokeScript).toContain("closePreviewBrowser");
     expect(smokeScript).toContain("observedColorsByFragment");
     expect(smokeScript).toContain("artSpriteNamesByFragment");
     expect(smokeScript).toContain("artSpriteColorByFragment");
     expect(smokeScript).toContain("artSpriteColorAlphaByFragment");
     expect(smokeScript).toContain("graphicsFillAlphaByFragment");
-    expect(smokeScript).toContain("M01ArtSprite_hidden_circle");
+    expect(smokeScript).toContain("M01ArtSprite_hidden_${shapeToken}");
+    expect(smokeScript).toContain("M01ArtSprite_light_mask_circle");
+    expect(smokeScript).toContain("observedLightMaskArtSpriteNamesMatch");
     expect(smokeScript).toContain("Expected texture-backed observed tint");
     expect(smokeScript).toContain("observedArtSpriteTintIsTranslucent");
     expect(smokeScript).toContain("OBSERVED_ART_SPRITE_TINT_COLORS");
+    expect(smokeScript).toContain("M01_TARGET_BLEND_RGB");
+    expect(smokeScript).toContain("purple: [167, 140, 166]");
+    expect(smokeScript).toContain("green: [136, 166, 138]");
+    expect(smokeScript).toContain("orange: [206, 154, 114]");
     expect(smokeScript).toContain("observedArtSpriteTintColorsMatch");
     expect(smokeScript).toContain("Expected texture-backed observed tint colors to stay separated");
     expect(smokeScript).toContain("Expected art-preview reveal graphics underlay to stay transparent");

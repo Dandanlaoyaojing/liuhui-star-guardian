@@ -11,6 +11,8 @@ import {
   buildM01GreyboxTokenArtPlan,
   getM01GreyboxArtSlice,
   getM01GreyboxArtPreviewResource,
+  getM01GreyboxRuntimeLightEdgeResourceForToken,
+  getM01GreyboxRuntimeLightMaskResourceForToken,
   getM01GreyboxRuntimeSpriteResourceForToken,
   getM01GreyboxTargetReferenceCardResource,
   getM01GreyboxToolCardFrameResource,
@@ -24,6 +26,8 @@ import {
   M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES,
   M01_GREYBOX_RUNTIME_FILTER_RESOURCES,
   M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
+  M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES,
+  M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES,
   M01_GREYBOX_RUNTIME_SURFACE_RESOURCES,
   M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES
 } from "../../assets/scripts/cocos/M01GreyboxArt.ts";
@@ -1086,6 +1090,16 @@ describe("M01 greybox art slices", () => {
       "hidden_triangle",
       "hidden_hexagon"
     ]);
+    expect(M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES.map((resource) => resource.id)).toEqual([
+      "light_mask_circle",
+      "light_mask_triangle",
+      "light_mask_hexagon"
+    ]);
+    expect(M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES.map((resource) => resource.id)).toEqual([
+      "light_edge_circle",
+      "light_edge_triangle",
+      "light_edge_hexagon"
+    ]);
     expect(M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES.map((resource) => resource.id)).toEqual([
       "evidence_purple_circle_triangle",
       "evidence_green_triangle_hexagon",
@@ -1095,6 +1109,8 @@ describe("M01 greybox art slices", () => {
 
     for (const resource of [
       ...M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
+      ...M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES,
+      ...M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES,
       ...M01_GREYBOX_RUNTIME_EVIDENCE_RESOURCES
     ]) {
       expect(
@@ -1111,6 +1127,85 @@ describe("M01 greybox art slices", () => {
       const image = readPngRgba(resource.file);
       expectVisuallyTransparentCorners(image);
       expect(countOpaquePixels(image)).toBeGreaterThan(image.width * image.height * 0.08);
+    }
+  });
+
+  it("maps lit fragment tokens onto white light-mask sprites instead of grey hidden sprites", () => {
+    const layout = buildM01GreyboxLayout(realM01Config);
+    const circle = layout.fragments.find(
+      (fragment) => fragment.controllerId === "fragment_circle_blue_1"
+    )!;
+    const mask = getM01GreyboxRuntimeLightMaskResourceForToken(circle);
+    const edge = getM01GreyboxRuntimeLightEdgeResourceForToken(circle);
+
+    expect(mask).toMatchObject({
+      id: "light_mask_circle",
+      role: "fragment_token",
+      resourcesLoadPath:
+        "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-light-mask-circle/spriteFrame"
+    });
+    expect(mask?.file).toBe(
+      "assets/resources/art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-light-mask-circle.png"
+    );
+    expect(edge).toMatchObject({
+      id: "light_edge_circle",
+      role: "fragment_token",
+      resourcesLoadPath:
+        "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-light-edge-circle/spriteFrame"
+    });
+  });
+
+  it("keeps lit fragment light-mask fills translucent without tinting the hand-drawn edges", () => {
+    for (const resource of M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES) {
+      const image = readPngRgba(resource.file);
+      const fillAlphas: number[] = [];
+
+      for (let offset = 0; offset < image.data.length; offset += 4) {
+        const r = image.data[offset];
+        const g = image.data[offset + 1];
+        const b = image.data[offset + 2];
+        const a = image.data[offset + 3];
+        if (r > 240 && g > 240 && b > 240 && a > 0) {
+          fillAlphas.push(a);
+        }
+      }
+
+      fillAlphas.sort((left, right) => left - right);
+      expect(fillAlphas.length).toBeGreaterThan(image.width * image.height * 0.35);
+      expect(fillAlphas[Math.floor(fillAlphas.length * 0.5)]).toBeGreaterThanOrEqual(120);
+      expect(fillAlphas[Math.floor(fillAlphas.length * 0.5)]).toBeLessThanOrEqual(190);
+    }
+  });
+
+  it("keeps lit fragment edges in an untinted overlay matching the grey hidden artwork", () => {
+    for (const edgeResource of M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES) {
+      const hiddenResource = M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES.find(
+        (resource) =>
+          resource.id === edgeResource.id.replace("light_edge_", "hidden_")
+      )!;
+      const edge = readPngRgba(edgeResource.file);
+      const hidden = readPngRgba(hiddenResource.file);
+      let edgePixelCount = 0;
+      let mismatchedEdgePixelCount = 0;
+
+      for (let offset = 0; offset < edge.data.length; offset += 4) {
+        if (edge.data[offset + 3] <= 24) {
+          continue;
+        }
+
+        edgePixelCount += 1;
+        if (
+          edge.data[offset] !== hidden.data[offset] ||
+          edge.data[offset + 1] !== hidden.data[offset + 1] ||
+          edge.data[offset + 2] !== hidden.data[offset + 2] ||
+          edge.data[offset + 3] !== hidden.data[offset + 3]
+        ) {
+          mismatchedEdgePixelCount += 1;
+        }
+      }
+
+      expect(edgePixelCount).toBeGreaterThan(edge.width * edge.height * 0.07);
+      expect(mismatchedEdgePixelCount).toBe(0);
     }
   });
 

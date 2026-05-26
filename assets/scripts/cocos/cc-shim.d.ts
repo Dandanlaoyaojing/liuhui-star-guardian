@@ -8,6 +8,7 @@ declare module "cc" {
 
   export class Component {
     node: Node;
+    enabled: boolean;
   }
 
   export class Node {
@@ -18,6 +19,7 @@ declare module "cc" {
     position: { x: number; y: number; z?: number };
     addChild(child: Node): void;
     addComponent<T>(component: new (...args: never[]) => T): T;
+    getComponent<T>(component: new (...args: never[]) => T): T | null;
     destroy(): void;
     on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
@@ -108,5 +110,74 @@ declare module "cc" {
       type: new (...args: never[]) => T,
       onComplete: (error: Error | null, asset: T | null) => void
     ): void;
+  };
+
+  export class Vec2 {
+    x: number;
+    y: number;
+    constructor(x?: number, y?: number);
+  }
+
+  export class Size {
+    width: number;
+    height: number;
+    constructor(width?: number, height?: number);
+  }
+
+  export enum ERigidBody2DType {
+    Static = 0,
+    Kinematic = 1,
+    Dynamic = 2,
+    Animated = 3
+  }
+
+  export class RigidBody2D extends Component {
+    type: ERigidBody2DType;
+    gravityScale: number;
+    allowSleep: boolean;
+    linearDamping: number;
+    angularDamping: number;
+    bullet: boolean;
+    linearVelocity: Vec2;
+    angularVelocity: number;
+    enabledContactListener: boolean;
+  }
+
+  export class BoxCollider2D extends Component {
+    size: Size;
+    offset: Vec2;
+    friction: number;
+    restitution: number;
+    density: number;
+    apply(): void;
+  }
+
+  export class CircleCollider2D extends Component {
+    radius: number;
+    friction: number;
+    restitution: number;
+    density: number;
+    apply(): void;
+  }
+
+  export class PolygonCollider2D extends Component {
+    points: Vec2[];
+    friction: number;
+    restitution: number;
+    density: number;
+    apply(): void;
+  }
+
+  export const PhysicsSystem2D: {
+    instance: {
+      enable: boolean;
+      gravity: Vec2;
+      fixedTimeStep: number;
+      debugDrawFlags: number;
+    };
+  };
+
+  export const game: {
+    deltaTime: number;
   };
 }

@@ -242,7 +242,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain(
       'const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";'
     );
-    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 22.2, height: 30 };");
+    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 24.5, height: 30 };");
     expect(hintButtonBlock).toContain("this.addHintIcon(buttonNode);");
     expect(hintButtonBlock).not.toContain('this.addButtonLabel(buttonNode, this.formatText("hintButton"))');
     expect(bootstrap).toContain('const iconNode = new Node("M01HintButtonIcon");');
@@ -821,6 +821,255 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("clipFlashlightBeamToFragmentFloor");
   });
 
+  it("uses valid Cocos Size objects for M01 physics boundary box colliders", () => {
+    const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
+
+    expect(boundary).toContain("Size");
+    expect(boundary).toContain("collider.size = new Size(w, h);");
+    expect(boundary).not.toContain("collider.size = new Vec2(w, h);");
+  });
+
+  it("spans the M01 physics ground across the full visible ground line", () => {
+    const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
+    const groundBlock = boundary.slice(
+      boundary.indexOf('"M01PhysicsGround"'),
+      boundary.indexOf('this.spawnEdge(\n      "M01PhysicsLeftWall"')
+    );
+
+    expect(boundary).toContain("const GROUND_COLLIDER_WIDTH = GROUND_DISPLAY_WIDTH;");
+    expect(groundBlock).toContain('"M01PhysicsGround"');
+    expect(groundBlock).toContain("0,");
+    expect(groundBlock).toContain("GROUND_COLLIDER_WIDTH");
+    expect(groundBlock).not.toContain("FLOOR_BOUNDS");
+  });
+
+  it("aligns the M01 visible ground ink with the physical ground surface", () => {
+    const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
+
+    expect(boundary).toContain("const GROUND_SOURCE_HEIGHT = 66;");
+    expect(boundary).toContain("const GROUND_SURFACE_INK_SOURCE_Y = 6;");
+    expect(boundary).toContain(
+      "const GROUND_SOURCE_TO_DISPLAY_SCALE = GROUND_DISPLAY_HEIGHT / GROUND_SOURCE_HEIGHT;"
+    );
+    expect(boundary).toContain("const PHYSICS_GROUND_Y = -270;");
+    expect(boundary).toContain("PHYSICS_GROUND_Y -");
+    expect(boundary).toContain(
+      "(GROUND_DISPLAY_HEIGHT / 2 - GROUND_SURFACE_INK_SOURCE_Y * GROUND_SOURCE_TO_DISPLAY_SCALE)"
+    );
+    expect(boundary).not.toContain("const GROUND_SPRITE_CENTER_Y = -290;");
+  });
+
+  it("keeps M01 physics side walls at the screen edges so rolling fragments stay on stage", () => {
+    const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
+    const leftWallBlock = boundary.slice(
+      boundary.indexOf('"M01PhysicsLeftWall"'),
+      boundary.indexOf('this.spawnEdge(\n      "M01PhysicsRightWall"')
+    );
+    const rightWallBlock = boundary.slice(
+      boundary.indexOf('"M01PhysicsRightWall"'),
+      boundary.indexOf("  }\n\n  /**\n   * Render a hand-drawn ink ground line")
+    );
+
+    expect(boundary).toContain("const PHYSICS_SCREEN_LEFT_X = -GROUND_DISPLAY_WIDTH / 2;");
+    expect(boundary).toContain("const PHYSICS_SCREEN_RIGHT_X = GROUND_DISPLAY_WIDTH / 2;");
+    expect(boundary).toContain("const PHYSICS_WALL_MAX_Y = 360;");
+    expect(leftWallBlock).toContain("PHYSICS_SCREEN_LEFT_X - WALL_THICKNESS / 2");
+    expect(rightWallBlock).toContain("PHYSICS_SCREEN_RIGHT_X + WALL_THICKNESS / 2");
+    expect(leftWallBlock).not.toContain("FLOOR_BOUNDS");
+    expect(rightWallBlock).not.toContain("FLOOR_BOUNDS");
+  });
+
+  it("keeps M01 physics debug visuals out of the playable preview", () => {
+    const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
+    const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
+
+    expect(boundary).toContain("const DEBUG_VISUALIZE_WALLS = false;");
+    expect(pile).toContain("PhysicsSystem2D.instance.debugDrawFlags = 0;");
+    expect(pile).not.toContain("PhysicsSystem2D.instance.debugDrawFlags = 11;");
+  });
+
+  it("uses real-time M01 physics cadence and padded fragment colliders to reduce visible pass-through", () => {
+    const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
+    const collider = readText("assets/scripts/cocos/M01PhysicsCollider.ts");
+
+    expect(pile).toContain("const M01_PHYSICS_FIXED_TIME_STEP = 1 / 60;");
+    expect(collider).toContain("export const M01_PHYSICS_COLLIDER_VISUAL_PADDING_BY_SHAPE");
+    expect(collider).toContain("circle: 4,");
+    expect(collider).toContain("triangle: 0,");
+    expect(collider).toContain("hexagon: 0");
+    expect(collider).toContain("export function resolveM01PhysicsColliderVisualPadding");
+    expect(pile).toContain("PhysicsSystem2D.instance.fixedTimeStep = M01_PHYSICS_FIXED_TIME_STEP;");
+    expect(pile).toContain("frag.size + resolveM01PhysicsColliderVisualPadding(frag.shape)");
+    expect(pile).not.toContain("buildM01PhysicsCollider(frag.shape, frag.size);");
+  });
+
+  it("waits for M01 physics fragments to actually settle before unlocking input", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
+    const shim = readText("assets/scripts/cocos/cc-shim.d.ts");
+
+    expect(bootstrap).toContain("settleTimeoutMs: 3600,");
+    expect(pile).toContain("const M01_PHYSICS_SETTLE_LINEAR_VELOCITY = 4;");
+    expect(pile).toContain("const M01_PHYSICS_SETTLE_ANGULAR_VELOCITY = 6;");
+    expect(pile).toContain("const M01_PHYSICS_SETTLE_STABLE_FRAMES = 18;");
+    expect(pile).toContain("private allFragmentsAreSettled(): boolean");
+    expect(pile).toContain("private finishSettling(): void");
+    expect(pile).toContain("this.stableSettleFrames += 1;");
+    expect(pile).not.toContain("this.options?.onSettled();\n    }, lastDropDelay + options.settleTimeoutMs);");
+    expect(pile).toContain("body.bullet = true;");
+    expect(pile).toContain("body.allowSleep = false;");
+    expect(pile).toContain("body.allowSleep = true;");
+    expect(pile).toContain("body.linearDamping = M01_PHYSICS_LINEAR_DAMPING;");
+    expect(pile).toContain("body.angularDamping = M01_PHYSICS_ANGULAR_DAMPING;");
+    expect(shim).toContain("allowSleep: boolean;");
+    expect(shim).toContain("linearDamping: number;");
+    expect(shim).toContain("angularDamping: number;");
+    expect(shim).toContain("bullet: boolean;");
+  });
+
+  it("starts M01 physics fragments from the top edge as one natural free-fall release", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
+
+    expect(bootstrap).toContain("dropOriginY: 350,");
+    expect(bootstrap).toContain("jitterX: 82,");
+    expect(bootstrap).not.toContain("f.node.active = false;");
+    expect(bootstrap).not.toContain("they reappear one by one");
+    expect(bootstrap).not.toContain("interPieceDelayMs:");
+
+    expect(pile).toContain("const M01_PHYSICS_LINEAR_DAMPING = 0.05;");
+    expect(pile).toContain("const M01_PHYSICS_FIXED_TIME_STEP = 1 / 60;");
+    expect(pile).toContain("const M01_PHYSICS_SETTLE_MAX_Y = 80;");
+    expect(pile).toContain("const M01_PHYSICS_SKY_PILE_OFFSETS");
+    expect(pile).toContain("{ x: -1, y: -34 }");
+    expect(pile).toContain("{ x: 0.31, y: 72 }");
+    expect(pile).toContain("private releaseAllPiecesFromSky(order: number[], rng: () => number): void");
+    expect(pile).toContain("this.releaseAllPiecesFromSky(order, rng);");
+    expect(pile).toContain("pileOffset.x * this.options.jitterX");
+    expect(pile).toContain("this.options.dropOriginY + pileOffset.y + driftY");
+    expect(pile).not.toContain("const spreadStep =");
+    expect(pile).not.toContain("dropOriginX - this.options.jitterX + skyIndex * spreadStep");
+    expect(pile).not.toContain("dropIndex * options.interPieceDelayMs");
+    expect(pile).not.toContain("private dropOnePiece(");
+  });
+
+  it("gives freely falling M01 fragments a subtle ground bounce", () => {
+    const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
+    const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
+    const groundBlock = boundary.slice(
+      boundary.indexOf('"M01PhysicsGround"'),
+      boundary.indexOf('this.spawnEdge(\n      "M01PhysicsLeftWall"')
+    );
+
+    expect(boundary).toContain("const M01_PHYSICS_GROUND_RESTITUTION = 0.12;");
+    expect(boundary).toContain("const M01_PHYSICS_WALL_RESTITUTION = 0.05;");
+    expect(boundary).toContain("const M01_PHYSICS_GROUND_FRICTION = 0.82;");
+    expect(boundary).toContain("const M01_PHYSICS_WALL_FRICTION = 0.25;");
+    expect(boundary).toContain("private spawnEdge(name: string, cx: number, cy: number, w: number, h: number, friction: number, restitution: number): void");
+    expect(groundBlock).toContain("M01_PHYSICS_GROUND_FRICTION");
+    expect(groundBlock).toContain("M01_PHYSICS_GROUND_RESTITUTION");
+    expect(boundary).toContain("collider.friction = friction;");
+    expect(boundary).toContain("collider.restitution = restitution;");
+    expect(pile).toContain("const M01_PHYSICS_FRAGMENT_RESTITUTION = 0.08;");
+    expect(pile).toContain("c.restitution = M01_PHYSICS_FRAGMENT_RESTITUTION;");
+    expect(pile).not.toContain("c.restitution = 0.02;");
+  });
+
+  it("lets round M01 fragments roll out of unstable vertical stacks", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
+
+    expect(bootstrap).toContain("jitterX: 82,");
+    expect(pile).toContain("const M01_PHYSICS_CIRCLE_FRICTION = 0.18;");
+    expect(pile).toContain("const M01_PHYSICS_POLYGON_FRICTION = 0.6;");
+    expect(pile).toContain("private resolveColliderFriction(shape: M01PhysicsShape): number");
+    expect(pile).toContain("c.friction = this.resolveColliderFriction(frag.shape);");
+    expect(pile).not.toContain("c.friction = 0.6;");
+  });
+
+  it("keeps pointer-controlled M01 fragments out of the physics solver", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("private activeFragmentDragOffset: M01GreyboxPoint | null = null;");
+    expect(bootstrap).toContain("this.setFragmentPointerControl(node, true);");
+    expect(bootstrap).toContain("this.parkFragmentBodyAtSnap(node);");
+    expect(bootstrap).toContain("body.enabled = false;");
+    expect(bootstrap).toContain("body.enabled = true;");
+    expect(bootstrap).not.toContain("private updateActiveFragmentDragVelocity(): void");
+    expect(bootstrap).not.toContain("M01_FRAGMENT_DRAG_MAX_VELOCITY");
+    expect(bootstrap).not.toContain("(target.x - currentPos.x) / dt");
+    expect(bootstrap).not.toContain("(target.y - currentPos.y) / dt");
+  });
+
+  it("preserves M01 fragment grab offset so pickup does not teleport into nearby pieces", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const beginDragBlock = bootstrap.slice(
+      bootstrap.indexOf("private beginTokenDrag"),
+      bootstrap.indexOf("private moveActivePointerDrag")
+    );
+
+    expect(beginDragBlock).toContain("this.activeFragmentDragOffset = {");
+    expect(beginDragBlock).toContain("x: node.position.x - position.x");
+    expect(beginDragBlock).toContain("y: node.position.y - position.y");
+    expect(beginDragBlock).toContain(
+      "this.tokenPositions.set(token.controllerId, this.pointFromNodePosition(node.position));"
+    );
+    expect(bootstrap).toContain("this.resolveActiveFragmentDragTarget(active.currentPosition)");
+    expect(bootstrap).toContain("private resolveHeldFragmentPosition(pointerPosition: M01GreyboxPoint)");
+    expect(bootstrap).toContain("private pointFromNodePosition");
+  });
+
+  it("lifts held M01 fragments out of physics collision while the pointer controls them", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const shim = readText("assets/scripts/cocos/cc-shim.d.ts");
+
+    expect(bootstrap).toContain("CircleCollider2D");
+    expect(bootstrap).toContain("PolygonCollider2D");
+    expect(bootstrap).toContain("this.setFragmentPointerControl(node, true);");
+    expect(bootstrap).toContain("private setFragmentPointerControl(fragmentNode: Node, controlledByPointer: boolean): void");
+    expect(bootstrap).toContain("private setFragmentColliderEnabled(fragmentNode: Node, enabled: boolean): void");
+    expect(bootstrap).toContain("body.enabled = false;");
+    expect(bootstrap).toContain("body.enabled = true;");
+    expect(bootstrap).toContain("collider.enabled = enabled;");
+    expect(bootstrap).toContain("node.setPosition(target.x, target.y, 0);");
+    expect(bootstrap).toContain("this.releaseFragmentBodyToPhysics(node);");
+    expect(bootstrap).toContain("this.setFragmentPointerControl(fragmentNode, false);");
+    expect(shim).toContain("enabled: boolean;");
+  });
+
+  it("releases freely dropped M01 fragments back into dynamic physics instead of parking midair", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const freeDropStart = bootstrap.indexOf('if (action.type === "place_fragment_freely")');
+    const freeDropBlock = bootstrap.slice(
+      freeDropStart,
+      bootstrap.indexOf("this.redrawAndPersistManualTargetDraft();", freeDropStart)
+    );
+    const releaseBlock = bootstrap.slice(
+      bootstrap.indexOf("private releaseFragmentBodyToPhysics"),
+      bootstrap.indexOf("private setFragmentPointerControl")
+    );
+
+    expect(freeDropBlock).toContain("this.releaseFragmentBodyToPhysics(node);");
+    expect(freeDropBlock).not.toContain("this.parkFragmentBodyAtSnap(node);");
+    expect(releaseBlock).toContain("this.setFragmentPointerControl(fragmentNode, false);");
+    expect(releaseBlock).toContain("body.type = ERigidBody2DType.Dynamic;");
+  });
+
+  it("does not draw duplicate greybox fragment geometry over art-preview selected pieces", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const underlayBlock = bootstrap.slice(
+      bootstrap.indexOf("function shouldRenderArtPreviewUnderlay"),
+      bootstrap.indexOf("function strokeColorForArtPreview")
+    );
+    const fragmentBlock = underlayBlock.slice(
+      underlayBlock.indexOf('if (token.kind === "fragment")'),
+      underlayBlock.indexOf('if (token.kind !== "slot"')
+    );
+
+    expect(fragmentBlock).toContain("return false;");
+    expect(fragmentBlock).not.toContain('presentation !== "normal" && presentation !== "placed"');
+  });
+
   it("uses M01 overlap-evidence copy instead of old filter-slot sorter wording", () => {
     const text = readText("assets/scripts/cocos/M01GreyboxText.ts");
 
@@ -860,6 +1109,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.artSpriteResourcePaths.set(sprite, requestedPath)");
     expect(bootstrap).toContain("this.artSpriteResourcePaths.get(sprite) !== requestedPath");
     expect(bootstrap).toContain("resources.load(requestedPath, SpriteFrame");
+  });
+
+  it("keeps light-edge overlay visibility controlled by reveal state, not async loading", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("activateOnLoad?: boolean");
+    expect(bootstrap).toContain("const activateOnLoad = options?.activateOnLoad ?? true");
+    expect(bootstrap).toContain("if (activateOnLoad) {\n        sprite.node.active = true;\n      }");
+    expect(bootstrap).toContain(
+      "this.syncArtSpriteFrameToResource(sprite, token, resource, { activateOnLoad: false });"
+    );
   });
 
   it("allows preview links to opt into M01 art-preview mode", () => {
@@ -910,10 +1170,19 @@ describe("Cocos Creator project scaffold", () => {
 
   it("keeps translucent hidden fragment sprites while tinting observed flashlight colors", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const art = readText("assets/scripts/cocos/M01GreyboxArt.ts");
 
-    expect(bootstrap).toContain("this.syncArtSpriteFrame(sprite, token);");
+    expect(bootstrap).toContain("this.syncArtSpriteFrame(sprite, token, colorTokenOverride);");
     expect(bootstrap).toContain("sprite.color = colorForArtSprite(presentation, token, colorTokenOverride)");
     expect(bootstrap).toContain("const OBSERVED_FRAGMENT_TINT_ALPHA = 255;");
+    expect(art).toContain("M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES");
+    expect(art).toContain("m01-fragment-light-mask-circle.png");
+    expect(art).toContain("m01-fragment-light-mask-triangle.png");
+    expect(art).toContain("m01-fragment-light-mask-hexagon.png");
+    expect(art).toContain("M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES");
+    expect(art).toContain("m01-fragment-light-edge-circle.png");
+    expect(bootstrap).toContain("M01ArtSpriteEdge_");
+    expect(bootstrap).toContain("this.syncArtEdgeSpriteState(entry.artEdgeSprite");
     expect(bootstrap).toContain("const M01_BASE_RGB: Record");
     expect(bootstrap).toContain("const M01_BEAM_RGB: Record");
     expect(bootstrap).toContain("function multiplyRgb");
@@ -921,9 +1190,10 @@ describe("Cocos Creator project scaffold", () => {
       "const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, number]> = {"
     );
     expect(bootstrap).toContain("yellow: multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow)");
-    expect(bootstrap).toContain("orange: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.yellow)");
+    expect(bootstrap).toContain("orange: M01_TARGET_BLEND_RGB.orange");
     expect(bootstrap).toContain("blue:   multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue)");
-    expect(bootstrap).toContain("purple: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.blue)");
+    expect(bootstrap).toContain("green:  M01_TARGET_BLEND_RGB.green");
+    expect(bootstrap).toContain("purple: M01_TARGET_BLEND_RGB.purple");
     expect(bootstrap).toContain("function colorForObservedFragmentTint(colorToken: M01BlendColor): Color");
     expect(bootstrap).toContain("return colorForObservedFragmentTint(colorTokenOverride);");
     expect(bootstrap).toContain(
@@ -933,11 +1203,21 @@ describe("Cocos Creator project scaffold", () => {
       "return withAlpha(colorForToken(colorTokenOverride, token.kind, presentation), OBSERVED_FRAGMENT_TINT_ALPHA)"
     );
     expect(bootstrap).not.toContain(
-      "this.syncArtSpriteFrame(sprite, token, colorTokenOverride);"
-    );
-    expect(bootstrap).not.toContain(
       "getM01GreyboxRuntimeSpriteResourceForToken(token, colorTokenOverride)"
     );
+  });
+
+  it("matches observed flashlight blend tint colors to the M01 target evidence palette", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    expect(bootstrap).toContain("const M01_TARGET_BLEND_RGB");
+    expect(bootstrap).toContain("purple: [167, 140, 166]");
+    expect(bootstrap).toContain("green: [136, 166, 138]");
+    expect(bootstrap).toContain("orange: [206, 154, 114]");
+    expect(bootstrap).toContain("orange: M01_TARGET_BLEND_RGB.orange");
+    expect(bootstrap).toContain("green:  M01_TARGET_BLEND_RGB.green");
+    expect(bootstrap).toContain("purple: M01_TARGET_BLEND_RGB.purple");
+    expect(bootstrap).toContain("colorForTargetBlendRgb(colorToken)");
   });
 
   it("uses failed-validation flash colors when redrawing staged M01 fragments", () => {
@@ -985,7 +1265,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("shouldUseTextureBackedFragmentReveal");
     expect(bootstrap).not.toContain('if (isM01StandardPieceToken(token)) {\n      return null;\n    }');
     expect(bootstrap).toContain('if (token.kind === "fragment")');
-    expect(bootstrap).toContain('presentation !== "normal" && presentation !== "placed"');
+    expect(bootstrap).not.toContain('presentation !== "normal" && presentation !== "placed"');
   });
 
   it("keeps M01 overlap evidence as layout-only snap data plus non-token target display", () => {

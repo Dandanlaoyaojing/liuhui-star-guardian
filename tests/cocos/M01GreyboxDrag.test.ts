@@ -28,7 +28,7 @@ describe("resolveM01GreyboxDrop", () => {
         locked: false
       }
     });
-    const fragment = manualLayout.fragments.find((item) => item.controllerId === "fragment_triangle_yellow_1");
+    const fragment = manualLayout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
     const evidence = manualLayout.evidence.find(
       (item) => item.controllerId === "current_manual_target_green_circle_hexagon_1"
     );
@@ -37,7 +37,7 @@ describe("resolveM01GreyboxDrop", () => {
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(manualLayout, fragment!, evidence!.position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_triangle_yellow_1",
+      fragmentId: "fragment_triangle_red_1",
       position: evidence!.position
     });
   });
@@ -201,7 +201,7 @@ describe("resolveM01GreyboxDrop", () => {
   });
 
   it("does not snap a mismatched shape to a target piece slot", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_yellow_1");
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
     const oldTargetPosition = { x: 68.92, y: 20.49 };
 
     expect(fragment).toBeDefined();
@@ -212,7 +212,7 @@ describe("resolveM01GreyboxDrop", () => {
   });
 
   it("does not weak-snap a shape that cannot produce the generated overlap target", () => {
-    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_yellow_1");
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_red_1");
     const evidence = layout.evidence.find(
       (item) => item.controllerId === "current_manual_target_green_circle_hexagon_1"
     );
@@ -221,7 +221,7 @@ describe("resolveM01GreyboxDrop", () => {
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position)).toEqual({
       type: "place_fragment_freely",
-      fragmentId: "fragment_triangle_yellow_1",
+      fragmentId: "fragment_triangle_red_1",
       position: evidence!.position
     });
   });

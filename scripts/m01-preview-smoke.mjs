@@ -30,6 +30,11 @@ const requireBrowserInput = process.argv.includes("--require-browser-input");
 const captureCleanQa = process.argv.includes("--capture-clean-qa");
 const enableArtPreview = process.argv.includes("--enable-art-preview");
 const OBSERVED_ART_SPRITE_TINT_MAX_ALPHA = 255;
+const M01_TARGET_BLEND_RGB = {
+  purple: [167, 140, 166],
+  green: [136, 166, 138],
+  orange: [206, 154, 114]
+};
 const M01_BASE_RGB = {
   red: [230, 120, 110],
   yellow: [240, 220, 130],
@@ -51,9 +56,9 @@ const OBSERVED_ART_SPRITE_TINT_COLORS = {
   red: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.red)),
   yellow: rgbToColor(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow)),
   blue: rgbToColor(multiplyRgb(M01_BASE_RGB.blue, M01_BEAM_RGB.blue)),
-  orange: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.yellow)),
-  green: rgbToColor(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.blue)),
-  purple: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.blue))
+  orange: rgbToColor(M01_TARGET_BLEND_RGB.orange),
+  green: rgbToColor(M01_TARGET_BLEND_RGB.green),
+  purple: rgbToColor(M01_TARGET_BLEND_RGB.purple)
 };
 const ROTATE_BUTTON_POSITION = { x: 328, y: 156 };
 
@@ -64,6 +69,28 @@ function rgbToColor([r, g, b]) {
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
+  }
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function closePreviewBrowser(browser) {
+  const browserProcess =
+    typeof browser.process === "function" ? browser.process() : undefined;
+  const closePromise = browser
+    .close()
+    .then(() => true)
+    .catch(() => false);
+  const closed = await Promise.race([closePromise, wait(2000).then(() => false)]);
+
+  if (closed) {
+    return;
+  }
+
+  browserProcess?.kill?.("SIGTERM");
+  const terminated = await Promise.race([closePromise, wait(1000).then(() => false)]);
+  if (!terminated) {
+    browserProcess?.kill?.("SIGKILL");
   }
 }
 
@@ -110,6 +137,13 @@ function hiddenArtSpriteNamesMatch(actual = {}, fragmentIds = []) {
   return fragmentIds.every((fragmentId) => {
     const shapeToken = shapeTokenFromFragmentId(fragmentId);
     return actual?.[fragmentId] === `M01ArtSprite_hidden_${shapeToken}`;
+  });
+}
+
+function observedLightMaskArtSpriteNamesMatch(actual = {}, fragmentIds = []) {
+  return fragmentIds.every((fragmentId) => {
+    const shapeToken = shapeTokenFromFragmentId(fragmentId);
+    return actual?.[fragmentId] === `M01ArtSprite_light_mask_${shapeToken}`;
   });
 }
 
@@ -201,6 +235,37 @@ async function assertNoPrematureToolCard(page) {
   });
 
   assert(hasToolCard === false, "ToolCard preview should stay hidden before completion.");
+}
+
+async function waitForM01PhysicsSettled(page) {
+  await page.waitForFunction(
+    () => {
+      function findNode(node, name) {
+        if (!node) {
+          return undefined;
+        }
+        if (node.name === name) {
+          return node;
+        }
+        for (const child of node.children ?? []) {
+          const found = findNode(child, name);
+          if (found) {
+            return found;
+          }
+        }
+        return undefined;
+      }
+
+      const scene = window.cc?.director?.getScene?.();
+      const root = findNode(scene, "M01GreyboxRoot");
+      const bootstrap = root?.components?.find(
+        (component) => component.constructor?.name === "M01GreyboxBootstrap"
+      );
+      return bootstrap?.physicsSettled === true;
+    },
+    { timeout: 15_000 }
+  );
+  await page.waitForTimeout(200);
 }
 
 async function enableArtPreviewMode(page) {
@@ -1197,7 +1262,7 @@ async function main() {
     await page.waitForFunction(() => window.cc?.director?.getScene?.()?.name === "M01Greybox", {
       timeout: 30_000
     });
-    await page.waitForTimeout(3_000);
+    await waitForM01PhysicsSettled(page);
 
     const initial = await snapshotRuntime(page);
     assert(initial.hasBootstrap, "M01GreyboxBootstrap was not found in the preview scene.");
@@ -1246,7 +1311,7 @@ async function main() {
         step.heldFlashlightId === undefined &&
         observedColorsMatch(step.observedColorsByFragment, check.expectedObservedColorsByFragment) &&
         (!enableArtPreview ||
-          hiddenArtSpriteNamesMatch(
+          observedLightMaskArtSpriteNamesMatch(
             step.artSpriteNamesByFragment,
             realInputPlan.revealFragmentIds
           )) &&
@@ -1280,7 +1345,7 @@ async function main() {
         persistentFlashlightCheck.expectedObservedColorsByFragment
       ) &&
       (!enableArtPreview ||
-        hiddenArtSpriteNamesMatch(
+        observedLightMaskArtSpriteNamesMatch(
           persistentFloodlightStep.artSpriteNamesByFragment,
           realInputPlan.revealFragmentIds
         )) &&
@@ -1332,7 +1397,7 @@ async function main() {
         firstFlashlightCheck.expectedObservedColorsByFragment
       ) &&
       (!enableArtPreview ||
-        hiddenArtSpriteNamesMatch(
+        observedLightMaskArtSpriteNamesMatch(
           fixedFloodlightStep?.artSpriteNamesByFragment,
           realInputPlan.revealFragmentIds
         )) &&
@@ -1408,11 +1473,11 @@ async function main() {
       if (enableArtPreview) {
         assert(
           !step ||
-            hiddenArtSpriteNamesMatch(
+            observedLightMaskArtSpriteNamesMatch(
               step.artSpriteNamesByFragment,
               realInputPlan.revealFragmentIds
             ),
-          `Expected ${check.flashlightId} to tint translucent hidden sprites; got ${JSON.stringify(step?.artSpriteNamesByFragment)}.`
+          `Expected ${check.flashlightId} to tint translucent light-mask sprites; got ${JSON.stringify(step?.artSpriteNamesByFragment)}.`
         );
         assert(
           !step ||
@@ -1486,11 +1551,11 @@ async function main() {
     );
     if (enableArtPreview) {
       assert(
-        hiddenArtSpriteNamesMatch(
+        observedLightMaskArtSpriteNamesMatch(
           realFixedFloodlightStep?.artSpriteNamesByFragment,
           realInputPlan.revealFragmentIds
         ),
-        `Expected texture-backed observed tint on M01ArtSprite_hidden_circle; got ${JSON.stringify(realFixedFloodlightStep?.artSpriteNamesByFragment)}.`
+        `Expected texture-backed observed tint on M01ArtSprite_light_mask_circle; got ${JSON.stringify(realFixedFloodlightStep?.artSpriteNamesByFragment)}.`
       );
       assert(
         observedArtSpriteTintIsTranslucent(
@@ -1611,7 +1676,7 @@ async function main() {
       await page.waitForFunction(() => window.cc?.director?.getScene?.()?.name === "M01Greybox", {
         timeout: 30_000
       });
-      await page.waitForTimeout(3_000);
+      await waitForM01PhysicsSettled(page);
       completionArtPreview = enableArtPreview ? await enableArtPreviewMode(page) : undefined;
       completion = await runCompletionInputPath(page, realInputPlan);
       assert(
@@ -1682,11 +1747,15 @@ async function main() {
       )
     );
   } finally {
-    await browser.close();
+    await closePreviewBrowser(browser);
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });

@@ -245,8 +245,8 @@
       }
     },
     {
-      "id": "fragment_triangle_yellow_1",
-      "hiddenColor": "yellow",
+      "id": "fragment_triangle_red_1",
+      "hiddenColor": "red",
       "shape": "triangle",
       "edgeShape": "triangle",
       "tags": [

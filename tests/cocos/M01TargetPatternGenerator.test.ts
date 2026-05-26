@@ -24,7 +24,7 @@ describe("deriveM01TargetEvidenceFromPlacements", () => {
         position: { x: 24, y: 0 }
       },
       {
-        fragmentId: "fragment_triangle_yellow_1",
+        fragmentId: "fragment_triangle_red_1",
         position: { x: 0, y: -100 }
       }
     ];

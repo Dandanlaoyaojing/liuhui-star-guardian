@@ -1,8 +1,10 @@
 import {
   _decorator,
+  CircleCollider2D,
   CCBoolean,
   Color,
   Component,
+  ERigidBody2DType,
   EventTouch,
   Graphics,
   input,
@@ -10,10 +12,13 @@ import {
   JsonAsset,
   Label,
   Node,
+  PolygonCollider2D,
   resources,
+  RigidBody2D,
   Sprite,
   SpriteFrame,
-  UITransform
+  UITransform,
+  Vec2
 } from "cc";
 import {
   beginDragSession,
@@ -62,12 +67,18 @@ import { buildToolCardPreview } from "../ui/ToolCardView.ts";
 import {
   buildM01GreyboxStaticArtPlan,
   buildM01GreyboxTargetOverlapEvidencePlan,
+  getM01GreyboxRuntimeLightEdgeResourceForToken,
+  getM01GreyboxRuntimeLightMaskResourceForToken,
   getM01GreyboxTargetReferenceCardResource,
   getM01GreyboxToolCardFrameResource,
-  getM01GreyboxRuntimeSpriteResourceForToken
+  getM01GreyboxRuntimeSpriteResourceForToken,
+  type M01GreyboxRuntimeSpriteResource
 } from "./M01GreyboxArt.ts";
 import { ObservedResetScheduler } from "./ObservedResetScheduler.ts";
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
+import { M01PhysicsBoundary } from "./M01PhysicsBoundary.ts";
+import { M01PhysicsPile } from "./M01PhysicsPile.ts";
+import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
 
 const { ccclass, property } = _decorator;
 const CLICK_DRAG_THRESHOLD = 6;
@@ -77,10 +88,18 @@ const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
 const VALIDATION_FAILURE_FLASH_COUNT = 2;
 const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";
-const M01_HINT_ICON_DISPLAY_SIZE = { width: 22.2, height: 30 };
+const M01_HINT_ICON_DISPLAY_SIZE = { width: 24.5, height: 30 };
 const OBSERVED_FRAGMENT_TINT_ALPHA = 255;
-// Source RGBs: tune these 6 to drive the 6 derived blend colors via real multiply math.
-// Pigment-mixing model: visible = base_rgb × beam_rgb / 255 per channel.
+const M01_TARGET_BLEND_RGB: Record<
+  Exclude<M01BlendColor, M01BaseColor>,
+  [number, number, number]
+> = {
+  purple: [167, 140, 166],
+  green: [136, 166, 138],
+  orange: [206, 154, 114]
+};
+// Base/beam RGBs still drive the three same-color flashlight observations.
+// Blend observations reuse the target-evidence palette so clues and lit pieces match.
 const M01_BASE_RGB: Record<"red" | "yellow" | "blue", [number, number, number]> = {
   red:    [230, 120, 110],
   yellow: [240, 220, 130],
@@ -105,9 +124,9 @@ const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, numb
   red:    multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.red),
   yellow: multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow),
   blue:   multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue),
-  orange: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.yellow),
-  green:  multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.blue),
-  purple: multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.blue)
+  orange: M01_TARGET_BLEND_RGB.orange,
+  green:  M01_TARGET_BLEND_RGB.green,
+  purple: M01_TARGET_BLEND_RGB.purple
 };
 const FIXED_FLASHLIGHT_BEAM_ANCHOR: M01GreyboxPoint = { x: 360, y: 110 };
 const FRAGMENT_FLOOR = {
@@ -182,6 +201,9 @@ export class M01GreyboxBootstrap extends Component {
   private config: M01MemoryGearConfig | null = null;
   private layout: M01GreyboxLayout | null = null;
   private greyboxRoot: Node | null = null;
+  private physicsBoundary: M01PhysicsBoundary | null = null;
+  private physicsPile: M01PhysicsPile | null = null;
+  private physicsSettled = false;
   private toolCardRoot: Node | null = null;
   private targetReferenceZoomRoot: Node | null = null;
   private hintButtonRoot: Node | null = null;
@@ -211,13 +233,21 @@ export class M01GreyboxBootstrap extends Component {
   });
   private heldFragmentId: string | undefined;
   private heldPointerId: string | number | undefined;
+  private heldFragmentPointerOffset: M01GreyboxPoint | null = null;
   private dragState: DragState = {};
+  private activeFragmentDragOffset: M01GreyboxPoint | null = null;
   private globalPointerInputBound = false;
   private suppressNextRootClick = false;
   private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
-    { node: Node; token: M01GreyboxTokenNode; graphics: Graphics; artSprite: Sprite | null }
+    {
+      node: Node;
+      token: M01GreyboxTokenNode;
+      graphics: Graphics;
+      artSprite: Sprite | null;
+      artEdgeSprite: Sprite | null;
+    }
   >();
   private readonly artPreviewFallbackUnderlayIds = new Set<string>();
   private readonly artSpriteResourcePaths = new Map<Sprite, string>();
@@ -253,6 +283,7 @@ export class M01GreyboxBootstrap extends Component {
       this.hintedTargetIds.clear();
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       this.heldFlashlightId = undefined;
       this.heldFlashlightPointerId = undefined;
       this.activeFlashlightId = undefined;
@@ -270,6 +301,49 @@ export class M01GreyboxBootstrap extends Component {
       this.exposeManualTargetTools();
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
+
+      // Physics: attach boundary + pile, lock input, start drop animation
+      if (this.greyboxRoot && this.layout) {
+        this.physicsBoundary = this.greyboxRoot.addComponent(M01PhysicsBoundary);
+        this.physicsPile = this.greyboxRoot.addComponent(M01PhysicsPile);
+
+        // Step 1: build the list of physics fragments (nodes still active here)
+        const physicsFragments: { node: Node; shape: M01PhysicsShape; size: number }[] = [];
+        for (const fragmentToken of this.layout.fragments) {
+          const entry = this.greyboxNodes.get(fragmentToken.controllerId);
+          if (!entry) continue;
+          physicsFragments.push({
+            node: entry.node,
+            shape: fragmentToken.shapeToken as M01PhysicsShape,
+            size: Math.max(fragmentToken.size.width, fragmentToken.size.height)
+          });
+        }
+
+        // Step 2: pre-attach physics components while nodes are ACTIVE.
+        // This is required for Cocos box2d to register bodies with the physics world.
+        this.physicsPile.preparePhysicsWorld(physicsFragments, this.physicsBoundary);
+        this.physicsBoundary.renderGroundLine();
+
+        // Step 3: lock input + show settling text while the sky drop settles.
+        this.physicsSettled = false;
+        this.setStatus(this.formatText("physicsSettling", {}));
+
+        // Step 4: release all fragments from the top edge together.
+        this.physicsPile.startDrop({
+          fragments: physicsFragments,
+          seed: Date.now(),
+          dropOriginX: 320,
+          dropOriginY: 350,
+          jitterX: 82,
+          settleTimeoutMs: 3600,
+          onSettled: () => {
+            this.physicsSettled = true;
+            if (this.layout) {
+              this.setStatus(this.layout.statusText);
+            }
+          }
+        });
+      }
     });
   }
 
@@ -1106,7 +1180,8 @@ export class M01GreyboxBootstrap extends Component {
     this.applyTokenGraphicsState(graphics, token, "normal", token.kind === "slot" ? 3 : 2);
     this.bindGreyboxInput(node, token);
     const artSprite = this.enableArtPreview ? this.addTokenArtSprite(node, token) : null;
-    this.greyboxNodes.set(token.controllerId, { node, token, graphics, artSprite });
+    const artEdgeSprite = this.enableArtPreview ? this.addTokenArtEdgeSprite(node, token) : null;
+    this.greyboxNodes.set(token.controllerId, { node, token, graphics, artSprite, artEdgeSprite });
     this.tokenPositions.set(token.controllerId, token.position);
     this.tokenRotations.set(token.controllerId, 0);
 
@@ -1179,6 +1254,31 @@ export class M01GreyboxBootstrap extends Component {
     const sprite = spriteNode.addComponent(Sprite);
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
     this.syncArtSpriteState(sprite, "normal", token);
+    return sprite;
+  }
+
+  private addTokenArtEdgeSprite(parent: Node, token: M01GreyboxTokenNode): Sprite | null {
+    if (token.kind !== "fragment") {
+      return null;
+    }
+
+    const resource = getM01GreyboxRuntimeLightEdgeResourceForToken(token);
+    if (!resource) {
+      return null;
+    }
+
+    const spriteNode = new Node(`M01ArtSpriteEdge_${resource.id}`);
+    parent.addChild(spriteNode);
+
+    const displaySize = resource.displaySize ?? token.size;
+    const transform = spriteNode.addComponent(UITransform);
+    transform.setContentSize(displaySize.width, displaySize.height);
+
+    const sprite = spriteNode.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.color = new Color(255, 255, 255, 255);
+    spriteNode.active = false;
+    this.syncArtSpriteFrameToResource(sprite, token, resource, { activateOnLoad: false });
     return sprite;
   }
 
@@ -1448,6 +1548,9 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.layout) {
       return;
     }
+    if (token.kind === "fragment" && !this.physicsSettled) {
+      return;
+    }
     if (token.kind === "flashlight" && token.controllerId === this.heldFlashlightId) {
       return;
     }
@@ -1467,8 +1570,25 @@ export class M01GreyboxBootstrap extends Component {
       entityId: token.controllerId,
       position
     });
-    node.setPosition(position.x, position.y, 0);
-    this.tokenPositions.set(token.controllerId, position);
+    if (token.kind === "fragment") {
+      this.heldFragmentPointerOffset = null;
+      this.activeFragmentDragOffset = {
+        x: node.position.x - position.x,
+        y: node.position.y - position.y
+      };
+      const body = node.getComponent(RigidBody2D);
+      if (body) {
+        body.type = ERigidBody2DType.Kinematic;
+        body.linearVelocity = new Vec2(0, 0);
+        body.angularVelocity = 0;
+      }
+      this.setFragmentPointerControl(node, true);
+      this.tokenPositions.set(token.controllerId, this.pointFromNodePosition(node.position));
+    } else {
+      this.activeFragmentDragOffset = null;
+      node.setPosition(position.x, position.y, 0);
+      this.tokenPositions.set(token.controllerId, position);
+    }
     this.redrawAndPersistManualTargetDraft();
   }
 
@@ -1588,9 +1708,13 @@ export class M01GreyboxBootstrap extends Component {
 
     const active = this.dragState.active;
     if (active) {
-      node.setPosition(active.currentPosition.x, active.currentPosition.y, 0);
+      const target =
+        this.activeDragToken?.kind === "fragment"
+          ? this.resolveActiveFragmentDragTarget(active.currentPosition)
+          : active.currentPosition;
+      node.setPosition(target.x, target.y, 0);
       if (this.activeDragToken) {
-        this.tokenPositions.set(this.activeDragToken.controllerId, active.currentPosition);
+        this.tokenPositions.set(this.activeDragToken.controllerId, target);
       }
       this.redrawAndPersistManualTargetDraft();
     }
@@ -1670,8 +1794,20 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private clearActiveDrag(): void {
+    if (this.activeDragToken?.kind === "fragment" && this.activeDragNode) {
+      this.stopFragmentBodyMotion(this.activeDragNode);
+    }
+    this.activeFragmentDragOffset = null;
     this.activeDragNode = null;
     this.activeDragToken = null;
+  }
+
+  private resolveActiveFragmentDragTarget(pointerPosition: M01GreyboxPoint): M01GreyboxPoint {
+    const offset = this.activeFragmentDragOffset ?? { x: 0, y: 0 };
+    return {
+      x: pointerPosition.x + offset.x,
+      y: pointerPosition.y + offset.y
+    };
   }
 
   private suspendHeldFlashlightInteraction(): void {
@@ -1759,8 +1895,13 @@ export class M01GreyboxBootstrap extends Component {
 
     this.heldFragmentId = token.controllerId;
     this.heldPointerId = pointerId;
-    node.setPosition(position.x, position.y, 0);
-    this.tokenPositions.set(token.controllerId, position);
+    this.setFragmentPointerControl(node, true);
+    const currentPosition = this.pointFromNodePosition(node.position);
+    this.heldFragmentPointerOffset = {
+      x: currentPosition.x - position.x,
+      y: currentPosition.y - position.y
+    };
+    this.tokenPositions.set(token.controllerId, currentPosition);
     this.redrawAndPersistManualTargetDraft();
   }
 
@@ -1795,6 +1936,7 @@ export class M01GreyboxBootstrap extends Component {
     if (!entry) {
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       this.setFeedback("先选中一个拼片");
       return;
     }
@@ -1870,8 +2012,10 @@ export class M01GreyboxBootstrap extends Component {
 
       this.trackWeakSnappedFragment(action.evidenceId, action.fragmentId);
       this.snapNodeToEvidence(node, token, action.evidenceId, dropPosition);
+      this.parkFragmentBodyAtSnap(node);
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       this.clearHintTargets();
       this.trySubmitWeakSnappedEvidencePair(action.evidenceId);
       this.tryValidateCompleteEvidenceCandidate();
@@ -1894,11 +2038,13 @@ export class M01GreyboxBootstrap extends Component {
       this.setStatus(placed.status);
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
       node.setPosition(action.position.x, action.position.y, 0);
       node.setRotationFromEuler(0, 0, action.rotation);
+      this.parkFragmentBodyAtSnap(node);
       this.tokenPositions.set(action.fragmentId, action.position);
       this.tokenRotations.set(action.fragmentId, normalizeM01Rotation(action.rotation));
       this.redrawAndPersistManualTargetDraft();
@@ -1923,10 +2069,12 @@ export class M01GreyboxBootstrap extends Component {
       this.setStatus(placed.status);
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
       node.setPosition(freePosition.x, freePosition.y, 0);
+      this.releaseFragmentBodyToPhysics(node);
       this.tokenPositions.set(action.fragmentId, freePosition);
       this.redrawAndPersistManualTargetDraft();
       return;
@@ -1950,6 +2098,7 @@ export class M01GreyboxBootstrap extends Component {
     if (!entry) {
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       return;
     }
 
@@ -1966,10 +2115,11 @@ export class M01GreyboxBootstrap extends Component {
     if (!entry) {
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       return;
     }
 
-    const position = this.eventToLocalPoint(event);
+    const position = this.resolveHeldFragmentPosition(this.eventToLocalPoint(event));
     entry.node.setPosition(position.x, position.y, 0);
     this.tokenPositions.set(heldFragmentId, position);
     this.redrawAndPersistManualTargetDraft();
@@ -1985,10 +2135,26 @@ export class M01GreyboxBootstrap extends Component {
     if (!entry) {
       this.heldFragmentId = undefined;
       this.heldPointerId = undefined;
+      this.heldFragmentPointerOffset = null;
       return;
     }
 
-    this.handleTokenDrop(entry.node, entry.token, position);
+    this.handleTokenDrop(entry.node, entry.token, this.resolveHeldFragmentPosition(position));
+  }
+
+  private resolveHeldFragmentPosition(pointerPosition: M01GreyboxPoint): M01GreyboxPoint {
+    const offset = this.heldFragmentPointerOffset ?? { x: 0, y: 0 };
+    return {
+      x: pointerPosition.x + offset.x,
+      y: pointerPosition.y + offset.y
+    };
+  }
+
+  private pointFromNodePosition(position: Readonly<{ x: number; y: number }>): M01GreyboxPoint {
+    return {
+      x: position.x,
+      y: position.y
+    };
   }
 
   private activateFixedFlashlightBeam(
@@ -2250,6 +2416,7 @@ export class M01GreyboxBootstrap extends Component {
     this.weakSnappedFragmentsByEvidence.clear();
     this.heldFragmentId = undefined;
     this.heldPointerId = undefined;
+    this.heldFragmentPointerOffset = null;
     for (const fragmentId of fragmentIds) {
       const entry = this.greyboxNodes.get(fragmentId);
       if (entry) {
@@ -2329,10 +2496,82 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private resetTokenNode(node: Node, token: M01GreyboxTokenNode): void {
+    if (token.kind === "fragment") {
+      const body = node.getComponent(RigidBody2D);
+      if (body) {
+        // Physics-controlled fragment: leave it where it is, let gravity take over.
+        this.releaseFragmentBodyToPhysics(node);
+        return;
+      }
+    }
+
+    // Non-physics path (filters, flashlights, slots, or fragment before physics enabled)
     node.setPosition(token.position.x, token.position.y, 0);
     node.setRotationFromEuler(0, 0, this.tokenRotations.get(token.controllerId) ?? 0);
     this.tokenPositions.set(token.controllerId, token.position);
     this.redrawAndPersistManualTargetDraft();
+  }
+
+  private parkFragmentBodyAtSnap(fragmentNode: Node): void {
+    const body = fragmentNode.getComponent(RigidBody2D);
+    if (!body) return;
+    this.setFragmentPointerControl(fragmentNode, false);
+    body.type = ERigidBody2DType.Kinematic;
+    body.linearVelocity = new Vec2(0, 0);
+    body.angularVelocity = 0;
+  }
+
+  private releaseFragmentBodyToPhysics(fragmentNode: Node): void {
+    const body = fragmentNode.getComponent(RigidBody2D);
+    if (!body) return;
+    this.setFragmentPointerControl(fragmentNode, false);
+    body.type = ERigidBody2DType.Dynamic;
+    body.linearVelocity = new Vec2(0, 0);
+    body.angularVelocity = 0;
+  }
+
+  private setFragmentPointerControl(fragmentNode: Node, controlledByPointer: boolean): void {
+    const body = fragmentNode.getComponent(RigidBody2D);
+    if (controlledByPointer) {
+      this.setFragmentColliderEnabled(fragmentNode, false);
+      if (body) {
+        body.linearVelocity = new Vec2(0, 0);
+        body.angularVelocity = 0;
+        body.enabled = false;
+      }
+      return;
+    }
+
+    if (body) {
+      body.enabled = true;
+      body.linearVelocity = new Vec2(0, 0);
+      body.angularVelocity = 0;
+    }
+    this.setFragmentColliderEnabled(fragmentNode, true);
+  }
+
+  private setFragmentColliderEnabled(fragmentNode: Node, enabled: boolean): void {
+    const colliders: Array<CircleCollider2D | PolygonCollider2D | null> = [
+      fragmentNode.getComponent(CircleCollider2D),
+      fragmentNode.getComponent(PolygonCollider2D)
+    ];
+    for (const collider of colliders) {
+      if (!collider) {
+        continue;
+      }
+
+      collider.enabled = enabled;
+      if (enabled) {
+        collider.apply();
+      }
+    }
+  }
+
+  private stopFragmentBodyMotion(fragmentNode: Node): void {
+    const body = fragmentNode.getComponent(RigidBody2D);
+    if (!body) return;
+    body.linearVelocity = new Vec2(0, 0);
+    body.angularVelocity = 0;
   }
 
   private clearHintTargets(): void {
@@ -2412,6 +2651,7 @@ export class M01GreyboxBootstrap extends Component {
           entry.token,
           fragmentColorOverride
         );
+        this.syncArtEdgeSpriteState(entry.artEdgeSprite, entry.token, fragmentColorOverride);
       } else if (entry.token.kind === "slot") {
         const view = this.session.getSlotView(entry.token.controllerId);
         this.applyTokenGraphicsState(
@@ -2503,27 +2743,46 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    this.syncArtSpriteFrame(sprite, token);
+    this.syncArtSpriteFrame(sprite, token, colorTokenOverride);
     sprite.color = colorForArtSprite(presentation, token, colorTokenOverride);
   }
 
-  private syncArtSpriteFrame(sprite: Sprite, token?: M01GreyboxTokenNode): void {
+  private syncArtSpriteFrame(
+    sprite: Sprite,
+    token?: M01GreyboxTokenNode,
+    colorTokenOverride?: M01BlendColor
+  ): void {
     if (!token) {
       return;
     }
 
-    const resource = getM01GreyboxRuntimeSpriteResourceForToken(token);
+    const resource =
+      token.kind === "fragment" && colorTokenOverride
+        ? getM01GreyboxRuntimeLightMaskResourceForToken(token)
+        : getM01GreyboxRuntimeSpriteResourceForToken(token);
     if (!resource) {
       return;
     }
 
+    this.syncArtSpriteFrameToResource(sprite, token, resource);
+  }
+
+  private syncArtSpriteFrameToResource(
+    sprite: Sprite,
+    token: M01GreyboxTokenNode,
+    resource: M01GreyboxRuntimeSpriteResource,
+    options?: { activateOnLoad?: boolean }
+  ): void {
     const requestedPath = resource.resourcesLoadPath;
+    const activateOnLoad = options?.activateOnLoad ?? true;
     if (this.artSpriteResourcePaths.get(sprite) === requestedPath) {
       return;
     }
 
     this.artSpriteResourcePaths.set(sprite, requestedPath);
-    sprite.node.name = `M01ArtSprite_${resource.id}`;
+    sprite.node.name = resource.id.startsWith("light_edge_")
+      ? `M01ArtSpriteEdge_${resource.id}`
+      : `M01ArtSprite_${resource.id}`;
 
     resources.load(requestedPath, SpriteFrame, (error, spriteFrame) => {
       if (this.artSpriteResourcePaths.get(sprite) !== requestedPath) {
@@ -2538,9 +2797,31 @@ export class M01GreyboxBootstrap extends Component {
         sprite.node.active = false;
         return;
       }
-      sprite.node.active = true;
       sprite.spriteFrame = spriteFrame;
+      if (activateOnLoad) {
+        sprite.node.active = true;
+      }
     });
+  }
+
+  private syncArtEdgeSpriteState(
+    sprite: Sprite | null,
+    token: M01GreyboxTokenNode,
+    colorTokenOverride?: M01BlendColor
+  ): void {
+    if (!sprite) {
+      return;
+    }
+
+    const resource = getM01GreyboxRuntimeLightEdgeResourceForToken(token);
+    if (!resource || !colorTokenOverride) {
+      sprite.node.active = false;
+      return;
+    }
+
+    sprite.color = new Color(255, 255, 255, 255);
+    this.syncArtSpriteFrameToResource(sprite, token, resource, { activateOnLoad: false });
+    sprite.node.active = true;
   }
 
   private formatText(
@@ -3091,43 +3372,38 @@ function colorForToken(
     normal: kind === "slot" ? 72 : 180
   };
   const alpha = alphaByPresentation[presentation] ?? alphaByPresentation.normal;
+  const targetBlendRgb = colorForTargetBlendRgb(colorToken);
   const colors: Record<string, [number, number, number]> = {
     hidden: [182, 180, 166],
     red: [180, 92, 70],
     blue: [72, 104, 190],
-    yellow: [188, 158, 87],
-    purple: [139, 105, 156],
-    green: [92, 145, 112],
-    orange: [199, 126, 75]
+    yellow: [188, 158, 87]
   };
-  const [r, g, b] = colors[colorToken] ?? [160, 154, 132];
+  const [r, g, b] = targetBlendRgb ?? colors[colorToken] ?? [160, 154, 132];
 
   return new Color(r, g, b, alpha);
 }
 
 function colorForManualTargetBlendOverlay(colorToken: string): Color {
+  const targetBlendRgb = colorForTargetBlendRgb(colorToken);
   const colors: Record<string, [number, number, number]> = {
     red: [180, 92, 70],
     blue: [72, 104, 190],
-    yellow: [188, 158, 87],
-    purple: [139, 105, 156],
-    green: [92, 145, 112],
-    orange: [199, 126, 75]
+    yellow: [188, 158, 87]
   };
-  const [r, g, b] = colors[colorToken] ?? [150, 132, 118];
+  const [r, g, b] = targetBlendRgb ?? colors[colorToken] ?? [150, 132, 118];
 
   return new Color(r, g, b, 232);
 }
 
 function colorForTargetOverlapEvidence(colorToken: string): Color {
-  const colors: Record<string, [number, number, number]> = {
-    purple: [139, 105, 156],
-    green: [92, 145, 112],
-    orange: [199, 126, 75]
-  };
-  const [r, g, b] = colors[colorToken] ?? [150, 132, 118];
+  const [r, g, b] = colorForTargetBlendRgb(colorToken) ?? [150, 132, 118];
 
   return new Color(r, g, b, 232);
+}
+
+function colorForTargetBlendRgb(colorToken: string): [number, number, number] | undefined {
+  return M01_TARGET_BLEND_RGB[colorToken as Exclude<M01BlendColor, M01BaseColor>];
 }
 
 function boundsForPoints(points: M01GreyboxPoint[]): { width: number; height: number } {
@@ -3193,7 +3469,7 @@ function shouldRenderArtPreviewUnderlay(
     return false;
   }
   if (token.kind === "fragment") {
-    return presentation !== "normal" && presentation !== "placed";
+    return false;
   }
   if (token.kind !== "slot" && token.kind !== "gear") {
     return true;

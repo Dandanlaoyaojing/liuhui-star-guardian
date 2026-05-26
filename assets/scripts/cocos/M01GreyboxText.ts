@@ -1,5 +1,6 @@
 export const m01GreyboxDefaultText = {
   initialInstruction: "M01 灰盒：用三色手电观察灰白碎片，再按局部交叠证据拼出成立的关系。",
+  physicsSettling: "碎片正在落下...",
   loadFailed: "M01 配置载入失败：{reason}",
   notInitialized: "M01 尚未初始化。",
   unknownFilter: "未知光源：{filterId}",
