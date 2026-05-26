@@ -17,6 +17,7 @@ declare module "cc" {
     children: Node[];
     active: boolean;
     position: { x: number; y: number; z?: number };
+    eulerAngles: Vec3;
     addChild(child: Node): void;
     addComponent<T>(component: new (...args: never[]) => T): T;
     getComponent<T>(component: new (...args: never[]) => T): T | null;
@@ -24,6 +25,29 @@ declare module "cc" {
     on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
     setRotationFromEuler(x: number, y: number, z: number): void;
+    static EventType: {
+      TOUCH_START: string;
+      TOUCH_MOVE: string;
+      TOUCH_END: string;
+      TOUCH_CANCEL: string;
+    };
+  }
+
+  export class Vec3 {
+    x: number;
+    y: number;
+    z: number;
+    constructor(x?: number, y?: number, z?: number);
+  }
+
+  export function tween<T>(target: T): TweenAction<T>;
+  export interface TweenAction<T> {
+    to(duration: number, props: object, options?: { easing?: string }): TweenAction<T>;
+    by(duration: number, props: object, options?: { easing?: string }): TweenAction<T>;
+    call(cb: () => void): TweenAction<T>;
+    delay(seconds: number): TweenAction<T>;
+    start(): TweenAction<T>;
+    stop(): TweenAction<T>;
   }
 
   export class EventTouch {

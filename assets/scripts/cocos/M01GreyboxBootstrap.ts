@@ -78,6 +78,7 @@ import { ObservedResetScheduler } from "./ObservedResetScheduler.ts";
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 import { M01PhysicsBoundary } from "./M01PhysicsBoundary.ts";
 import { M01PhysicsPile } from "./M01PhysicsPile.ts";
+import { M01IntroSequence } from "./M01IntroSequence.ts";
 import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
 
 const { ccclass, property } = _decorator;
@@ -204,6 +205,8 @@ export class M01GreyboxBootstrap extends Component {
   private physicsBoundary: M01PhysicsBoundary | null = null;
   private physicsPile: M01PhysicsPile | null = null;
   private physicsSettled = false;
+  private introSequence: M01IntroSequence | null = null;
+  private pendingPhysicsFragments: { node: Node; shape: M01PhysicsShape; size: number }[] = [];
   private toolCardRoot: Node | null = null;
   private targetReferenceZoomRoot: Node | null = null;
   private hintButtonRoot: Node | null = null;
@@ -302,12 +305,15 @@ export class M01GreyboxBootstrap extends Component {
       this.syncVisualState();
       this.setStatus(this.layout.statusText);
 
-      // Physics: attach boundary + pile, lock input, start drop animation
+      // Physics + intro sequence: attach boundary, pile, and Lemmy/basket intro.
+      // The pile is prepared synchronously (so box2d registers bodies) but does
+      // NOT start dropping until the basket tips. Each fragment node is hidden
+      // until the spill begins.
       if (this.greyboxRoot && this.layout) {
         this.physicsBoundary = this.greyboxRoot.addComponent(M01PhysicsBoundary);
         this.physicsPile = this.greyboxRoot.addComponent(M01PhysicsPile);
 
-        // Step 1: build the list of physics fragments (nodes still active here)
+        // Step 1: collect physics fragments while nodes are still active.
         const physicsFragments: { node: Node; shape: M01PhysicsShape; size: number }[] = [];
         for (const fragmentToken of this.layout.fragments) {
           const entry = this.greyboxNodes.get(fragmentToken.controllerId);
@@ -318,29 +324,46 @@ export class M01GreyboxBootstrap extends Component {
             size: Math.max(fragmentToken.size.width, fragmentToken.size.height)
           });
         }
+        this.pendingPhysicsFragments = physicsFragments;
 
         // Step 2: pre-attach physics components while nodes are ACTIVE.
-        // This is required for Cocos box2d to register bodies with the physics world.
+        // Required for Cocos box2d to register bodies with the physics world.
         this.physicsPile.preparePhysicsWorld(physicsFragments, this.physicsBoundary);
         this.physicsBoundary.renderGroundLine();
 
-        // Step 3: lock input + show settling text while the sky drop settles.
+        // Step 3: hide all fragments — they'll become visible piece by piece when
+        // the basket spill kicks off in M01IntroSequence onSpill callback.
+        for (const f of physicsFragments) {
+          f.node.active = false;
+        }
+
+        // Step 4: lock input + show intro hint text. Player must tap basket to start.
         this.physicsSettled = false;
         this.setStatus(this.formatText("physicsSettling", {}));
 
-        // Step 4: release all fragments from the top edge together.
-        this.physicsPile.startDrop({
-          fragments: physicsFragments,
-          seed: Date.now(),
-          dropOriginX: 320,
-          dropOriginY: 350,
-          jitterX: 82,
-          settleTimeoutMs: 3600,
+        // Step 5: spawn Lemmy + basket intro. The intro will call back into
+        // physicsPile.startDrop with the basket mouth as the drop origin.
+        this.introSequence = this.greyboxRoot.addComponent(M01IntroSequence);
+        this.introSequence.init({
+          onSpill: (originX, originY) => {
+            if (!this.physicsPile || !this.layout) return;
+            this.physicsPile.startDrop({
+              fragments: this.pendingPhysicsFragments,
+              seed: Date.now(),
+              dropOriginX: originX,
+              dropOriginY: originY,
+              jitterX: 22,
+              settleTimeoutMs: 3600,
+              onSettled: () => {
+                this.physicsSettled = true;
+                if (this.layout) {
+                  this.setStatus(this.layout.statusText);
+                }
+              }
+            });
+          },
           onSettled: () => {
-            this.physicsSettled = true;
-            if (this.layout) {
-              this.setStatus(this.layout.statusText);
-            }
+            // Lemmy's recoil tween finished. Drop is independent — completes when physics settle.
           }
         });
       }
