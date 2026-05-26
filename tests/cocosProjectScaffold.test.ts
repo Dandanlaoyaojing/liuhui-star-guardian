@@ -931,9 +931,15 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
 
-    expect(bootstrap).toContain("dropOriginY: 350,");
-    expect(bootstrap).toContain("jitterX: 82,");
-    expect(bootstrap).not.toContain("f.node.active = false;");
+    // Drop origin now comes from the intro sequence's basket-spill callback,
+    // so the bootstrap passes the (originX, originY) it receives — not the
+    // old hardcoded sky-top values.
+    expect(bootstrap).toContain("dropOriginX: originX");
+    expect(bootstrap).toContain("dropOriginY: originY");
+    expect(bootstrap).toContain("jitterX: 22,");
+    // Fragments are hidden until the basket spills, then physics releases
+    // them at the basket mouth.
+    expect(bootstrap).toContain("f.node.active = false;");
     expect(bootstrap).not.toContain("they reappear one by one");
     expect(bootstrap).not.toContain("interPieceDelayMs:");
 
@@ -979,7 +985,7 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");
 
-    expect(bootstrap).toContain("jitterX: 82,");
+    expect(bootstrap).toContain("jitterX: 22,");
     expect(pile).toContain("const M01_PHYSICS_CIRCLE_FRICTION = 0.18;");
     expect(pile).toContain("const M01_PHYSICS_POLYGON_FRICTION = 0.6;");
     expect(pile).toContain("private resolveColliderFriction(shape: M01PhysicsShape): number");
