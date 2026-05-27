@@ -51,6 +51,12 @@ export type M01GreyboxRuntimeSurfaceId =
   | "target_reference_card"
   | "single_flashlight_tool"
   | "toolcard_frame";
+export type M01GreyboxRuntimeIntroId =
+  | "intro_basket_hanging"
+  | "intro_basket_tipped"
+  | "intro_rope_segment"
+  | "intro_lemmy_walking"
+  | "intro_lemmy_reaching";
 export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeHiddenFragmentId
   | M01GreyboxRuntimeLightMaskFragmentId
@@ -59,6 +65,7 @@ export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeFlashlightId
   | M01GreyboxRuntimeFilterId
   | M01GreyboxRuntimeSurfaceId
+  | M01GreyboxRuntimeIntroId
   | "gearStar";
 export type M01GreyboxRuntimeSpriteRole =
   | "fragment_token"
@@ -69,7 +76,8 @@ export type M01GreyboxRuntimeSpriteRole =
   | "target_reference_surface"
   | "flashlight_tool_surface"
   | "fragment_floor_surface"
-  | "toolcard_frame_surface";
+  | "toolcard_frame_surface"
+  | "intro_token";
 
 export interface M01GreyboxArtSlice {
   id: M01GreyboxArtSliceId;
@@ -237,7 +245,8 @@ function runtimeSpriteResourceLoadPath(
     | "hidden-fragments"
     | "evidence-markers"
     | "flashlights"
-    | "surfaces",
+    | "surfaces"
+    | "intro",
   filename: string
 ): `${string}/spriteFrame` {
   return `art/stage1-m01/runtime-sprites/${folder}/${filename.replace(/\.png$/, "")}/spriteFrame`;
@@ -548,6 +557,32 @@ export const M01_GREYBOX_RUNTIME_OBJECT_RESOURCES: M01GreyboxRuntimeSpriteResour
   runtimeGearResource()
 ];
 
+function runtimeIntroResource(
+  id: M01GreyboxRuntimeIntroId,
+  filename: string,
+  displaySize?: { width: number; height: number }
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_GREYBOX_RUNTIME_SPRITE_ROOT}/intro/${filename}`;
+  return {
+    id,
+    role: "intro_token",
+    file,
+    sourceFile: file,
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: runtimeSpriteResourceLoadPath("intro", filename),
+    runtimeStatus: "isolated_candidate",
+    displaySize
+  };
+}
+
+export const M01_GREYBOX_RUNTIME_INTRO_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeIntroResource("intro_basket_hanging", "m01-basket-hanging.png", { width: 280, height: 190 }),
+  runtimeIntroResource("intro_basket_tipped",  "m01-basket-tipped.png",  { width: 280, height: 190 }),
+  runtimeIntroResource("intro_rope_segment",   "m01-rope-segment.png",   { width: 18,  height: 220 }),
+  runtimeIntroResource("intro_lemmy_walking",  "m01-lemmy-walking.png",  { width: 180, height: 180 }),
+  runtimeIntroResource("intro_lemmy_reaching", "m01-lemmy-reaching.png", { width: 180, height: 180 })
+];
+
 export const M01_GREYBOX_RUNTIME_SURFACE_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
   runtimeSurfaceResource(
     "fragment_floor",
@@ -589,6 +624,12 @@ export function getM01GreyboxRuntimeTransparentResource(
   id: M01GreyboxArtSliceId
 ): M01GreyboxRuntimeTransparentResource | undefined {
   return M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES.find((resource) => resource.id === id);
+}
+
+export function getM01GreyboxRuntimeIntroResource(
+  id: M01GreyboxRuntimeIntroId
+): M01GreyboxRuntimeSpriteResource | undefined {
+  return M01_GREYBOX_RUNTIME_INTRO_RESOURCES.find((resource) => resource.id === id);
 }
 
 export function getM01GreyboxRuntimeSpriteResourceForToken(

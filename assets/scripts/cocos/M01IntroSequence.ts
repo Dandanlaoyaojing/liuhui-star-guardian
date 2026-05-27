@@ -14,6 +14,8 @@ import {
   tween
 } from "cc";
 
+import { getM01GreyboxRuntimeIntroResource } from "./M01GreyboxArt.ts";
+
 const { ccclass } = _decorator;
 
 /**
@@ -33,13 +35,11 @@ const { ccclass } = _decorator;
  *   spilling  — Pieces reparent back to root and gain gravity; onSpill fires
  *   exiting   — Lemmy walks to the right side
  *   settled   — onSettled() fires; player can drag pieces
+ *
+ * Art assets are looked up via the central M01GreyboxArt manifest (the same
+ * registry that owns the gear, flashlight, filters, fragments, etc.) so
+ * paths aren't hardcoded in two places.
  */
-
-const LEMMY_WALK_PATH = "art/stage1-m01/runtime-sprites/intro/m01-lemmy-walking/spriteFrame";
-const LEMMY_REACH_PATH = "art/stage1-m01/runtime-sprites/intro/m01-lemmy-reaching/spriteFrame";
-const BASKET_HANGING_PATH = "art/stage1-m01/runtime-sprites/intro/m01-basket-hanging/spriteFrame";
-const BASKET_TIPPED_PATH = "art/stage1-m01/runtime-sprites/intro/m01-basket-tipped/spriteFrame";
-const ROPE_PATH = "art/stage1-m01/runtime-sprites/intro/m01-rope-segment/spriteFrame";
 
 const GROUND_Y = -270;
 
@@ -244,32 +244,44 @@ export class M01IntroSequence extends Component {
   }
 
   private loadSpriteFrames(): void {
-    const tryApply = (key: SpriteKey, sprite: Sprite | null) => {
-      const frame = this.spriteFrames[key];
-      if (frame && sprite) sprite.spriteFrame = frame;
-    };
-
-    const loadOne = (path: string, key: SpriteKey, sprite: Sprite | null) => {
-      resources.load(path, SpriteFrame, (error, spriteFrame) => {
-        if (error || !spriteFrame) return;
-        this.spriteFrames[key] = spriteFrame;
-        tryApply(key, sprite);
-      });
-    };
-
-    loadOne(LEMMY_WALK_PATH, "walking", this.lemmySprite);
-    loadOne(LEMMY_REACH_PATH, "reaching", null);
-    loadOne(BASKET_HANGING_PATH, "basketHanging", this.basketSprite);
-    loadOne(BASKET_TIPPED_PATH, "basketTipped", null);
-
     const ropeLeftSprite = (this.ropeLeftNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
     const ropeRightSprite = (this.ropeRightNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
-    resources.load(ROPE_PATH, SpriteFrame, (error, spriteFrame) => {
-      if (error || !spriteFrame) return;
-      this.spriteFrames.rope = spriteFrame;
-      if (ropeLeftSprite) ropeLeftSprite.spriteFrame = spriteFrame;
-      if (ropeRightSprite) ropeRightSprite.spriteFrame = spriteFrame;
-    });
+
+    const tryApply = (key: SpriteKey, sprite: Sprite | null) => {
+      const frame = this.spriteFrames[key];
+      if (!frame) return;
+      if (sprite) sprite.spriteFrame = frame;
+      if (key === "rope") {
+        if (ropeLeftSprite) ropeLeftSprite.spriteFrame = frame;
+        if (ropeRightSprite) ropeRightSprite.spriteFrame = frame;
+      }
+    };
+
+    // Each art slot maps to a manifest entry in M01GreyboxArt — same registry
+    // that already owns the gear, flashlight, filters, etc. Loading via the
+    // manifest means there's one source of truth for these paths and they
+    // show up in the editor's asset inventory.
+    const slots: Array<{
+      manifestId: Parameters<typeof getM01GreyboxRuntimeIntroResource>[0];
+      key: SpriteKey;
+      sprite: Sprite | null;
+    }> = [
+      { manifestId: "intro_lemmy_walking",  key: "walking",       sprite: this.lemmySprite },
+      { manifestId: "intro_lemmy_reaching", key: "reaching",      sprite: null },
+      { manifestId: "intro_basket_hanging", key: "basketHanging", sprite: this.basketSprite },
+      { manifestId: "intro_basket_tipped",  key: "basketTipped",  sprite: null },
+      { manifestId: "intro_rope_segment",   key: "rope",          sprite: ropeLeftSprite }
+    ];
+
+    for (const slot of slots) {
+      const manifestEntry = getM01GreyboxRuntimeIntroResource(slot.manifestId);
+      if (!manifestEntry) continue;
+      resources.load(manifestEntry.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
+        if (error || !spriteFrame) return;
+        this.spriteFrames[slot.key] = spriteFrame;
+        tryApply(slot.key, slot.sprite);
+      });
+    }
   }
 
   private handleBasketTap(_event: EventTouch): void {
