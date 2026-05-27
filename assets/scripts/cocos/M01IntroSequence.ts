@@ -34,7 +34,7 @@ const LEMMY_WALK_PATH = "art/stage1-m01/runtime-sprites/intro/m01-lemmy-walking/
 const LEMMY_REACH_PATH = "art/stage1-m01/runtime-sprites/intro/m01-lemmy-reaching/spriteFrame";
 const BASKET_HANGING_PATH = "art/stage1-m01/runtime-sprites/intro/m01-basket-hanging/spriteFrame";
 const BASKET_TIPPED_PATH = "art/stage1-m01/runtime-sprites/intro/m01-basket-tipped/spriteFrame";
-const CHAIN_PATH = "art/stage1-m01/runtime-sprites/intro/m01-chain-segment/spriteFrame";
+const ROPE_PATH = "art/stage1-m01/runtime-sprites/intro/m01-rope-segment/spriteFrame";
 const FRAGMENT_CIRCLE_PATH =
   "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-circle/spriteFrame";
 const FRAGMENT_TRIANGLE_PATH =
@@ -60,10 +60,15 @@ const BASKET_Y = -20;                              // mid-canvas, below flashlig
 const BASKET_MOUTH_X = BASKET_X - 30;              // mouth biased toward the lower-left
 const BASKET_MOUTH_Y = BASKET_Y - 30;
 
-// Chain hangs from the basket top up toward the flashlight body.
-const CHAIN_DISPLAY = { width: 28, height: 180 };
-const CHAIN_X = BASKET_X;
-const CHAIN_Y = BASKET_Y + BASKET_DISPLAY.height / 2 + CHAIN_DISPLAY.height / 2 - 12;
+// Two ropes hang from the basket's left+right rope-loop attachments up toward
+// the flashlight body. The basket art shows two small rope loops on the rim;
+// the rope sprites visually connect into those loops.
+const ROPE_DISPLAY = { width: 22, height: 200 };
+const ROPE_BOTTOM_Y_OFFSET = BASKET_DISPLAY.height / 2 - 8;   // y of basket rim, where the loops sit
+const ROPE_HORIZONTAL_OFFSET = BASKET_DISPLAY.width / 2 - 14; // x distance from basket center to each rope-loop
+const ROPE_LEFT_X = BASKET_X - ROPE_HORIZONTAL_OFFSET;
+const ROPE_RIGHT_X = BASKET_X + ROPE_HORIZONTAL_OFFSET;
+const ROPE_CENTER_Y = BASKET_Y + ROPE_BOTTOM_Y_OFFSET + ROPE_DISPLAY.height / 2;
 
 // Small grey-white piece previews layered inside the basket mouth (visible peeking).
 const BASKET_PIECE_DISPLAY = 24;
@@ -103,7 +108,7 @@ type SpriteKey =
   | "reaching"
   | "basketHanging"
   | "basketTipped"
-  | "chain"
+  | "rope"
   | "fragmentCircle"
   | "fragmentTriangle"
   | "fragmentHexagon";
@@ -116,13 +121,14 @@ export class M01IntroSequence extends Component {
   private lemmyNode: Node | null = null;
   private basketSprite: Sprite | null = null;
   private basketNode: Node | null = null;
-  private chainNode: Node | null = null;
+  private ropeLeftNode: Node | null = null;
+  private ropeRightNode: Node | null = null;
   private basketPieceNodes: Node[] = [];
   private spriteFrames: Partial<Record<SpriteKey, SpriteFrame>> = {};
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
-    this.spawnChain();
+    this.spawnRopes();
     this.spawnBasket();
     this.spawnBasketPieces();
     this.spawnLemmy();
@@ -134,23 +140,22 @@ export class M01IntroSequence extends Component {
     return { x: BASKET_MOUTH_X, y: BASKET_MOUTH_Y };
   }
 
-  private spawnChain(): void {
-    const node = new Node("M01IntroChain");
-    node.setPosition(CHAIN_X, CHAIN_Y, 0);
-    this.node.addChild(node);
+  private spawnRopes(): void {
+    const spawnOne = (name: string, x: number): Node => {
+      const node = new Node(name);
+      node.setPosition(x, ROPE_CENTER_Y, 0);
+      this.node.addChild(node);
 
-    const transform = node.addComponent(UITransform);
-    transform.setContentSize(CHAIN_DISPLAY.width, CHAIN_DISPLAY.height);
+      const transform = node.addComponent(UITransform);
+      transform.setContentSize(ROPE_DISPLAY.width, ROPE_DISPLAY.height);
 
-    const sprite = node.addComponent(Sprite);
-    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-    // chain sprite is loaded later in loadSpriteFrames
-
-    this.chainNode = node;
-    // Use a temp Sprite reference so loadSpriteFrames can apply the frame.
-    // We don't need to keep this in a class field beyond the load callback.
-    this.spriteFrames.chain = undefined;
-    (this.chainNode as Node & { __sprite?: Sprite }).__sprite = sprite;
+      const sprite = node.addComponent(Sprite);
+      sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+      (node as Node & { __sprite?: Sprite }).__sprite = sprite;
+      return node;
+    };
+    this.ropeLeftNode = spawnOne("M01IntroRopeLeft", ROPE_LEFT_X);
+    this.ropeRightNode = spawnOne("M01IntroRopeRight", ROPE_RIGHT_X);
   }
 
   private spawnBasket(): void {
@@ -224,9 +229,15 @@ export class M01IntroSequence extends Component {
     loadOne(BASKET_HANGING_PATH, "basketHanging", this.basketSprite);
     loadOne(BASKET_TIPPED_PATH, "basketTipped", null);
 
-    // Chain
-    const chainSprite = (this.chainNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
-    loadOne(CHAIN_PATH, "chain", chainSprite);
+    // Ropes — same sprite frame applied to both nodes once loaded
+    const ropeLeftSprite = (this.ropeLeftNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
+    const ropeRightSprite = (this.ropeRightNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
+    resources.load(ROPE_PATH, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame) return;
+      this.spriteFrames.rope = spriteFrame;
+      if (ropeLeftSprite) ropeLeftSprite.spriteFrame = spriteFrame;
+      if (ropeRightSprite) ropeRightSprite.spriteFrame = spriteFrame;
+    });
 
     // Basket pieces (apply to each by key)
     const findPieceSprite = (key: "circle" | "triangle" | "hexagon"): Sprite | null => {
