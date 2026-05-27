@@ -331,8 +331,8 @@ export class M01GreyboxBootstrap extends Component {
         this.physicsPile.preparePhysicsWorld(physicsFragments, this.physicsBoundary);
         this.physicsBoundary.renderGroundLine();
 
-        // Step 3: hide all fragments — they'll become visible piece by piece when
-        // the basket spill kicks off in M01IntroSequence onSpill callback.
+        // Step 3: hide all fragments — the intro will activate + parent them
+        // into the basket during its init pass.
         for (const f of physicsFragments) {
           f.node.active = false;
         }
@@ -341,10 +341,15 @@ export class M01GreyboxBootstrap extends Component {
         this.physicsSettled = false;
         this.setStatus(this.formatText("physicsSettling", {}));
 
-        // Step 5: spawn Lemmy + basket intro. The intro will call back into
-        // physicsPile.startDrop with the basket mouth as the drop origin.
+        // Step 5: spawn the intro and hand it the REAL 9 fragment nodes. The
+        // intro parents them into the basket (in pile shape), freezes their
+        // physics bodies as Static, then releases them on tip by reparenting
+        // back to greybox root and calling physicsPile.startDrop with
+        // releaseInPlace=true — pieces fall from their actual basket positions,
+        // not from the sky. No duplicate "preview" sprites in the basket.
         this.introSequence = this.greyboxRoot.addComponent(M01IntroSequence);
         this.introSequence.init({
+          fragments: physicsFragments.map((f) => ({ node: f.node })),
           onSpill: (originX, originY) => {
             if (!this.physicsPile || !this.layout) return;
             this.physicsPile.startDrop({
@@ -354,6 +359,7 @@ export class M01GreyboxBootstrap extends Component {
               dropOriginY: originY,
               jitterX: 22,
               settleTimeoutMs: 3600,
+              releaseInPlace: true,
               onSettled: () => {
                 this.physicsSettled = true;
                 if (this.layout) {
@@ -363,7 +369,7 @@ export class M01GreyboxBootstrap extends Component {
             });
           },
           onSettled: () => {
-            // Lemmy's recoil tween finished. Drop is independent — completes when physics settle.
+            // Lemmy walked off-stage. Physics settle runs independently.
           }
         });
       }

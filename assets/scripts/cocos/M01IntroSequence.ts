@@ -3,9 +3,12 @@ import {
   Component,
   EventTouch,
   Node,
+  RigidBody2D,
+  ERigidBody2DType,
   Sprite,
   SpriteFrame,
   UITransform,
+  Vec2,
   Vec3,
   resources,
   tween
@@ -14,19 +17,21 @@ import {
 const { ccclass } = _decorator;
 
 /**
- * Opening sequence: a wide-mouth basket hangs from an iron chain beneath the
- * flashlight. Inside the basket sit the grey-white puzzle pieces. Player clicks
- * the basket → Lemmy walks across the ground to stand under it → he tiptoes and
- * bats the basket → the basket wobbles, tips off the chain, and the pieces
- * spill out into the physics pile. Lemmy walks to the right side and stands.
+ * Opening sequence: a shallow wide-mouth wicker tray hangs from two ropes
+ * beneath the flashlight. The REAL 9 puzzle-piece nodes are parented to the
+ * basket and sit visibly inside it in their initial pile shape. Player clicks
+ * the basket → Lemmy walks under, tiptoes, basket wobbles + tips → the 9
+ * pieces are reparented back to the greybox root (preserving world positions)
+ * and physics gravity engages on them, so they fall from wherever they
+ * happened to be when the basket tipped.
  *
  * Phases:
- *   idle      — Lemmy at left edge; basket hangs upright; clickable
+ *   idle      — Lemmy at left edge; basket holds the 9 pieces upright
  *   walking   — Lemmy tweens toward the position under the basket
- *   reaching  — Lemmy swaps to reaching pose (tiptoe), basket wobbles
- *   tipping   — Basket commits to ~70° tilt; sprite swaps to tipped art
- *   spilling  — onSpill(originX, originY) fires; physics pile starts
- *   exiting   — Lemmy tweens to the right side, swaps back to walking pose
+ *   reaching  — Lemmy swaps to reaching pose (tiptoe)
+ *   tipping   — Basket wobbles, then commits to a tilt
+ *   spilling  — Pieces reparent back to root and gain gravity; onSpill fires
+ *   exiting   — Lemmy walks to the right side
  *   settled   — onSettled() fires; player can drag pieces
  */
 
@@ -35,12 +40,6 @@ const LEMMY_REACH_PATH = "art/stage1-m01/runtime-sprites/intro/m01-lemmy-reachin
 const BASKET_HANGING_PATH = "art/stage1-m01/runtime-sprites/intro/m01-basket-hanging/spriteFrame";
 const BASKET_TIPPED_PATH = "art/stage1-m01/runtime-sprites/intro/m01-basket-tipped/spriteFrame";
 const ROPE_PATH = "art/stage1-m01/runtime-sprites/intro/m01-rope-segment/spriteFrame";
-const FRAGMENT_CIRCLE_PATH =
-  "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-circle/spriteFrame";
-const FRAGMENT_TRIANGLE_PATH =
-  "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-triangle/spriteFrame";
-const FRAGMENT_HEXAGON_PATH =
-  "art/stage1-m01/runtime-sprites/hidden-fragments/m01-fragment-hidden-hexagon/spriteFrame";
 
 const GROUND_Y = -270;
 
@@ -51,36 +50,43 @@ const LEMMY_UNDER_BASKET_X = 290;                  // stands just left of basket
 const LEMMY_WATCHING_X = 470;                      // exits to the right and stands
 const LEMMY_Y = GROUND_Y + LEMMY_DISPLAY.height / 2 - 10;
 
-// Suspended basket: hangs beneath the flashlight beam anchor (360, 110).
-// Shallow wide tray (3:2 aspect — wider than tall) so the pieces inside are visible.
+// Shallow wide tray basket suspended beneath the flashlight beam anchor (360, 110).
 const BASKET_DISPLAY = { width: 280, height: 190 };
 const BASKET_X = 360;
 const BASKET_Y = -20;                              // mid-canvas, below flashlight
 
-// Basket mouth in world coords once tipped — used as physics drop origin.
-const BASKET_MOUTH_X = BASKET_X - 30;              // mouth biased toward the lower-left
+// Basket mouth in world coords once tipped — used as a fallback drop origin
+// if some fragment lacks a body.
+const BASKET_MOUTH_X = BASKET_X - 30;
 const BASKET_MOUTH_Y = BASKET_Y - 30;
 
-// Two ropes hang from the basket's left+right rope-tie attachments up toward
+// Two ropes hang from the basket's left+right rim-tie attachments up toward
 // the flashlight body. The basket art shows two small rope-tie stubs sticking
 // out from the rim; the rope sprites visually connect into those stubs.
 const ROPE_DISPLAY = { width: 18, height: 220 };
-const ROPE_BOTTOM_Y_OFFSET = -4;                     // rim midline (3/4 view: rim is at sprite center vertically)
+const ROPE_BOTTOM_Y_OFFSET = -4;
 const ROPE_HORIZONTAL_OFFSET = BASKET_DISPLAY.width / 2 - 8;
 const ROPE_LEFT_X = BASKET_X - ROPE_HORIZONTAL_OFFSET;
 const ROPE_RIGHT_X = BASKET_X + ROPE_HORIZONTAL_OFFSET;
 const ROPE_CENTER_Y = BASKET_Y + ROPE_BOTTOM_Y_OFFSET + ROPE_DISPLAY.height / 2;
 
-// Standard game-piece preview sprites layered into the basket's visible interior.
-// Same display size as the actual M01 puzzle pieces (M01_STANDARD_PIECE_DISPLAY_SIZE = 56),
-// so the "filled basket" reads as the real game pieces sitting in the tray. Layout uses
-// the basket's wide flat interior — the 3/4 overhead view shows the surface as a slightly
-// recessed oval; pieces sit on that surface, roughly centered in Y and spread in X.
-const BASKET_PIECE_DISPLAY = 56;
-const BASKET_PIECE_LAYOUT: Array<{ key: "circle" | "triangle" | "hexagon"; dx: number; dy: number }> = [
-  { key: "circle",   dx: -72, dy: 8 },
-  { key: "triangle", dx:   0, dy: 12 },
-  { key: "hexagon",  dx:  72, dy: 8 }
+// Layout for the 9 real game pieces inside the basket (LOCAL to the basket node).
+// A flat 4-3-2 spread across the shallow tray interior, visible from the 3/4
+// overhead angle. Pieces are 56×56; we keep enough horizontal spacing to avoid
+// heavy overlap while still reading as a small pile.
+const BASKET_PILE_OFFSETS: ReadonlyArray<{ x: number; y: number }> = [
+  // Back row (deeper into tray, higher Y in display)
+  { x: -90, y: 22 },
+  { x: -30, y: 26 },
+  { x:  30, y: 26 },
+  { x:  90, y: 22 },
+  // Middle row
+  { x: -60, y:  4 },
+  { x:   0, y:  6 },
+  { x:  60, y:  4 },
+  // Front row (closer to viewer, lower Y)
+  { x: -30, y: -16 },
+  { x:  30, y: -16 }
 ];
 
 // Timing (seconds).
@@ -92,8 +98,15 @@ const LEMMY_EXIT_DURATION = 1.4;
 
 const BASKET_TIP_ANGLE_DEG = -68;                  // tilts left so mouth faces lower-left
 
+export interface M01IntroFragment {
+  /** The real M01 puzzle-piece node managed by the bootstrap. */
+  node: Node;
+}
+
 export interface M01IntroSequenceOptions {
-  /** Called once the basket has tipped; the bootstrap should kick off physics drop. */
+  /** All 9 game-piece nodes that should sit inside the basket and spill out on tip. */
+  fragments: M01IntroFragment[];
+  /** Called when the basket has tipped and pieces are released to the greybox root. */
   onSpill: (originX: number, originY: number) => void;
   /** Called once Lemmy has finished walking to the watching position. */
   onSettled: () => void;
@@ -113,10 +126,7 @@ type SpriteKey =
   | "reaching"
   | "basketHanging"
   | "basketTipped"
-  | "rope"
-  | "fragmentCircle"
-  | "fragmentTriangle"
-  | "fragmentHexagon";
+  | "rope";
 
 @ccclass("M01IntroSequence")
 export class M01IntroSequence extends Component {
@@ -128,21 +138,15 @@ export class M01IntroSequence extends Component {
   private basketNode: Node | null = null;
   private ropeLeftNode: Node | null = null;
   private ropeRightNode: Node | null = null;
-  private basketPieceNodes: Node[] = [];
   private spriteFrames: Partial<Record<SpriteKey, SpriteFrame>> = {};
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
     this.spawnRopes();
     this.spawnBasket();
-    this.spawnBasketPieces();
     this.spawnLemmy();
     this.loadSpriteFrames();
-  }
-
-  /** Public: where pieces should appear when they spill out of the basket. */
-  getSpillOrigin(): { x: number; y: number } {
-    return { x: BASKET_MOUTH_X, y: BASKET_MOUTH_Y };
+    this.stageFragmentsInBasket();
   }
 
   private spawnRopes(): void {
@@ -180,23 +184,47 @@ export class M01IntroSequence extends Component {
     this.basketSprite = sprite;
   }
 
-  private spawnBasketPieces(): void {
-    if (!this.basketNode) return;
-    for (const slot of BASKET_PIECE_LAYOUT) {
-      const node = new Node(`M01IntroBasketPiece_${slot.key}`);
-      node.setPosition(slot.dx, slot.dy, 0);
-      // parent to basket so pieces tip with it
-      this.basketNode.addChild(node);
+  /**
+   * Stage the 9 REAL game-piece nodes inside the basket: activate them,
+   * parent them to the basket so they tip with it, position each at its
+   * BASKET_PILE_OFFSETS slot, and freeze its physics body so it doesn't
+   * react to gravity while sitting in the tray.
+   */
+  private stageFragmentsInBasket(): void {
+    if (!this.options || !this.basketNode) return;
+    const fragments = this.options.fragments;
+    for (let i = 0; i < fragments.length; i += 1) {
+      const slot = BASKET_PILE_OFFSETS[i % BASKET_PILE_OFFSETS.length];
+      const frag = fragments[i].node;
+      frag.parent = this.basketNode;
+      frag.setPosition(slot.x, slot.y, 0);
+      frag.active = true;
 
-      const transform = node.addComponent(UITransform);
-      transform.setContentSize(BASKET_PIECE_DISPLAY, BASKET_PIECE_DISPLAY);
+      const body = frag.getComponent(RigidBody2D);
+      if (body) {
+        body.type = ERigidBody2DType.Static;
+        body.linearVelocity = new Vec2(0, 0);
+        body.angularVelocity = 0;
+      }
+    }
+  }
 
-      const sprite = node.addComponent(Sprite);
-      sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-      (node as Node & { __sprite?: Sprite; __key?: string }).__sprite = sprite;
-      (node as Node & { __sprite?: Sprite; __key?: string }).__key = slot.key;
-
-      this.basketPieceNodes.push(node);
+  /**
+   * Release all 9 game-piece nodes from the basket: capture each piece's
+   * current world position (after the basket has tipped), reparent it to the
+   * greybox root (the basket's parent), restore the world position, then
+   * defer to the bootstrap's onSpill callback which kicks the physics pile
+   * with releaseInPlace=true.
+   */
+  private releaseFragmentsFromBasket(): void {
+    if (!this.options || !this.basketNode) return;
+    const greyboxRoot = this.basketNode.parent;
+    if (!greyboxRoot) return;
+    for (const frag of this.options.fragments) {
+      const node = frag.node;
+      const worldPos = node.worldPosition.clone();
+      node.parent = greyboxRoot;
+      node.setWorldPosition(worldPos);
     }
   }
 
@@ -234,7 +262,6 @@ export class M01IntroSequence extends Component {
     loadOne(BASKET_HANGING_PATH, "basketHanging", this.basketSprite);
     loadOne(BASKET_TIPPED_PATH, "basketTipped", null);
 
-    // Ropes — same sprite frame applied to both nodes once loaded
     const ropeLeftSprite = (this.ropeLeftNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
     const ropeRightSprite = (this.ropeRightNode as (Node & { __sprite?: Sprite }) | null)?.__sprite ?? null;
     resources.load(ROPE_PATH, SpriteFrame, (error, spriteFrame) => {
@@ -243,20 +270,6 @@ export class M01IntroSequence extends Component {
       if (ropeLeftSprite) ropeLeftSprite.spriteFrame = spriteFrame;
       if (ropeRightSprite) ropeRightSprite.spriteFrame = spriteFrame;
     });
-
-    // Basket pieces (apply to each by key)
-    const findPieceSprite = (key: "circle" | "triangle" | "hexagon"): Sprite | null => {
-      for (const node of this.basketPieceNodes) {
-        const k = (node as Node & { __key?: string }).__key;
-        if (k === key) {
-          return (node as Node & { __sprite?: Sprite }).__sprite ?? null;
-        }
-      }
-      return null;
-    };
-    loadOne(FRAGMENT_CIRCLE_PATH, "fragmentCircle", findPieceSprite("circle"));
-    loadOne(FRAGMENT_TRIANGLE_PATH, "fragmentTriangle", findPieceSprite("triangle"));
-    loadOne(FRAGMENT_HEXAGON_PATH, "fragmentHexagon", findPieceSprite("hexagon"));
   }
 
   private handleBasketTap(_event: EventTouch): void {
@@ -281,7 +294,6 @@ export class M01IntroSequence extends Component {
     if (!this.lemmyNode || !this.lemmySprite) return;
     this.phase = "reaching";
     this.swapSprite(this.lemmySprite, "reaching");
-    // hold the reach pose while the basket wobbles
     setTimeout(() => this.wobbleBasket(), REACH_HOLD_DURATION * 1000);
   }
 
@@ -312,10 +324,9 @@ export class M01IntroSequence extends Component {
 
   private startSpill(): void {
     this.phase = "spilling";
-    // hide the basket-internal piece previews — physics pile takes over now
-    for (const piece of this.basketPieceNodes) {
-      piece.active = false;
-    }
+    // Reparent the 9 real pieces back to the greybox root (preserving world
+    // positions captured AFTER the basket tip). Then signal the bootstrap.
+    this.releaseFragmentsFromBasket();
     if (this.options) {
       this.options.onSpill(BASKET_MOUTH_X, BASKET_MOUTH_Y);
     }

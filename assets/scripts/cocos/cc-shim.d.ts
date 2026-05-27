@@ -16,7 +16,9 @@ declare module "cc" {
     name: string;
     children: Node[];
     active: boolean;
+    parent: Node | null;
     position: { x: number; y: number; z?: number };
+    worldPosition: Vec3;
     eulerAngles: Vec3;
     addChild(child: Node): void;
     addComponent<T>(component: new (...args: never[]) => T): T;
@@ -24,6 +26,7 @@ declare module "cc" {
     destroy(): void;
     on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
+    setWorldPosition(pos: Vec3): void;
     setRotationFromEuler(x: number, y: number, z: number): void;
     static EventType: {
       TOUCH_START: string;
@@ -38,6 +41,7 @@ declare module "cc" {
     y: number;
     z: number;
     constructor(x?: number, y?: number, z?: number);
+    clone(): Vec3;
   }
 
   export function tween<T>(target: T): TweenAction<T>;

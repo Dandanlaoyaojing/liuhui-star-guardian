@@ -61,6 +61,13 @@ export interface M01PhysicsPileOptions {
   jitterX: number;
   settleTimeoutMs: number;
   onSettled: () => void;
+  /**
+   * When true, do NOT teleport fragments to the sky-pile offsets.
+   * Just engage gravity on their current world positions (used when the intro
+   * sequence has already placed pieces inside the basket and they should fall
+   * from wherever they are right now).
+   */
+  releaseInPlace?: boolean;
 }
 
 @ccclass("M01PhysicsPile")
@@ -106,12 +113,37 @@ export class M01PhysicsPile extends Component {
     this.stableSettleFrames = 0;
     this.settled = false;
 
-    const rng = createM01PhysicsRng(options.seed);
-    const order = this.shuffleIndices(options.fragments.length, rng);
-    this.releaseAllPiecesFromSky(order, rng);
+    if (options.releaseInPlace) {
+      this.engagePiecesInPlace();
+    } else {
+      const rng = createM01PhysicsRng(options.seed);
+      const order = this.shuffleIndices(options.fragments.length, rng);
+      this.releaseAllPiecesFromSky(order, rng);
+    }
 
     this.settleDeadlineMs = Date.now() + options.settleTimeoutMs;
     this.settleCheckArmed = true;
+  }
+
+  /**
+   * Engage gravity on each fragment from its current world position.
+   * Used when the intro sequence has already placed pieces inside the basket
+   * (parented to the basket, body=Static), and the basket has just been tipped.
+   * The intro is responsible for reparenting nodes back to greybox root and
+   * preserving world positions BEFORE calling startDrop with releaseInPlace.
+   */
+  private engagePiecesInPlace(): void {
+    if (!this.options) return;
+    for (const frag of this.options.fragments) {
+      frag.node.active = true;
+      const body = frag.node.getComponent(RigidBody2D);
+      if (body) {
+        body.type = ERigidBody2DType.Dynamic;
+        body.gravityScale = 1;
+        body.linearVelocity = new Vec2(0, 0);
+        body.angularVelocity = 0;
+      }
+    }
   }
 
   update(): void {
