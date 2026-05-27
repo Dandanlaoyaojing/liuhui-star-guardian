@@ -52,7 +52,8 @@ const LEMMY_WATCHING_X = 470;                      // exits to the right and sta
 const LEMMY_Y = GROUND_Y + LEMMY_DISPLAY.height / 2 - 10;
 
 // Suspended basket: hangs beneath the flashlight beam anchor (360, 110).
-const BASKET_DISPLAY = { width: 170, height: 170 };
+// Shallow wide tray (3:2 aspect — wider than tall) so the pieces inside are visible.
+const BASKET_DISPLAY = { width: 280, height: 190 };
 const BASKET_X = 360;
 const BASKET_Y = -20;                              // mid-canvas, below flashlight
 
@@ -60,22 +61,26 @@ const BASKET_Y = -20;                              // mid-canvas, below flashlig
 const BASKET_MOUTH_X = BASKET_X - 30;              // mouth biased toward the lower-left
 const BASKET_MOUTH_Y = BASKET_Y - 30;
 
-// Two ropes hang from the basket's left+right rope-loop attachments up toward
-// the flashlight body. The basket art shows two small rope loops on the rim;
-// the rope sprites visually connect into those loops.
-const ROPE_DISPLAY = { width: 22, height: 200 };
-const ROPE_BOTTOM_Y_OFFSET = BASKET_DISPLAY.height / 2 - 8;   // y of basket rim, where the loops sit
-const ROPE_HORIZONTAL_OFFSET = BASKET_DISPLAY.width / 2 - 14; // x distance from basket center to each rope-loop
+// Two ropes hang from the basket's left+right rope-tie attachments up toward
+// the flashlight body. The basket art shows two small rope-tie stubs sticking
+// out from the rim; the rope sprites visually connect into those stubs.
+const ROPE_DISPLAY = { width: 18, height: 220 };
+const ROPE_BOTTOM_Y_OFFSET = -4;                     // rim midline (3/4 view: rim is at sprite center vertically)
+const ROPE_HORIZONTAL_OFFSET = BASKET_DISPLAY.width / 2 - 8;
 const ROPE_LEFT_X = BASKET_X - ROPE_HORIZONTAL_OFFSET;
 const ROPE_RIGHT_X = BASKET_X + ROPE_HORIZONTAL_OFFSET;
 const ROPE_CENTER_Y = BASKET_Y + ROPE_BOTTOM_Y_OFFSET + ROPE_DISPLAY.height / 2;
 
-// Small grey-white piece previews layered inside the basket mouth (visible peeking).
-const BASKET_PIECE_DISPLAY = 24;
+// Standard game-piece preview sprites layered into the basket's visible interior.
+// Same display size as the actual M01 puzzle pieces (M01_STANDARD_PIECE_DISPLAY_SIZE = 56),
+// so the "filled basket" reads as the real game pieces sitting in the tray. Layout uses
+// the basket's wide flat interior — the 3/4 overhead view shows the surface as a slightly
+// recessed oval; pieces sit on that surface, roughly centered in Y and spread in X.
+const BASKET_PIECE_DISPLAY = 56;
 const BASKET_PIECE_LAYOUT: Array<{ key: "circle" | "triangle" | "hexagon"; dx: number; dy: number }> = [
-  { key: "circle",   dx: -22, dy: BASKET_DISPLAY.height / 2 - 28 },
-  { key: "triangle", dx:   2, dy: BASKET_DISPLAY.height / 2 - 22 },
-  { key: "hexagon",  dx:  22, dy: BASKET_DISPLAY.height / 2 - 28 }
+  { key: "circle",   dx: -72, dy: 8 },
+  { key: "triangle", dx:   0, dy: 12 },
+  { key: "hexagon",  dx:  72, dy: 8 }
 ];
 
 // Timing (seconds).
