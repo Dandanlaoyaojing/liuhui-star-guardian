@@ -14,7 +14,11 @@ import {
   tween
 } from "cc";
 
-import { getM01GreyboxRuntimeIntroResource } from "./M01GreyboxArt.ts";
+import {
+  getM01GreyboxRuntimeIntroResource,
+  getM01GreyboxRuntimeLemmyLayerResource
+} from "./M01GreyboxArt.ts";
+import { LemmyActor, isExpectedLemmyActionCancel } from "./LemmyActor.ts";
 
 const { ccclass } = _decorator;
 
@@ -29,8 +33,8 @@ const { ccclass } = _decorator;
  *
  * Phases:
  *   idle      — Lemmy at left edge; basket holds the 9 pieces upright
- *   walking   — Lemmy tweens toward the position under the basket
- *   reaching  — Lemmy swaps to reaching pose (tiptoe)
+ *   walking   — LemmyActor tweens toward the position under the basket
+ *   reaching  — LemmyActor emits reach_contact at the basket-touch beat
  *   tipping   — Basket wobbles, then commits to a tilt
  *   spilling  — Pieces reparent back to root and gain gravity; onSpill fires
  *   exiting   — Lemmy walks to the right side
@@ -91,7 +95,6 @@ const BASKET_PILE_OFFSETS: ReadonlyArray<{ x: number; y: number }> = [
 
 // Timing (seconds).
 const WALK_TO_BASKET_DURATION = 1.8;
-const REACH_HOLD_DURATION = 0.45;
 const BASKET_WOBBLE_DURATION = 0.14;
 const BASKET_TIP_DURATION = 0.45;
 const LEMMY_EXIT_DURATION = 1.4;
@@ -122,8 +125,6 @@ type IntroPhase =
   | "settled";
 
 type SpriteKey =
-  | "walking"
-  | "reaching"
   | "basketHanging"
   | "basketTipped"
   | "rope";
@@ -132,8 +133,8 @@ type SpriteKey =
 export class M01IntroSequence extends Component {
   private options: M01IntroSequenceOptions | null = null;
   private phase: IntroPhase = "idle";
-  private lemmySprite: Sprite | null = null;
-  private lemmyNode: Node | null = null;
+  private lemmyActor: LemmyActor | null = null;
+  private lemmyReady: Promise<void> = Promise.resolve();
   private basketSprite: Sprite | null = null;
   private basketNode: Node | null = null;
   private ropeLeftNode: Node | null = null;
@@ -233,14 +234,24 @@ export class M01IntroSequence extends Component {
     node.setPosition(LEMMY_OFFSCREEN_X, LEMMY_Y, 0);
     this.node.addChild(node);
 
-    const transform = node.addComponent(UITransform);
-    transform.setContentSize(LEMMY_DISPLAY.width, LEMMY_DISPLAY.height);
+    const actor = node.addComponent(LemmyActor);
+    this.lemmyReady = actor.init({
+      displaySize: LEMMY_DISPLAY,
+      partResourcePaths: {
+        body: this.lemmyLayerPath("lemmy_body"),
+        earLeft: this.lemmyLayerPath("lemmy_ear_left"),
+        earRight: this.lemmyLayerPath("lemmy_ear_right"),
+        armFront: this.lemmyLayerPath("lemmy_arm_front")
+      }
+    });
 
-    const sprite = node.addComponent(Sprite);
-    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.lemmyActor = actor;
+  }
 
-    this.lemmyNode = node;
-    this.lemmySprite = sprite;
+  private lemmyLayerPath(
+    id: Parameters<typeof getM01GreyboxRuntimeLemmyLayerResource>[0]
+  ): string {
+    return getM01GreyboxRuntimeLemmyLayerResource(id)?.resourcesLoadPath ?? "";
   }
 
   private loadSpriteFrames(): void {
@@ -266,8 +277,6 @@ export class M01IntroSequence extends Component {
       key: SpriteKey;
       sprite: Sprite | null;
     }> = [
-      { manifestId: "intro_lemmy_walking",  key: "walking",       sprite: this.lemmySprite },
-      { manifestId: "intro_lemmy_reaching", key: "reaching",      sprite: null },
       { manifestId: "intro_basket_hanging", key: "basketHanging", sprite: this.basketSprite },
       { manifestId: "intro_basket_tipped",  key: "basketTipped",  sprite: null },
       { manifestId: "intro_rope_segment",   key: "rope",          sprite: ropeLeftSprite }
@@ -286,27 +295,38 @@ export class M01IntroSequence extends Component {
 
   private handleBasketTap(_event: EventTouch): void {
     if (this.phase !== "idle") return;
-    this.beginWalk();
+    void this.beginWalk();
   }
 
-  private beginWalk(): void {
-    if (!this.lemmyNode) return;
+  private async beginWalk(): Promise<void> {
+    if (!this.lemmyActor) return;
     this.phase = "walking";
-    tween(this.lemmyNode)
-      .to(
-        WALK_TO_BASKET_DURATION,
-        { position: new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0) },
-        { easing: "sineInOut" }
-      )
-      .call(() => this.beginReach())
-      .start();
+    try {
+      await this.lemmyReady;
+      await this.lemmyActor.walkTo(new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0), {
+        durationMs: WALK_TO_BASKET_DURATION * 1000
+      });
+      await this.lemmyActor.playAction("idle_right");
+      await this.beginReach();
+    } catch (error) {
+      if (!isExpectedLemmyActionCancel(error)) throw error;
+    }
   }
 
-  private beginReach(): void {
-    if (!this.lemmyNode || !this.lemmySprite) return;
+  private async beginReach(): Promise<void> {
+    if (!this.lemmyActor) return;
     this.phase = "reaching";
-    this.swapSprite(this.lemmySprite, "reaching");
-    setTimeout(() => this.wobbleBasket(), REACH_HOLD_DURATION * 1000);
+    try {
+      await this.lemmyActor.playAction("reach_up_right", {
+        onEvent: (event) => {
+          if (event === "reach_contact") {
+            this.wobbleBasket();
+          }
+        }
+      });
+    } catch (error) {
+      if (!isExpectedLemmyActionCancel(error)) throw error;
+    }
   }
 
   private wobbleBasket(): void {
@@ -342,21 +362,21 @@ export class M01IntroSequence extends Component {
     if (this.options) {
       this.options.onSpill(BASKET_MOUTH_X, BASKET_MOUTH_Y);
     }
-    this.beginExit();
+    void this.beginExit();
   }
 
-  private beginExit(): void {
-    if (!this.lemmyNode || !this.lemmySprite) return;
+  private async beginExit(): Promise<void> {
+    if (!this.lemmyActor) return;
     this.phase = "exiting";
-    this.swapSprite(this.lemmySprite, "walking");
-    tween(this.lemmyNode)
-      .to(
-        LEMMY_EXIT_DURATION,
-        { position: new Vec3(LEMMY_WATCHING_X, LEMMY_Y, 0) },
-        { easing: "sineInOut" }
-      )
-      .call(() => this.finishIntro())
-      .start();
+    try {
+      await this.lemmyReady;
+      await this.lemmyActor.walkTo(new Vec3(LEMMY_WATCHING_X, LEMMY_Y, 0), {
+        durationMs: LEMMY_EXIT_DURATION * 1000
+      });
+      this.finishIntro();
+    } catch (error) {
+      if (!isExpectedLemmyActionCancel(error)) throw error;
+    }
   }
 
   private finishIntro(): void {

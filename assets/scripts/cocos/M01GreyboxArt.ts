@@ -57,6 +57,7 @@ export type M01GreyboxRuntimeIntroId =
   | "intro_rope_segment"
   | "intro_lemmy_walking"
   | "intro_lemmy_reaching";
+export type M01GreyboxRuntimeLemmyId = "lemmy_canonical";
 export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeHiddenFragmentId
   | M01GreyboxRuntimeLightMaskFragmentId
@@ -66,6 +67,7 @@ export type M01GreyboxRuntimeSpriteId =
   | M01GreyboxRuntimeFilterId
   | M01GreyboxRuntimeSurfaceId
   | M01GreyboxRuntimeIntroId
+  | M01GreyboxRuntimeLemmyId
   | "gearStar";
 export type M01GreyboxRuntimeSpriteRole =
   | "fragment_token"
@@ -77,7 +79,8 @@ export type M01GreyboxRuntimeSpriteRole =
   | "flashlight_tool_surface"
   | "fragment_floor_surface"
   | "toolcard_frame_surface"
-  | "intro_token";
+  | "intro_token"
+  | "lemmy_actor_sprite";
 
 export interface M01GreyboxArtSlice {
   id: M01GreyboxArtSliceId;
@@ -209,6 +212,8 @@ export const M01_GREYBOX_RUNTIME_TRANSPARENT_ROOT =
   "assets/resources/art/stage1-m01/runtime-transparent";
 export const M01_GREYBOX_RUNTIME_SPRITE_ROOT =
   "assets/resources/art/stage1-m01/runtime-sprites";
+export const M01_LEMMY_RUNTIME_RESOURCE_ROOT =
+  "assets/resources/art/characters/lemmy";
 export const M01_GREYBOX_ART_SOURCE_SHEET =
   "docs/design/generated-m01-art-slices/m01-runtime-sprite-sheet-candidate-v2.png";
 export const M01_GREYBOX_FRAGMENT_REFERENCE_STYLE_SOURCE_SHEET =
@@ -250,6 +255,10 @@ function runtimeSpriteResourceLoadPath(
   filename: string
 ): `${string}/spriteFrame` {
   return `art/stage1-m01/runtime-sprites/${folder}/${filename.replace(/\.png$/, "")}/spriteFrame`;
+}
+
+function lemmyResourceLoadPath(filename: string): `${string}/spriteFrame` {
+  return `art/characters/lemmy/${filename.replace(/\.png$/, "")}/spriteFrame`;
 }
 
 function editorOnlyArtSlice(
@@ -575,12 +584,33 @@ function runtimeIntroResource(
   };
 }
 
+function runtimeLemmyResource(
+  id: M01GreyboxRuntimeLemmyId,
+  filename: string
+): M01GreyboxRuntimeSpriteResource {
+  const file = `${M01_LEMMY_RUNTIME_RESOURCE_ROOT}/${filename}`;
+  return {
+    id,
+    role: "lemmy_actor_sprite",
+    file,
+    sourceFile: "assets/art/style-references/lemmy-rabbit-canonical.png",
+    assetDatabaseUrl: `db://${file}`,
+    resourcesLoadPath: lemmyResourceLoadPath(filename),
+    runtimeStatus: "isolated_candidate",
+    displaySize: { width: 180, height: 180 }
+  };
+}
+
 export const M01_GREYBOX_RUNTIME_INTRO_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
   runtimeIntroResource("intro_basket_hanging", "m01-basket-hanging.png", { width: 280, height: 190 }),
   runtimeIntroResource("intro_basket_tipped",  "m01-basket-tipped.png",  { width: 280, height: 190 }),
   runtimeIntroResource("intro_rope_segment",   "m01-rope-segment.png",   { width: 18,  height: 220 }),
   runtimeIntroResource("intro_lemmy_walking",  "m01-lemmy-walking.png",  { width: 180, height: 180 }),
   runtimeIntroResource("intro_lemmy_reaching", "m01-lemmy-reaching.png", { width: 180, height: 180 })
+];
+
+export const M01_GREYBOX_RUNTIME_LEMMY_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
+  runtimeLemmyResource("lemmy_canonical", "lemmy-canonical.png")
 ];
 
 export const M01_GREYBOX_RUNTIME_SURFACE_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
@@ -630,6 +660,12 @@ export function getM01GreyboxRuntimeIntroResource(
   id: M01GreyboxRuntimeIntroId
 ): M01GreyboxRuntimeSpriteResource | undefined {
   return M01_GREYBOX_RUNTIME_INTRO_RESOURCES.find((resource) => resource.id === id);
+}
+
+export function getM01GreyboxRuntimeLemmyResource(
+  id: M01GreyboxRuntimeLemmyId
+): M01GreyboxRuntimeSpriteResource | undefined {
+  return M01_GREYBOX_RUNTIME_LEMMY_RESOURCES.find((resource) => resource.id === id);
 }
 
 export function getM01GreyboxRuntimeSpriteResourceForToken(

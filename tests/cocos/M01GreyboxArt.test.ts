@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
@@ -13,6 +14,7 @@ import {
   getM01GreyboxArtPreviewResource,
   getM01GreyboxRuntimeLightEdgeResourceForToken,
   getM01GreyboxRuntimeLightMaskResourceForToken,
+  getM01GreyboxRuntimeLemmyResource,
   getM01GreyboxRuntimeSpriteResourceForToken,
   getM01GreyboxTargetReferenceCardResource,
   getM01GreyboxToolCardFrameResource,
@@ -26,8 +28,10 @@ import {
   M01_GREYBOX_RUNTIME_FLASHLIGHT_RESOURCES,
   M01_GREYBOX_RUNTIME_FILTER_RESOURCES,
   M01_GREYBOX_RUNTIME_HIDDEN_FRAGMENT_RESOURCES,
+  M01_GREYBOX_RUNTIME_INTRO_RESOURCES,
   M01_GREYBOX_RUNTIME_LIGHT_EDGE_FRAGMENT_RESOURCES,
   M01_GREYBOX_RUNTIME_LIGHT_MASK_FRAGMENT_RESOURCES,
+  M01_GREYBOX_RUNTIME_LEMMY_RESOURCES,
   M01_GREYBOX_RUNTIME_SURFACE_RESOURCES,
   M01_GREYBOX_RUNTIME_TRANSPARENT_RESOURCES
 } from "../../assets/scripts/cocos/M01GreyboxArt.ts";
@@ -49,6 +53,12 @@ function readPngSize(path: string): { width: number; height: number } {
     width: bytes.readUInt32BE(16),
     height: bytes.readUInt32BE(20)
   };
+}
+
+function sha256File(path: string): string {
+  return createHash("sha256")
+    .update(readFileSync(join(projectRoot, path)))
+    .digest("hex");
 }
 
 function readSpriteFrameUserData(metaPath: string): Record<string, unknown> {
@@ -1375,6 +1385,63 @@ describe("M01 greybox art slices", () => {
       sourceFile:
         "docs/design/generated-m01-art-slices/m01-single-flashlight-tool-runtime-fixed.png"
     });
+  });
+
+  it("uses the canonical Lemmy prototype for every M01 intro Lemmy runtime sprite", () => {
+    const lemmyResources = M01_GREYBOX_RUNTIME_INTRO_RESOURCES.filter((resource) =>
+      resource.id.startsWith("intro_lemmy_")
+    );
+
+    expect(lemmyResources.map((resource) => resource.id)).toEqual([
+      "intro_lemmy_walking",
+      "intro_lemmy_reaching"
+    ]);
+    expect(lemmyResources.map((resource) => sha256File(resource.file))).toEqual([
+      sha256File(lemmyResources[0].file),
+      sha256File(lemmyResources[0].file)
+    ]);
+
+    for (const resource of lemmyResources) {
+      expect(resource.displaySize).toEqual({ width: 180, height: 180 });
+      expect(resource.file).toMatch(
+        /^assets\/resources\/art\/stage1-m01\/runtime-sprites\/intro\/m01-lemmy-(walking|reaching)\.png$/
+      );
+      expect(resource.sourceFile).toBe(resource.file);
+      expect(resource.resourcesLoadPath).toMatch(
+        /^art\/stage1-m01\/runtime-sprites\/intro\/m01-lemmy-(walking|reaching)\/spriteFrame$/
+      );
+      expect(existsSync(join(projectRoot, resource.file))).toBe(true);
+      expect(existsSync(join(projectRoot, `${resource.file}.meta`))).toBe(true);
+
+      const image = readPngRgba(resource.file);
+      expect(image.width).toBe(2048);
+      expect(image.height).toBe(2048);
+      expectVisuallyTransparentCorners(image);
+
+      const bounds = opaqueBounds(image);
+      expect(bounds.height).toBeGreaterThan(1500);
+      expect(bounds.width / bounds.height).toBeGreaterThan(0.45);
+      expect(bounds.width / bounds.height).toBeLessThan(0.7);
+    }
+  });
+
+  it("declares the single canonical Lemmy actor resource without using stale layer parts", () => {
+    expect(M01_GREYBOX_RUNTIME_LEMMY_RESOURCES.map((resource) => resource.id)).toEqual([
+      "lemmy_canonical"
+    ]);
+
+    for (const resource of M01_GREYBOX_RUNTIME_LEMMY_RESOURCES) {
+      expect(resource.role).toBe("lemmy_actor_sprite");
+      expect(resource.file).toBe("assets/resources/art/characters/lemmy/lemmy-canonical.png");
+      expect(resource.resourcesLoadPath).toBe("art/characters/lemmy/lemmy-canonical/spriteFrame");
+      expect(resource.displaySize).toEqual({ width: 180, height: 180 });
+      expect(resource.file).not.toContain("lemmy-body");
+      expect(resource.resourcesLoadPath).not.toContain("lemmy-body");
+    }
+
+    expect(getM01GreyboxRuntimeLemmyResource("lemmy_canonical")?.resourcesLoadPath).toBe(
+      "art/characters/lemmy/lemmy-canonical/spriteFrame"
+    );
   });
 
   it("maps greybox fragment and filter tokens onto isolated runtime sprite resources", () => {

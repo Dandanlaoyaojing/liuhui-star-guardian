@@ -959,6 +959,23 @@ describe("Cocos Creator project scaffold", () => {
     expect(pile).not.toContain("private dropOnePiece(");
   });
 
+  it("drives M01 intro Lemmy through the identity-locked LemmyActor", () => {
+    const intro = readText("assets/scripts/cocos/M01IntroSequence.ts");
+
+    expect(intro).toContain('import { LemmyActor, isExpectedLemmyActionCancel } from "./LemmyActor.ts";');
+    expect(intro).toContain("getM01GreyboxRuntimeLemmyResource");
+    expect(intro).toContain('this.lemmyResourcePath("lemmy_canonical")');
+    expect(intro).not.toContain("partResourcePaths");
+    expect(intro).not.toContain("lemmy_body");
+    expect(intro).toContain("node.addComponent(LemmyActor)");
+    expect(intro).toContain('this.lemmyActor.walkTo(new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0)');
+    expect(intro).toContain('this.lemmyActor.playAction("reach_up_right"');
+    expect(intro).toContain('event === "reach_contact"');
+    expect(intro).not.toContain("REACH_HOLD_DURATION");
+    expect(intro).not.toContain("swapSprite(this.lemmySprite");
+    expect(intro).not.toContain('manifestId: "intro_lemmy_reaching"');
+  });
+
   it("gives freely falling M01 fragments a subtle ground bounce", () => {
     const boundary = readText("assets/scripts/cocos/M01PhysicsBoundary.ts");
     const pile = readText("assets/scripts/cocos/M01PhysicsPile.ts");

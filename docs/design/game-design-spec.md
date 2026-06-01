@@ -471,7 +471,7 @@ class LocalStorageSync implements ICloudSync {
 1. [style-references/2026-04-22-unified-handdrawn-style-anchor.png](style-references/2026-04-22-unified-handdrawn-style-anchor.png) — M01 / 全局手绘锚点。
 2. [style-references/2026-04-23-game-interface-style-reference.png](style-references/2026-04-23-game-interface-style-reference.png) — 游戏界面参考。
 3. [style-references/2026-04-23-game-ui-board-style-reference.png](style-references/2026-04-23-game-ui-board-style-reference.png) — 面板 / 卡片参考。
-4. [style-references/2026-04-24-lemmy-rabbit-style-reference.png](style-references/2026-04-24-lemmy-rabbit-style-reference.png) — 莱米 / 角色造型参考。
+4. [style-references/2026-05-28-lemmy-rabbit-canonical.png](style-references/2026-05-28-lemmy-rabbit-canonical.png) — 莱米 / 角色造型参考（2026-05-29 定稿：带手、干净无噪点、透明背景版，取代 2026-04-24 低清缩略图）。
 
 已生成的 `M01-M10` 早期场景图（当前实际为 `M02-M10` 概念图与 `M02-M08` 资产落盘）全部降级为**备选概念 / 历史探索**，只用于提示意象、构图风险和关卡语义，不再作为当前生产美术标准。后续 Stage 1 正式图会围绕上述四张主动参考图重新生成或精修。
 
@@ -493,7 +493,7 @@ class LocalStorageSync implements ICloudSync {
 - **学它的文字处理**：生成图片不烤入真实文字，只保留文字占位，真实文案交给前端/引擎文本层
 - **学它的界面克制**：模块可读、功能隐喻明确，但不把每个界面做成复杂仪器墙或通用办公工具
 
-**莱米 / 角色主动参考图（2026-04-24）**：见 [style-references/2026-04-24-lemmy-rabbit-style-reference.png](style-references/2026-04-24-lemmy-rabbit-style-reference.png) 与 [style-references/README.md](style-references/README.md)。这张图是主角莱米的**角色造型与手绘比例基准**：
+**莱米 / 角色主动参考图（2026-05-28 canonical，2026-05-29 定稿）**：见 [style-references/2026-05-28-lemmy-rabbit-canonical.png](style-references/2026-05-28-lemmy-rabbit-canonical.png) 与 [style-references/README.md](style-references/README.md)。这张图（带手、干净无噪点、2000×2000 透明）是主角莱米**唯一**的角色造型与手绘比例基准，取代旧的 2026-04-24 低清缩略图：
 - **学它的角色比例**：头身简化、长耳不完全对称、身体细长且脆弱，不走圆润吉祥物路线
 - **学它的脸部克制**：小黑眼与极少表情信息足够成立，避免大眼、五官丰富化和可爱化
 - **学它的色块关系**：陶土红与灰蓝绿色块分区清楚，颜色像淡彩附着在线条上，而不是饱和卡通填色
