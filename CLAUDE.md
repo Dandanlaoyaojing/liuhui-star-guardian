@@ -5,7 +5,7 @@
 **《流辉美慧号：星图守护者》** — 面向成人及青年玩家（16+）、对思维成长感兴趣者的认知解谜游戏。详见 `docs/design/vision.md`。
 
 - **Engine**: Cocos Creator 3.8+ (TypeScript)
-- **Platforms**: Web(H5), WeChat Mini Game, iOS, Android
+- **Platforms**: iOS App + Steam (PC/Mac). (2026-06-01 调整;历史曾含 Web/微信小游戏/安卓，微信 4MB 主包限制不再适用，动画帧数可按质量给足)
 - **Architecture**: Pure client-side (MVP), with reserved backend interfaces
 - **Art Style**: Arrog-inspired minimalist hand-drawn line art with restrained low-saturation color
 
