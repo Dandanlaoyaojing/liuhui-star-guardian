@@ -116,3 +116,9 @@ mpdecimate 去重复帧(60fps 视频实际独立帧约 100-120)。**帧太少会
 ## References
 - 即梦 CLI 安装:`curl -s https://jimeng.jianying.com/cli | bash`(字节官方)
 - 相关项目 memory: project_jimeng_identity_consistency, project_img2img_noise_and_video_drift
+
+## ⚠️ pngquant 压缩的安全边界(2026-06-01 实测)
+- **pngquant(有损256色量化)对"高对比色块+清晰线稿"安全**(莱米动画帧实测66帧压缩后掏空0、色差<3,肉眼无损)。
+- **对"大面积低对比水彩"会视觉掏空**(篮子底深色叠透明:相近色被归并,看起来被抠空)。
+- 判断:主体颜色分明/线稿清晰→pngquant可用;大片相近色/低对比水彩→改用 **oxipng/zopflipng 无损重压**(像素零改变)。
+- 检测损坏别只看alpha直方图(数据可能没变但视觉坏了),要比对"原本不透明现在变透明的像素数"+"不透明区RGB色差",或肉眼叠棋盘看。
