@@ -41,12 +41,38 @@ def canonical_stats(path):
 
 
 def bbox(px, w, h):
-    mnx = w; mny = h; mxx = 0; myy = 0
+    # 密度+主簇版 bbox。两个鲁棒性处理,专治快速运动帧的抽帧塌陷:
+    #  (1) 密度:按行/列统计暗像素,只把"足够密"(>=~0.4%边长,下限5)的行列算作主体,剔除边缘杂散噪点。
+    #  (2) 主簇:把密集行按纵向间隙分簇(间隙>BRIDGE 视为断开),只保留暗像素总量最大的那一簇。
+    #      快速运动帧里耳/肢体常被运动模糊冲淡到"中段消失、只剩个断开的尖端блоб"——naive bbox 会从那个
+    #      悬空блоб一直框到脚底(满画幅、中间大片空洞),该帧抽出来近乎空白、还把全局最大身高/SCALE 撑爆。
+    #      正常帧里耳朵与头连续(无大间隙)→ 整只兔子是一簇,完整保留;只有模糊掉链的帧才丢掉悬空блоб。
+    row_cnt = [0]*h; col_cnt = [0]*w
     for y in range(h):
+        rc = 0
         for x in range(w):
             if min(px[x, y][0], px[x, y][1], px[x, y][2]) < 232:
-                mnx = min(mnx, x); mxx = max(mxx, x); mny = min(mny, y); myy = max(myy, y)
-    return mnx, mny, mxx, myy
+                rc += 1; col_cnt[x] += 1
+        row_cnt[y] = rc
+    rmin = max(5, round(0.004*w))
+    dense = [y for y in range(h) if row_cnt[y] >= rmin]
+    if not dense:
+        dense = [y for y in range(h) if row_cnt[y] > 0]
+        if not dense:
+            return 0, 0, w-1, h-1
+    BRIDGE = max(24, round(0.02*h))   # 小于此的纵向缝隙桥接为同一簇(容忍细颈/淡水彩),大于此视为断裂
+    clusters = []; start = prev = dense[0]
+    for y in dense[1:]:
+        if y - prev > BRIDGE:
+            clusters.append((start, prev)); start = y
+        prev = y
+    clusters.append((start, prev))
+    mny, myy = max(clusters, key=lambda c: sum(row_cnt[y] for y in range(c[0], c[1]+1)))
+    cmin = max(5, round(0.004*h))
+    xs = [x for x in range(w) if col_cnt[x] >= cmin]   # 列以全局密集列定横向边界(悬空блоб在中部,不会外扩)
+    if not xs:
+        xs = [x for x in range(w) if col_cnt[x] > 0]
+    return min(xs), mny, max(xs), myy
 
 
 def main():
