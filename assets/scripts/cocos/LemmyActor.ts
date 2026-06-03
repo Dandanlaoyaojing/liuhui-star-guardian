@@ -15,7 +15,7 @@ import {
   createLemmyCancellationContext,
   estimateLemmyActionDurationMs,
   isExpectedLemmyActionCancel,
-  type LemmyActionId,
+  type LemmyTransformActionId,
   type LemmyActionScheduleEntry,
   type LemmyActorEvent
 } from "./LemmyActorContract.ts";
@@ -93,7 +93,7 @@ export class LemmyActor extends Component {
     return handle.promise;
   }
 
-  async playAction(actionId: LemmyActionId, options: LemmyPlayOptions = {}): Promise<void> {
+  async playAction(actionId: LemmyTransformActionId, options: LemmyPlayOptions = {}): Promise<void> {
     await this.readyPromise;
     const handle = this.cancellation.beginAction(actionId);
     const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
@@ -178,7 +178,7 @@ export class LemmyActor extends Component {
     });
   }
 
-  private playPose(actionId: LemmyActionId, atMs: number): void {
+  private playPose(actionId: LemmyTransformActionId, atMs: number): void {
     const entry = this.nearestScheduleEntry(actionId, atMs);
     const node = this.spriteNode;
     if (!node) return;
@@ -192,7 +192,7 @@ export class LemmyActor extends Component {
     );
   }
 
-  private nearestScheduleEntry(actionId: LemmyActionId, atMs: number): LemmyActionScheduleEntry {
+  private nearestScheduleEntry(actionId: LemmyTransformActionId, atMs: number): LemmyActionScheduleEntry {
     const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
     return [...schedule]
       .reverse()

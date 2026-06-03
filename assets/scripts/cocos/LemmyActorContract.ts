@@ -4,7 +4,10 @@ export const LEMMY_APPROVED_IDENTITY_SOURCE =
 export const LEMMY_CLEAN_MASTER_PATH =
   "assets/art/style-references/lemmy-rabbit-canonical.png";
 
-export type LemmyActionId = "idle_right" | "walk_right" | "reach_up_right";
+export type LemmyTransformActionId = "idle_right" | "walk_right" | "reach_up_right";
+export type LemmyFrameActionId = "startle" | "crouch";
+/** Any Lemmy action — whole-sprite transform schedules OR loaded frame sequences. */
+export type LemmyActionId = LemmyTransformActionId | LemmyFrameActionId;
 export type LemmyActorEvent = "reach_contact" | "footstep_left" | "footstep_right";
 
 export interface LemmyActionScheduleEntry {
@@ -44,7 +47,7 @@ interface LemmyPendingAction {
   reject: (error: Error) => void;
 }
 
-export const LEMMY_ACTION_SCHEDULES: Record<LemmyActionId, LemmyTransformSchedule> = {
+export const LEMMY_ACTION_SCHEDULES: Record<LemmyTransformActionId, LemmyTransformSchedule> = {
   idle_right: {
     loop: false,
     keyframes: [
@@ -89,7 +92,7 @@ export class LemmyActorDestroyed extends Error {
   }
 }
 
-export function getLemmyTransformSchedule(actionId: LemmyActionId): LemmyTransformSchedule {
+export function getLemmyTransformSchedule(actionId: LemmyTransformActionId): LemmyTransformSchedule {
   const schedule = LEMMY_ACTION_SCHEDULES[actionId];
   return {
     loop: schedule.loop,
@@ -97,7 +100,7 @@ export function getLemmyTransformSchedule(actionId: LemmyActionId): LemmyTransfo
   };
 }
 
-export function estimateLemmyActionDurationMs(actionId: LemmyActionId): number {
+export function estimateLemmyActionDurationMs(actionId: LemmyTransformActionId): number {
   const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
   return schedule[schedule.length - 1]?.atMs ?? 0;
 }
@@ -152,4 +155,79 @@ export function createLemmyCancellationContext(): LemmyCancellationContext {
 
 export function isExpectedLemmyActionCancel(error: unknown): boolean {
   return error instanceof LemmyActionInterrupted || error instanceof LemmyActorDestroyed;
+}
+
+// ── Frame-sequence actions (startle / crouch) ───────────────────────────────
+// These play a loaded PNG sequence (resources.loadDir) rather than a transform
+// schedule. Pure playback state lives here; the cc glue (LemmyActor) owns sprites.
+
+export interface LemmyFrameActionSpec {
+  /** resources-relative path passed to resources.loadDir(dir, SpriteFrame). */
+  dir: string;
+  fps: number;
+  loop: boolean;
+  /** one-shot only: keep showing the last frame once done. */
+  holdLast: boolean;
+}
+
+export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpec> = {
+  startle: { dir: "art/characters/lemmy/startle", fps: 16, loop: false, holdLast: true },
+  crouch: { dir: "art/characters/lemmy/crouch", fps: 14, loop: false, holdLast: true }
+};
+
+export interface LemmyFramePlaybackState {
+  actionId: LemmyFrameActionId;
+  frameCount: number;
+  fps: number;
+  loop: boolean;
+  holdLast: boolean;
+  elapsedMs: number;
+  frameIndex: number;
+  done: boolean;
+}
+
+export function createFramePlayback(
+  actionId: LemmyFrameActionId,
+  frameCount: number
+): LemmyFramePlaybackState {
+  const spec = LEMMY_FRAME_ACTIONS[actionId];
+  return {
+    actionId,
+    frameCount,
+    fps: spec.fps,
+    loop: spec.loop,
+    holdLast: spec.holdLast,
+    elapsedMs: 0,
+    frameIndex: 0,
+    done: false
+  };
+}
+
+/**
+ * Advance a frame playback by deltaMs (frame-rate independent). Pure: returns a new state.
+ * - loop: wraps frameIndex, never done.
+ * - one-shot: clamps to the last frame and marks done once the sequence completes.
+ */
+export function advanceFramePlayback(
+  state: LemmyFramePlaybackState,
+  deltaMs: number
+): LemmyFramePlaybackState {
+  if (state.frameCount <= 0) {
+    return { ...state, done: true, frameIndex: 0 };
+  }
+
+  const elapsedMs = state.elapsedMs + Math.max(0, deltaMs);
+  const frameDurationMs = 1000 / state.fps;
+  const rawIndex = Math.floor(elapsedMs / frameDurationMs);
+
+  if (state.loop) {
+    const wrapped = ((rawIndex % state.frameCount) + state.frameCount) % state.frameCount;
+    return { ...state, elapsedMs, frameIndex: wrapped, done: false };
+  }
+
+  if (rawIndex >= state.frameCount - 1) {
+    return { ...state, elapsedMs, frameIndex: state.frameCount - 1, done: true };
+  }
+
+  return { ...state, elapsedMs, frameIndex: rawIndex, done: false };
 }

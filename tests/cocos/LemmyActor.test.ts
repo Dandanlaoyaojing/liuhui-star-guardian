@@ -7,8 +7,12 @@ import {
   LemmyActionInterrupted,
   LemmyActorDestroyed,
   LEMMY_APPROVED_IDENTITY_SOURCE,
-  LEMMY_CLEAN_MASTER_PATH
+  LEMMY_CLEAN_MASTER_PATH,
+  LEMMY_FRAME_ACTIONS,
+  createFramePlayback,
+  advanceFramePlayback
 } from "../../assets/scripts/cocos/LemmyActorContract.ts";
+import type { LemmyActionId } from "../../assets/scripts/cocos/LemmyActorContract.ts";
 
 describe("LemmyActor identity constants", () => {
   it("locks the approved Lemmy identity source and clean master path", () => {
@@ -86,5 +90,53 @@ describe("LemmyActor cancellation context", () => {
 
     await expect(active.promise).resolves.toBeUndefined();
     expect(active.token.isActive).toBe(false);
+  });
+});
+
+describe("Lemmy frame actions (startle / crouch)", () => {
+  it("exposes exactly startle and crouch as one-shot hold-last frame actions", () => {
+    expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual(["crouch", "startle"]);
+    for (const spec of Object.values(LEMMY_FRAME_ACTIONS)) {
+      expect(spec.loop).toBe(false);
+      expect(spec.holdLast).toBe(true);
+      expect(spec.fps).toBeGreaterThan(0);
+      expect(spec.dir).toMatch(/^art\/characters\/lemmy\//);
+    }
+  });
+
+  it("accepts frame action ids where a LemmyActionId is expected (widened union, no cast)", () => {
+    const accept = (id: LemmyActionId): LemmyActionId => id;
+    expect(accept("startle")).toBe("startle");
+    expect(accept("crouch")).toBe("crouch");
+    expect(accept("idle_right")).toBe("idle_right");
+  });
+});
+
+describe("Lemmy frame playback (pure)", () => {
+  it("clamps to the last frame and reports done after a one-shot completes", () => {
+    let state = createFramePlayback("startle", 23);
+    expect(state.frameIndex).toBe(0);
+    expect(state.done).toBe(false);
+
+    // 23 frames @ 16fps ≈ 1437ms; advance well past the end
+    state = advanceFramePlayback(state, 5000);
+    expect(state.frameIndex).toBe(22);
+    expect(state.done).toBe(true);
+  });
+
+  it("steps frame-by-frame using fps before completion", () => {
+    // crouch 24 frames @ 14fps ≈ 71.4ms/frame
+    let state = createFramePlayback("crouch", 24);
+    state = advanceFramePlayback(state, 80);
+    expect(state.frameIndex).toBe(1);
+    expect(state.done).toBe(false);
+  });
+
+  it("wraps without finishing for a looping playback", () => {
+    const looping = { ...createFramePlayback("startle", 4), loop: true };
+    const advanced = advanceFramePlayback(looping, 1000);
+    expect(advanced.done).toBe(false);
+    expect(advanced.frameIndex).toBeGreaterThanOrEqual(0);
+    expect(advanced.frameIndex).toBeLessThan(4);
   });
 });
