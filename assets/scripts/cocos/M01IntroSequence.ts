@@ -23,45 +23,38 @@ import {
   M01_INTRO_BASKET_PILE_OFFSETS
 } from "./M01IntroLayout.ts";
 import { LemmyActor, isExpectedLemmyActionCancel } from "./LemmyActor.ts";
+import { nextIntroPhase, type M01IntroEvent, type M01IntroPhase } from "./M01IntroFlow.ts";
 
 const { ccclass } = _decorator;
 
 /**
- * Opening sequence: a shallow wide-mouth watercolor tray hangs from two ropes
- * beneath the flashlight. The REAL 9 puzzle-piece nodes are parented to the
- * basket and sit visibly inside it in their initial pile shape. Player clicks
- * the basket → Lemmy walks under, tiptoes, basket wobbles + tips → the 9
- * pieces are reparented back to the greybox root (preserving world positions)
- * and physics gravity engages on them, so they fall from wherever they
- * happened to be when the basket tipped.
+ * Opening sequence (diegetic "捡到式" intro, spec §5.2). A shallow wide-mouth tray hangs
+ * from two ropes. The REAL 9 puzzle-piece nodes sit inside it. Phase machine lives in
+ * M01IntroFlow (pure); this component only drives the cc animations and feeds events in.
  *
- * Phases:
- *   idle      — Lemmy at left edge; basket holds the 9 pieces upright
- *   walking   — LemmyActor tweens toward the position under the basket
- *   reaching  — LemmyActor emits reach_contact at the basket-touch beat
- *   tipping   — Basket wobbles, then commits to a tilt
- *   spilling  — Pieces reparent back to root and gain gravity; onSpill fires
- *   exiting   — Lemmy walks to the right side
- *   settled   — onSettled() fires; player can drag pieces
+ * Flow (Task 3b — through spill; flashlight bonk/pickup added in Task 4/5):
+ *   approaching       — Lemmy AUTO-walks in toward the big nut (no tap needed)
+ *   observing         — stops, looks at the basket; WAITS for the player to tap the basket
+ *   reaching          — (basket tapped) tiptoes / reaches up; emits reach_contact
+ *   tipping           — basket wobbles, then tilts
+ *   spillingFragments — pieces reparent to root + gain gravity; onSpill fires; onSettled fires
  *
- * Art assets are looked up via the central M01GreyboxArt manifest (the same
- * registry that owns the gear, flashlight, filters, fragments, etc.) so
- * paths aren't hardcoded in two places.
+ * Lemmy now STAYS on stage after the spill (he will pick up the flashlight and become the
+ * player-controlled beam in later tasks) — the old "walk off to the right" exit is removed.
  */
 
 const GROUND_Y = -270;
 
 // Lemmy display + waypoints.
 const LEMMY_DISPLAY = { width: 180, height: 180 };
-const LEMMY_OFFSCREEN_X = -460;                    // left edge entry
-const LEMMY_UNDER_BASKET_X = 290;                  // stands just left of basket bottom
-const LEMMY_WATCHING_X = 470;                      // exits to the right and stands
+const LEMMY_OFFSCREEN_X = -460; // left edge entry
+const LEMMY_UNDER_BASKET_X = 290; // stands just left of basket bottom
 const LEMMY_Y = GROUND_Y + LEMMY_DISPLAY.height / 2 - 10;
 
 // Shallow wide tray basket suspended beneath the flashlight beam anchor (360, 110).
 const BASKET_DISPLAY = M01_INTRO_BASKET_DISPLAY_SIZE;
 const BASKET_X = 360;
-const BASKET_Y = -20;                              // mid-canvas, below flashlight
+const BASKET_Y = -20; // mid-canvas, below flashlight
 
 // Basket mouth in world coords once tipped — used as a fallback drop origin
 // if some fragment lacks a body.
@@ -69,8 +62,7 @@ const BASKET_MOUTH_X = BASKET_X - 30;
 const BASKET_MOUTH_Y = BASKET_Y - 30;
 
 // Two ropes hang from the basket's left+right rim-tie attachments up toward
-// the flashlight body. The basket art shows two small rope-tie stubs sticking
-// out from the rim; the rope sprites visually connect into those stubs.
+// the flashlight body.
 const ROPE_DISPLAY = { width: 18, height: 220 };
 const ROPE_BOTTOM_Y_OFFSET = -4;
 const ROPE_HORIZONTAL_OFFSET = BASKET_DISPLAY.width / 2 - 8;
@@ -82,9 +74,8 @@ const ROPE_CENTER_Y = BASKET_Y + ROPE_BOTTOM_Y_OFFSET + ROPE_DISPLAY.height / 2;
 const WALK_TO_BASKET_DURATION = 1.8;
 const BASKET_WOBBLE_DURATION = 0.14;
 const BASKET_TIP_DURATION = 0.45;
-const LEMMY_EXIT_DURATION = 1.4;
 
-const BASKET_TIP_ANGLE_DEG = -68;                  // tilts left so mouth faces lower-left
+const BASKET_TIP_ANGLE_DEG = -68; // tilts left so mouth faces lower-left
 
 export interface M01IntroFragment {
   /** The real M01 puzzle-piece node managed by the bootstrap. */
@@ -96,28 +87,16 @@ export interface M01IntroSequenceOptions {
   fragments: M01IntroFragment[];
   /** Called when the basket has tipped and pieces are released to the greybox root. */
   onSpill: (originX: number, originY: number) => void;
-  /** Called once Lemmy has finished walking to the watching position. */
+  /** Called once the pieces have spilled and the puzzle workspace is live. */
   onSettled: () => void;
 }
 
-type IntroPhase =
-  | "idle"
-  | "walking"
-  | "reaching"
-  | "tipping"
-  | "spilling"
-  | "exiting"
-  | "settled";
-
-type SpriteKey =
-  | "basketHanging"
-  | "basketTipped"
-  | "rope";
+type SpriteKey = "basketHanging" | "basketTipped" | "rope";
 
 @ccclass("M01IntroSequence")
 export class M01IntroSequence extends Component {
   private options: M01IntroSequenceOptions | null = null;
-  private phase: IntroPhase = "idle";
+  private phase: M01IntroPhase = "approaching";
   private lemmyActor: LemmyActor | null = null;
   private lemmyReady: Promise<void> = Promise.resolve();
   private basketSprite: Sprite | null = null;
@@ -133,6 +112,16 @@ export class M01IntroSequence extends Component {
     this.spawnLemmy();
     this.loadSpriteFrames();
     this.stageFragmentsInBasket();
+    // Lemmy walks in on his own; the player's first action is tapping the basket.
+    void this.beginWalk();
+  }
+
+  /** Apply an intro event through the pure phase machine. Returns true if the phase changed. */
+  private advance(event: M01IntroEvent): boolean {
+    const next = nextIntroPhase(this.phase, event);
+    if (next === this.phase) return false;
+    this.phase = next;
+    return true;
   }
 
   private spawnRopes(): void {
@@ -243,17 +232,15 @@ export class M01IntroSequence extends Component {
     };
 
     // Each art slot maps to a manifest entry in M01GreyboxArt — same registry
-    // that already owns the gear, flashlight, filters, etc. Loading via the
-    // manifest means there's one source of truth for these paths and they
-    // show up in the editor's asset inventory.
+    // that already owns the gear, flashlight, filters, etc.
     const slots: Array<{
       manifestId: Parameters<typeof getM01GreyboxRuntimeIntroResource>[0];
       key: SpriteKey;
       sprite: Sprite | null;
     }> = [
       { manifestId: "intro_basket_hanging", key: "basketHanging", sprite: this.basketSprite },
-      { manifestId: "intro_basket_tipped",  key: "basketTipped",  sprite: null },
-      { manifestId: "intro_rope_segment",   key: "rope",          sprite: ropeLeftSprite }
+      { manifestId: "intro_basket_tipped", key: "basketTipped", sprite: null },
+      { manifestId: "intro_rope_segment", key: "rope", sprite: ropeLeftSprite }
     ];
 
     for (const slot of slots) {
@@ -267,21 +254,23 @@ export class M01IntroSequence extends Component {
     }
   }
 
+  /** Player taps the basket. Only advances observing → reaching (ignored before Lemmy arrives). */
   private handleBasketTap(_event: EventTouch): void {
-    if (this.phase !== "idle") return;
-    void this.beginWalk();
+    if (this.advance("basketTapped")) {
+      void this.beginReach();
+    }
   }
 
+  /** Lemmy auto-walks to the basket, then stands and looks at it, waiting for the player tap. */
   private async beginWalk(): Promise<void> {
     if (!this.lemmyActor) return;
-    this.phase = "walking";
     try {
       await this.lemmyReady;
       await this.lemmyActor.walkTo(new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0), {
         durationMs: WALK_TO_BASKET_DURATION * 1000
       });
+      this.advance("walkArrived"); // approaching → observing
       await this.lemmyActor.playAction("idle_right");
-      await this.beginReach();
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     }
@@ -289,11 +278,10 @@ export class M01IntroSequence extends Component {
 
   private async beginReach(): Promise<void> {
     if (!this.lemmyActor) return;
-    this.phase = "reaching";
     try {
       await this.lemmyActor.playAction("reach_up_right", {
         onEvent: (event) => {
-          if (event === "reach_contact") {
+          if (event === "reach_contact" && this.advance("reachContact")) {
             this.wobbleBasket();
           }
         }
@@ -316,7 +304,6 @@ export class M01IntroSequence extends Component {
 
   private commitTip(): void {
     if (!this.basketNode) return;
-    this.phase = "tipping";
     this.swapSprite(this.basketSprite, "basketTipped");
     tween(this.basketNode)
       .to(
@@ -324,38 +311,19 @@ export class M01IntroSequence extends Component {
         { eulerAngles: new Vec3(0, 0, BASKET_TIP_ANGLE_DEG) },
         { easing: "quadOut" }
       )
-      .call(() => this.startSpill())
+      .call(() => {
+        if (this.advance("tipped")) this.startSpill();
+      })
       .start();
   }
 
   private startSpill(): void {
-    this.phase = "spilling";
     // Reparent the 9 real pieces back to the greybox root (preserving world
-    // positions captured AFTER the basket tip). Then signal the bootstrap.
+    // positions captured AFTER the basket tip), then signal the bootstrap.
     this.releaseFragmentsFromBasket();
     if (this.options) {
       this.options.onSpill(BASKET_MOUTH_X, BASKET_MOUTH_Y);
-    }
-    void this.beginExit();
-  }
-
-  private async beginExit(): Promise<void> {
-    if (!this.lemmyActor) return;
-    this.phase = "exiting";
-    try {
-      await this.lemmyReady;
-      await this.lemmyActor.walkTo(new Vec3(LEMMY_WATCHING_X, LEMMY_Y, 0), {
-        durationMs: LEMMY_EXIT_DURATION * 1000
-      });
-      this.finishIntro();
-    } catch (error) {
-      if (!isExpectedLemmyActionCancel(error)) throw error;
-    }
-  }
-
-  private finishIntro(): void {
-    this.phase = "settled";
-    if (this.options) {
+      // Lemmy stays on stage (no exit walk). The workspace is live once pieces spill.
       this.options.onSettled();
     }
   }
