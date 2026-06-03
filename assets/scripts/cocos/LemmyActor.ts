@@ -254,7 +254,12 @@ export class LemmyActor extends Component {
           // 按贴图真实宽高比重设 contentSize, 防止莱米被拉宽/拉变形。
           const box = this.sprite.node.getComponent(UITransform);
           if (box) {
-            const real = spriteFrameSize(spriteFrame);
+            // 按【裁剪后】内容比例(frame.rect)设框, 而不是含大量透明留白的方形原图。
+            // 莱米定妆图是 2000² 方图、兔子只占居中竖长条(裁剪后约 1051×1926); sizeMode CUSTOM
+            // 会把裁剪内容拉伸填满 contentSize, 若按方形原图设成方框就会把竖长的兔子横向拉宽变形。
+            const rect = spriteFrame.rect;
+            const real =
+              rect && rect.width > 0 && rect.height > 0 ? rect : spriteFrameSize(spriteFrame);
             const fitted = aspectContentSize(
               real.width,
               real.height,
