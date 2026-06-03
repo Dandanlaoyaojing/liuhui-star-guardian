@@ -996,14 +996,31 @@ describe("M01 greybox art slices", () => {
     );
   });
 
-  it("keeps resource preview copies byte-identical to the accepted source assets", () => {
+  it("derives resource preview copies as faithful optimized downscales of the source assets", () => {
+    // Runtime preview copies are perf-optimized derivatives of the editor source art
+    // (oxipng + display-size scaling; see commit "运行时图按显示尺寸缩放+oxipng"), so they are
+    // intentionally NOT byte-identical to source. The faithful-derivation invariant: a preview
+    // never exceeds its source, never drops below the slice's required display size, and keeps
+    // the source aspect ratio (guards against wrong/distorted art without forbidding optimization).
+    const pngSize = (path: string): { width: number; height: number } => {
+      const buf = readFileSync(path); // PNG IHDR: width@16, height@20 (BE), color-type agnostic
+      return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    };
+
     for (const slice of M01_GREYBOX_ART_SLICES) {
       const resource = getM01GreyboxArtPreviewResource(slice.id);
-
       expect(resource).toBeDefined();
-      const resourceBytes = readFileSync(join(projectRoot, resource!.file));
-      const sourceBytes = readFileSync(join(projectRoot, slice.file));
-      expect(resourceBytes.equals(sourceBytes)).toBe(true);
+
+      const preview = pngSize(join(projectRoot, resource!.file));
+      const source = pngSize(join(projectRoot, slice.file));
+
+      expect(preview.width).toBeLessThanOrEqual(source.width);
+      expect(preview.height).toBeLessThanOrEqual(source.height);
+      expect(preview.width).toBeGreaterThanOrEqual(slice.minPixelSize.width);
+      expect(preview.height).toBeGreaterThanOrEqual(slice.minPixelSize.height);
+      expect(
+        Math.abs(preview.width / preview.height - source.width / source.height)
+      ).toBeLessThan(0.02);
     }
   });
 
@@ -1434,12 +1451,14 @@ describe("M01 greybox art slices", () => {
       expect(existsSync(join(projectRoot, `${resource.file}.meta`))).toBe(true);
 
       const image = readPngRgba(resource.file);
-      expect(image.width).toBe(2048);
-      expect(image.height).toBe(2048);
+      // Runtime intro Lemmy sprites are downscaled 2048→1024 (perf: displaySize is only 180);
+      // see commit "运行时图按显示尺寸缩放". Bounds scale with it (was >1500 at 2048).
+      expect(image.width).toBe(1024);
+      expect(image.height).toBe(1024);
       expectVisuallyTransparentCorners(image);
 
       const bounds = opaqueBounds(image);
-      expect(bounds.height).toBeGreaterThan(1500);
+      expect(bounds.height).toBeGreaterThan(750);
       expect(bounds.width / bounds.height).toBeGreaterThan(0.45);
       expect(bounds.width / bounds.height).toBeLessThan(0.7);
     }

@@ -964,7 +964,7 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(intro).toContain('import { LemmyActor, isExpectedLemmyActionCancel } from "./LemmyActor.ts";');
     expect(intro).toContain("getM01GreyboxRuntimeLemmyResource");
-    expect(intro).toContain('this.lemmyResourcePath("lemmy_canonical")');
+    expect(intro).toContain('getM01GreyboxRuntimeLemmyResource("lemmy_canonical")?.resourcesLoadPath');
     expect(intro).not.toContain("partResourcePaths");
     expect(intro).not.toContain("lemmy_body");
     expect(intro).toContain("node.addComponent(LemmyActor)");
