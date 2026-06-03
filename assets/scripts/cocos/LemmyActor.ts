@@ -12,12 +12,18 @@ import {
 
 import {
   LEMMY_ACTION_SCHEDULES,
+  LEMMY_FRAME_ACTIONS,
+  advanceFramePlayback,
+  createFramePlayback,
   createLemmyCancellationContext,
   estimateLemmyActionDurationMs,
   isExpectedLemmyActionCancel,
-  type LemmyTransformActionId,
   type LemmyActionScheduleEntry,
-  type LemmyActorEvent
+  type LemmyActionToken,
+  type LemmyActorEvent,
+  type LemmyFrameActionId,
+  type LemmyFramePlaybackState,
+  type LemmyTransformActionId
 } from "./LemmyActorContract.ts";
 import { aspectContentSize, spriteFrameSize } from "./M01SpriteAspect.ts";
 
@@ -61,6 +67,10 @@ export class LemmyActor extends Component {
   private displaySize = DEFAULT_DISPLAY_SIZE;
   private spriteNode: Node | null = null;
   private sprite: Sprite | null = null;
+  private readonly frameCache = new Map<LemmyFrameActionId, SpriteFrame[]>();
+  private framePlayback: LemmyFramePlaybackState | null = null;
+  private framePlaybackFrames: SpriteFrame[] = [];
+  private framePlaybackToken: LemmyActionToken | null = null;
 
   init(options: LemmyActorOptions = {}): Promise<void> {
     this.displaySize = options.displaySize ?? DEFAULT_DISPLAY_SIZE;
@@ -128,6 +138,88 @@ export class LemmyActor extends Component {
       .start();
 
     return handle.promise;
+  }
+
+  /**
+   * Play a loaded frame sequence (startle / crouch) as a one-shot. Resolves when the
+   * sequence completes (holdLast leaves the sprite on the final frame), or rejects if
+   * interrupted by another action / actor destruction (same contract as playAction).
+   */
+  async playFrameAction(
+    actionId: LemmyFrameActionId,
+    options: { facing?: "left" | "right" } = {}
+  ): Promise<void> {
+    await this.readyPromise;
+    const frames = await this.loadFrames(actionId);
+    const handle = this.cancellation.beginAction(actionId);
+
+    if (options.facing) this.applyFacing(options.facing);
+
+    this.framePlaybackFrames = frames;
+    this.framePlayback = createFramePlayback(actionId, frames.length);
+    this.framePlaybackToken = handle.token;
+    this.showFrame(0);
+
+    return handle.promise;
+  }
+
+  update(deltaSeconds: number): void {
+    const playback = this.framePlayback;
+    const token = this.framePlaybackToken;
+    if (!playback || !token) return;
+
+    if (!token.isActive) {
+      // Superseded by another action (beginAction already rejected this promise).
+      this.framePlayback = null;
+      this.framePlaybackToken = null;
+      return;
+    }
+
+    const next = advanceFramePlayback(playback, deltaSeconds * 1000);
+    this.framePlayback = next;
+    if (next.frameIndex !== playback.frameIndex) this.showFrame(next.frameIndex);
+
+    if (next.done) {
+      // holdLast keeps the sprite on the final frame; resolve the action promise.
+      this.framePlayback = null;
+      this.framePlaybackToken = null;
+      this.cancellation.resolveActive(token);
+    }
+  }
+
+  private showFrame(index: number): void {
+    const frame = this.framePlaybackFrames[index];
+    if (this.sprite && frame) this.sprite.spriteFrame = frame;
+  }
+
+  private applyFacing(facing: "left" | "right"): void {
+    (
+      this.spriteNode as (Node & { setScale?: (x: number, y?: number, z?: number) => void }) | null
+    )?.setScale?.(facing === "left" ? -1 : 1, 1, 1);
+  }
+
+  private loadFrames(actionId: LemmyFrameActionId): Promise<SpriteFrame[]> {
+    const cached = this.frameCache.get(actionId);
+    if (cached) return Promise.resolve(cached);
+
+    const { dir } = LEMMY_FRAME_ACTIONS[actionId];
+    return new Promise<SpriteFrame[]>((resolve, reject) => {
+      resources.loadDir(dir, SpriteFrame, (error, frames) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        if (!frames || frames.length === 0) {
+          reject(new Error(`No frames for Lemmy action "${actionId}" at ${dir}`));
+          return;
+        }
+        const sorted = [...frames].sort((a, b) =>
+          a.name < b.name ? -1 : a.name > b.name ? 1 : 0
+        );
+        this.frameCache.set(actionId, sorted);
+        resolve(sorted);
+      });
+    });
   }
 
   onDestroy(): void {

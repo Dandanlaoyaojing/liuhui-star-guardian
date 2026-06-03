@@ -101,6 +101,8 @@ declare module "cc" {
   }
 
   export class SpriteFrame {
+    /** Asset name (frame filename without extension), e.g. "startle-00"; used to order loadDir frames. */
+    name: string;
     /** 原始(未裁剪)尺寸,用于按真实宽高比设置 contentSize 防止变形 */
     getOriginalSize(): { width: number; height: number };
     rect: { width: number; height: number };
@@ -144,6 +146,11 @@ declare module "cc" {
       path: string,
       type: new (...args: never[]) => T,
       onComplete: (error: Error | null, asset: T | null) => void
+    ): void;
+    loadDir<T>(
+      path: string,
+      type: new (...args: never[]) => T,
+      onComplete: (error: Error | null, assets: T[]) => void
     ): void;
   };
 
