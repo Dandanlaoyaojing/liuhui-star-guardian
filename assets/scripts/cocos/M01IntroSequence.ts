@@ -16,14 +16,18 @@ import {
 
 import {
   getM01GreyboxRuntimeIntroResource,
-  getM01GreyboxRuntimeLemmyLayerResource
+  getM01GreyboxRuntimeLemmyResource
 } from "./M01GreyboxArt.ts";
+import {
+  M01_INTRO_BASKET_DISPLAY_SIZE,
+  M01_INTRO_BASKET_PILE_OFFSETS
+} from "./M01IntroLayout.ts";
 import { LemmyActor, isExpectedLemmyActionCancel } from "./LemmyActor.ts";
 
 const { ccclass } = _decorator;
 
 /**
- * Opening sequence: a shallow wide-mouth wicker tray hangs from two ropes
+ * Opening sequence: a shallow wide-mouth watercolor tray hangs from two ropes
  * beneath the flashlight. The REAL 9 puzzle-piece nodes are parented to the
  * basket and sit visibly inside it in their initial pile shape. Player clicks
  * the basket → Lemmy walks under, tiptoes, basket wobbles + tips → the 9
@@ -55,7 +59,7 @@ const LEMMY_WATCHING_X = 470;                      // exits to the right and sta
 const LEMMY_Y = GROUND_Y + LEMMY_DISPLAY.height / 2 - 10;
 
 // Shallow wide tray basket suspended beneath the flashlight beam anchor (360, 110).
-const BASKET_DISPLAY = { width: 280, height: 190 };
+const BASKET_DISPLAY = M01_INTRO_BASKET_DISPLAY_SIZE;
 const BASKET_X = 360;
 const BASKET_Y = -20;                              // mid-canvas, below flashlight
 
@@ -73,25 +77,6 @@ const ROPE_HORIZONTAL_OFFSET = BASKET_DISPLAY.width / 2 - 8;
 const ROPE_LEFT_X = BASKET_X - ROPE_HORIZONTAL_OFFSET;
 const ROPE_RIGHT_X = BASKET_X + ROPE_HORIZONTAL_OFFSET;
 const ROPE_CENTER_Y = BASKET_Y + ROPE_BOTTOM_Y_OFFSET + ROPE_DISPLAY.height / 2;
-
-// Layout for the 9 real game pieces inside the basket (LOCAL to the basket node).
-// A flat 4-3-2 spread across the shallow tray interior, visible from the 3/4
-// overhead angle. Pieces are 56×56; we keep enough horizontal spacing to avoid
-// heavy overlap while still reading as a small pile.
-const BASKET_PILE_OFFSETS: ReadonlyArray<{ x: number; y: number }> = [
-  // Back row (deeper into tray, higher Y in display)
-  { x: -90, y: 22 },
-  { x: -30, y: 26 },
-  { x:  30, y: 26 },
-  { x:  90, y: 22 },
-  // Middle row
-  { x: -60, y:  4 },
-  { x:   0, y:  6 },
-  { x:  60, y:  4 },
-  // Front row (closer to viewer, lower Y)
-  { x: -30, y: -16 },
-  { x:  30, y: -16 }
-];
 
 // Timing (seconds).
 const WALK_TO_BASKET_DURATION = 1.8;
@@ -195,7 +180,7 @@ export class M01IntroSequence extends Component {
     if (!this.options || !this.basketNode) return;
     const fragments = this.options.fragments;
     for (let i = 0; i < fragments.length; i += 1) {
-      const slot = BASKET_PILE_OFFSETS[i % BASKET_PILE_OFFSETS.length];
+      const slot = M01_INTRO_BASKET_PILE_OFFSETS[i % M01_INTRO_BASKET_PILE_OFFSETS.length];
       const frag = fragments[i].node;
       frag.parent = this.basketNode;
       frag.setPosition(slot.x, slot.y, 0);
@@ -237,21 +222,10 @@ export class M01IntroSequence extends Component {
     const actor = node.addComponent(LemmyActor);
     this.lemmyReady = actor.init({
       displaySize: LEMMY_DISPLAY,
-      partResourcePaths: {
-        body: this.lemmyLayerPath("lemmy_body"),
-        earLeft: this.lemmyLayerPath("lemmy_ear_left"),
-        earRight: this.lemmyLayerPath("lemmy_ear_right"),
-        armFront: this.lemmyLayerPath("lemmy_arm_front")
-      }
+      resourcePath: getM01GreyboxRuntimeLemmyResource("lemmy_canonical")?.resourcesLoadPath
     });
 
     this.lemmyActor = actor;
-  }
-
-  private lemmyLayerPath(
-    id: Parameters<typeof getM01GreyboxRuntimeLemmyLayerResource>[0]
-  ): string {
-    return getM01GreyboxRuntimeLemmyLayerResource(id)?.resourcesLoadPath ?? "";
   }
 
   private loadSpriteFrames(): void {

@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-06-01
+Last updated: 2026-06-03
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
@@ -11,17 +11,23 @@ Last updated: 2026-06-01
 - `assets/resources/art/characters/lemmy/lemmy-canonical.png`(runtime)
 - `docs/design/style-references/2026-05-28-lemmy-rabbit-canonical.png`(dated 记录)
 - 所有旧形象(4-24 低清/无手版/带噪点版/Luma 兔变体)已删,引用全部改向 canonical。
+- **视图集**:canonical 是**斜侧(3/4)**视角(用于 idle 等);另存了**正侧(纯90°侧)**参考图 `assets/art/style-references/lemmy-rabbit-side-profile.png`(+ dated `docs/design/style-references/2026-06-02-lemmy-rabbit-side-profile.png`),从蹲下源视频 t3.0 帧抠透明+校色而来,作为莱米的正侧视图。(2026-06-02 误存的 `lemmy-rabbit-side-profile-v1.png`(实为斜侧)已按用户要求删除。)
 
 **动画管线 = 即梦图生视频→抽帧**(完整方法见 skill `jimeng-video-to-sprite-frames`):
-- 三套动作帧已产出并压缩(512→384/按显示尺寸缩 + oxipng 无损):
+- 五套动作帧已产出并压缩(512→384/按显示尺寸缩 + pngquant/oxipng):
   - idle 12 帧 `assets/resources/art/characters/lemmy/idle/`(frames2video 首尾锁,等高归一化)
   - walk 36 帧 `.../walk/`(纯侧面朝左小碎步,等高归一化;朝右用 scaleX=-1 翻转)
   - reach 18 帧 `.../reach/`(够篮,统一缩放保留蹲→伸高度弧线)
+  - startle 23 帧 `.../startle/`(受惊:中性→猛地低头→抬头吃惊瞪眼→恢复;弧线版抽帧 `extract-frames-arc.py`)。⚠️**源视频里有即梦自画的小果子,运行帧靠重组剔除**(`[f0,f0]+f9..f29`,丢掉带果子的 f1–f8)——重抽必须按 `source-videos/README` 的去果子步骤,否则果子会回来。吃惊眼是即梦"大白眼+黑点"(prompt 改不动,合成褐眼珠被否,用户接受白眼)。
+  - crouch 24 帧 `.../crouch/`(蹲下:站定→下蹲→蹲住,准备拾取;斜侧;`extract-frames-arc.py … 0.5 1.0` 取后半段,源视频前半段弱走路弃用)。原始目标"走近→蹲下":走近用 walk + 引擎横移,到位接 crouch。
+- ⚠️ **正侧走路(试过,放弃)**:2026-06-02 试用即梦生成纯正侧走路,即梦逐帧把身子画胖画瘦~10%(固有抖动,等比/身高/统一缩放都修不掉,非等比硬拉会变形),走路要求大小恒定→暴露成忽大忽小。**走路回退到第一版斜侧 walk**;设计回到 idle 斜侧 + walk 斜侧。结论:必须恒定大小的循环走路别用即梦帧,走引擎变换。(skill 注意/坑已记;`extract-frames-bodynorm.py` 是按不含耳身高归一化的尝试,能稳身高但修不掉体积抖动。)
 - 源视频归档 `assets/art/characters/lemmy/source-videos/`(进 git,可重抽更多帧)
 - 关键经验进 memory: 即梦防漂移(frames2video 双锁/prompt 只写动作/纯侧面防第二只眼)、pngquant 安全边界(高对比可用/低对比水彩会掏空→用 oxipng)、复杂动作可多抽帧。
 
-**下一步**:把 idle/walk/reach 帧表接进 Cocos `LemmyActor`,在 M01 跑起来(莱米从右走入→够篮→篮子物理晃动打翻)。
+**下一步**:把 idle/walk/reach/startle/crouch 帧表接进 Cocos `LemmyActor`,在 M01 跑起来(莱米从右走入→够篮→篮子物理晃动打翻)。注:当前 `LemmyActor` 仍是 transform-based(变换单张 canonical),要播这些帧序列(尤其 startle 的吃惊表情,变换做不出)需加一个帧序列播放组件。
 codex 的 `LemmyActorContract.ts` 取消契约(`LemmyActionInterrupted`/`LemmyActorDestroyed`/`createLemmyCancellationContext`)可复用;M01IntroSequence 已有接入 diff。
+
+**M01 吊篮贴片(2026-06-02)**:hanging / tipped runtime 贴片已统一替换为用户选定的简化水彩篮图;旧篮子备份和未选过程稿已删。吊篮显示尺寸调为 `380×260`,按透明贴图可见区域约 `352.9×103.0`,覆盖 9 个 `56×56` 拼片的 4-3-2 堆叠包围盒 `236×98`;已加测试护栏。
 
 ## 发行平台(2026-06-01 定)
 iOS App + Steam(PC/Mac)。放弃 Web/微信小游戏/安卓 → 微信 4MB 包体限制不再适用,动画帧数可按质量给足。CLAUDE.md / game-design-spec.md 已同步。
@@ -34,3 +40,7 @@ iOS App + Steam(PC/Mac)。放弃 Web/微信小游戏/安卓 → 微信 4MB 包�
 ## M01 现状
 M01(秩序之基首关)美术/物理/手电/拼片已于 2026-05-26 收口。详细调试历史见 `production/archive/2026-05-m01-polish-log.md`。
 权威玩法 spec: `docs/design/game-design-spec.md` §5.2。
+
+**M01 剧情改版(2026-06-02,spec §5.2 已改)**:开场从"碎片从天上掉 + 直接给手电"改成**有动机的"捡到式"叙事**——莱米走近大螺母(齿轮=螺母同一机械星体;关名/ID/文件名不动)→观察→(玩家点吊篮)够吊篮→篮子摇晃→9 拼片掉出堆地→**一支三色手电筒也从篮里掉出、砸到莱米头上**→莱米**蹲下把手电筒捡起**→玩家用手电照拼片发现短暂显色、自然学会核心机制。核心谜题(照色推理+交叠拼接+颜色规则+底光验证)**不变**;开场关键步玩家点触发。
+**实现待办**(`M01IntroSequence` 已有 走入→够篮→篮子摇晃→拼片 spill;需补):① 观察停顿;② 手电筒放进吊篮、随拼片一起 spill、掉落砸到莱米(startle);③ 莱米蹲下捡起(crouch);④ 手电筒改为"捡起后"才成为**手持**观察工具(旧预置固定 anchor `{360,110}` 作废);⑤ 照拼片发现。**依赖**:`LemmyActor` 目前 transform-based(只有 idle/walk/reach 三个变换 schedule),要播 startle/crouch 需先给它加动作(加 transform schedule,或上帧序列播放器——5 套帧表已就绪但尚未接线)。
+**M01 手电交互最终定(v4,2026-06-03,spec §5.2 已据此改)**:**推翻 v3 的"固定三按钮工具 / 固定光束"**——手电是莱米**手持**的,固定光束讲不通。最终模型:莱米捡起手电后手持;**点手里的手电**循环 红→黄→蓝→灭(手电小,无需精准点按钮);**点地面空白**莱米走过去、手电**覆盖面(不止1片)随莱米移动**扫照;覆盖面内候选碎片按当前灯色显色,移出/灭即恢复灰白;**点某拼片 = 玩家拾取(拼片随指针、非莱米去捡)并使手电熄灭**;拼片由玩家拾放、莱米只负责持手电。代码:代码里**现有两套手电机制(固定光束路径 + 手持指针拖动路径)全删**(含旧 `heldFlashlightId` 约20处引用、`revealAllFragmentsWithActiveFlashlight` reveal-all);只保留底层显色/选色模型并**新增 `clearFlashlight()`(灭态)**;覆盖面光束**新建**、锚到莱米(新字段 `flashlightAcquired`/`lemmyFlashlightNode`/`activeLightState`,不复用旧名)。`physicsSettled && flashlightAcquired` **仅**门控正式拼接/拾放片/底光验证,**不**挡开场走位/点篮/点掉落手电。config 实路径 `assets/resources/configs/stage1/m01-memory-gear.json`(load `configs/stage1/m01-memory-gear`)。**plan 已重写为 v4 + 两轮评审(Claude plan-reviewer + Codex)+ 多轮修订(P1/P2、命中优先级分阶段、active 措辞)**,⚠️ **执行前做最后确认、尚未开工**:`docs/plans/2026-06-03-m01-intro-frame-anim-plan.md`。**Claude 本环境实测 cocos MCP 在线可用**(可自做 refresh/reimport/scene 查询)。但**预览服务器起停 MCP 与 HTTP(:3000) 都返回 "not supported"**(2026-06-03 双复验)——`.ts` 改动重编译须在编辑器**手动**重启预览(Project>Preview),**Codex 也做不到、无额外能力**;Codex 走 HTTP 只是做 refresh_assets。

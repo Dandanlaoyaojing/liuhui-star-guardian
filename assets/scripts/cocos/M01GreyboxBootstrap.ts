@@ -28,6 +28,7 @@ import {
   type DragState
 } from "../interaction/DragHandler.ts";
 import { resolveM01GreyboxDrop } from "./M01GreyboxDrag.ts";
+import { aspectContentSize, spriteFrameSize } from "./M01SpriteAspect.ts";
 import {
   buildM01GreyboxLayout,
   resolveM01EvidenceFragmentSnapPosition,
@@ -2827,6 +2828,14 @@ export class M01GreyboxBootstrap extends Component {
         return;
       }
       sprite.spriteFrame = spriteFrame;
+      // 按贴图真实宽高比重设 contentSize, 防止把贴图拉伸变形(如 gearStar 正方被压成椭圆)。
+      // contain 模式: 贴图完整放进原框内、不超框、不变形(交互框不受影响)。
+      const box = sprite.node.getComponent(UITransform);
+      if (box) {
+        const real = spriteFrameSize(spriteFrame);
+        const fitted = aspectContentSize(real.width, real.height, box.width, box.height, "contain");
+        box.setContentSize(fitted.width, fitted.height);
+      }
       if (activateOnLoad) {
         sprite.node.active = true;
       }

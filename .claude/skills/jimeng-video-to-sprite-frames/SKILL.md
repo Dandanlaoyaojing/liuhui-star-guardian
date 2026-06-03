@@ -112,10 +112,16 @@ mpdecimate 去重复帧(60fps 视频实际独立帧约 100-120)。**帧太少会
 - 即梦 content policy 会误杀正常 prompt(如"举起前爪够东西"被拒),换中性措辞重试
 - `frames2video` 首尾同图 → 动作"回到原点"(适合 idle/呼吸/原地循环);要净位移动作首尾用不同姿态图
 - 中文文件名在 shell 里是 NFD 编码,grep 匹配不到,用 Python `unicodedata.normalize('NFC',...)` 或按文件大小定位
+- **即梦会把 prompt 里写的具体物体真画进画面**(如"小物件落到头顶"→真画一颗果子)。要某物体**不出现**就别在 prompt 提它;若已生成,用"重组抽帧"丢掉只含该物体的帧(物体常只在动作前段出现、中后段已离开),**别硬抠**——水彩抠图+局部 inpaint 极易花。
+- **即梦把"吃惊瞪眼"固定画成"大白眼圈+小黑点"**,prompt 明确要求"只微睁、保持深色圆眼珠"也改不动;事后合成虹膜(连通域定位白巩膜→贴 canonical 虹膜)在水彩上难自然、易被否("瞳孔不像/瞪太大")。精确眼神微表情**考虑手绘极少数关键帧**,别指望即梦或自动合成。
+- 抽帧脚本三选一:① 循环恒高(idle,耳朵基本不动)→ `extract-frames.py`(逐帧按**含耳总高**等高归一化);② 弧线/大小本就变化(reach/startle/蹲下)→ `extract-frames-arc.py`(统一缩放+脚底锁定+**主簇 bbox** 剔除运动模糊悬空块);③ 长耳角色走路想稳身高 → `extract-frames-bodynorm.py`(按**不含耳的身体高**归一化:长耳走路时耳朵摆动会让"含耳总高"变,等高归一化反而把身子忽大忽小;按身体高归一才稳)。
+- **⚠️ 即梦逐帧重画身子"胖瘦/体积"有 ~8–11% 的固有抖动**(实测走路和蹲下都有),等比缩放修不掉(非等比硬拉宽度会变形),重新生成也大概率还抖。判断:**动作本身让不让抖动显形**——大小本该变化的动作(蹲/够/受惊)抖动被掩盖、没问题;但**"大小必须恒定"的走路循环会把它暴露成忽大忽小**。结论:**必须恒定大小的循环走路/待机别用即梦抽帧,改用引擎变换(单张 canonical 位移+轻微 squash/起伏)零抖动**;即梦帧留给"大小本就在变"的动作。(本项目 2026-06-02 正侧走路就栽在这,最后走路回退到第一版/引擎方案。)
+- `preview-gif.py` 的"雪花"坑:每帧各算 ADAPTIVE 调色板+Floyd-Steinberg 抖动,平涂背景上抖动点逐帧漂移=肉眼雪花(运行帧 PNG 本身没事,只是 GIF 预览)。已修为**全帧共享调色板+`dither=NONE`**。
 
 ## References
 - 即梦 CLI 安装:`curl -s https://jimeng.jianying.com/cli | bash`(字节官方)
-- 相关项目 memory: project_jimeng_identity_consistency, project_img2img_noise_and_video_drift
+- 删了源视频能救:即梦服务端有历史,`dreamina list_task`(列全部生成)/`dreamina query_result --submit_id=<id>`(重下)。submit_id 要留到动画真正定稿。
+- 相关项目 memory: project_jimeng_identity_consistency, project_img2img_noise_and_video_drift, feedback_no_delete_beyond_scope
 
 ## ⚠️ pngquant 压缩的安全边界(2026-06-01 实测)
 - **pngquant(有损256色量化)对"高对比色块+清晰线稿"安全**(莱米动画帧实测66帧压缩后掏空0、色差<3,肉眼无损)。

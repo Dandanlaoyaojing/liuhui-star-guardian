@@ -100,7 +100,11 @@ declare module "cc" {
     }
   }
 
-  export class SpriteFrame {}
+  export class SpriteFrame {
+    /** 原始(未裁剪)尺寸,用于按真实宽高比设置 contentSize 防止变形 */
+    getOriginalSize(): { width: number; height: number };
+    rect: { width: number; height: number };
+  }
 
   export class JsonAsset {
     json: unknown;
@@ -130,6 +134,9 @@ declare module "cc" {
 
   export class UITransform extends Component {
     setContentSize(width: number, height: number): void;
+    readonly contentSize: { width: number; height: number };
+    width: number;
+    height: number;
   }
 
   export const resources: {

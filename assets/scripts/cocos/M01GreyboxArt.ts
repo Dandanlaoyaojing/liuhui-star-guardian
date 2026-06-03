@@ -5,6 +5,7 @@ import {
   type M01GreyboxSize,
   type M01GreyboxTokenNode
 } from "./M01GreyboxLayout.ts";
+import { M01_INTRO_BASKET_DISPLAY_SIZE } from "./M01IntroLayout.ts";
 import type { M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
 
 const M01_SINGLE_FLASHLIGHT_TOOL_DISPLAY_SIZE = { width: 50, height: 128 };
@@ -602,8 +603,8 @@ function runtimeLemmyResource(
 }
 
 export const M01_GREYBOX_RUNTIME_INTRO_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
-  runtimeIntroResource("intro_basket_hanging", "m01-basket-hanging.png", { width: 280, height: 190 }),
-  runtimeIntroResource("intro_basket_tipped",  "m01-basket-tipped.png",  { width: 280, height: 190 }),
+  runtimeIntroResource("intro_basket_hanging", "m01-basket-hanging.png", M01_INTRO_BASKET_DISPLAY_SIZE),
+  runtimeIntroResource("intro_basket_tipped",  "m01-basket-tipped.png",  M01_INTRO_BASKET_DISPLAY_SIZE),
   runtimeIntroResource("intro_rope_segment",   "m01-rope-segment.png",   { width: 18,  height: 220 }),
   runtimeIntroResource("intro_lemmy_walking",  "m01-lemmy-walking.png",  { width: 180, height: 180 }),
   runtimeIntroResource("intro_lemmy_reaching", "m01-lemmy-reaching.png", { width: 180, height: 180 })

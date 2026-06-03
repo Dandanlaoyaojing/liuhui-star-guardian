@@ -19,6 +19,7 @@ import {
   type LemmyActionScheduleEntry,
   type LemmyActorEvent
 } from "./LemmyActorContract.ts";
+import { aspectContentSize, spriteFrameSize } from "./M01SpriteAspect.ts";
 
 export interface LemmyActorOptions {
   displaySize?: {
@@ -158,6 +159,19 @@ export class LemmyActor extends Component {
         }
         if (this.sprite && spriteFrame) {
           this.sprite.spriteFrame = spriteFrame;
+          // 按贴图真实宽高比重设 contentSize, 防止莱米被拉宽/拉变形。
+          const box = this.sprite.node.getComponent(UITransform);
+          if (box) {
+            const real = spriteFrameSize(spriteFrame);
+            const fitted = aspectContentSize(
+              real.width,
+              real.height,
+              this.displaySize.width,
+              this.displaySize.height,
+              "contain"
+            );
+            box.setContentSize(fitted.width, fitted.height);
+          }
         }
         resolve();
       });
