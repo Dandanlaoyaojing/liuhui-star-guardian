@@ -174,8 +174,8 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   startle: { dir: "art/characters/lemmy/startle", fps: 16, loop: false, holdLast: true },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 14, loop: false, holdLast: true },
   // Looping locomotion cycle (斜侧 walk frames); played by walkTo while the node slides,
-  // stopped on arrival. ~36 frames @ 20fps ≈ one cycle over the ~1.8s walk-in.
-  walk: { dir: "art/characters/lemmy/walk", fps: 20, loop: true, holdLast: false }
+  // stopped on arrival. 36 frames @ 10fps = 3.6s/cycle (腿迈慢一半, 减少"忙腿"观感).
+  walk: { dir: "art/characters/lemmy/walk", fps: 10, loop: true, holdLast: false }
 };
 
 export interface LemmyFramePlaybackState {

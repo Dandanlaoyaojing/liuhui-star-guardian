@@ -57,6 +57,9 @@ export {
 
 const DEFAULT_DISPLAY_SIZE = { width: 180, height: 180 };
 const DEFAULT_LEMMY_RESOURCE_PATH = "art/characters/lemmy/lemmy-canonical/spriteFrame";
+// 定妆图(canonical)是紧贴兔子的裁剪→贴合后填满显示框高; 走路帧是 384² 画布、兔子只占约 85% 高。
+// 把定妆图按此系数缩小, 让站立尺寸与走路一致(用户偏好走路尺寸)。约 = 走路帧兔子高(328)/画布(384)。
+const CANONICAL_FIT_SCALE = 0.854;
 
 const { ccclass } = _decorator;
 
@@ -109,7 +112,8 @@ export class LemmyActor extends Component {
       .to(
         (options.durationMs ?? estimateLemmyActionDurationMs("walk_right")) / 1000,
         { position: target },
-        { easing: "sineInOut" }
+        // 走路要匀速(像真人走), 不能用缓动——sineInOut 会"头慢中间快尾慢", 看着忽快忽慢。
+        { easing: "linear" }
       )
       .call(() => {
         // Arrived: stop the walk loop and return to the canonical standing sprite.
@@ -223,7 +227,7 @@ export class LemmyActor extends Component {
    * Size contentSize to the frame's TRIMMED content aspect (canonical → tall; 384² frame
    * canvases → square), so Cocos sizeMode CUSTOM stretch-to-fill doesn't distort it.
    */
-  private fitSpriteToFrame(frame: SpriteFrame): void {
+  private fitSpriteToFrame(frame: SpriteFrame, scale = 1): void {
     const box = this.sprite?.node.getComponent(UITransform);
     if (!box) return;
     const rect = frame.rect;
@@ -231,8 +235,8 @@ export class LemmyActor extends Component {
     const fitted = aspectContentSize(
       real.width,
       real.height,
-      this.displaySize.width,
-      this.displaySize.height,
+      this.displaySize.width * scale,
+      this.displaySize.height * scale,
       "contain"
     );
     box.setContentSize(fitted.width, fitted.height);
@@ -243,7 +247,7 @@ export class LemmyActor extends Component {
     this.setFacingFlip(false);
     if (this.sprite && this.canonicalFrame) {
       this.sprite.spriteFrame = this.canonicalFrame;
-      this.fitSpriteToFrame(this.canonicalFrame);
+      this.fitSpriteToFrame(this.canonicalFrame, CANONICAL_FIT_SCALE);
     }
   }
 
@@ -303,7 +307,7 @@ export class LemmyActor extends Component {
           // 定妆图竖长, 防止 sizeMode CUSTOM 把它横向拉宽。
           this.canonicalFrame = spriteFrame;
           this.sprite.spriteFrame = spriteFrame;
-          this.fitSpriteToFrame(spriteFrame);
+          this.fitSpriteToFrame(spriteFrame, CANONICAL_FIT_SCALE);
         }
         resolve();
       });
