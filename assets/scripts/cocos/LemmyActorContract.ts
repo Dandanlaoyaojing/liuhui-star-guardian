@@ -5,7 +5,7 @@ export const LEMMY_CLEAN_MASTER_PATH =
   "assets/art/style-references/lemmy-rabbit-canonical.png";
 
 export type LemmyTransformActionId = "idle_right" | "walk_right" | "reach_up_right";
-export type LemmyFrameActionId = "startle" | "crouch";
+export type LemmyFrameActionId = "startle" | "crouch" | "walk";
 /** Any Lemmy action — whole-sprite transform schedules OR loaded frame sequences. */
 export type LemmyActionId = LemmyTransformActionId | LemmyFrameActionId;
 export type LemmyActorEvent = "reach_contact" | "footstep_left" | "footstep_right";
@@ -172,7 +172,10 @@ export interface LemmyFrameActionSpec {
 
 export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpec> = {
   startle: { dir: "art/characters/lemmy/startle", fps: 16, loop: false, holdLast: true },
-  crouch: { dir: "art/characters/lemmy/crouch", fps: 14, loop: false, holdLast: true }
+  crouch: { dir: "art/characters/lemmy/crouch", fps: 14, loop: false, holdLast: true },
+  // Looping locomotion cycle (斜侧 walk frames); played by walkTo while the node slides,
+  // stopped on arrival. ~36 frames @ 20fps ≈ one cycle over the ~1.8s walk-in.
+  walk: { dir: "art/characters/lemmy/walk", fps: 20, loop: true, holdLast: false }
 };
 
 export interface LemmyFramePlaybackState {

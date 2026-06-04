@@ -71,6 +71,7 @@ export class LemmyActor extends Component {
   private framePlayback: LemmyFramePlaybackState | null = null;
   private framePlaybackFrames: SpriteFrame[] = [];
   private framePlaybackToken: LemmyActionToken | null = null;
+  private canonicalFrame: SpriteFrame | null = null;
 
   init(options: LemmyActorOptions = {}): Promise<void> {
     this.displaySize = options.displaySize ?? DEFAULT_DISPLAY_SIZE;
@@ -90,15 +91,33 @@ export class LemmyActor extends Component {
 
   async walkTo(target: Vec3, options: LemmyWalkOptions = {}): Promise<void> {
     await this.readyPromise;
-    const handle = this.cancellation.beginAction("walk_right");
-    this.playPose("walk_right", 0);
+    const frames = await this.loadFrames("walk");
+    const handle = this.cancellation.beginAction("walk");
+
+    // Walk frames are authored facing LEFT; mirror (scaleX -1) to walk right.
+    const movingRight = target.x > this.node.position.x;
+    this.setFacingFlip(movingRight);
+
+    // Loop the walk cycle (driven by update()) while the node slides to the target.
+    this.framePlaybackFrames = frames;
+    this.framePlayback = createFramePlayback("walk", frames.length);
+    this.framePlaybackToken = handle.token;
+    this.fitSpriteToFrame(frames[0]);
+    this.showFrame(0);
+
     tween(this.node)
       .to(
         (options.durationMs ?? estimateLemmyActionDurationMs("walk_right")) / 1000,
         { position: target },
         { easing: "sineInOut" }
       )
-      .call(() => this.cancellation.resolveActive(handle.token))
+      .call(() => {
+        // Arrived: stop the walk loop and return to the canonical standing sprite.
+        this.framePlayback = null;
+        this.framePlaybackToken = null;
+        this.showCanonical();
+        this.cancellation.resolveActive(handle.token);
+      })
       .start();
     return handle.promise;
   }
@@ -106,6 +125,8 @@ export class LemmyActor extends Component {
   async playAction(actionId: LemmyTransformActionId, options: LemmyPlayOptions = {}): Promise<void> {
     await this.readyPromise;
     const handle = this.cancellation.beginAction(actionId);
+    // Transform actions animate the canonical sprite — restore it in case a frame action ran last.
+    this.showCanonical();
     const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
     const durationMs = estimateLemmyActionDurationMs(actionId);
 
@@ -153,11 +174,12 @@ export class LemmyActor extends Component {
     const frames = await this.loadFrames(actionId);
     const handle = this.cancellation.beginAction(actionId);
 
-    if (options.facing) this.applyFacing(options.facing);
+    if (options.facing) this.setFacingFlip(options.facing === "right");
 
     this.framePlaybackFrames = frames;
     this.framePlayback = createFramePlayback(actionId, frames.length);
     this.framePlaybackToken = handle.token;
+    this.fitSpriteToFrame(frames[0]);
     this.showFrame(0);
 
     return handle.promise;
@@ -192,10 +214,37 @@ export class LemmyActor extends Component {
     if (this.sprite && frame) this.sprite.spriteFrame = frame;
   }
 
-  private applyFacing(facing: "left" | "right"): void {
-    (
-      this.spriteNode as (Node & { setScale?: (x: number, y?: number, z?: number) => void }) | null
-    )?.setScale?.(facing === "left" ? -1 : 1, 1, 1);
+  /** Mirror the sprite horizontally. Walk frames face left, so flip=true makes Lemmy face right. */
+  private setFacingFlip(flip: boolean): void {
+    this.spriteNode?.setScale(flip ? -1 : 1, 1, 1);
+  }
+
+  /**
+   * Size contentSize to the frame's TRIMMED content aspect (canonical → tall; 384² frame
+   * canvases → square), so Cocos sizeMode CUSTOM stretch-to-fill doesn't distort it.
+   */
+  private fitSpriteToFrame(frame: SpriteFrame): void {
+    const box = this.sprite?.node.getComponent(UITransform);
+    if (!box) return;
+    const rect = frame.rect;
+    const real = rect && rect.width > 0 && rect.height > 0 ? rect : spriteFrameSize(frame);
+    const fitted = aspectContentSize(
+      real.width,
+      real.height,
+      this.displaySize.width,
+      this.displaySize.height,
+      "contain"
+    );
+    box.setContentSize(fitted.width, fitted.height);
+  }
+
+  /** Restore the standing canonical sprite (un-mirrored) — used when a transform action follows frames. */
+  private showCanonical(): void {
+    this.setFacingFlip(false);
+    if (this.sprite && this.canonicalFrame) {
+      this.sprite.spriteFrame = this.canonicalFrame;
+      this.fitSpriteToFrame(this.canonicalFrame);
+    }
   }
 
   private loadFrames(actionId: LemmyFrameActionId): Promise<SpriteFrame[]> {
@@ -250,25 +299,11 @@ export class LemmyActor extends Component {
           return;
         }
         if (this.sprite && spriteFrame) {
+          // 缓存定妆帧供 showCanonical 复位; 按裁剪后内容比例设框(见 fitSpriteToFrame):
+          // 定妆图竖长, 防止 sizeMode CUSTOM 把它横向拉宽。
+          this.canonicalFrame = spriteFrame;
           this.sprite.spriteFrame = spriteFrame;
-          // 按贴图真实宽高比重设 contentSize, 防止莱米被拉宽/拉变形。
-          const box = this.sprite.node.getComponent(UITransform);
-          if (box) {
-            // 按【裁剪后】内容比例(frame.rect)设框, 而不是含大量透明留白的方形原图。
-            // 莱米定妆图是 2000² 方图、兔子只占居中竖长条(裁剪后约 1051×1926); sizeMode CUSTOM
-            // 会把裁剪内容拉伸填满 contentSize, 若按方形原图设成方框就会把竖长的兔子横向拉宽变形。
-            const rect = spriteFrame.rect;
-            const real =
-              rect && rect.width > 0 && rect.height > 0 ? rect : spriteFrameSize(spriteFrame);
-            const fitted = aspectContentSize(
-              real.width,
-              real.height,
-              this.displaySize.width,
-              this.displaySize.height,
-              "contain"
-            );
-            box.setContentSize(fitted.width, fitted.height);
-          }
+          this.fitSpriteToFrame(spriteFrame);
         }
         resolve();
       });

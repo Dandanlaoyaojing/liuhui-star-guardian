@@ -93,15 +93,16 @@ describe("LemmyActor cancellation context", () => {
   });
 });
 
-describe("Lemmy frame actions (startle / crouch)", () => {
-  it("exposes exactly startle and crouch as one-shot hold-last frame actions", () => {
-    expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual(["crouch", "startle"]);
+describe("Lemmy frame actions (startle / crouch / walk)", () => {
+  it("exposes startle/crouch as one-shot hold-last, and walk as a loop", () => {
+    expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual(["crouch", "startle", "walk"]);
     for (const spec of Object.values(LEMMY_FRAME_ACTIONS)) {
-      expect(spec.loop).toBe(false);
-      expect(spec.holdLast).toBe(true);
       expect(spec.fps).toBeGreaterThan(0);
       expect(spec.dir).toMatch(/^art\/characters\/lemmy\//);
     }
+    expect(LEMMY_FRAME_ACTIONS.startle).toMatchObject({ loop: false, holdLast: true });
+    expect(LEMMY_FRAME_ACTIONS.crouch).toMatchObject({ loop: false, holdLast: true });
+    expect(LEMMY_FRAME_ACTIONS.walk).toMatchObject({ loop: true, holdLast: false });
   });
 
   it("accepts frame action ids where a LemmyActionId is expected (widened union, no cast)", () => {

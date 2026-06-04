@@ -28,6 +28,7 @@ declare module "cc" {
     setPosition(x: number, y: number, z?: number): void;
     setWorldPosition(pos: Vec3): void;
     setRotationFromEuler(x: number, y: number, z: number): void;
+    setScale(x: number, y?: number, z?: number): void;
     static EventType: {
       TOUCH_START: string;
       TOUCH_MOVE: string;
