@@ -970,7 +970,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(intro).toContain("node.addComponent(LemmyActor)");
     expect(intro).toContain('this.lemmyActor.walkTo(new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0)');
     expect(intro).toContain('this.lemmyActor.playFrameAction("reach"');
-    expect(intro).toContain('event === "reach_contact"');
+    expect(intro).toContain('this.advance("reachContact")');
     expect(intro).not.toContain("REACH_HOLD_DURATION");
     expect(intro).not.toContain("swapSprite(this.lemmySprite");
     expect(intro).not.toContain('manifestId: "intro_lemmy_reaching"');

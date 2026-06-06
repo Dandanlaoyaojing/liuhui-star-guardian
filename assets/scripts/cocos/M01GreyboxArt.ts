@@ -604,7 +604,7 @@ function runtimeLemmyResource(
 }
 
 export const M01_GREYBOX_RUNTIME_INTRO_RESOURCES: M01GreyboxRuntimeSpriteResource[] = [
-  runtimeIntroResource("intro_basket_hanging", "m01-basket-hanging.png", M01_INTRO_BASKET_DISPLAY_SIZE),
+  runtimeIntroResource("intro_basket_hanging", "m01-basket-hanging-empty.png", M01_INTRO_BASKET_DISPLAY_SIZE),
   runtimeIntroResource("intro_basket_tipped",  "m01-basket-tipped.png",  M01_INTRO_BASKET_DISPLAY_SIZE),
   runtimeIntroResource("intro_basket_front_occluder", "m01-basket-front-occluder.png", M01_INTRO_BASKET_DISPLAY_SIZE),
   runtimeIntroResource("intro_rope_segment",   "m01-rope-segment.png",   { width: 18,  height: 220 }),

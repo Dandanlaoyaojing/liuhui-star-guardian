@@ -45,6 +45,7 @@ import {
   isM01IntroBasketPileInsideInnerCavity,
   M01_INTRO_BASKET_DISPLAY_SIZE,
   M01_INTRO_BASKET_PILE_OFFSETS,
+  M01_INTRO_BASKET_SCALE,
   M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE
 } from "../../assets/scripts/cocos/M01IntroLayout.ts";
 import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
@@ -1452,7 +1453,7 @@ describe("M01 greybox art slices", () => {
     }
   });
 
-  it("sizes the M01 intro basket so authored pieces read at standard-piece scale", () => {
+  it("scales the M01 intro basket so the 9 standard-size pieces heap inside the empty bowl", () => {
     const basketResources = M01_GREYBOX_RUNTIME_INTRO_RESOURCES.filter(
       (resource) => resource.id === "intro_basket_hanging" || resource.id === "intro_basket_tipped"
     );
@@ -1467,6 +1468,9 @@ describe("M01 greybox art slices", () => {
       M01_INTRO_BASKET_DISPLAY_SIZE
     ]);
     expect(hangingBasket).toBeDefined();
+    // The hanging basket now uses the EMPTY bowl art — the real pieces are shown inside it
+    // (the old basket art had the pieces painted on).
+    expect(hangingBasket!.file).toContain("m01-basket-hanging-empty");
     expect(frontOccluder?.displaySize).toEqual(M01_INTRO_BASKET_DISPLAY_SIZE);
     expect(existsSync(join(projectRoot, frontOccluder!.file))).toBe(true);
     expect(existsSync(join(projectRoot, `${frontOccluder!.file}.meta`))).toBe(true);
@@ -1477,35 +1481,20 @@ describe("M01 greybox art slices", () => {
     });
 
     const image = readPngRgba(hangingBasket!.file);
-    const representativeBackCircleSourceBounds = { width: 230, height: 230 };
-    const representativeBackCircleDisplaySize = {
-      width:
-        (representativeBackCircleSourceBounds.width / image.width) *
-        M01_INTRO_BASKET_DISPLAY_SIZE.width,
-      height:
-        (representativeBackCircleSourceBounds.height / image.height) *
-        M01_INTRO_BASKET_DISPLAY_SIZE.height
-    };
     const visiblePileCount = countM01IntroBasketVisiblePileOffsets(
       M01_STANDARD_PIECE_DISPLAY_SIZE.width
     );
 
+    // Basket display keeps the source aspect ratio and reflects the enlargement knob. The
+    // basket is scaled UP so the standard-size pieces heap inside via physics — it is NOT
+    // sized to match painted-in pieces (the bowl is empty; real pieces are shown inside).
     expect(M01_INTRO_BASKET_DISPLAY_SIZE.width / M01_INTRO_BASKET_DISPLAY_SIZE.height).toBeCloseTo(
       image.width / image.height,
       2
     );
-    expect(representativeBackCircleDisplaySize.width).toBeGreaterThan(
-      M01_STANDARD_PIECE_DISPLAY_SIZE.width - 5
-    );
-    expect(representativeBackCircleDisplaySize.width).toBeLessThan(
-      M01_STANDARD_PIECE_DISPLAY_SIZE.width + 2
-    );
-    expect(representativeBackCircleDisplaySize.height).toBeGreaterThan(
-      M01_STANDARD_PIECE_DISPLAY_SIZE.height - 5
-    );
-    expect(representativeBackCircleDisplaySize.height).toBeLessThan(
-      M01_STANDARD_PIECE_DISPLAY_SIZE.height + 2
-    );
+    expect(M01_INTRO_BASKET_SCALE).toBeGreaterThanOrEqual(1);
+    expect(M01_INTRO_BASKET_DISPLAY_SIZE.width).toBeCloseTo(387 * M01_INTRO_BASKET_SCALE, 5);
+    expect(M01_INTRO_BASKET_DISPLAY_SIZE.height).toBeCloseTo(242 * M01_INTRO_BASKET_SCALE, 5);
     expect(isM01IntroBasketPileInsideInnerCavity()).toBe(true);
     expect(visiblePileCount).toBeGreaterThanOrEqual(M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE.min);
     expect(visiblePileCount).toBeLessThanOrEqual(M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE.max);

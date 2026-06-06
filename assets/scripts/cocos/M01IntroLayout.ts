@@ -1,4 +1,13 @@
-export const M01_INTRO_BASKET_DISPLAY_SIZE = { width: 387, height: 242 } as const;
+// One knob to gently enlarge the WHOLE basket set so the 9 standard-size pieces sit in it as a
+// visible stacked heap. Pieces stay standard size (M01_STANDARD_PIECE_DISPLAY_SIZE 56×56); only
+// the basket sprite + physics cavity + pile offsets + nail height scale by this. The user wants
+// only ~5-10% bigger than the original 387×242 tray (1.0). Tune live.
+export const M01_INTRO_BASKET_SCALE = 1.12;
+
+export const M01_INTRO_BASKET_DISPLAY_SIZE = {
+  width: 387 * M01_INTRO_BASKET_SCALE,
+  height: 242 * M01_INTRO_BASKET_SCALE
+} as const;
 
 export interface M01IntroBasketInnerWall {
   id: "bottom" | "left" | "right";
@@ -11,13 +20,20 @@ export const M01_INTRO_BASKET_TARGET_PIECE_COUNT = 9;
 export const M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE = { min: 4, max: 5 } as const;
 export const M01_INTRO_BASKET_EFFECTIVE_COLLIDER_SIZE = 60;
 
+// All geometry here is in basket-local world units and scales with M01_INTRO_BASKET_SCALE so
+// the physics cavity always matches the (scaled) visible bowl. Invisible containment walls run
+// taller than the visible bowl (wallTopY) so the 9-piece heap stays contained while it settles.
+// Shift the WHOLE cavity (floor + walls; the physics pile settles on the floor so it follows)
+// DOWN relative to the basket. -y = down. Tune in px.
+export const M01_INTRO_BASKET_CAVITY_Y_SHIFT = -15;
+
 export const M01_INTRO_BASKET_INNER_CAVITY = {
-  floorY: -74,
-  wallTopY: 74,
-  bottomHalfWidth: 126,
-  topHalfWidth: 166,
-  frontOcclusionY: 20,
-  wallThickness: 16,
+  floorY: -74 * M01_INTRO_BASKET_SCALE + M01_INTRO_BASKET_CAVITY_Y_SHIFT,
+  wallTopY: -25 * M01_INTRO_BASKET_SCALE + M01_INTRO_BASKET_CAVITY_Y_SHIFT,
+  bottomHalfWidth: 126 * M01_INTRO_BASKET_SCALE,
+  topHalfWidth: 149 * M01_INTRO_BASKET_SCALE,
+  frontOcclusionY: 20 * M01_INTRO_BASKET_SCALE + M01_INTRO_BASKET_CAVITY_Y_SHIFT,
+  wallThickness: 16 * M01_INTRO_BASKET_SCALE,
   wallFriction: 0.76,
   wallRestitution: 0.03,
   releaseGuideMs: 650
@@ -32,6 +48,10 @@ const RIGHT_WALL_DX =
 const WALL_DY =
   M01_INTRO_BASKET_INNER_CAVITY.wallTopY - M01_INTRO_BASKET_INNER_CAVITY.floorY;
 const SIDE_WALL_LENGTH = Math.hypot(RIGHT_WALL_DX, WALL_DY);
+// Pull BOTH inner-cavity side walls inward (toward center) by this much, symmetrically, so they
+// line up with the bowl's inner walls and stay within the canvas. Left wall moves +x (right);
+// right wall moves -x (left).
+const WALL_X_INWARD_NUDGE = 40;
 
 export const M01_INTRO_BASKET_INNER_CAVITY_WALLS: ReadonlyArray<M01IntroBasketInnerWall> = [
   {
@@ -54,7 +74,8 @@ export const M01_INTRO_BASKET_INNER_CAVITY_WALLS: ReadonlyArray<M01IntroBasketIn
       x:
         (-M01_INTRO_BASKET_INNER_CAVITY.bottomHalfWidth -
           M01_INTRO_BASKET_INNER_CAVITY.topHalfWidth) /
-        2,
+          2 +
+        WALL_X_INWARD_NUDGE,
       y: (M01_INTRO_BASKET_INNER_CAVITY.floorY + M01_INTRO_BASKET_INNER_CAVITY.wallTopY) / 2
     },
     size: { width: SIDE_WALL_LENGTH, height: M01_INTRO_BASKET_INNER_CAVITY.wallThickness },
@@ -66,7 +87,8 @@ export const M01_INTRO_BASKET_INNER_CAVITY_WALLS: ReadonlyArray<M01IntroBasketIn
       x:
         (M01_INTRO_BASKET_INNER_CAVITY.bottomHalfWidth +
           M01_INTRO_BASKET_INNER_CAVITY.topHalfWidth) /
-        2,
+          2 -
+        WALL_X_INWARD_NUDGE,
       y: (M01_INTRO_BASKET_INNER_CAVITY.floorY + M01_INTRO_BASKET_INNER_CAVITY.wallTopY) / 2
     },
     size: { width: SIDE_WALL_LENGTH, height: M01_INTRO_BASKET_INNER_CAVITY.wallThickness },
@@ -79,20 +101,22 @@ export const M01_INTRO_BASKET_INNER_CAVITY_WALLS: ReadonlyArray<M01IntroBasketIn
 // only 5 upper silhouettes. Centers are separated by the padded physics collider
 // diameter so the staged pile respects the same "objects have volume" rule as
 // the ground pile.
+// DROP SEEDS (not final positions): the pieces start here, then physics settles them into a
+// heap. Scaled with the basket so they spread proportionally across the (bigger) cavity.
 export const M01_INTRO_BASKET_PILE_OFFSETS: ReadonlyArray<{ x: number; y: number }> = [
-  // Bottom row: four fully hidden pieces resting on the inner floor.
+  // Bottom row: four pieces resting near the inner floor.
   { x: -90, y: -44 },
   { x: -30, y: -44 },
   { x: 30, y: -44 },
   { x: 90, y: -44 },
-  // Middle row: three pieces whose top edges peek over the front wall.
+  // Middle row.
   { x: -60, y: 8 },
   { x: 0, y: 8 },
   { x: 60, y: 8 },
-  // Top row: two visible caps near the back rim.
+  // Top row.
   { x: -30, y: 56 },
   { x: 30, y: 56 }
-];
+].map((o) => ({ x: o.x * M01_INTRO_BASKET_SCALE, y: o.y * M01_INTRO_BASKET_SCALE }));
 
 export const M01_INTRO_BASKET_PILE_SHAPES = [
   "circle",
@@ -156,9 +180,8 @@ export function isM01IntroBasketPileInsideInnerCavity(
     if (offset.y - radius < M01_INTRO_BASKET_INNER_CAVITY.floorY) {
       return false;
     }
-    if (offset.y > M01_INTRO_BASKET_INNER_CAVITY.wallTopY) {
-      return false;
-    }
+    // NOTE: drop seeds may sit ABOVE the (short) containment walls — pieces are dropped
+    // from above and fall down into the cavity, so no wallTopY ceiling check here.
     if (Math.abs(offset.x) + radius > resolveM01IntroBasketInnerHalfWidthAtY(offset.y)) {
       return false;
     }

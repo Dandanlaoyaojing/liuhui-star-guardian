@@ -4,6 +4,36 @@ Last updated: 2026-06-05
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
+## 当前活跃线:M01 开场「拼片在篮子里→随篮摆→摔出」(2026-06-06)
+
+**用户目标**:空篮子里放 9 个**真实标准件拼片**(`M01_STANDARD_PIECE_DISPLAY_SIZE` 56×56),随篮摆动,点篮后倒出;要**前壁遮挡**。装篮要按标准件尺寸;用 **Cocos 物理引擎自然堆叠**(标准件装不满一层以上→会堆出鳞边,用户**接受堆高观感**,不缩小拼片)。
+
+**美术(已落地 + reimport)**:
+- `…/intro/m01-basket-hanging-empty.png`(空篮,1586×992;已色调匹配原篮 H39/S38/V74、黑底洪水填充抠透明、`trimType none`)——codex/并行已放,我已验证色调与抠图干净。
+- `…/intro/m01-basket-front-occluder.png`(前壁遮挡)——**陶土旧版已弃(用户:扔了)**,改为**从空篮抠出的藤编前壁**(脚本 `scripts/m01-extract-front-occluder.py`,CUT=625 前沿唇线),1586×992 `trimType none`,uuid 不变,已 oxipng + reimport。
+- 工具脚本:`scripts/m01-basket-tone-match.py`(数据驱动色调匹配)、`scripts/m01-extract-front-occluder.py`(抠前壁)。
+
+**代码改动(typecheck ✅ + 311 测试全绿;⚠️未 commit)**:
+- `M01GreyboxArt.ts`:`intro_basket_hanging` 资源指向 `m01-basket-hanging-empty.png`(原带画死拼片的 `m01-basket-hanging.png` 不再被引用,真实拼片得以透出)。
+- `M01IntroLayout.ts`:新增 **`M01_INTRO_BASKET_SCALE`**(=1.6,**一个旋钮整套等比放大**:display + 物理碗 + 掉落种子 + 钉高,**拼片保持 56×56 不变**)——因为标准件在原尺寸碗里物理堆叠仍装不下,用户要求放大篮子直到装得下。`wallTopY 74→130`(再×scale)兜住堆叠。`PILE_OFFSETS` 当**掉落种子**(随 scale 等比)。`M01GreyboxArt.test.ts` 旧「画死拼片读作标准件尺寸」测试已改为「空篮+放大旋钮」语义。
+- `M01IntroSequence.ts`:`stageFragmentsInBasket` 由「手摆 Static 隐藏」改为**物理掉落**(`active=true` + `Dynamic` + `gravityScale=1`)→ `scheduleBasketPileFreeze`(`BASKET_PILE_SETTLE_MS=900` 后冻结 Static,使堆叠随篮**刚性**摆动)→ 倒出时 `releaseFragmentsFromBasket`+`startDrop` 复用既有 spill。`init` 里新增 `spawnBasketFrontOccluder()`(在 stage 之后=最上层,盖住拼片下半截)。`startSpill` 删 `swapSprite(basketTipped)`(空篮直接转,不再闪陶盆);删 orphan `swapSprite`。`spawnRopes` 仍 dead(空篮已画死绳/链;`noUnusedLocals` off 不报错)——可后续清。
+
+**✅ 已在 Cocos 预览 live 调通(用户逐项确认,2026-06-06)** —— 物理掉落+碗里自然堆叠成立。最终定稿参数(均在 `M01IntroLayout.ts`):
+- `M01_INTRO_BASKET_SCALE = 1.12`(过程:1.6 太大→1.08/1.19 不够包→1.4 包住但偏大→缩 20% 到 **1.12**=原始的 112%。display 433×271)。
+- `M01_INTRO_BASKET_CAVITY_Y_SHIFT = -15`(内胆整体相对篮子下移 15px,对齐碗内底)。
+- 内胆几何:`floorY -74`、`wallTopY -25`、`bottomHalfWidth 126`、`topHalfWidth 149`(均 ×scale + shift)。侧壁**离垂直 ≈25°**、长 ≈76px(由 wallTopY+topHalfWidth 联合定;改长度/角度要同时动这两个数,保 `hypot(dx,dy)` 与 `atan(dx/dy)`)。
+- `WALL_X_INWARD_NUDGE = 40`(**两壁对称内移**:左壁 +x、右壁 −x;原 `LEFT_WALL_X_NUDGE` 只动左壁→右壁跑出画布右缘被裁,改对称后两壁各距篮心 ±114、都在画布内)。
+- 矮墙模型:`isInsideCavity` 去掉了 `offset.y > wallTopY` 顶棚判断(掉落种子可在矮墙之上,拼片从上落入);测试不变量 `floorY < wallTopY`(原 `frontOcc < wallTopY` 已改)。separation tolerance 复位 0.75。
+- 调试浮层已关(`debugDrawFlags = 0`)。
+
+**⚠️ 仍未 live 验证:点篮→倾倒→拼片倒出**那一段(用户只看了静态堆叠态,没点穿开场)。用户提过"墙太高会把拼片困住倒不出"——已把墙压到正常高度(25°/76px),理论上能倒;但**倒出顺畅度未实跑**。既有 `destroyBasketInnerCavityAfterReleaseGuide`(`releaseGuideMs=650` 后销墙),若倒出被困可改为 startSpill 即刻销墙。
+
+**Cocos 预览刷新铁律(本会话踩实)**:.ts 改动**光浏览器刷新不生效**,必须编辑器内 **Stop→Play**;用 MCP `project_refresh_assets db://assets/scripts` 可强制重新编译(本会话每次改完都调,然后让用户 Play)。computer-use 点 Cocos 的 Play 被一个隐形「程序坞」覆盖窗拦截(点不动);Chrome 只读层能截图看、`project_stop/start_preview_server` MCP 不支持→预览重启只能用户手点。
+
+**可调旋钮**:`M01_INTRO_BASKET_SCALE`(整套大小)、`CAVITY_Y_SHIFT`(内胆上下)、`WALL_X_INWARD_NUDGE`(两壁内外)、`wallTopY`+`topHalfWidth`(墙长+角度)、`BASKET_PILE_SETTLE_MS`(沉降时长)、occluder `CUT`(重跑 extract)、`BASKET_SPRITE_BOTTOM_Y`/`BASKET_X`(位置)。
+**清理项(非阻塞)**:`m01-basket-tipped.png` 现已不用;`spawnRopes`/rope 资源 dead;`scripts/m01-basket-tone-match.py`、`scripts/m01-extract-front-occluder.py` 为本轮工具。
+**⚠️ 整轮改动未 commit**(等用户)。typecheck ✅ + 311 测试全绿 ✅。
+
 ## 当前活跃线:莱米角色动画
 
 **M02 迷失的导航罗盘设计校正(2026-06-05)**:按用户指出的物理逻辑漏洞,已更新 `docs/design/game-design-spec.md` §5.3。M02 不再是“太阳 / 月亮 / 云同理自动对齐”的圆环匹配;第一步改为用日晷针影子反推出**地日二维方位线**(影子反方向,仅为观测台平面投影,不声称完整三维地日位置);第二步改为用**地日线 + 月相 + 亮面/盈亏/观测时段消歧线索**反推出地月方位,避免“半月/弯月可落在两侧”的非唯一解。胜利条件同步收口为 sun / moon / outer 三环校准。

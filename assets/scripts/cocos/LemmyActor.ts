@@ -153,6 +153,11 @@ export class LemmyActor extends Component {
     return handle.promise;
   }
 
+  /** Warm a frame sequence into cache so the first playFrameAction has no loadDir hitch. */
+  async preloadFrames(actionId: LemmyFrameActionId): Promise<void> {
+    await this.loadFrames(actionId);
+  }
+
   update(deltaSeconds: number): void {
     const playback = this.framePlayback;
     const token = this.framePlaybackToken;

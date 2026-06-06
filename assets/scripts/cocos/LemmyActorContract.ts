@@ -137,7 +137,7 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   // reach 36 帧弧线(站→蹲蓄力→踮脚伸到顶);#34 是伸到顶≈碰到篮子 → 发 reach_contact。
   reach: {
     dir: "art/characters/lemmy/reach",
-    fps: 18,
+    fps: 12,
     loop: false,
     holdLast: true,
     events: [{ frameIndex: 34, event: "reach_contact" }]

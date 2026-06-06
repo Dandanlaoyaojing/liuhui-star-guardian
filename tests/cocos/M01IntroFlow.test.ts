@@ -9,9 +9,12 @@ import {
 describe("M01 intro phase machine", () => {
   it("runs the full diegetic intro in order", () => {
     const path: Array<[M01IntroPhase, M01IntroEvent, M01IntroPhase]> = [
-      ["approaching", "walkArrived", "observing"],
+      ["approaching", "walkArrived", "atPlatform"],
+      ["atPlatform", "advanceTapped", "walkingToMid"],
+      ["walkingToMid", "walkArrived", "observing"],
       ["observing", "basketTapped", "reaching"],
-      ["reaching", "reachContact", "tipping"],
+      ["reaching", "reachContact", "nudged"],
+      ["nudged", "basketTapped", "tipping"],
       ["tipping", "tipped", "spillingFragments"],
       ["spillingFragments", "fragmentsSettled", "bonking"],
       ["bonking", "flashlightBonked", "waitingPickup"],
@@ -21,6 +24,23 @@ describe("M01 intro phase machine", () => {
     for (const [from, event, to] of path) {
       expect(nextIntroPhase(from, event)).toBe(to);
     }
+  });
+
+  it("does NOT leave 'atPlatform' until the player taps the right side (no auto-walk-on)", () => {
+    const nonAdvancing: M01IntroEvent[] = [
+      "walkArrived",
+      "basketTapped",
+      "reachContact",
+      "tipped",
+      "fragmentsSettled",
+      "flashlightBonked",
+      "flashlightTapped",
+      "crouchDone"
+    ];
+    for (const event of nonAdvancing) {
+      expect(nextIntroPhase("atPlatform", event)).toBe("atPlatform");
+    }
+    expect(nextIntroPhase("atPlatform", "advanceTapped")).toBe("walkingToMid");
   });
 
   it("does NOT leave 'observing' until the player taps the basket (no auto-reach)", () => {
