@@ -9,21 +9,20 @@ import {
   resources,
   tween
 } from "cc";
+import type { TweenAction } from "cc";
 
 import {
-  LEMMY_ACTION_SCHEDULES,
   LEMMY_FRAME_ACTIONS,
   advanceFramePlayback,
   createFramePlayback,
   createLemmyCancellationContext,
-  estimateLemmyActionDurationMs,
+  frameEventsBetween,
   isExpectedLemmyActionCancel,
-  type LemmyActionScheduleEntry,
   type LemmyActionToken,
   type LemmyActorEvent,
   type LemmyFrameActionId,
-  type LemmyFramePlaybackState,
-  type LemmyTransformActionId
+  type LemmyFrameEvent,
+  type LemmyFramePlaybackState
 } from "./LemmyActorContract.ts";
 import { aspectContentSize, spriteFrameSize } from "./M01SpriteAspect.ts";
 
@@ -39,17 +38,15 @@ export interface LemmyWalkOptions {
   durationMs?: number;
 }
 
-export interface LemmyPlayOptions {
+export interface LemmyFramePlayOptions {
+  facing?: "left" | "right";
   onEvent?: (event: LemmyActorEvent) => void;
-  loop?: boolean;
 }
 
 export {
   LEMMY_APPROVED_IDENTITY_SOURCE,
   LEMMY_CLEAN_MASTER_PATH,
   createLemmyCancellationContext,
-  estimateLemmyActionDurationMs,
-  getLemmyTransformSchedule,
   isExpectedLemmyActionCancel,
   LemmyActionInterrupted,
   LemmyActorDestroyed
@@ -57,8 +54,9 @@ export {
 
 const DEFAULT_DISPLAY_SIZE = { width: 180, height: 180 };
 const DEFAULT_LEMMY_RESOURCE_PATH = "art/characters/lemmy/lemmy-canonical/spriteFrame";
-// 定妆图(canonical)是紧贴兔子的裁剪→贴合后填满显示框高; 走路帧是 384² 画布、兔子只占约 85% 高。
-// 把定妆图按此系数缩小, 让站立尺寸与走路一致(用户偏好走路尺寸)。约 = 走路帧兔子高(328)/画布(384)。
+const DEFAULT_WALK_DURATION_MS = 2000;
+// 定妆图(canonical)是紧贴兔子的裁剪; 运行时帧是 512² 画布、兔子占约 84% 高。把定妆图按此系数
+// 缩小, 让初始站姿尺寸与帧动画一致(canonical 只在 walk 前短暂显示, idle 帧一播即接管)。
 const CANONICAL_FIT_SCALE = 0.854;
 
 const { ccclass } = _decorator;
@@ -74,7 +72,14 @@ export class LemmyActor extends Component {
   private framePlayback: LemmyFramePlaybackState | null = null;
   private framePlaybackFrames: SpriteFrame[] = [];
   private framePlaybackToken: LemmyActionToken | null = null;
-  private canonicalFrame: SpriteFrame | null = null;
+  private framePlaybackOnEvent: ((event: LemmyActorEvent) => void) | null = null;
+  // events clamped to the actually-loaded frame count (an out-of-range beat fires on the
+  // last frame instead of never → no soft-lock if a sequence is ever re-extracted shorter).
+  private framePlaybackEvents: ReadonlyArray<LemmyFrameEvent> = [];
+  /** Retained horizontal facing so idle/reach after a walk keep the walk's direction (sticky). */
+  private facing: "left" | "right" = "left";
+  /** Active walk position tween — stopped on supersede/destroy so an interrupted walk halts. */
+  private walkTween: TweenAction<Node> | null = null;
 
   init(options: LemmyActorOptions = {}): Promise<void> {
     this.displaySize = options.displaySize ?? DEFAULT_DISPLAY_SIZE;
@@ -86,78 +91,39 @@ export class LemmyActor extends Component {
     return this.readyPromise;
   }
 
+  /** Start the looping idle breathing animation (fire-and-forget; runs until superseded). */
   playIdle(): void {
-    void this.playAction("idle_right").catch((error) => {
+    void this.playFrameAction("idle").catch((error) => {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     });
   }
 
+  /**
+   * Walk Lemmy to `target`: loops the walk frame sequence (area-norm 正面3/4 帧) while the
+   * node slides there at constant speed. Resolves on arrival (holds the last walk frame —
+   * callers typically follow with playIdle). Rejects if interrupted / actor destroyed.
+   */
   async walkTo(target: Vec3, options: LemmyWalkOptions = {}): Promise<void> {
     await this.readyPromise;
     const frames = await this.loadFrames("walk");
     const handle = this.cancellation.beginAction("walk");
 
-    // Walk frames are authored facing LEFT; mirror (scaleX -1) to walk right.
+    // 走路帧朝左原生; 朝右移动用 scaleX=-1 镜像翻转。朝向粘住, 供到位后的 idle/reach 沿用。
+    this.stopWalkTween();
     const movingRight = target.x > this.node.position.x;
+    this.facing = movingRight ? "right" : "left";
     this.setFacingFlip(movingRight);
+    this.startFramePlayback("walk", frames, handle.token);
 
-    // Loop the walk cycle (driven by update()) while the node slides to the target.
-    this.framePlaybackFrames = frames;
-    this.framePlayback = createFramePlayback("walk", frames.length);
-    this.framePlaybackToken = handle.token;
-    this.fitSpriteToFrame(frames[0]);
-    this.showFrame(0);
-
-    tween(this.node)
+    this.walkTween = tween(this.node)
       .to(
-        (options.durationMs ?? estimateLemmyActionDurationMs("walk_right")) / 1000,
+        (options.durationMs ?? DEFAULT_WALK_DURATION_MS) / 1000,
         { position: target },
-        // 走路要匀速(像真人走), 不能用缓动——sineInOut 会"头慢中间快尾慢", 看着忽快忽慢。
+        // 走路匀速(像真人走), 不用缓动——sineInOut 会"头慢中间快尾慢"看着忽快忽慢。
         { easing: "linear" }
       )
       .call(() => {
-        // Arrived: stop the walk loop and return to the canonical standing sprite.
-        this.framePlayback = null;
-        this.framePlaybackToken = null;
-        this.showCanonical();
-        this.cancellation.resolveActive(handle.token);
-      })
-      .start();
-    return handle.promise;
-  }
-
-  async playAction(actionId: LemmyTransformActionId, options: LemmyPlayOptions = {}): Promise<void> {
-    await this.readyPromise;
-    const handle = this.cancellation.beginAction(actionId);
-    // Transform actions animate the canonical sprite — restore it in case a frame action ran last.
-    this.showCanonical();
-    const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
-    const durationMs = estimateLemmyActionDurationMs(actionId);
-
-    this.playPose(actionId, 0);
-
-    let chain = tween(this.node);
-    let previousAtMs = 0;
-    for (const entry of schedule.slice(1)) {
-      const deltaMs = entry.atMs - previousAtMs;
-      if (deltaMs > 0) {
-        chain = chain.delay(deltaMs / 1000);
-      }
-      chain = chain.call(() => {
-        this.playPose(actionId, entry.atMs);
-        if (entry.event) options.onEvent?.(entry.event);
-      });
-      previousAtMs = entry.atMs;
-    }
-
-    const remainingMs = Math.max(0, durationMs - previousAtMs);
-    if (remainingMs > 0) {
-      chain = chain.delay(remainingMs / 1000);
-    }
-
-    chain
-      .call(() => {
-        this.playPose(actionId, durationMs);
+        // 到位: 停走路帧循环(resolve → update 下一帧收掉播放), 站姿交回调用方。
         this.cancellation.resolveActive(handle.token);
       })
       .start();
@@ -166,25 +132,23 @@ export class LemmyActor extends Component {
   }
 
   /**
-   * Play a loaded frame sequence (startle / crouch) as a one-shot. Resolves when the
-   * sequence completes (holdLast leaves the sprite on the final frame), or rejects if
-   * interrupted by another action / actor destruction (same contract as playAction).
+   * Play a loaded frame sequence. idle/walk loop (never resolve until superseded);
+   * reach/startle/crouch are one-shot hold-last and resolve when complete. reach emits
+   * reach_contact via options.onEvent at its apex frame. Rejects if interrupted / destroyed.
    */
   async playFrameAction(
     actionId: LemmyFrameActionId,
-    options: { facing?: "left" | "right" } = {}
+    options: LemmyFramePlayOptions = {}
   ): Promise<void> {
     await this.readyPromise;
     const frames = await this.loadFrames(actionId);
     const handle = this.cancellation.beginAction(actionId);
 
-    if (options.facing) this.setFacingFlip(options.facing === "right");
-
-    this.framePlaybackFrames = frames;
-    this.framePlayback = createFramePlayback(actionId, frames.length);
-    this.framePlaybackToken = handle.token;
-    this.fitSpriteToFrame(frames[0]);
-    this.showFrame(0);
+    // 朝向: 调用方显式指定则用之, 否则沿用上一动作(走右后 idle/reach 不会翻回朝左)。
+    this.stopWalkTween();
+    this.facing = options.facing ?? this.facing;
+    this.setFacingFlip(this.facing === "right");
+    this.startFramePlayback(actionId, frames, handle.token, options.onEvent);
 
     return handle.promise;
   }
@@ -196,21 +160,73 @@ export class LemmyActor extends Component {
 
     if (!token.isActive) {
       // Superseded by another action (beginAction already rejected this promise).
-      this.framePlayback = null;
-      this.framePlaybackToken = null;
+      this.clearFramePlayback();
       return;
     }
 
     const next = advanceFramePlayback(playback, deltaSeconds * 1000);
     this.framePlayback = next;
-    if (next.frameIndex !== playback.frameIndex) this.showFrame(next.frameIndex);
+
+    if (next.frameIndex !== playback.frameIndex) {
+      this.showFrame(next.frameIndex);
+      const onEvent = this.framePlaybackOnEvent;
+      if (onEvent) {
+        for (const event of frameEventsBetween(
+          this.framePlaybackEvents,
+          playback.frameIndex,
+          next.frameIndex
+        )) {
+          onEvent(event);
+        }
+      }
+    }
 
     if (next.done) {
       // holdLast keeps the sprite on the final frame; resolve the action promise.
-      this.framePlayback = null;
-      this.framePlaybackToken = null;
-      this.cancellation.resolveActive(token);
+      const finished = token;
+      this.clearFramePlayback();
+      this.cancellation.resolveActive(finished);
     }
+  }
+
+  onDestroy(): void {
+    this.stopWalkTween();
+    this.cancellation.destroy();
+  }
+
+  private startFramePlayback(
+    actionId: LemmyFrameActionId,
+    frames: SpriteFrame[],
+    token: LemmyActionToken,
+    onEvent?: (event: LemmyActorEvent) => void
+  ): void {
+    this.framePlaybackFrames = frames;
+    this.framePlayback = createFramePlayback(actionId, frames.length);
+    this.framePlaybackToken = token;
+    this.framePlaybackOnEvent = onEvent ?? null;
+    // Clamp each beat to the loaded frame count: an out-of-range frameIndex (e.g. reach
+    // re-extracted shorter than the configured apex) fires on the last frame instead of
+    // never — late, but no soft-lock. LemmyFrameAssets guard test keeps it in range.
+    const lastFrame = frames.length - 1;
+    this.framePlaybackEvents = (LEMMY_FRAME_ACTIONS[actionId].events ?? []).map((entry) =>
+      entry.frameIndex <= lastFrame ? entry : { ...entry, frameIndex: lastFrame }
+    );
+    this.fitSpriteToFrame(frames[0]);
+    this.showFrame(0);
+  }
+
+  private clearFramePlayback(): void {
+    this.framePlayback = null;
+    this.framePlaybackToken = null;
+    this.framePlaybackOnEvent = null;
+    this.framePlaybackFrames = [];
+    this.framePlaybackEvents = [];
+  }
+
+  /** Stop & forget the walk position tween so an interrupted/destroyed walk stops sliding. */
+  private stopWalkTween(): void {
+    this.walkTween?.stop();
+    this.walkTween = null;
   }
 
   private showFrame(index: number): void {
@@ -224,8 +240,8 @@ export class LemmyActor extends Component {
   }
 
   /**
-   * Size contentSize to the frame's TRIMMED content aspect (canonical → tall; 384² frame
-   * canvases → square), so Cocos sizeMode CUSTOM stretch-to-fill doesn't distort it.
+   * Size contentSize to the frame's TRIMMED content aspect (512² frame canvases are square,
+   * canonical is tall), so Cocos sizeMode CUSTOM stretch-to-fill doesn't distort it.
    */
   private fitSpriteToFrame(frame: SpriteFrame, scale = 1): void {
     const box = this.sprite?.node.getComponent(UITransform);
@@ -240,15 +256,6 @@ export class LemmyActor extends Component {
       "contain"
     );
     box.setContentSize(fitted.width, fitted.height);
-  }
-
-  /** Restore the standing canonical sprite (un-mirrored) — used when a transform action follows frames. */
-  private showCanonical(): void {
-    this.setFacingFlip(false);
-    if (this.sprite && this.canonicalFrame) {
-      this.sprite.spriteFrame = this.canonicalFrame;
-      this.fitSpriteToFrame(this.canonicalFrame, CANONICAL_FIT_SCALE);
-    }
   }
 
   private loadFrames(actionId: LemmyFrameActionId): Promise<SpriteFrame[]> {
@@ -275,10 +282,6 @@ export class LemmyActor extends Component {
     });
   }
 
-  onDestroy(): void {
-    this.cancellation.destroy();
-  }
-
   private mountCanonicalSprite(): Node {
     const node = new Node("LemmyCanonical");
     node.active = true;
@@ -303,35 +306,13 @@ export class LemmyActor extends Component {
           return;
         }
         if (this.sprite && spriteFrame) {
-          // 缓存定妆帧供 showCanonical 复位; 按裁剪后内容比例设框(见 fitSpriteToFrame):
-          // 定妆图竖长, 防止 sizeMode CUSTOM 把它横向拉宽。
-          this.canonicalFrame = spriteFrame;
+          // 初始站姿显示定妆帧; 按裁剪后内容比例设框(见 fitSpriteToFrame): 定妆图竖长,
+          // 防止 sizeMode CUSTOM 把它横向拉宽。idle/walk 等帧动作一播即覆盖此帧。
           this.sprite.spriteFrame = spriteFrame;
           this.fitSpriteToFrame(spriteFrame, CANONICAL_FIT_SCALE);
         }
         resolve();
       });
     });
-  }
-
-  private playPose(actionId: LemmyTransformActionId, atMs: number): void {
-    const entry = this.nearestScheduleEntry(actionId, atMs);
-    const node = this.spriteNode;
-    if (!node) return;
-
-    node.setPosition(entry.offsetX ?? 0, entry.offsetY ?? 0, 0);
-    node.setRotationFromEuler(0, 0, entry.rotateDeg ?? 0);
-    (node as Node & { setScale?: (x: number, y?: number, z?: number) => void }).setScale?.(
-      entry.scaleX ?? 1,
-      entry.scaleY ?? 1,
-      1
-    );
-  }
-
-  private nearestScheduleEntry(actionId: LemmyTransformActionId, atMs: number): LemmyActionScheduleEntry {
-    const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
-    return [...schedule]
-      .reverse()
-      .find((entry) => entry.atMs <= atMs) ?? schedule[0];
   }
 }

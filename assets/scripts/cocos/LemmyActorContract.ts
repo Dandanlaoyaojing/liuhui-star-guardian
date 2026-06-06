@@ -4,26 +4,15 @@ export const LEMMY_APPROVED_IDENTITY_SOURCE =
 export const LEMMY_CLEAN_MASTER_PATH =
   "assets/art/style-references/lemmy-rabbit-canonical.png";
 
-export type LemmyTransformActionId = "idle_right" | "walk_right" | "reach_up_right";
-export type LemmyFrameActionId = "startle" | "crouch" | "walk";
-/** Any Lemmy action — whole-sprite transform schedules OR loaded frame sequences. */
-export type LemmyActionId = LemmyTransformActionId | LemmyFrameActionId;
-export type LemmyActorEvent = "reach_contact" | "footstep_left" | "footstep_right";
+// 2026-06-05: 全部 5 个动作都改为播放加载的 PNG 帧序列(idle/walk 循环, reach/startle/crouch
+// 一次性 hold-last)。旧的"transform 关键帧变换单张 canonical"路径(idle_right/walk_right/
+// reach_up_right + 引擎走路)已废弃删除——现在有了对齐原图的足量帧(见 source-videos/README)。
+export type LemmyFrameActionId = "idle" | "walk" | "reach" | "startle" | "crouch";
+/** Any Lemmy action id. (All actions are frame sequences now.) */
+export type LemmyActionId = LemmyFrameActionId;
 
-export interface LemmyActionScheduleEntry {
-  atMs: number;
-  event?: LemmyActorEvent;
-  offsetX?: number;
-  offsetY?: number;
-  rotateDeg?: number;
-  scaleX?: number;
-  scaleY?: number;
-}
-
-export interface LemmyTransformSchedule {
-  loop: boolean;
-  keyframes: LemmyActionScheduleEntry[];
-}
+/** Gameplay-relevant beat emitted at a specific frame. reach apex → Lemmy touches the basket. */
+export type LemmyActorEvent = "reach_contact";
 
 export interface LemmyActionToken {
   actionId: LemmyActionId;
@@ -47,37 +36,6 @@ interface LemmyPendingAction {
   reject: (error: Error) => void;
 }
 
-export const LEMMY_ACTION_SCHEDULES: Record<LemmyTransformActionId, LemmyTransformSchedule> = {
-  idle_right: {
-    loop: false,
-    keyframes: [
-      { atMs: 0, offsetY: 0, rotateDeg: 0, scaleX: 1, scaleY: 1 },
-      { atMs: 280, offsetY: 3, rotateDeg: 1, scaleX: 1.01, scaleY: 0.99 },
-      { atMs: 560, offsetY: 0, rotateDeg: 0, scaleX: 1, scaleY: 1 }
-    ]
-  },
-  walk_right: {
-    loop: false,
-    keyframes: [
-      { atMs: 0, event: "footstep_left", offsetY: 0, rotateDeg: -2, scaleX: 1, scaleY: 1 },
-      { atMs: 220, offsetY: 5, rotateDeg: 2, scaleX: 0.99, scaleY: 1.02 },
-      { atMs: 440, event: "footstep_right", offsetY: 0, rotateDeg: -1, scaleX: 1, scaleY: 1 },
-      { atMs: 660, offsetY: 4, rotateDeg: 2, scaleX: 0.99, scaleY: 1.02 },
-      { atMs: 880, offsetY: 0, rotateDeg: 0, scaleX: 1, scaleY: 1 }
-    ]
-  },
-  reach_up_right: {
-    loop: false,
-    keyframes: [
-      { atMs: 0, offsetY: 0, rotateDeg: 0, scaleX: 1, scaleY: 1 },
-      { atMs: 160, offsetY: -4, rotateDeg: -3, scaleX: 1.05, scaleY: 0.96 },
-      { atMs: 380, event: "reach_contact", offsetY: 13, rotateDeg: 5, scaleX: 0.93, scaleY: 1.13 },
-      { atMs: 640, offsetY: 4, rotateDeg: 2, scaleX: 0.98, scaleY: 1.04 },
-      { atMs: 820, offsetY: 0, rotateDeg: 0, scaleX: 1, scaleY: 1 }
-    ]
-  }
-};
-
 export class LemmyActionInterrupted extends Error {
   constructor(actionId: LemmyActionId) {
     super(`Lemmy action interrupted: ${actionId}`);
@@ -90,19 +48,6 @@ export class LemmyActorDestroyed extends Error {
     super(`Lemmy actor destroyed during action: ${actionId}`);
     this.name = "LemmyActorDestroyed";
   }
-}
-
-export function getLemmyTransformSchedule(actionId: LemmyTransformActionId): LemmyTransformSchedule {
-  const schedule = LEMMY_ACTION_SCHEDULES[actionId];
-  return {
-    loop: schedule.loop,
-    keyframes: schedule.keyframes.map((entry) => ({ ...entry }))
-  };
-}
-
-export function estimateLemmyActionDurationMs(actionId: LemmyTransformActionId): number {
-  const schedule = LEMMY_ACTION_SCHEDULES[actionId].keyframes;
-  return schedule[schedule.length - 1]?.atMs ?? 0;
 }
 
 export function createLemmyCancellationContext(): LemmyCancellationContext {
@@ -157,9 +102,21 @@ export function isExpectedLemmyActionCancel(error: unknown): boolean {
   return error instanceof LemmyActionInterrupted || error instanceof LemmyActorDestroyed;
 }
 
-// ── Frame-sequence actions (startle / crouch) ───────────────────────────────
-// These play a loaded PNG sequence (resources.loadDir) rather than a transform
-// schedule. Pure playback state lives here; the cc glue (LemmyActor) owns sprites.
+// ── Frame-sequence actions ──────────────────────────────────────────────────
+// Each action plays a loaded PNG sequence (resources.loadDir). Pure playback +
+// event-timing state lives here; the cc glue (LemmyActor) owns sprites.
+
+/**
+ * A gameplay beat fired when playback crosses a specific frame index.
+ * ⚠️ frameIndex 0 never fires: the first frame is shown on start without a crossing,
+ * and the (prev, newIndex] window is half-open at prev (=0). Put beats on frame >= 1.
+ * LemmyActor clamps an out-of-range frameIndex to the last loaded frame (fire late,
+ * never soft-lock) — but keep it in range; the LemmyFrameAssets guard test enforces it.
+ */
+export interface LemmyFrameEvent {
+  frameIndex: number;
+  event: LemmyActorEvent;
+}
 
 export interface LemmyFrameActionSpec {
   /** resources-relative path passed to resources.loadDir(dir, SpriteFrame). */
@@ -168,14 +125,25 @@ export interface LemmyFrameActionSpec {
   loop: boolean;
   /** one-shot only: keep showing the last frame once done. */
   holdLast: boolean;
+  /** frame-indexed gameplay beats (e.g. reach apex → reach_contact). */
+  events?: ReadonlyArray<LemmyFrameEvent>;
 }
 
+// fps 是观感参数,可在引擎内微调;帧数见 assets/art/characters/lemmy/source-videos/README。
 export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpec> = {
-  startle: { dir: "art/characters/lemmy/startle", fps: 16, loop: false, holdLast: true },
-  crouch: { dir: "art/characters/lemmy/crouch", fps: 14, loop: false, holdLast: true },
-  // Looping locomotion cycle (斜侧 walk frames); played by walkTo while the node slides,
-  // stopped on arrival. 36 frames @ 10fps = 3.6s/cycle (腿迈慢一半, 减少"忙腿"观感).
-  walk: { dir: "art/characters/lemmy/walk", fps: 10, loop: true, holdLast: false }
+  idle: { dir: "art/characters/lemmy/idle", fps: 12, loop: true, holdLast: false },
+  // 走路 = 帧循环(area-norm 锁尺寸的正面3/4帧) + 引擎横移;朝左原生,朝右 scaleX=-1。
+  walk: { dir: "art/characters/lemmy/walk", fps: 16, loop: true, holdLast: false },
+  // reach 36 帧弧线(站→蹲蓄力→踮脚伸到顶);#34 是伸到顶≈碰到篮子 → 发 reach_contact。
+  reach: {
+    dir: "art/characters/lemmy/reach",
+    fps: 18,
+    loop: false,
+    holdLast: true,
+    events: [{ frameIndex: 34, event: "reach_contact" }]
+  },
+  startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
+  crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true }
 };
 
 export interface LemmyFramePlaybackState {
@@ -233,4 +201,21 @@ export function advanceFramePlayback(
   }
 
   return { ...state, elapsedMs, frameIndex: rawIndex, done: false };
+}
+
+/**
+ * Events (from a resolved, frame-count-clamped list) whose frame was crossed by advancing
+ * prevIndex → newIndex this tick. Half-open at prevIndex (already shown), inclusive at
+ * newIndex. Robust to multi-frame jumps under a large dt. Takes the events list directly
+ * (not the actionId) so LemmyActor can pass a list clamped to the actually-loaded frames.
+ */
+export function frameEventsBetween(
+  events: ReadonlyArray<LemmyFrameEvent> | undefined,
+  prevIndex: number,
+  newIndex: number
+): LemmyActorEvent[] {
+  if (!events || newIndex <= prevIndex) return [];
+  return events
+    .filter((entry) => entry.frameIndex > prevIndex && entry.frameIndex <= newIndex)
+    .map((entry) => entry.event);
 }

@@ -14,6 +14,8 @@ Usage:
 
 API key is read from ~/.claude/.env (LUMA_AGENTS_API_KEY=...).
 """
+from __future__ import annotations  # allow `dict | None` annotations on Python 3.9 (/usr/bin/python3)
+
 import argparse
 import base64
 import json

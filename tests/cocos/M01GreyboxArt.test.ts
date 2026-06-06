@@ -41,8 +41,11 @@ import {
   type M01GreyboxLayout
 } from "../../assets/scripts/cocos/M01GreyboxLayout.ts";
 import {
+  countM01IntroBasketVisiblePileOffsets,
+  isM01IntroBasketPileInsideInnerCavity,
   M01_INTRO_BASKET_DISPLAY_SIZE,
-  M01_INTRO_BASKET_PILE_OFFSETS
+  M01_INTRO_BASKET_PILE_OFFSETS,
+  M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE
 } from "../../assets/scripts/cocos/M01IntroLayout.ts";
 import type { M01MemoryGearConfig } from "../../assets/scripts/levels/stage1/M01MemoryGearController.ts";
 import realM01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear.json" with { type: "json" };
@@ -202,21 +205,6 @@ function opaqueBounds(image: { width: number; height: number; data: Uint8Array }
   return {
     width: maxX - minX + 1,
     height: maxY - minY + 1
-  };
-}
-
-function boundingBoxForOffsets(
-  offsets: ReadonlyArray<{ x: number; y: number }>,
-  itemSize: { width: number; height: number }
-): { width: number; height: number } {
-  const halfWidth = itemSize.width / 2;
-  const halfHeight = itemSize.height / 2;
-  const xs = offsets.flatMap((offset) => [offset.x - halfWidth, offset.x + halfWidth]);
-  const ys = offsets.flatMap((offset) => [offset.y - halfHeight, offset.y + halfHeight]);
-
-  return {
-    width: Math.max(...xs) - Math.min(...xs),
-    height: Math.max(...ys) - Math.min(...ys)
   };
 }
 
@@ -1464,14 +1452,13 @@ describe("M01 greybox art slices", () => {
     }
   });
 
-  it("sizes the M01 intro basket to visibly hold the nine stacked fragments", () => {
-    const basketResources = M01_GREYBOX_RUNTIME_INTRO_RESOURCES.filter((resource) =>
-      resource.id.startsWith("intro_basket_")
+  it("sizes the M01 intro basket so authored pieces read at standard-piece scale", () => {
+    const basketResources = M01_GREYBOX_RUNTIME_INTRO_RESOURCES.filter(
+      (resource) => resource.id === "intro_basket_hanging" || resource.id === "intro_basket_tipped"
     );
     const hangingBasket = basketResources.find((resource) => resource.id === "intro_basket_hanging");
-    const fragmentPileBounds = boundingBoxForOffsets(
-      M01_INTRO_BASKET_PILE_OFFSETS,
-      M01_STANDARD_PIECE_DISPLAY_SIZE
+    const frontOccluder = M01_GREYBOX_RUNTIME_INTRO_RESOURCES.find(
+      (resource) => resource.id === "intro_basket_front_occluder"
     );
 
     expect(M01_INTRO_BASKET_PILE_OFFSETS).toHaveLength(9);
@@ -1480,16 +1467,48 @@ describe("M01 greybox art slices", () => {
       M01_INTRO_BASKET_DISPLAY_SIZE
     ]);
     expect(hangingBasket).toBeDefined();
+    expect(frontOccluder?.displaySize).toEqual(M01_INTRO_BASKET_DISPLAY_SIZE);
+    expect(existsSync(join(projectRoot, frontOccluder!.file))).toBe(true);
+    expect(existsSync(join(projectRoot, `${frontOccluder!.file}.meta`))).toBe(true);
+    expect(readSpriteFrameUserData(join(projectRoot, `${hangingBasket!.file}.meta`))).toMatchObject({
+      trimType: "none",
+      trimX: 0,
+      trimY: 0
+    });
 
     const image = readPngRgba(hangingBasket!.file);
-    const visibleBounds = opaqueBounds(image);
-    const visibleDisplaySize = {
-      width: (visibleBounds.width / image.width) * M01_INTRO_BASKET_DISPLAY_SIZE.width,
-      height: (visibleBounds.height / image.height) * M01_INTRO_BASKET_DISPLAY_SIZE.height
+    const representativeBackCircleSourceBounds = { width: 230, height: 230 };
+    const representativeBackCircleDisplaySize = {
+      width:
+        (representativeBackCircleSourceBounds.width / image.width) *
+        M01_INTRO_BASKET_DISPLAY_SIZE.width,
+      height:
+        (representativeBackCircleSourceBounds.height / image.height) *
+        M01_INTRO_BASKET_DISPLAY_SIZE.height
     };
+    const visiblePileCount = countM01IntroBasketVisiblePileOffsets(
+      M01_STANDARD_PIECE_DISPLAY_SIZE.width
+    );
 
-    expect(visibleDisplaySize.width).toBeGreaterThan(fragmentPileBounds.width + 40);
-    expect(visibleDisplaySize.height).toBeGreaterThan(fragmentPileBounds.height + 4);
+    expect(M01_INTRO_BASKET_DISPLAY_SIZE.width / M01_INTRO_BASKET_DISPLAY_SIZE.height).toBeCloseTo(
+      image.width / image.height,
+      2
+    );
+    expect(representativeBackCircleDisplaySize.width).toBeGreaterThan(
+      M01_STANDARD_PIECE_DISPLAY_SIZE.width - 5
+    );
+    expect(representativeBackCircleDisplaySize.width).toBeLessThan(
+      M01_STANDARD_PIECE_DISPLAY_SIZE.width + 2
+    );
+    expect(representativeBackCircleDisplaySize.height).toBeGreaterThan(
+      M01_STANDARD_PIECE_DISPLAY_SIZE.height - 5
+    );
+    expect(representativeBackCircleDisplaySize.height).toBeLessThan(
+      M01_STANDARD_PIECE_DISPLAY_SIZE.height + 2
+    );
+    expect(isM01IntroBasketPileInsideInnerCavity()).toBe(true);
+    expect(visiblePileCount).toBeGreaterThanOrEqual(M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE.min);
+    expect(visiblePileCount).toBeLessThanOrEqual(M01_INTRO_BASKET_VISIBLE_PIECE_COUNT_RANGE.max);
   });
 
   it("declares the single canonical Lemmy actor resource without using stale layer parts", () => {

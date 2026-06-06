@@ -969,11 +969,32 @@ describe("Cocos Creator project scaffold", () => {
     expect(intro).not.toContain("lemmy_body");
     expect(intro).toContain("node.addComponent(LemmyActor)");
     expect(intro).toContain('this.lemmyActor.walkTo(new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0)');
-    expect(intro).toContain('this.lemmyActor.playAction("reach_up_right"');
+    expect(intro).toContain('this.lemmyActor.playFrameAction("reach"');
     expect(intro).toContain('event === "reach_contact"');
     expect(intro).not.toContain("REACH_HOLD_DURATION");
     expect(intro).not.toContain("swapSprite(this.lemmySprite");
     expect(intro).not.toContain('manifestId: "intro_lemmy_reaching"');
+  });
+
+  it("keeps real M01 intro fragments hidden until the painted basket spills", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const startBlock = bootstrap.slice(
+      bootstrap.indexOf("start(): void"),
+      bootstrap.indexOf("onDestroy(): void")
+    );
+    const syncBlock = bootstrap.slice(
+      bootstrap.indexOf("private syncVisualState"),
+      bootstrap.indexOf("private shouldUseTextureBackedFragmentReveal")
+    );
+
+    expect(bootstrap).toContain("private introFragmentsReleased = true;");
+    expect(startBlock).toContain("this.introFragmentsReleased = true;");
+    expect(startBlock).toContain("this.introFragmentsReleased = false;");
+    expect(startBlock).toContain("this.introFragmentsReleased = true;");
+    expect(syncBlock).toContain(
+      "entry.node.active = this.introFragmentsReleased && !view.placed;"
+    );
+    expect(syncBlock).not.toContain("entry.node.active = !view.placed;");
   });
 
   it("gives freely falling M01 fragments a subtle ground bounce", () => {

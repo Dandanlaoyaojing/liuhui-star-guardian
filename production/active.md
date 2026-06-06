@@ -1,10 +1,12 @@
 # Active Work State
 
-Last updated: 2026-06-03
+Last updated: 2026-06-05
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
 ## 当前活跃线:莱米角色动画
+
+**M02 迷失的导航罗盘设计校正(2026-06-05)**:按用户指出的物理逻辑漏洞,已更新 `docs/design/game-design-spec.md` §5.3。M02 不再是“太阳 / 月亮 / 云同理自动对齐”的圆环匹配;第一步改为用日晷针影子反推出**地日二维方位线**(影子反方向,仅为观测台平面投影,不声称完整三维地日位置);第二步改为用**地日线 + 月相 + 亮面/盈亏/观测时段消歧线索**反推出地月方位,避免“半月/弯月可落在两侧”的非唯一解。胜利条件同步收口为 sun / moon / outer 三环校准。
 
 **主角原型(canonical) 已定稿** —— 带手、干净无噪点、2000×2000 透明:
 - `assets/art/style-references/lemmy-rabbit-canonical.png`(identity 母版,2000²)
@@ -29,7 +31,11 @@ Last updated: 2026-06-03
 
 **全 5 套动画重抽(2026-06-05,已覆盖运行时帧 + 重建 .meta)**:从已归档源重抽、帧数加密、运行时 384²→**512²**。帧数 idle**24**/walk**48**/reach**36**/startle**29**/crouch**40**(旧 12/36/18/23/24,共 113→177)。每帧统一收尾:抽帧 → `scripts/lemmy-tone-match.py`(对比度拉到 canonical `V.std=0.160`,治"抽帧+缩放后发平",同口径帧只 0.143)→ `scripts/lemmy-pencil-outline.py` → oxipng。**walk 专属 `area-norm`**(按整体面积统一缩放锁尺寸,治"忽大忽小":即梦体积抖动~8-11%,走路恒定大小暴露成忽大忽小;bodynorm 只锁身高没用、宽度仍摆 26%,改锁面积→0.7%,均匀缩放不变形)。**walk 源=正面3/4 已归档源**(用户 2026-06-05 选定;纯侧面 crouch 源宽度摆更大 34%)。startle 去果子重组 `[#0,#0]+#13..#39`。`.meta` 重建为 512²+`trimType none`+新 UUID(帧序列尚未接 `LemmyActor`、无引用);⚠️ **Cocos 需 reimport 注册**(本会话无 cocos MCP)。详见 `source-videos/README` + 两个新脚本。
 
-**下一步**:把 idle/walk/reach/startle/crouch 帧表接进 Cocos `LemmyActor`,在 M01 跑起来(莱米从右走入→够篮→篮子物理晃动打翻)。注:当前 `LemmyActor` 仍是 transform-based(变换单张 canonical),要播这些帧序列(尤其 startle 的吃惊表情,变换做不出)需加一个帧序列播放组件。
+**帧序列接入 LemmyActor(2026-06-05,已做但⚠️未提交)**:全 5 套改帧播放。契约全帧化(`LemmyFrameActionId`=idle/walk/reach/startle/crouch;idle/walk 循环、reach/startle/crouch 一次性 hold-last;reach 在 **#34 伸顶**发 `reach_contact`;新增 `frameEventsBetween`)+ `LemmyActor` 帧播放器(`playIdle()` 循环、`walkTo()` **帧循环+引擎横移**弃单图变换、`playFrameAction(onEvent)`)+ `M01IntroSequence` 改调用(idle→`playIdle()` 不 await、reach→`playFrameAction("reach")`,**reach_contact→篮子倾倒命脉不变**)。**删了旧 transform/引擎走路路径**。自审(派独立 code-reviewer 交叉验证)修了 3+2 个问题:**粘性朝向**(治"走右到位后 idle 啪翻回朝左")、**打断停 walkTween**、**reach 事件运行时钳制+跨文件护栏测试**(防 reach 重抽变短软锁)、frame-0 事件注释、清 framePlaybackFrames。`typecheck` ✅ + **310 测试全绿** ✅。fps 在 `LEMMY_FRAME_ACTIONS`(idle12/walk16/reach18/startle18/crouch16)可调。
+
+**⚠️ 为何未提交**:接线改动缠在 `M01IntroSequence.ts` 里(混着隔壁会话的 M01 intro 在途代码 ~95 行),要提交"接线"就得连那坨在途 intro 一起带进来 → 暂留工作区,等 intro 工作到位再一起提。已提交的只有帧资源 commit `8506b21`。
+
+**下一步(本线)**:① Cocos **reimport** 注册新帧 + 引擎实看(精灵渲染/朝右翻转观感/walk 横移/reach 手感;本会话无 cocos MCP)。② **walk 方向待定**:代码是**朝右走**(`LEMMY_OFFSCREEN_X=-460`→`LEMMY_UNDER_BASKET_X=290`),与本档"从右走入"叙述相反;改方向是 M01 场景常量符号的事(属 intro 在途代码),不是 LemmyActor。③ 接 **startle/crouch 进 M01 intro**(手电砸头→startle→蹲下捡起,intro 待办;LemmyActor 侧 `playFrameAction("startle"/"crouch")` 已就绪)。④ 提交时机见上。
 codex 的 `LemmyActorContract.ts` 取消契约(`LemmyActionInterrupted`/`LemmyActorDestroyed`/`createLemmyCancellationContext`)可复用;M01IntroSequence 已有接入 diff。
 
 **M01 吊篮贴片 / 内胆(2026-06-03)**:吊篮方向改为**略深篮身 + 前壁遮挡 + 物理内胆**。hanging / tipped runtime 贴片已换成深篮空图,新增 `intro_basket_front_occluder` 前壁遮挡层;静置时只露上层 4-5 个拼片,其余被前篮壁遮住。代码侧 `M01IntroLayout` 定义 9 片 4-3-2 物理堆叠坐标、底板/左右斜壁内胆 collider、前壁遮挡高度;`M01IntroSequence` 在篮子节点下生成不可见内胆 collider,倾倒释放后保留 650ms 导流再销毁,避免地面阶段继续挡片。测试护栏已从"可见区域装下九片"改为"物理内胆装下九片,可视只露 4-5 片"。

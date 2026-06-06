@@ -206,6 +206,7 @@ export class M01GreyboxBootstrap extends Component {
   private physicsBoundary: M01PhysicsBoundary | null = null;
   private physicsPile: M01PhysicsPile | null = null;
   private physicsSettled = false;
+  private introFragmentsReleased = true;
   private introSequence: M01IntroSequence | null = null;
   private pendingPhysicsFragments: { node: Node; shape: M01PhysicsShape; size: number }[] = [];
   private toolCardRoot: Node | null = null;
@@ -299,6 +300,7 @@ export class M01GreyboxBootstrap extends Component {
       this.suppressHeldFlashlightFollow = false;
       this.flashlightBeamReach = DEFAULT_FLASHLIGHT_BEAM_REACH;
       this.validationFlashVisible = true;
+      this.introFragmentsReleased = true;
       this.enableArtPreview = this.enableArtPreview || shouldEnableM01ArtPreviewFromUrl();
       this.renderGreybox(this.layout);
       this.restoreManualTargetDraft();
@@ -332,8 +334,10 @@ export class M01GreyboxBootstrap extends Component {
         this.physicsPile.preparePhysicsWorld(physicsFragments, this.physicsBoundary);
         this.physicsBoundary.renderGroundLine();
 
-        // Step 3: hide all fragments — the intro will activate + parent them
-        // into the basket during its init pass.
+        // Step 3: hide all real fragments. The loaded hanging-basket artwork
+        // already contains painted pieces, so the live physics fragments stay
+        // invisible until the spill begins.
+        this.introFragmentsReleased = false;
         for (const f of physicsFragments) {
           f.node.active = false;
         }
@@ -353,6 +357,7 @@ export class M01GreyboxBootstrap extends Component {
           fragments: physicsFragments.map((f) => ({ node: f.node })),
           onSpill: (originX, originY) => {
             if (!this.physicsPile || !this.layout) return;
+            this.introFragmentsReleased = true;
             this.physicsPile.startDrop({
               fragments: this.pendingPhysicsFragments,
               seed: Date.now(),
@@ -2667,7 +2672,7 @@ export class M01GreyboxBootstrap extends Component {
         );
         const presentation =
           view.validationColor && !this.validationFlashVisible ? "normal" : view.presentation;
-        entry.node.active = !view.placed;
+        entry.node.active = this.introFragmentsReleased && !view.placed;
         this.applyTokenGraphicsState(
           entry.graphics,
           entry.token,

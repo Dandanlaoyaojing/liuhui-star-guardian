@@ -1,5 +1,6 @@
 import {
   _decorator,
+  BoxCollider2D,
   Component,
   EventTouch,
   Node,
@@ -7,6 +8,7 @@ import {
   ERigidBody2DType,
   Sprite,
   SpriteFrame,
+  Size,
   UITransform,
   Vec2,
   Vec3,
@@ -19,6 +21,8 @@ import {
   getM01GreyboxRuntimeLemmyResource
 } from "./M01GreyboxArt.ts";
 import {
+  M01_INTRO_BASKET_INNER_CAVITY,
+  M01_INTRO_BASKET_INNER_CAVITY_WALLS,
   M01_INTRO_BASKET_DISPLAY_SIZE,
   M01_INTRO_BASKET_PILE_OFFSETS
 } from "./M01IntroLayout.ts";
@@ -71,7 +75,7 @@ const ROPE_RIGHT_X = BASKET_X + ROPE_HORIZONTAL_OFFSET;
 const ROPE_CENTER_Y = BASKET_Y + ROPE_BOTTOM_Y_OFFSET + ROPE_DISPLAY.height / 2;
 
 // Timing (seconds).
-const WALK_TO_BASKET_DURATION = 1.8;
+const WALK_TO_BASKET_DURATION = 7.2; // 走入前进速度再次减半(1.8→3.6→7.2); 走路帧 fps 不变, 步频照旧
 const BASKET_WOBBLE_DURATION = 0.14;
 const BASKET_TIP_DURATION = 0.45;
 
@@ -91,7 +95,7 @@ export interface M01IntroSequenceOptions {
   onSettled: () => void;
 }
 
-type SpriteKey = "basketHanging" | "basketTipped" | "rope";
+type SpriteKey = "basketHanging" | "basketTipped" | "basketFrontOccluder" | "rope";
 
 @ccclass("M01IntroSequence")
 export class M01IntroSequence extends Component {
@@ -100,18 +104,21 @@ export class M01IntroSequence extends Component {
   private lemmyActor: LemmyActor | null = null;
   private lemmyReady: Promise<void> = Promise.resolve();
   private basketSprite: Sprite | null = null;
+  private basketFrontOccluderSprite: Sprite | null = null;
   private basketNode: Node | null = null;
+  private basketInnerCavityNodes: Node[] = [];
   private ropeLeftNode: Node | null = null;
   private ropeRightNode: Node | null = null;
   private spriteFrames: Partial<Record<SpriteKey, SpriteFrame>> = {};
+  private basketInnerCavityDestroyTimer: ReturnType<typeof setTimeout> | undefined;
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
-    this.spawnRopes();
     this.spawnBasket();
+    this.spawnBasketInnerCavity();
     this.spawnLemmy();
-    this.loadSpriteFrames();
     this.stageFragmentsInBasket();
+    this.loadSpriteFrames();
     // Lemmy walks in on his own; the player's first action is tapping the basket.
     void this.beginWalk();
   }
@@ -159,11 +166,55 @@ export class M01IntroSequence extends Component {
     this.basketSprite = sprite;
   }
 
+  private spawnBasketInnerCavity(): void {
+    if (!this.basketNode) return;
+    this.destroyBasketInnerCavity();
+
+    for (const wall of M01_INTRO_BASKET_INNER_CAVITY_WALLS) {
+      const node = new Node(`M01IntroBasketInnerCavity_${wall.id}`);
+      node.setPosition(wall.center.x, wall.center.y, 0);
+      node.setRotationFromEuler(0, 0, wall.angleDeg);
+      this.basketNode.addChild(node);
+
+      const transform = node.addComponent(UITransform);
+      transform.setContentSize(wall.size.width, wall.size.height);
+
+      const body = node.addComponent(RigidBody2D);
+      body.type = ERigidBody2DType.Static;
+      body.gravityScale = 0;
+
+      const collider = node.addComponent(BoxCollider2D);
+      collider.size = new Size(wall.size.width, wall.size.height);
+      collider.offset = new Vec2(0, 0);
+      collider.friction = M01_INTRO_BASKET_INNER_CAVITY.wallFriction;
+      collider.restitution = M01_INTRO_BASKET_INNER_CAVITY.wallRestitution;
+      collider.density = 1;
+      collider.apply();
+
+      this.basketInnerCavityNodes.push(node);
+    }
+  }
+
+  private spawnBasketFrontOccluder(): void {
+    if (!this.basketNode) return;
+    const node = new Node("M01IntroBasketFrontOccluder");
+    node.setPosition(0, 0, 0);
+    this.basketNode.addChild(node);
+
+    const transform = node.addComponent(UITransform);
+    transform.setContentSize(BASKET_DISPLAY.width, BASKET_DISPLAY.height);
+
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.basketFrontOccluderSprite = sprite;
+  }
+
   /**
    * Stage the 9 REAL game-piece nodes inside the basket: activate them,
    * parent them to the basket so they tip with it, position each at its
-   * BASKET_PILE_OFFSETS slot, and freeze its physics body so it doesn't
-   * react to gravity while sitting in the tray.
+   * BASKET_PILE_OFFSETS slot. The offsets are a deterministic physical stack
+   * inside the basket inner cavity: no staged pieces overlap, and only the
+   * upper 4-5 caps remain visible once the front-wall occluder is drawn.
    */
   private stageFragmentsInBasket(): void {
     if (!this.options || !this.basketNode) return;
@@ -173,7 +224,7 @@ export class M01IntroSequence extends Component {
       const frag = fragments[i].node;
       frag.parent = this.basketNode;
       frag.setPosition(slot.x, slot.y, 0);
-      frag.active = true;
+      frag.active = false;
 
       const body = frag.getComponent(RigidBody2D);
       if (body) {
@@ -197,9 +248,12 @@ export class M01IntroSequence extends Component {
     if (!greyboxRoot) return;
     for (const frag of this.options.fragments) {
       const node = frag.node;
+      node.active = true;
       const worldPos = node.worldPosition.clone();
+      const worldAngleZ = this.basketNode.eulerAngles.z + node.eulerAngles.z;
       node.parent = greyboxRoot;
       node.setWorldPosition(worldPos);
+      node.setRotationFromEuler(0, 0, worldAngleZ);
     }
   }
 
@@ -240,6 +294,11 @@ export class M01IntroSequence extends Component {
     }> = [
       { manifestId: "intro_basket_hanging", key: "basketHanging", sprite: this.basketSprite },
       { manifestId: "intro_basket_tipped", key: "basketTipped", sprite: null },
+      {
+        manifestId: "intro_basket_front_occluder",
+        key: "basketFrontOccluder",
+        sprite: this.basketFrontOccluderSprite
+      },
       { manifestId: "intro_rope_segment", key: "rope", sprite: ropeLeftSprite }
     ];
 
@@ -270,7 +329,7 @@ export class M01IntroSequence extends Component {
         durationMs: WALK_TO_BASKET_DURATION * 1000
       });
       this.advance("walkArrived"); // approaching → observing
-      await this.lemmyActor.playAction("idle_right");
+      this.lemmyActor.playIdle(); // 站定待机循环, 等玩家点篮(不 await: idle 是循环)
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     }
@@ -279,7 +338,7 @@ export class M01IntroSequence extends Component {
   private async beginReach(): Promise<void> {
     if (!this.lemmyActor) return;
     try {
-      await this.lemmyActor.playAction("reach_up_right", {
+      await this.lemmyActor.playFrameAction("reach", {
         onEvent: (event) => {
           if (event === "reach_contact" && this.advance("reachContact")) {
             this.wobbleBasket();
@@ -304,7 +363,6 @@ export class M01IntroSequence extends Component {
 
   private commitTip(): void {
     if (!this.basketNode) return;
-    this.swapSprite(this.basketSprite, "basketTipped");
     tween(this.basketNode)
       .to(
         BASKET_TIP_DURATION,
@@ -320,17 +378,47 @@ export class M01IntroSequence extends Component {
   private startSpill(): void {
     // Reparent the 9 real pieces back to the greybox root (preserving world
     // positions captured AFTER the basket tip), then signal the bootstrap.
+    this.swapSprite(this.basketSprite, "basketTipped");
     this.releaseFragmentsFromBasket();
     if (this.options) {
       this.options.onSpill(BASKET_MOUTH_X, BASKET_MOUTH_Y);
+      this.destroyBasketInnerCavityAfterReleaseGuide();
       // Lemmy stays on stage (no exit walk). The workspace is live once pieces spill.
       this.options.onSettled();
     }
+  }
+
+  private destroyBasketInnerCavityAfterReleaseGuide(): void {
+    this.clearBasketInnerCavityDestroyTimer();
+    this.basketInnerCavityDestroyTimer = setTimeout(() => {
+      this.basketInnerCavityDestroyTimer = undefined;
+      this.destroyBasketInnerCavity();
+    }, M01_INTRO_BASKET_INNER_CAVITY.releaseGuideMs);
+  }
+
+  private destroyBasketInnerCavity(): void {
+    this.clearBasketInnerCavityDestroyTimer();
+    for (const node of this.basketInnerCavityNodes) {
+      node.destroy();
+    }
+    this.basketInnerCavityNodes.length = 0;
+  }
+
+  private clearBasketInnerCavityDestroyTimer(): void {
+    if (this.basketInnerCavityDestroyTimer === undefined) {
+      return;
+    }
+    clearTimeout(this.basketInnerCavityDestroyTimer);
+    this.basketInnerCavityDestroyTimer = undefined;
   }
 
   private swapSprite(sprite: Sprite | null, key: SpriteKey): void {
     if (!sprite) return;
     const frame = this.spriteFrames[key];
     if (frame) sprite.spriteFrame = frame;
+  }
+
+  onDestroy(): void {
+    this.destroyBasketInnerCavity();
   }
 }
