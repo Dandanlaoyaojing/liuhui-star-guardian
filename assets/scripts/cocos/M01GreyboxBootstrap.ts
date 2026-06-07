@@ -1070,6 +1070,20 @@ export class M01GreyboxBootstrap extends Component {
       }
 
       sprite.spriteFrame = spriteFrame;
+      // CUSTOM 模式会把裁剪后的贴图内容拉满写死框, 无视真实宽高比 → 横向压扁。
+      // 按 frame.rect(裁剪后真实内容, 取不到再回退 spriteFrameSize)的宽高比,
+      // 以 M01_HINT_ICON_DISPLAY_SIZE 为锚定框 "contain" 重算 contentSize(同 LemmyActor.fitSpriteToFrame)。
+      const rect = spriteFrame.rect;
+      const real =
+        rect && rect.width > 0 && rect.height > 0 ? rect : spriteFrameSize(spriteFrame);
+      const fitted = aspectContentSize(
+        real.width,
+        real.height,
+        M01_HINT_ICON_DISPLAY_SIZE.width,
+        M01_HINT_ICON_DISPLAY_SIZE.height,
+        "contain"
+      );
+      transform.setContentSize(fitted.width, fitted.height);
     });
     return sprite;
   }

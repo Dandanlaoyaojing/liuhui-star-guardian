@@ -250,6 +250,13 @@ describe("Cocos Creator project scaffold", () => {
       "transform.setContentSize(M01_HINT_ICON_DISPLAY_SIZE.width, M01_HINT_ICON_DISPLAY_SIZE.height);"
     );
     expect(bootstrap).toContain("resources.load(M01_HINT_ICON_RESOURCE_PATH, SpriteFrame");
+    // 灯泡图标必须按裁剪后真实宽高比适配: CUSTOM 模式会把 217×229 内容拉满写死的 24.5×30 框 → 横向压扁约14%。
+    // rect-first(同 LemmyActor.fitSpriteToFrame), 取不到再回退 spriteFrameSize; "contain" 保证不超出按钮框。
+    expect(hintButtonBlock).toContain("const rect = spriteFrame.rect;");
+    expect(hintButtonBlock).toContain("spriteFrameSize(spriteFrame)");
+    expect(hintButtonBlock).toContain("aspectContentSize(");
+    expect(hintButtonBlock).toContain('"contain"');
+    expect(hintButtonBlock).toContain("transform.setContentSize(fitted.width, fitted.height);");
   });
 
   it("wires the M01 greybox runtime to drag sessions and drop resolution", () => {
