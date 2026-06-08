@@ -2684,9 +2684,17 @@ export class M01GreyboxBootstrap extends Component {
           entry.artSprite,
           fragmentColorOverride
         );
-        const presentation =
-          view.validationColor && !this.validationFlashVisible ? "normal" : view.presentation;
-        entry.node.active = this.introFragmentsReleased && !view.placed;
+        // During the intro the 9 real fragments sit staged & VISIBLE inside the empty basket
+        // (the old painted-piece basket art is gone), so render them solid ("normal") and keep
+        // them active. After the spill, fall back to the session-driven presentation + the
+        // released/placed visibility rule.
+        const introStaged = !this.introFragmentsReleased;
+        const presentation = introStaged
+          ? "normal"
+          : view.validationColor && !this.validationFlashVisible
+            ? "normal"
+            : view.presentation;
+        entry.node.active = !view.placed;
         this.applyTokenGraphicsState(
           entry.graphics,
           entry.token,

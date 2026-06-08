@@ -36,6 +36,8 @@ export interface LemmyActorOptions {
 
 export interface LemmyWalkOptions {
   durationMs?: number;
+  /** Which walk-cycle frames to loop while sliding: normal "walk" (ears up) or "walkback" (ears tucked). */
+  action?: Extract<LemmyFrameActionId, "walk" | "walkback">;
 }
 
 export interface LemmyFramePlayOptions {
@@ -105,15 +107,20 @@ export class LemmyActor extends Component {
    */
   async walkTo(target: Vec3, options: LemmyWalkOptions = {}): Promise<void> {
     await this.readyPromise;
-    const frames = await this.loadFrames("walk");
-    const handle = this.cancellation.beginAction("walk");
+    const walkAction = options.action ?? "walk"; // "walkback" = 耳后贴走(惊扰态), 否则常规走
+    const frames = await this.loadFrames(walkAction);
+    const handle = this.cancellation.beginAction(walkAction);
 
     // 走路帧朝左原生; 朝右移动用 scaleX=-1 镜像翻转。朝向粘住, 供到位后的 idle/reach 沿用。
+    // 原地不动(target≈当前x)时保持当前朝向, 不强制翻回朝左。
     this.stopWalkTween();
-    const movingRight = target.x > this.node.position.x;
-    this.facing = movingRight ? "right" : "left";
-    this.setFacingFlip(movingRight);
-    this.startFramePlayback("walk", frames, handle.token);
+    const dx = target.x - this.node.position.x;
+    if (Math.abs(dx) > 1e-3) {
+      const movingRight = dx > 0;
+      this.facing = movingRight ? "right" : "left";
+      this.setFacingFlip(movingRight);
+    }
+    this.startFramePlayback(walkAction, frames, handle.token);
 
     this.walkTween = tween(this.node)
       .to(

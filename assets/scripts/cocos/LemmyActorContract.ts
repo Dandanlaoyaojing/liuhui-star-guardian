@@ -1,18 +1,30 @@
+// 游戏内动态身份基准 = 带铅笔描边版(W5@820)。以后所有动作都用这张图喂即梦生图,
+// 生成帧不再逐帧补描边(描边已烘进母版; 见 source-videos/README)。
 export const LEMMY_APPROVED_IDENTITY_SOURCE =
-  "assets/art/style-references/lemmy-rabbit-canonical.png";
+  "assets/art/style-references/lemmy-rabbit-canonical-pencil.png";
 
+// 干净无描边母版(W1) = 商标/logo 原型(2026-06-07 由 lemmy-rabbit-canonical.png 改名)。
+// 仅品牌用途, 不进游戏动态管线。
 export const LEMMY_CLEAN_MASTER_PATH =
-  "assets/art/style-references/lemmy-rabbit-canonical.png";
+  "assets/art/style-references/lemmy-rabbit-trademark-master.png";
 
 // 2026-06-05: 全部 5 个动作都改为播放加载的 PNG 帧序列(idle/walk 循环, reach/startle/crouch
 // 一次性 hold-last)。旧的"transform 关键帧变换单张 canonical"路径(idle_right/walk_right/
 // reach_up_right + 引擎走路)已废弃删除——现在有了对齐原图的足量帧(见 source-videos/README)。
-export type LemmyFrameActionId = "idle" | "walk" | "reach" | "startle" | "crouch";
+export type LemmyFrameActionId =
+  | "idle" | "walk" | "reach" | "startle" | "crouch"
+  // 2026-06-08 耳后贴系列(惊扰→顶篮): 收耳(立→后贴) / 耳后贴 idle / 耳后贴走 / 跳起顶篮 / 展耳(后贴→立)。
+  // 统一缩放对齐 idle 躯干宽(身高略矮),固定机位无忽大忽小;见 skill jimeng / project_sprite_size_consistency_methodology。
+  | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup";
 /** Any Lemmy action id. (All actions are frame sequences now.) */
 export type LemmyActionId = LemmyFrameActionId;
 
-/** Gameplay-relevant beat emitted at a specific frame. reach apex → Lemmy touches the basket. */
-export type LemmyActorEvent = "reach_contact";
+/**
+ * Gameplay-relevant beat emitted at a specific frame.
+ * - reach_contact: reach apex → Lemmy touches the hanging basket (first-tap gentle nudge).
+ * - headbutt_contact: rising head first touches the basket bottom → real outward impulse on the pieces.
+ */
+export type LemmyActorEvent = "reach_contact" | "headbutt_contact";
 
 export interface LemmyActionToken {
   actionId: LemmyActionId;
@@ -134,16 +146,38 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   idle: { dir: "art/characters/lemmy/idle", fps: 12, loop: true, holdLast: false },
   // 走路 = 帧循环(area-norm 锁尺寸的正面3/4帧) + 引擎横移;朝左原生,朝右 scaleX=-1。
   walk: { dir: "art/characters/lemmy/walk", fps: 16, loop: true, holdLast: false },
-  // reach 36 帧弧线(站→蹲蓄力→踮脚伸到顶);#34 是伸到顶≈碰到篮子 → 发 reach_contact。
+  // reach 36 帧弧线(站→举臂够到≈#23→放下手#24-34→收住站姿)。#23 是爪举到最高、≈碰到篮子那刻 → 发 reach_contact。
+  // (旧值 #34 其实是手已放下的收尾帧,误当成够到点 → 篮子晚晃一拍;现按实帧校到 #23,见 M01IntroSequence.beginReach 的 onEvent。)
   reach: {
     dir: "art/characters/lemmy/reach",
     fps: 12,
     loop: false,
     holdLast: true,
-    events: [{ frameIndex: 34, event: "reach_contact" }]
+    events: [{ frameIndex: 23, event: "reach_contact" }]
   },
   startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
-  crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true }
+  crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true },
+  // ── 耳后贴系列(2026-06-08) ── 统一缩放对齐 idle 躯干宽; fps 是观感参数, 引擎内可微调。
+  // earsback 收耳(立→后贴), 一次性 hold-last。
+  earsback: { dir: "art/characters/lemmy/earsback", fps: 24, loop: false, holdLast: true },
+  // idleback 耳后贴待机, 单呼吸周期循环 (48帧@24fps=2.0s, 与 idle 同呼吸节奏)。
+  idleback: { dir: "art/characters/lemmy/idleback", fps: 24, loop: true, holdLast: false },
+  // walkback 耳后贴走, 单步循环 (28帧@35fps=0.8s/步)。朝左原生, 朝右 scaleX=-1。
+  walkback: { dir: "art/characters/lemmy/walkback", fps: 35, loop: true, holdLast: false },
+  // headbutt 蹲地→起跳顶篮底→落 (124帧, 跳跃模式抽帧已保留腾空)。
+  // ⚠️ contact 帧 = 头【在上升段初次触到篮底】那刻, 不是头停在篮底的峰值、更不是脚离地最高那刻:
+  // 逐帧测头顶 Y —— #60=165 → #63=112 → #66=87 → #72=77(到顶, 之后一直贴篮底到 #96), 脚离地最高在 #81。
+  // 头是在快速上冲中于 ~#66 就撞上篮底(距峰值仅 10px), #72 只是被篮底挡停的峰值。对到峰值(旧 #71)
+  // 玩家看着像"跳到最高点篮子才受力"; 对到 #66(初次接触)→ 篮子在头撞上那一刻就受力。(2026-06-08 用户现场)
+  headbutt: {
+    dir: "art/characters/lemmy/headbutt",
+    fps: 40,
+    loop: false,
+    holdLast: true,
+    events: [{ frameIndex: 66, event: "headbutt_contact" }]
+  },
+  // earsup 展耳(后贴→立, 复原), 一次性 hold-last。
+  earsup: { dir: "art/characters/lemmy/earsup", fps: 24, loop: false, holdLast: true }
 };
 
 export interface LemmyFramePlaybackState {

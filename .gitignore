@@ -43,3 +43,8 @@ coverage/
 /profiles/v2/*
 !/profiles/v2/packages/
 /profiles/v2/packages/*
+
+# luma/tooling scratch venv (keep on disk, never commit)
+/tmp/
+# API response dumps (ideogram/luma)
+*.response.bin

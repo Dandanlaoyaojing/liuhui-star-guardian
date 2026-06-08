@@ -261,7 +261,7 @@
     "_enabled": true,
     "__prefab": null,
     "statusLabel": null,
-    "enableArtPreview": false,
+    "enableArtPreview": true,
     "showArtPreviewDebugUnderlay": false,
     "_id": "e2ZyEVXiBJFYQYTUuOqtlb"
   },

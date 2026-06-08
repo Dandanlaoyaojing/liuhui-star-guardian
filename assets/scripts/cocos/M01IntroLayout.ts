@@ -35,9 +35,35 @@ export const M01_INTRO_BASKET_INNER_CAVITY = {
   frontOcclusionY: 20 * M01_INTRO_BASKET_SCALE + M01_INTRO_BASKET_CAVITY_Y_SHIFT,
   wallThickness: 16 * M01_INTRO_BASKET_SCALE,
   wallFriction: 0.76,
-  wallRestitution: 0.03,
-  releaseGuideMs: 650
+  wallRestitution: 0.03
 } as const;
+
+/**
+ * Second-tap spill. The pieces RIDE the basket as it rocks, then are released to Dynamic and
+ * TOSSED out in the tip direction (down-left). We script the toss velocity instead of relying on
+ * the bowl walls to sweep them: a node-tween moves a body by teleport, which carries no Box2D
+ * velocity, so swinging "kinematic" walls impart no fling — the pieces would just drop straight
+ * down. Velocities are px/s; gravity (-640) then arcs them onto the static ground boundary.
+ */
+export const M01_INTRO_BASKET_SPILL = {
+  flingVx: -150, // base horizontal toss toward the tipped mouth (lower-left)
+  flingVxJitter: 80, // per-piece horizontal spread, so they pour instead of moving as one block
+  flingVy: 70, // small up-and-out arc; gravity then pulls them down into the pile
+  flingVyJitter: 55 // per-piece vertical spread
+} as const;
+
+/**
+ * Deterministic per-piece toss velocity (no RNG → frame-rate independent and unit-testable).
+ * Every piece gets a leftward vx (out the tipped mouth) with a spread, and a small outward vy arc.
+ */
+export function resolveM01IntroSpillFlingVelocity(index: number): { vx: number; vy: number } {
+  const xPhase = (index % 3) - 1; // -1, 0, +1 cycling → spread around flingVx
+  const yPhase = (index % 2) * 2 - 1; // -1, +1 alternating
+  return {
+    vx: M01_INTRO_BASKET_SPILL.flingVx + xPhase * M01_INTRO_BASKET_SPILL.flingVxJitter,
+    vy: M01_INTRO_BASKET_SPILL.flingVy + yPhase * M01_INTRO_BASKET_SPILL.flingVyJitter
+  };
+}
 
 const LEFT_WALL_DX =
   -M01_INTRO_BASKET_INNER_CAVITY.topHalfWidth +

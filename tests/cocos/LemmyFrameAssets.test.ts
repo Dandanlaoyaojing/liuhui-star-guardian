@@ -23,23 +23,31 @@ const FRAME_ACTIONS = [
   { action: "walk", frameCount: 48 },
   { action: "reach", frameCount: 36 },
   { action: "startle", frameCount: 29 },
-  { action: "crouch", frameCount: 40 }
+  { action: "crouch", frameCount: 40 },
+  // 耳后贴系列 (2026-06-08): 单周期循环 + 统一缩放对齐 idle 躯干宽; headbutt 跳跃模式保留腾空。
+  { action: "earsback", frameCount: 40 },
+  { action: "idleback", frameCount: 48 },
+  { action: "walkback", frameCount: 28 },
+  { action: "earsup", frameCount: 38 },
+  { action: "headbutt", frameCount: 124 }
 ] as const;
 
-describe("Lemmy frame-sequence assets (idle / walk / reach / startle / crouch)", () => {
+describe("Lemmy frame-sequence assets (idle / walk / reach / startle / crouch / 耳后贴系列)", () => {
   for (const { action, frameCount } of FRAME_ACTIONS) {
     describe(action, () => {
+      // >99 帧的动作用 3 位补零, 否则 loadDir 的字符串排序会把 "100" 排到 "99" 前面 → 帧乱序。
+      const pad = Math.max(2, String(frameCount - 1).length);
       const files = readdirSync(join(LEMMY_FRAME_ROOT, action));
-      const framePattern = new RegExp(`^${action}-(\\d{2})\\.png$`);
+      const framePattern = new RegExp(`^${action}-(\\d{${pad}})\\.png$`);
       const frames = files.filter((name) => framePattern.test(name)).sort();
 
       it(`has exactly ${frameCount} frames`, () => {
         expect(frames).toHaveLength(frameCount);
       });
 
-      it("numbers frames contiguously from 00", () => {
+      it("numbers frames contiguously from 0 (zero-padded, sort-stable)", () => {
         frames.forEach((name, index) => {
-          expect(name).toBe(`${action}-${String(index).padStart(2, "0")}.png`);
+          expect(name).toBe(`${action}-${String(index).padStart(pad, "0")}.png`);
         });
       });
 
@@ -51,7 +59,7 @@ describe("Lemmy frame-sequence assets (idle / walk / reach / startle / crouch)",
 
       it("has no orphan .png.meta without a matching PNG", () => {
         const orphanMetas = files
-          .filter((name) => new RegExp(`^${action}-\\d{2}\\.png\\.meta$`).test(name))
+          .filter((name) => new RegExp(`^${action}-\\d{${pad}}\\.png\\.meta$`).test(name))
           .filter((meta) => !files.includes(meta.replace(/\.meta$/, "")));
         expect(orphanMetas).toEqual([]);
       });
@@ -59,20 +67,22 @@ describe("Lemmy frame-sequence assets (idle / walk / reach / startle / crouch)",
   }
 });
 
-// Cross-file guard: a frame-indexed beat (reach apex → reach_contact, which triggers the
-// M01 basket spill) must point at a real frame of the on-disk sequence. If reach is ever
-// re-extracted shorter than the configured apex, this fails loudly — otherwise the beat
-// would fire late (runtime-clamped to the last frame) and silently degrade the intro.
+// Cross-file guard: every frame-indexed beat (reach apex → reach_contact; jump apex →
+// headbutt_contact — both drive M01's basket nudge / spill impulse) must point at a real frame of
+// the on-disk sequence. If a sequence is re-extracted shorter than its beat, this fails loudly —
+// otherwise the beat fires late (runtime-clamped to the last frame) and silently degrades the intro.
 describe("Lemmy frame-action events stay within their loaded frame count", () => {
-  it("reach_contact's frameIndex is a valid index into the on-disk reach frames", () => {
-    const reachFrames = readdirSync(join(LEMMY_FRAME_ROOT, "reach")).filter((name) =>
-      /^reach-\d{2}\.png$/.test(name)
-    );
-    const events = LEMMY_FRAME_ACTIONS.reach.events ?? [];
-    expect(events.length).toBeGreaterThan(0);
-    for (const event of events) {
-      expect(event.frameIndex).toBeLessThan(reachFrames.length);
-      expect(event.frameIndex).toBeGreaterThanOrEqual(1); // frame 0 events never fire
-    }
-  });
+  for (const [action, spec] of Object.entries(LEMMY_FRAME_ACTIONS)) {
+    const events = spec.events ?? [];
+    if (events.length === 0) continue;
+    it(`${action}: each event frameIndex indexes a real on-disk frame`, () => {
+      const frames = readdirSync(join(LEMMY_FRAME_ROOT, action)).filter((name) =>
+        new RegExp(`^${action}-\\d{2,3}\\.png$`).test(name)
+      );
+      for (const event of events) {
+        expect(event.frameIndex).toBeLessThan(frames.length);
+        expect(event.frameIndex).toBeGreaterThanOrEqual(1); // frame 0 events never fire
+      }
+    });
+  }
 });

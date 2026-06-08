@@ -975,15 +975,43 @@ describe("Cocos Creator project scaffold", () => {
     expect(intro).not.toContain("partResourcePaths");
     expect(intro).not.toContain("lemmy_body");
     expect(intro).toContain("node.addComponent(LemmyActor)");
-    expect(intro).toContain('this.lemmyActor.walkTo(new Vec3(LEMMY_UNDER_BASKET_X, LEMMY_Y, 0)');
-    expect(intro).toContain('this.lemmyActor.playFrameAction("reach"');
-    expect(intro).toContain('this.advance("reachContact")');
+    // 2026-06-08 顶篮 headbutt + 点哪走哪重构: 收耳→跳起顶篮→倒出, 自由走位经 walkLemmyTo。
+    expect(intro).toContain("walkLemmyTo"); // 点哪走哪
+    // 动作名断言不绑接收者(this.lemmyActor vs 局部 actor), 减少重构脆性。
+    expect(intro).toContain('playFrameAction("earsback")'); // 收耳
+    expect(intro).toContain('playFrameAction("headbutt"'); // 顶篮(帧自带腾空)
+    expect(intro).toContain('this.advance("headbuttStarted")');
+    expect(intro).toContain('this.advance("headbuttContact")');
+    // 可重复顶篮(顶一下出一批、反复顶到全出): 子集释放 + readyToHeadbutt 回环 + 再顶。
+    expect(intro).toContain("beginRepeatHeadbutt");
+    expect(intro).toContain("HEADBUTT_PIECES_PER_HIT");
+    expect(intro).toContain('this.advance("piecesRemain")');
+    // 篮子被头从下顶起: 给独立 Verlet 软绳末端(篮子物理点)向上冲量 → 蹦起被绳拉住弹收敛, 竖直不旋转。
+    expect(intro).toContain("BASKET_KICK_STRENGTH");
+    expect(intro).not.toContain("BASKET_HEADBUTT_JOLT_DEG");
+    // 篮子由绳末端物理点驱动(节点位移, 内胆/拼片跟随); 软绳=只拉不推 Verlet。
+    expect(intro).toContain("spawnBasketRope");
+    // 触发位置判定(2026-06-08 现场): 篮下点篮→顶篮; 不在篮下点篮→走近够篮(reach)只轻晃(gentleNudge)、不顶。
+    expect(intro).toContain("isLemmyUnderBasket");
+    expect(intro).toContain("LEMMY_HEADBUTT_UNDER_TOLERANCE");
+    expect(intro).toContain("beginBasketReachNudge");
+    expect(intro).toContain("gentleNudgeBasket");
+    expect(intro).toContain('playFrameAction("reach"'); // 不在篮下: 够篮底边
+    // 手电掉落砸头(startle)→ 蹲下捡起(crouch)叙事(spec §5.2)。
+    expect(intro).toContain("spawnIntroFlashlight");
+    expect(intro).toContain('playFrameAction("startle")'); // 砸头受惊
+    expect(intro).toContain('playFrameAction("crouch")'); // 蹲下拾起
+    expect(intro).toContain('this.advance("flashlightBonked")');
+    expect(intro).toContain('this.advance("crouchDone")');
+    // 旧 reach/tip/脚本抛掷流程已移除。
+    expect(intro).not.toContain('this.advance("reachContact")');
+    expect(intro).not.toContain("BASKET_SPILL_FLING");
     expect(intro).not.toContain("REACH_HOLD_DURATION");
     expect(intro).not.toContain("swapSprite(this.lemmySprite");
     expect(intro).not.toContain('manifestId: "intro_lemmy_reaching"');
   });
 
-  it("keeps real M01 intro fragments hidden until the painted basket spills", () => {
+  it("renders the real M01 intro fragments visible (solid) in the empty basket during the intro", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const startBlock = bootstrap.slice(
       bootstrap.indexOf("start(): void"),
@@ -998,10 +1026,11 @@ describe("Cocos Creator project scaffold", () => {
     expect(startBlock).toContain("this.introFragmentsReleased = true;");
     expect(startBlock).toContain("this.introFragmentsReleased = false;");
     expect(startBlock).toContain("this.introFragmentsReleased = true;");
-    expect(syncBlock).toContain(
-      "entry.node.active = this.introFragmentsReleased && !view.placed;"
-    );
-    expect(syncBlock).not.toContain("entry.node.active = !view.placed;");
+    // Empty-basket design: the real fragments sit staged & visible in the basket during the
+    // intro (solid "normal" presentation), no longer hidden until spill.
+    expect(syncBlock).toContain("const introStaged = !this.introFragmentsReleased;");
+    expect(syncBlock).toContain("entry.node.active = !view.placed;");
+    expect(syncBlock).not.toContain("this.introFragmentsReleased && !view.placed");
   });
 
   it("gives freely falling M01 fragments a subtle ground bounce", () => {
@@ -1277,7 +1306,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("view.validationColor");
     expect(bootstrap).toContain("validationFlashVisible");
     expect(bootstrap).toContain("validationColor ?? view.observedColor");
-    expect(bootstrap).toContain('view.validationColor && !this.validationFlashVisible ? "normal"');
+    expect(bootstrap).toContain("view.validationColor && !this.validationFlashVisible");
   });
 
   it("keeps greybox graphics subdued when art preview is enabled", () => {

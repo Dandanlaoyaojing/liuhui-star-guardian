@@ -16,37 +16,48 @@ import type { LemmyActionId } from "../../assets/scripts/cocos/LemmyActorContrac
 describe("LemmyActor identity constants", () => {
   it("locks the approved Lemmy identity source and clean master path", () => {
     expect(LEMMY_APPROVED_IDENTITY_SOURCE).toBe(
-      "assets/art/style-references/lemmy-rabbit-canonical.png"
+      "assets/art/style-references/lemmy-rabbit-canonical-pencil.png"
     );
     expect(LEMMY_CLEAN_MASTER_PATH).toBe(
-      "assets/art/style-references/lemmy-rabbit-canonical.png"
+      "assets/art/style-references/lemmy-rabbit-trademark-master.png"
     );
   });
 });
 
-describe("Lemmy frame actions (all 5 frame-based)", () => {
-  it("registers all five; idle/walk loop, reach/startle/crouch one-shot hold-last", () => {
+describe("Lemmy frame actions (10 frame-based: 5 base + 耳后贴系列)", () => {
+  it("registers all ten; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
     expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual([
       "crouch",
+      "earsback",
+      "earsup",
+      "headbutt",
       "idle",
+      "idleback",
       "reach",
       "startle",
-      "walk"
+      "walk",
+      "walkback"
     ]);
     for (const spec of Object.values(LEMMY_FRAME_ACTIONS)) {
       expect(spec.fps).toBeGreaterThan(0);
       expect(spec.dir).toMatch(/^art\/characters\/lemmy\//);
     }
-    expect(LEMMY_FRAME_ACTIONS.idle).toMatchObject({ loop: true, holdLast: false });
-    expect(LEMMY_FRAME_ACTIONS.walk).toMatchObject({ loop: true, holdLast: false });
-    expect(LEMMY_FRAME_ACTIONS.reach).toMatchObject({ loop: false, holdLast: true });
-    expect(LEMMY_FRAME_ACTIONS.startle).toMatchObject({ loop: false, holdLast: true });
-    expect(LEMMY_FRAME_ACTIONS.crouch).toMatchObject({ loop: false, holdLast: true });
+    // 循环(idle/呼吸/走): loop true, 不 hold-last。
+    for (const id of ["idle", "walk", "idleback", "walkback"] as const) {
+      expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: true, holdLast: false });
+    }
+    // 一次性反应/转换(够篮/受惊/蹲/收耳/展耳/顶篮): loop false, hold-last 停末帧。
+    for (const id of ["reach", "startle", "crouch", "earsback", "earsup", "headbutt"] as const) {
+      expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: false, holdLast: true });
+    }
   });
 
   it("accepts every frame action id where a LemmyActionId is expected (no cast)", () => {
     const accept = (id: LemmyActionId): LemmyActionId => id;
-    for (const id of ["idle", "walk", "reach", "startle", "crouch"] as const) {
+    for (const id of [
+      "idle", "walk", "reach", "startle", "crouch",
+      "earsback", "idleback", "walkback", "headbutt", "earsup"
+    ] as const) {
       expect(accept(id)).toBe(id);
     }
   });
@@ -62,9 +73,32 @@ describe("Lemmy reach_contact frame event", () => {
     expect(events[0].frameIndex).toBeLessThan(36);
   });
 
-  it("keeps looping locomotion (walk/idle) free of gameplay events", () => {
-    expect(LEMMY_FRAME_ACTIONS.walk.events ?? []).toHaveLength(0);
-    expect(LEMMY_FRAME_ACTIONS.idle.events ?? []).toHaveLength(0);
+  it("keeps looping locomotion (walk/idle/idleback/walkback) free of gameplay events", () => {
+    for (const id of ["walk", "idle", "idleback", "walkback"] as const) {
+      expect(LEMMY_FRAME_ACTIONS[id].events ?? []).toHaveLength(0);
+    }
+  });
+
+  it("headbutt carries exactly one headbutt_contact at first basket contact on the rise (124-frame crouch→jump→land)", () => {
+    const events = LEMMY_FRAME_ACTIONS.headbutt.events ?? [];
+    expect(events).toHaveLength(1);
+    expect(events[0].event).toBe("headbutt_contact");
+    // 上升段头初次触篮底(~#66, 距头顶峰值仅 10px), 在跳跃后段、不在首帧、不越界。
+    expect(events[0].frameIndex).toBeGreaterThan(60);
+    expect(events[0].frameIndex).toBeLessThan(124);
+  });
+
+  it("fires headbutt_contact once at first contact, never re-fires", () => {
+    const events = LEMMY_FRAME_ACTIONS.headbutt.events;
+    const contact = (events ?? [])[0].frameIndex;
+    expect(frameEventsBetween(events, contact - 1, contact)).toEqual(["headbutt_contact"]);
+    expect(frameEventsBetween(events, 0, contact - 1)).toEqual([]);
+    expect(frameEventsBetween(events, contact, 123)).toEqual([]);
+  });
+
+  it("ear transitions (earsback/earsup) carry no gameplay events", () => {
+    expect(LEMMY_FRAME_ACTIONS.earsback.events ?? []).toHaveLength(0);
+    expect(LEMMY_FRAME_ACTIONS.earsup.events ?? []).toHaveLength(0);
   });
 
   it("fires reach_contact exactly once when the apex frame is crossed, never re-fires", () => {

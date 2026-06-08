@@ -7,7 +7,7 @@ Use the four global references below as the general project baseline:
 1. `2026-04-22-unified-handdrawn-style-anchor.png`
 2. `2026-04-23-game-interface-style-reference.png`
 3. `2026-04-23-game-ui-board-style-reference.png`
-4. `2026-05-28-lemmy-rabbit-canonical.png` (the single canonical Lemmy identity — hand-added paws, clean, 2000×2000 transparent; 2026-05-29 final)
+4. `2026-05-28-lemmy-rabbit-canonical.png` (the canonical Lemmy identity — hand-added paws, clean, 2000×2000 transparent; 2026-05-29 final). **2026-06-07 split:** the in-game *animation* identity is now its pencil-outlined derivative `lemmy-rabbit-canonical-pencil.png`; this clean version was renamed `lemmy-rabbit-trademark-master.png` for brand/商标 use — see the dedicated section below.
 
 M01 also has one local runtime-art reference for the current cockpit/control-console pass:
 
@@ -42,13 +42,21 @@ Generated Stage 1 scene images (`M02-M10`, and any earlier `M01-M10` batch langu
 - Do not make the target pattern a decorative dashboard panel; it must still serve the M01 overlap-reconstruction mechanic.
 - Do not replace Lemmy or future stage references with this local M01 mood unless the operator explicitly expands the style direction.
 
-## 2026-05-28 Lemmy Canonical (Active Identity Source)
+## Lemmy Canonical (Active Identity Source) — 2026-06-07 split: outlined vs clean
 
-- Reference image: [2026-05-28-lemmy-rabbit-canonical.png](2026-05-28-lemmy-rabbit-canonical.png) (2000×2000 RGBA, transparent)
-- Asset copy: `assets/art/style-references/lemmy-rabbit-canonical.png`
-- Status: **active canonical identity source** for Lemmy. Locked by `LEMMY_APPROVED_IDENTITY_SOURCE` in `assets/scripts/cocos/LemmyActorContract.ts`.
-- Scope: Lemmy proportions, character silhouettes, face scale, red / blue-gray tinting, hand-drawn character line quality. This is the **single** identity source; all runtime Lemmy art is derived from it.
-- 2026-05-29 decision: this hand-added-paws, clean (no-speckle), 2000×2000 transparent version is the ONLY approved Lemmy prototype. All earlier versions (2026-04-24 paper-backed thumbnail, no-hands drafts, noisy drafts, Luma rabbit variants, turnaround sketches) have been deleted — do not reference or recreate them.
+As of 2026-06-07 there are TWO Lemmy masters (same rabbit, different edge treatment):
+
+**A. Game / animation identity — pencil-outlined (outline BAKED IN)**
+- Asset: `assets/art/style-references/lemmy-rabbit-canonical-pencil.png` (2000×2000 RGBA, transparent, W5 pencil outline baked in).
+- Locked by `LEMMY_APPROVED_IDENTITY_SOURCE` in `assets/scripts/cocos/LemmyActorContract.ts`.
+- **Single identity source for all in-game Lemmy animation.** Feed THIS into 即梦 for new motion; generated frames no longer get a per-frame pencil pass (`scripts/lemmy-pencil-outline.py`) — the outline is already in the input. 即梦 gen first frame = `assets/art/characters/lemmy/source-videos/lemmy-firstframe-pencil-white.png` (white-bg twin).
+
+**B. Trademark / logo master — clean (NO outline)**
+- Asset: `assets/art/style-references/lemmy-rabbit-trademark-master.png` (2000×2000 RGBA, transparent, clean W1; renamed 2026-06-07 from `lemmy-rabbit-canonical.png`).
+- Locked by `LEMMY_CLEAN_MASTER_PATH`. **Brand / logo / 商标 use only — NOT in the game animation pipeline.**
+- Dated clean lineage archive: [2026-05-28-lemmy-rabbit-canonical.png](2026-05-28-lemmy-rabbit-canonical.png).
+
+Both share Lemmy proportions, silhouette, face scale, red / blue-gray tinting, and hand-drawn line quality. 2026-05-29 decision still holds — this hand-added-paws, clean, 2000×2000 transparent rabbit is the ONLY approved Lemmy prototype; all earlier versions (2026-04-24 thumbnail, no-hands drafts, noisy drafts, Luma rabbit variants, turnaround sketches) are deleted — do not reference or recreate them.
 
 ### Extract These Traits
 
