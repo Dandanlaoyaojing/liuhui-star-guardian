@@ -22,6 +22,8 @@ export interface RopeState {
   pts: RopePoint[];
   /** 每段静止长度。 */
   segLength: number;
+  /** 子步时间累加器(秒): 帧时间不是子步整数倍时把余数带到下一帧 → 帧率无关(codex 审出取整丢余数)。 */
+  acc: number;
 }
 
 export interface RopeOptions {
@@ -58,7 +60,7 @@ export function createRope(
     pts.push({ x, y, px: x, py: y, invMass });
   }
   const segLength = Math.hypot(tailX - nailX, tailY - nailY) / (pointCount - 1);
-  return { pts, segLength };
+  return { pts, segLength, acc: 0 };
 }
 
 /**
@@ -72,11 +74,19 @@ export function kickTail(state: RopeState, vx: number, vy: number, substepDt: nu
 }
 
 /**
- * 推进 elapsed 秒(内部切成固定子步; 残余 < 1 子步的时间并入本次, 避免丢时间或可变步长)。
- * 每子步: Verlet 积分(重力+阻尼) → iterations 轮距离约束(质量加权双向投影) → 钉死头端。
+ * 推进 elapsed 秒。固定子步 + 余数累加器(acc): 帧时间切成整数个子步, 余数带到下一帧 →
+ * 任何帧率下单位真实时间跑的子步数相同(帧率无关, 项目铁律)。子步数上限防卡顿死亡螺旋,
+ * 截断时丢弃多余积压(宁可慢一拍, 不补爆发步)。
+ * 每子步: Verlet 积分(重力+阻尼) → iterations 轮距离约束(质量加权·【仅拉伸侧】投影) → 钉死头端。
  */
 export function stepRope(state: RopeState, elapsedSeconds: number, opts: RopeOptions): void {
-  const steps = Math.max(1, Math.min(16, Math.round(elapsedSeconds / opts.substepDt)));
+  state.acc += Math.max(0, elapsedSeconds);
+  let steps = Math.floor(state.acc / opts.substepDt);
+  if (steps > 16) {
+    steps = 16;
+    state.acc = opts.substepDt * 16; // 卡顿积压: 截到上限, 不让 acc 无界增长
+  }
+  state.acc -= steps * opts.substepDt;
   const dt = opts.substepDt;
   const g = opts.gravity * dt * dt;
   const pts = state.pts;
@@ -94,7 +104,8 @@ export function stepRope(state: RopeState, elapsedSeconds: number, opts: RopeOpt
       p.x += vx;
       p.y += vy + g;
     }
-    // 距离约束(双向: 链节既不拉长也不压缩; 折叠靠节间角度自由)。
+    // 距离约束【仅拉伸侧】: 段被拉长才收紧; 压缩(松弛)不撑开 —— 真软绳会垮不会顶。
+    // (codex 数值复现: 双向投影会把竖直上顶的篮子"推"回去 —— 正下方顶击只抬 ~11px。)
     for (let iter = 0; iter < opts.iterations; iter += 1) {
       for (let i = 0; i < pts.length - 1; i += 1) {
         const a = pts[i];
@@ -102,6 +113,7 @@ export function stepRope(state: RopeState, elapsedSeconds: number, opts: RopeOpt
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.hypot(dx, dy) || 1e-9;
+        if (dist <= state.segLength) continue; // 松弛段: 软绳不传压力
         const wSum = a.invMass + b.invMass;
         if (wSum === 0) continue;
         const diff = (dist - state.segLength) / dist / wSum;

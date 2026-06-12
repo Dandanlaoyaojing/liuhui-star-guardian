@@ -23,8 +23,13 @@ const TAIL_INV_MASS = 0.05; // 篮子 ≈ 20× 绳点质量
 
 const makeRope = () => createRope(NAIL.x, NAIL.y, TAIL.x, TAIL.y, POINTS, TAIL_INV_MASS);
 
-const simulate = (state: ReturnType<typeof createRope>, seconds: number, perStep?: (t: number) => void) => {
-  const frame = 1 / 60;
+const simulate = (
+  state: ReturnType<typeof createRope>,
+  seconds: number,
+  perStep?: (t: number) => void,
+  fps = 60
+) => {
+  const frame = 1 / fps;
   for (let t = 0; t < seconds; t += frame) {
     stepRope(state, frame, OPTS);
     perStep?.(t);
@@ -98,6 +103,42 @@ describe("M01RopePhysics (割绳子式 Verlet 重尾链)", () => {
     const third = Math.floor(xs.length / 3);
     const amp = (arr: number[]) => Math.max(...arr.map(Math.abs));
     expect(amp(xs.slice(0, third))).toBeGreaterThan(amp(xs.slice(-third)) * 2);
+  });
+
+  it("正下方竖直顶击也能明显顶起(约束仅拉伸侧; codex 复现: 双向投影会把竖直上抛吃掉只剩 ~11px)", () => {
+    const rope = makeRope();
+    simulate(rope, 1.5);
+    const restY = rope.pts[POINTS - 1].y;
+    kickTail(rope, 0, 650, OPTS.substepDt); // 纯竖直, 无侧向救场
+    let peak = -Infinity;
+    simulate(rope, 1.5, () => {
+      peak = Math.max(peak, rope.pts[POINTS - 1].y);
+    });
+    expect(peak - restY).toBeGreaterThan(60);
+  });
+
+  it("帧率无关: 同一真实时长在 30/48/60fps 下轨迹一致(固定子步+余数累加器)", () => {
+    const peaks: number[] = [];
+    for (const fps of [30, 48, 60]) {
+      const rope = makeRope();
+      simulate(rope, 1.5, undefined, fps);
+      kickTail(rope, 200, 600, OPTS.substepDt);
+      let peak = -Infinity;
+      let finalX = 0;
+      simulate(
+        rope,
+        2.0,
+        () => {
+          peak = Math.max(peak, rope.pts[POINTS - 1].y);
+          finalX = rope.pts[POINTS - 1].x;
+        },
+        fps
+      );
+      peaks.push(peak);
+      void finalX;
+    }
+    expect(Math.abs(peaks[0] - peaks[2])).toBeLessThan(4); // 30 vs 60fps 峰值几乎相同
+    expect(Math.abs(peaks[1] - peaks[2])).toBeLessThan(4); // 48 vs 60fps(余数路径)同
   });
 
   it("质量加权: 约束修正主要移动轻绳点, 重尾少动(invMass 比例)", () => {
