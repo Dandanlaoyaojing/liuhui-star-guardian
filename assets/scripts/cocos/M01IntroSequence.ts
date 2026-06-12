@@ -32,6 +32,13 @@ import {
 } from "./M01IntroLayout.ts";
 import { LemmyActor, isExpectedLemmyActionCancel } from "./LemmyActor.ts";
 import { nextIntroPhase, type M01IntroEvent, type M01IntroPhase } from "./M01IntroFlow.ts";
+import {
+  createRope,
+  kickTail,
+  stepRope,
+  type RopeOptions,
+  type RopeState
+} from "./M01RopePhysics.ts";
 
 const { ccclass } = _decorator;
 
@@ -107,7 +114,7 @@ const LEMMY_BASKET_REACH_X = 230; // 不在篮下点篮: 莱米走到这个"靠�
 // 点地走向篮下时(目的地在 under 容差区内)莱米在【到位前 FOLD_LEAD 处】就收耳 → 耳后贴走完最后一段进篮下,
 // 而非到了才收耳(2026-06-08 用户现场: "靠近篮子就收耳, 不是要撞篮才收")。走出 under 区则抬耳复原。
 const HEADBUTT_FOLD_LEAD_X = 70;
-const BASKET_GENTLE_WOBBLE_DURATION = 0.4; // 轻碰篮底: 篮子绕钉子慢慢荡一下的每段时长(柔, 区别于顶篮的纵向上顶)
+const BASKET_GENTLE_NUDGE_KICK = 70; // 轻碰篮底的链尾小冲击(px/s; 同一软绳物理, 劲远小于顶篮 600)
 // 注: 起跳全靠 headbutt 帧自身腾空(jump_mode 抽帧已保留脚离地), 不再叠引擎纵移(否则=多一次原地跳)。
 // 顶篮冲量(2026-06-08 用户现场两轮: 先 200→130 仍"太大", 再降到【原始 200/95/45/220 的 1/10】=
 // 20/10/5/22 —— 拼片只被轻轻向上一推就靠重力落出, 不再大力崩飞)。
@@ -115,12 +122,11 @@ const BASKET_HEADBUTT_IMPULSE_VY = 20; // px/s 向上(被头从下顶起), 重�
 const BASKET_HEADBUTT_IMPULSE_VX_SPREAD = 10; // px/s 每路横向外扩(左右开花, 不堆成一柱)
 const BASKET_HEADBUTT_IMPULSE_VY_JITTER = 5; // px/s 每路竖向差(上层拼片弹更高)
 const BASKET_HEADBUTT_IMPULSE_SPIN = 22; // deg/s 翻滚
-// 篮子 = 不可拉伸软绳上的 2D 钟摆(非弹簧! 用户: "不是弹力绳只是软绳" + "弹起后被绳子拽着乱晃"): 顶篮给
-// 向上+侧向初速度 → 弹道升起(绳松弛)→ 落回到绳长被绳拽住(径向非弹性、不回弹)→ 切向留下=左右乱晃, 渐收。
+// 顶篮冲击(被头从下顶起): 给绳链尾端(=篮子)注入速度, 之后被软绳拽住乱晃、渐收(模型见 M01RopePhysics)。
+// 竖直为主; 侧向分量来自莱米头与篮心的横向偏移(物理来源: 偏着顶→往对侧甩)。
 const BASKET_KICK_STRENGTH = 600; // 顶篮上抛初速度(px/s); 越大蹦越高。可 live 调。
-const BASKET_SIDE_KICK = 240; // 顶篮侧向初速度(px/s); 让篮子被绳拽着【左右乱晃】(从哪边顶往反方向甩)。
-const BASKET_GRAVITY = -1800; // 篮子自身重力(px/s²); 决定蹦起后多快落回。越大落得越快、滞空越短。
-const BASKET_AIR_DAMPING = 0.99; // 篮子每帧速度阻尼(<1); 越小越快收住, 越接近 1 晃越久。
+const BASKET_KICK_LATERAL_PER_PX = 3; // 莱米每偏离篮心 1px → 侧向初速这么多(px/s)
+const BASKET_KICK_LATERAL_MAX = 220; // 侧向初速上限(px/s), 防极端偏心甩飞
 // 可重复顶篮(active.md B「顶一下出一部分、反复顶到全出」): 每顶一次撞出这么多片(顶层优先),
 // 9÷3=3 次顶清空。早批走手动弹道落地, 最后一批才调 onSpill 交 physicsPile 整堆沉降→开谜题。
 const HEADBUTT_PIECES_PER_HIT = 3;
@@ -140,18 +146,22 @@ const FLASHLIGHT_DISPLAY = {
 const FLASHLIGHT_TAP_MIN = 44;
 
 // --- 绳子物理(2026-06-08; 替代画死在篮 PNG 里的吊带, 已用 m01-basket-strip-suspension.py 抹掉) ------
-// 模型(见 update): 篮子 = 不可拉伸软绳上的 2D 钟摆(非弹簧; 顶起=上抛+侧向→落到绳长被绳拽住、左右乱晃渐收);
-// 绳子 = 两端钉(钉子+篮挂点)的 Verlet 视觉链, 中段自垂 → 软绳观感。渲为【两股吊带】(splay 到两耳)。
-// 篮子靠节点位移驱动(内胆/拼片自然跟随, 不引刚体→无脱节)。所有参数可 live 微调。
-const ROPE_POINTS = 12; // 绳子离散点数(含两端); 越多越柔, 越少越硬
+// 割绳子式统一 Verlet 重尾链(M01RopePhysics, 业界标准做法): 篮子不是独立系统, 而是【链的末端重粒子】
+// (invMass 远小于绳点)。顶篮 kickTail → 链松弛甩动 → 回落绷紧瞬间径向被吸收(不可拉伸·非弹簧·不回弹)、
+// 切向保留 → 篮子被绳拽住乱晃、渐收。篮子靠节点位移跟随链尾(内胆/拼片自然跟随, 不引刚体→无脱节)。
+const ROPE_POINTS = 12; // 绳链粒子数(含两端); 越多越柔
 const ROPE_WIDTH = 9; // 单股吊带线宽(px); 原吊带共 ~18px=两股各 ~9
 // 两股吊带: 钉子处汇聚(offset 0)、篮子【两耳打结处】分开 ±此。实测原图吊带接在篮心 ±约 99 显示px
 // 处(原图 1586px 中两带在 y545 接篮于 img x426/1148=中心±361 → ×433/1586≈±99)。同链渲两次, 横向偏移。
 const STRAP_HALF_WIDTH = 99;
 const ROPE_COLOR = new Color(196, 148, 74, 255); // 琥珀(原绳 hue~37.7); live 可调
-const ROPE_GRAVITY = -1400; // 绳子自身重力(px/s²); 比世界重力(-640)大些 → 绳子甩动收得快、不软塌
-const ROPE_DAMPING = 0.86; // 视觉链 Verlet 速度阻尼(<1 收敛); 越小越快静止
-const ROPE_CONSTRAINT_ITERS = 18; // 视觉链每帧距离约束迭代; 越多绳越"不可拉伸"硬
+const ROPE_OPTS: RopeOptions = {
+  gravity: -1500, // 链重力 px/s²; 决定甩动/下垂的劲道与篮子回落速度
+  damping: 0.995, // 每【子步】速度保留(120Hz 下 ≈0.55/s); 越小乱晃收得越快
+  iterations: 24, // 距离约束迭代 ≈2×粒子数(文献经验); 越多绳越不可拉伸
+  substepDt: 1 / 120 // 固定子步长(文献强调不可用可变 dt, 否则抖)
+};
+const ROPE_TAIL_INV_MASS = 0.05; // 篮子≈20×绳点质量; 越小篮子越"沉"、绳越让位
 // 绳子接篮端 = 篮子【两耳打结处】相对 basketNode 中心的竖直偏移(原图两带接篮于 img y545, 中心 y496 → 上偏一点)。
 const ROPE_BASKET_ATTACH_OFFSET_Y =
   ((496 - 545) / 992) * M01_INTRO_BASKET_DISPLAY_SIZE.height; // ≈ -13
@@ -202,17 +212,9 @@ export class M01IntroSequence extends Component {
   private pickupInProgress = false;
   /** 莱米当前是否耳后贴(走近篮下时已收耳)。供 roam 走位/顶篮判断是否要再收/抬耳, 避免重复收耳。 */
   private earsFolded = false;
-  // 独立 Verlet 绳子: Graphics 画线 + 离散点(x,y)当前/上一帧位置(this.node 局部坐标=世界坐标)。
+  // 统一软绳(M01RopePhysics): 钉子=链头(钉死)、篮子=链尾重粒子(this.node 局部坐标=世界坐标)。
   private ropeGraphics: Graphics | null = null;
-  private ropePts: Vec2[] = [];
-  private ropePrev: Vec2[] = [];
-  private ropeRestSeg = 0; // 视觉链每段静止长度(钉到篮距 ÷ 段数)
-  // 篮子 2D 软绳钟摆物理(this.node 局部): 挂点 x/y + 速度; 绳长 = 钉到挂点静止距(不可拉伸上限)。
-  private basketSuspX = 0;
-  private basketSuspY = 0;
-  private basketSuspVX = 0;
-  private basketSuspVY = 0;
-  private ropeLength = 0;
+  private rope: RopeState | null = null;
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
@@ -372,9 +374,9 @@ export class M01IntroSequence extends Component {
   }
 
   /**
-   * 独立 Verlet 物理绳子: 钉子端固定、篮子端每帧跟随篮子真实世界位置。绳子离散为 ROPE_POINTS 个点,
-   * 自带重力 + 距离约束 → 篮子被顶起时绳子松弛甩动、落回时绷紧, 真实物理(替代画死在篮 PNG 的吊带)。
-   * 整段在 this.node 局部坐标(= 世界坐标)里算与画。
+   * 割绳子式统一软绳(M01RopePhysics): 一条 Verlet 重尾链, 钉子=链头(钉死)、篮子=链尾(重粒子)。
+   * 整段在 this.node 局部坐标(= 世界坐标)里算与画(⚠️ 不能用 worldPosition: Graphics 挂在局部
+   * (0,0), 用世界坐标会双重偏移画到屏外——之前"看不到绳子"的根因)。
    */
   private spawnBasketRope(): void {
     const ropeNode = new Node("M01IntroBasketRope");
@@ -388,21 +390,7 @@ export class M01IntroSequence extends Component {
 
     const nail = this.nailPoint();
     const attach = this.basketAttachPoint();
-    this.ropePts = [];
-    this.ropePrev = [];
-    for (let i = 0; i < ROPE_POINTS; i += 1) {
-      const t = i / (ROPE_POINTS - 1);
-      const x = nail.x + (attach.x - nail.x) * t;
-      const y = nail.y + (attach.y - nail.y) * t;
-      this.ropePts.push(new Vec2(x, y));
-      this.ropePrev.push(new Vec2(x, y));
-    }
-    this.ropeLength = Math.hypot(attach.x - nail.x, attach.y - nail.y); // 不可拉伸绳长(钉到挂点静止距)
-    this.ropeRestSeg = this.ropeLength / (ROPE_POINTS - 1);
-    this.basketSuspX = attach.x; // 篮子挂点静止 x/y(钉子正下方)
-    this.basketSuspY = attach.y;
-    this.basketSuspVX = 0;
-    this.basketSuspVY = 0;
+    this.rope = createRope(nail.x, nail.y, attach.x, attach.y, ROPE_POINTS, ROPE_TAIL_INV_MASS);
     this.drawRope(); // 初次静态绘制(update 每帧重绘; 先画一根防首帧空白)
   }
 
@@ -411,12 +399,7 @@ export class M01IntroSequence extends Component {
     return { x: BASKET_X, y: BASKET_Y + BASKET_NAIL_OFFSET_Y };
   }
 
-  /**
-   * 绳子接篮端(碗顶 rim), this.node 局部坐标 —— 跟随篮子运动(basketNode.position.y 被 jolt 改)。
-   * basketNode 是 pivot 的子, pivot 固定在 (BASKET_X, BASKET_Y+NAIL_OFFSET) 不旋转(gentleNudge 转角瞬时、收尾归0),
-   * 故 basketNode 的 this.node 局部 = pivot 位 + basketNode.position。⚠️ 必须用局部坐标, 不能用 worldPosition——
-   * 绳子 Graphics 节点挂在 this.node 局部 (0,0) 处画, 用 worldPosition 会双重偏移把绳子画到屏外(=之前看不到绳子的根因)。
-   */
+  /** 绳子接篮端(两耳打结处), this.node 局部坐标; 仅用于建链初始位形(运行时链尾自治、篮子跟它走)。 */
   private basketAttachPoint(): { x: number; y: number } {
     const bn = this.basketNode?.position;
     const bx = bn ? bn.x : 0;
@@ -428,95 +411,23 @@ export class M01IntroSequence extends Component {
   }
 
   /**
-   * 每帧: ① 篮子在【不可拉伸软绳】上做 2D 钟摆(重力+空气阻尼, 绳长圆约束: 只拉不推, 被绳拉住那刻去掉
-   * 径向、留切向→摆动)→ ② 节点位移驱动篮子 x/y(内胆/拼片自然跟随)→ ③ 视觉链跟随篮挂点自垂 → ④ 渲两股带。
-   * 软绳非弹簧: 篮子被顶起=上抛(绳松弛)→ 落回到绳长被绳"拽住"→ 侧向初速让它**被绳拽着乱晃**, 渐渐收住。
+   * 每帧: ① stepRope 推进统一链(固定子步 Verlet + 质量加权距离约束)→ ② 篮子节点位移跟随链尾
+   * (内胆/冻结拼片是 basketNode 子节点, 自然跟随)→ ③ 渲两股吊带。被顶起后的"弹起→被绳拽住乱晃→
+   * 渐收"全部由链自身涌现, 这里不再有第二套篮子物理。
    */
   update(deltaSeconds: number): void {
-    if (!this.ropeGraphics || this.ropePts.length < 2) return;
-    const dt = Math.min(deltaSeconds, 1 / 30);
-    const nail = this.nailPoint();
+    const rope = this.rope;
+    if (!this.ropeGraphics || !rope) return;
+    stepRope(rope, Math.min(deltaSeconds, 1 / 30), ROPE_OPTS);
 
-    // ① 篮子 2D 钟摆: 重力 + 轻空气阻尼; 绳长圆约束(不可拉伸, 只拉不推, 径向非弹性=不回弹, 切向=摆)。
-    this.basketSuspVY += BASKET_GRAVITY * dt;
-    this.basketSuspVX *= BASKET_AIR_DAMPING;
-    this.basketSuspVY *= BASKET_AIR_DAMPING;
-    this.basketSuspX += this.basketSuspVX * dt;
-    this.basketSuspY += this.basketSuspVY * dt;
-    const rx = this.basketSuspX - nail.x;
-    const ry = this.basketSuspY - nail.y;
-    const dist = Math.hypot(rx, ry) || 1e-6;
-    if (dist > this.ropeLength) {
-      // 绳子到头(不可拉伸): 把篮子拉回绳长圆周上, 去掉向外径向速度(非弹性, 不回弹), 留切向→摆。
-      const nx = rx / dist;
-      const ny = ry / dist;
-      this.basketSuspX = nail.x + nx * this.ropeLength;
-      this.basketSuspY = nail.y + ny * this.ropeLength;
-      const radial = this.basketSuspVX * nx + this.basketSuspVY * ny;
-      if (radial > 0) {
-        this.basketSuspVX -= nx * radial;
-        this.basketSuspVY -= ny * radial;
-      }
-    }
-
-    // ② 篮子跟随挂点(节点位移; basketNode 是 pivot 子, 换算到 pivot-local; 两点吊带→篮子平动不翻转)。
+    const tail = rope.pts[rope.pts.length - 1];
     const bn = this.basketNode;
     if (bn) {
-      const localX = this.basketSuspX - BASKET_X;
-      const localY =
-        this.basketSuspY - ROPE_BASKET_ATTACH_OFFSET_Y - (BASKET_Y + BASKET_NAIL_OFFSET_Y);
+      // 链尾(两耳打结处)→ basketNode 中心(pivot-local; pivot 固定在钉子位)。
+      const localX = tail.x - BASKET_X;
+      const localY = tail.y - ROPE_BASKET_ATTACH_OFFSET_Y - (BASKET_Y + BASKET_NAIL_OFFSET_Y);
       bn.setPosition(localX, localY, 0);
     }
-
-    // ③ 视觉链: 两端钉(钉子 + 篮挂点, 随摆动移动), 中间点 Verlet 受重力自垂(篮被顶起=链松→垂)。
-    const pts = this.ropePts;
-    const prev = this.ropePrev;
-    const last = pts.length - 1;
-    pts[0].x = nail.x;
-    pts[0].y = nail.y;
-    pts[last].x = this.basketSuspX;
-    pts[last].y = this.basketSuspY;
-    const g = ROPE_GRAVITY * dt * dt;
-    for (let i = 1; i < last; i += 1) {
-      const px = pts[i].x;
-      const py = pts[i].y;
-      pts[i].x += (px - prev[i].x) * ROPE_DAMPING;
-      pts[i].y += (py - prev[i].y) * ROPE_DAMPING + g;
-      prev[i].x = px;
-      prev[i].y = py;
-    }
-    // 距离约束【只拉不推】: 段被拉伸才收(松弛会垮/垂)。两端钉死。
-    for (let iter = 0; iter < ROPE_CONSTRAINT_ITERS; iter += 1) {
-      for (let i = 0; i < last; i += 1) {
-        const a = pts[i];
-        const b = pts[i + 1];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const d = Math.hypot(dx, dy) || 1e-6;
-        if (d <= this.ropeRestSeg) continue;
-        const diff = ((d - this.ropeRestSeg) / d) * 0.5;
-        const ox = dx * diff;
-        const oy = dy * diff;
-        const aEnd = i === 0;
-        const bEnd = i + 1 === last;
-        if (aEnd && !bEnd) {
-          b.x -= ox * 2;
-          b.y -= oy * 2;
-        } else if (bEnd && !aEnd) {
-          a.x += ox * 2;
-          a.y += oy * 2;
-        } else if (!aEnd && !bEnd) {
-          a.x += ox;
-          a.y += oy;
-          b.x -= ox;
-          b.y -= oy;
-        }
-      }
-    }
-    pts[0].x = nail.x;
-    pts[0].y = nail.y;
-    pts[last].x = nail.x;
-    pts[last].y = this.basketSuspY;
 
     this.drawRope();
   }
@@ -527,8 +438,9 @@ export class M01IntroSequence extends Component {
    */
   private drawRope(): void {
     const gfx = this.ropeGraphics;
-    if (!gfx) return;
-    const pts = this.ropePts;
+    const rope = this.rope;
+    if (!gfx || !rope) return;
+    const pts = rope.pts;
     const n = pts.length;
     gfx.clear();
     gfx.lineWidth = ROPE_WIDTH;
@@ -774,16 +686,13 @@ export class M01IntroSequence extends Component {
     }
   }
 
-  /** 轻碰篮底: 篮子绕钉子慢慢荡一下再回(柔、衰减摆, 区别于顶篮 basketJolt 的纵向上顶)。 */
+  /** 轻碰篮底: 给链尾一记很小的冲击 → 篮子被软绳拽着轻轻荡两下自收(同一物理, 只是劲小)。 */
   private gentleNudgeBasket(): void {
-    if (!this.basketPivotNode) return;
-    const w = BASKET_GENTLE_WOBBLE_DURATION;
-    tween(this.basketPivotNode)
-      .to(w, { eulerAngles: new Vec3(0, 0, -5) }, { easing: "sineInOut" })
-      .to(w, { eulerAngles: new Vec3(0, 0, 3.5) }, { easing: "sineInOut" })
-      .to(w, { eulerAngles: new Vec3(0, 0, -2) }, { easing: "sineInOut" })
-      .to(w, { eulerAngles: new Vec3(0, 0, 0) }, { easing: "sineInOut" })
-      .start();
+    const rope = this.rope;
+    if (!rope) return;
+    const lemmyX = this.lemmyActor?.node.position.x ?? BASKET_X;
+    const side = lemmyX <= BASKET_X ? 1 : -1; // 从莱米那侧被碰 → 往反方向轻荡
+    kickTail(rope, side * BASKET_GENTLE_NUDGE_KICK, BASKET_GENTLE_NUDGE_KICK * 0.4, ROPE_OPTS.substepDt);
   }
 
   /** Lemmy auto-walks in from offscreen, stops on stage, then hands control to the player (roaming). */
@@ -916,10 +825,16 @@ export class M01IntroSequence extends Component {
    * 每顶一次(分批)都再踢一下(上抛+侧向)。钟摆模型见 update。
    */
   private basketJolt(): void {
-    this.basketSuspVY += BASKET_KICK_STRENGTH; // 上抛 → 蹦起
-    // 侧向初速: 从莱米所在那侧往反方向甩 → 落回时被绳拽着左右乱晃(见 update 的钟摆约束)。
+    const rope = this.rope;
+    if (!rope) return;
+    // 侧向初速 = 莱米头偏离篮心的物理结果: 偏多少甩多少(封顶), 从莱米那侧往反方向甩。
     const lemmyX = this.lemmyActor?.node.position.x ?? BASKET_X;
-    this.basketSuspVX += (lemmyX <= BASKET_X ? 1 : -1) * BASKET_SIDE_KICK;
+    const offset = BASKET_X - lemmyX; // 莱米在左(offset>0)→ 往右甩
+    const lateral = Math.max(
+      -BASKET_KICK_LATERAL_MAX,
+      Math.min(BASKET_KICK_LATERAL_MAX, offset * BASKET_KICK_LATERAL_PER_PX)
+    );
+    kickTail(rope, lateral, BASKET_KICK_STRENGTH, ROPE_OPTS.substepDt);
   }
 
   /**
