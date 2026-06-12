@@ -18,7 +18,9 @@ import {
   Sprite,
   SpriteFrame,
   UITransform,
-  Vec2
+  tween,
+  Vec2,
+  Vec3
 } from "cc";
 import {
   beginDragSession,
@@ -28,6 +30,11 @@ import {
   type DragState
 } from "../interaction/DragHandler.ts";
 import { resolveM01GreyboxDrop } from "./M01GreyboxDrag.ts";
+import {
+  buildRepairTimeline,
+  spiralOutTargets,
+  type RepairStepConfig
+} from "./M01RepairSequence.ts";
 import { aspectContentSize, spriteFrameSize } from "./M01SpriteAspect.ts";
 import {
   buildM01GreyboxLayout,
@@ -204,6 +211,9 @@ export class M01GreyboxBootstrap extends Component {
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private validationFailureReturnTimeout: ReturnType<typeof setTimeout> | undefined;
   private readonly validationFailureFlashTimeouts: Array<ReturnType<typeof setTimeout>> = [];
+  // 修复动画(spec §5.2: 齿轮转动→碎片漩涡喷出→化星光; 时序由 config repair.steps 经 M01RepairSequence 编排)。
+  private readonly repairSequenceTimeouts: Array<ReturnType<typeof setTimeout>> = [];
+  private repairSequencePlaying = false;
   private heldFragmentId: string | undefined;
   private heldPointerId: string | number | undefined;
   private heldFragmentPointerOffset: M01GreyboxPoint | null = null;
@@ -375,6 +385,7 @@ export class M01GreyboxBootstrap extends Component {
     this.hideManualTargetTools();
     this.clearValidationLightReset();
     this.clearFailedCandidateReturn();
+    this.clearRepairSequenceTimeouts();
     this.unbindGlobalPointerInput();
     this.dragState = {};
     this.clearActiveDrag();
@@ -2111,7 +2122,119 @@ export class M01GreyboxBootstrap extends Component {
     this.syncFeedbackFromSession();
     this.scheduleValidationLightReset(validation.validationLightSeconds, validation.completed);
     this.scheduleFailedCandidateReturn(validation.validationLightSeconds, validation.completed);
-    this.renderCompletionToolCardIfAvailable(validation.completed);
+    // 全对 = 先播修复动画(齿轮转→碎片漩涡喷出→星光, spec §5.2), 播完才出智慧结晶卡。
+    this.beginRepairSequenceThenToolCard(validation.completed);
+  }
+
+  /**
+   * 修复动画(spec §5.2 修复动画): config repair.steps → M01RepairSequence.buildRepairTimeline
+   * 的绝对时间窗, 逐段调度 cc 表现 —— entity_animate=齿轮(大螺母)转 turns 圈;
+   * fragments_spiral_out=已拼上的 solution 碎片按 spiralOutTargets 放射喷出+自旋;
+   * starlight=齿轮星光脉冲(scale 呼吸 ×pulses)。整段播完再出 ToolCard(镜头拉远无相机系统, 本轮省略)。
+   */
+  private beginRepairSequenceThenToolCard(completed: boolean): void {
+    if (!completed) {
+      this.renderCompletionToolCardIfAvailable(completed);
+      return;
+    }
+    if (this.repairSequencePlaying) {
+      return;
+    }
+    const steps = (this.config?.repair?.steps ?? []) as RepairStepConfig[];
+    if (steps.length === 0) {
+      this.renderCompletionToolCardIfAvailable(true); // 无修复配置: 直接收尾(向后兼容)
+      return;
+    }
+    this.repairSequencePlaying = true;
+    const timeline = buildRepairTimeline(
+      steps.map((step) => ({
+        type: step.type,
+        params: step.params ?? {},
+        duration: step.duration,
+        delay: step.delay
+      }))
+    );
+    for (const segment of timeline.segments) {
+      this.repairSequenceTimeouts.push(
+        setTimeout(() => {
+          this.playRepairSegment(segment.type, segment.params, segment.end - segment.start);
+        }, segment.start * 1000)
+      );
+    }
+    this.repairSequenceTimeouts.push(
+      setTimeout(() => {
+        this.repairSequencePlaying = false;
+        this.renderCompletionToolCardIfAvailable(true);
+      }, timeline.total * 1000)
+    );
+  }
+
+  /** 单段修复表现。未知类型静默跳过(config 可扩, 不硬失败)。 */
+  private playRepairSegment(
+    type: string,
+    params: Record<string, unknown>,
+    durationSeconds: number
+  ): void {
+    if (type === "entity_animate") {
+      const gear = this.greyboxNodes.get("entity_memory_gear")?.node;
+      if (!gear) return;
+      const turns = typeof params.turns === "number" ? params.turns : 2;
+      // 齿轮(大螺母)绕 z 转 turns 圈(负角=顺时针; tween 时长即段长, 帧率无关)。
+      tween(gear)
+        .to(durationSeconds, { eulerAngles: new Vec3(0, 0, -360 * turns) }, { easing: "quadInOut" })
+        .start();
+      return;
+    }
+    if (type === "fragments_spiral_out") {
+      const board = this.layout?.board.position ?? { x: 0, y: 0 };
+      const radius = typeof params.radius === "number" ? params.radius : 320;
+      const turnsDeg = typeof params.turnsDeg === "number" ? params.turnsDeg : 540;
+      // 喷出对象 = 验证通过时拼在证据上的 solution 碎片(弱磁吸登记表), 去重保序。
+      const placedIds: string[] = [];
+      for (const ids of this.weakSnappedFragmentsByEvidence.values()) {
+        for (const id of ids) {
+          if (!placedIds.includes(id)) placedIds.push(id);
+        }
+      }
+      const targets = spiralOutTargets(placedIds.length, board, { radius, turnsDeg });
+      placedIds.forEach((fragmentId, index) => {
+        const entry = this.greyboxNodes.get(fragmentId);
+        const target = targets[index];
+        if (!entry || !target) return;
+        tween(entry.node)
+          .to(
+            durationSeconds,
+            {
+              position: new Vec3(target.x, target.y, 0),
+              eulerAngles: new Vec3(0, 0, target.spinDeg)
+            },
+            { easing: "quadOut" }
+          )
+          .start();
+      });
+      return;
+    }
+    if (type === "starlight") {
+      const gear = this.greyboxNodes.get("entity_memory_gear")?.node;
+      if (!gear) return;
+      const pulses = typeof params.pulses === "number" ? params.pulses : 3;
+      const half = durationSeconds / Math.max(1, pulses) / 2;
+      let chain = tween(gear);
+      for (let i = 0; i < pulses; i += 1) {
+        chain = chain
+          .to(half, { scale: new Vec3(1.08, 1.08, 1) }, { easing: "sineInOut" })
+          .to(half, { scale: new Vec3(1, 1, 1) }, { easing: "sineInOut" });
+      }
+      chain.start();
+    }
+  }
+
+  private clearRepairSequenceTimeouts(): void {
+    for (const handle of this.repairSequenceTimeouts) {
+      clearTimeout(handle);
+    }
+    this.repairSequenceTimeouts.length = 0;
+    this.repairSequencePlaying = false;
   }
 
   private scheduleValidationLightReset(

@@ -682,6 +682,24 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("Input.EventType.TOUCH_START");
   });
 
+  it("plays the spec §5.2 repair sequence on completion before the tool card (齿轮转→碎片漩涡喷出→星光)", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    // 完成路径: 验证全对 → 修复时序(config repair.steps 经 M01RepairSequence) → 播完才出智慧结晶卡。
+    expect(bootstrap).toContain('from "./M01RepairSequence.ts"');
+    expect(bootstrap).toContain("this.beginRepairSequenceThenToolCard(validation.completed)");
+    expect(bootstrap).toContain("buildRepairTimeline(");
+    expect(bootstrap).toContain("spiralOutTargets(");
+    // 三段表现都有 cc 落点: 齿轮转 / 喷出(弱磁吸登记的 solution 碎片) / 星光脉冲。
+    expect(bootstrap).toContain('type === "entity_animate"');
+    expect(bootstrap).toContain('type === "fragments_spiral_out"');
+    expect(bootstrap).toContain('type === "starlight"');
+    expect(bootstrap).toContain("weakSnappedFragmentsByEvidence.values()");
+    // ToolCard 在 timeline.total 之后才出(不抢在动画前)。
+    expect(bootstrap).toMatch(/timeline\.total \* 1000\s*\)\s*\);/);
+    // 清理: onDestroy 收掉修复动画定时器(防场景销毁后残留回调)。
+    expect(bootstrap).toContain("this.clearRepairSequenceTimeouts()");
+  });
+
   it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, double gating", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const config = readJson("assets/resources/configs/stage1/m01-memory-gear.json") as {
