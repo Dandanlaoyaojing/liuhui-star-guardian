@@ -22,6 +22,7 @@ export const m01GreyboxDefaultText = {
   wrongPlacementFeedback: "这里的关系不成立，换一个能同时对上局部形状和颜色推理的位置。",
   noSelectionFeedback: "先拾起一个候选碎片。",
   flashlightSelected: "已选择 {color} 光手电。",
+  flashlightCleared: "手电已熄灭，碎片恢复灰白。",
   fragmentRevealed: "碎片 {fragmentId} 在当前光下显现为 {color}。",
   fragmentPickedUp: "已拾起碎片 {fragmentId}。",
   fragmentPlacedFreely: "已把碎片 {fragmentId} 放在工作区。",

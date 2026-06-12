@@ -221,13 +221,15 @@ describe("Cocos Creator project scaffold", () => {
 
   it("clears transient M01 tools when the completion ToolCard appears", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const completionBlock = bootstrap.slice(
+      bootstrap.indexOf("private renderCompletionToolCardIfAvailable"),
+      bootstrap.indexOf("private snapNodeToEvidence")
+    );
 
     expect(bootstrap).toContain("private hintButtonRoot: Node | null = null");
     expect(bootstrap).toContain("this.hintButtonRoot = this.addHintButton(this.greyboxRoot)");
-    expect(bootstrap).toContain("this.activeFlashlightId = undefined");
-    expect(bootstrap).toContain("this.activeFlashlightColor = undefined");
-    expect(bootstrap).toContain("this.flashlightBeamTarget = undefined");
-    expect(bootstrap).toContain("this.drawFlashlightBeam();");
+    // 完成时灭灯走 Session 的"灭"态(清激活手电色 + 候选碎片显色), 不再清散落的 bootstrap 镜像字段。
+    expect(completionBlock).toContain("this.session.clearFlashlight();");
     expect(bootstrap).toContain("this.hintButtonRoot.active = false");
   });
 
@@ -277,17 +279,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("Input.EventType.TOUCH_CANCEL");
   });
 
-  it("wires M01 flashlight and evidence actions in the Cocos bootstrap", () => {
+  it("wires M01 evidence actions in the Cocos bootstrap", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("layout.board");
-    expect(bootstrap).toContain("layout.flashlights");
     expect(bootstrap).toContain("layout.evidence");
-    expect(bootstrap).toContain("select_flashlight");
     expect(bootstrap).toContain("weak_snap_fragment");
     expect(bootstrap).toContain("place_fragment_freely");
-    expect(bootstrap).toContain("selectFlashlight");
-    expect(bootstrap).toContain("revealFragment");
     expect(bootstrap).toContain("pickFragment");
     expect(bootstrap).toContain("placeHeldFragment");
     expect(bootstrap).toContain("weakSnapFragmentToEvidence");
@@ -296,31 +294,64 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validationLightSeconds");
   });
 
-  it("cycles fixed flashlight colors from the whole flashlight art instead of tiny buttons", () => {
+  it("keeps both legacy M01 flashlight paths unreachable while preserving the session color model", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const layout = readText("assets/scripts/cocos/M01GreyboxLayout.ts");
+    const drag = readText("assets/scripts/cocos/M01GreyboxDrag.ts");
+    const art = readText("assets/scripts/cocos/M01GreyboxArt.ts");
+    const session = readText("assets/scripts/cocos/M01GreyboxSession.ts");
 
-    expect(bootstrap).not.toContain("flashlightButtonPickerRoot");
-    expect(bootstrap).not.toContain("M01FlashlightButtonPicker");
-    expect(bootstrap).not.toContain("M01FlashlightPickerButton_${color}");
-    expect(bootstrap).toContain('layer.id === "singleFlashlightTool"');
-    expect(bootstrap).toContain("this.cycleFixedFlashlight()");
-    expect(bootstrap).toContain("private cycleFixedFlashlight(): void");
-    expect(bootstrap).toContain("private getNextFixedFlashlightToken(): M01GreyboxTokenNode | undefined");
-    expect(bootstrap).toContain("const currentIndex = flashlights.findIndex");
-    expect(bootstrap).toContain("return flashlights[(currentIndex + 1) % flashlights.length];");
-    expect(bootstrap).not.toContain("openFlashlightButtonPicker()");
-    expect(bootstrap).toContain("this.selectFixedFlashlight(token.controllerId)");
-    expect(bootstrap).toContain("this.flashlightBeamLit = true");
-    expect(bootstrap).not.toContain("colorForFlashlightPickerButton");
-    expect(bootstrap).toContain("this.activateFixedFlashlightBeam(token, selected)");
-    expect(bootstrap).toContain("FIXED_FLASHLIGHT_BEAM_ANCHOR");
-    expect(bootstrap).toContain("this.resolveFixedFlashlightBeamAnchor(token, tokenPosition)");
-    expect(layout).toContain("M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE");
-    expect(layout).toContain("size: M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE");
-    expect(layout).toContain("red: { x: 361, y: 77 }");
-    expect(layout).toContain("yellow: { x: 360, y: 59 }");
-    expect(layout).toContain("blue: { x: 359, y: 43 }");
+    // ① 旧「固定光束」路径不可达(整条已删, 后续任务改为莱米手持光束)。
+    for (const legacyFixedBeamSymbol of [
+      "cycleFixedFlashlight",
+      "getNextFixedFlashlightToken",
+      "selectFixedFlashlight",
+      "activateFixedFlashlightBeam",
+      "resolveFixedFlashlightBeamAnchor",
+      "FIXED_FLASHLIGHT_BEAM_ANCHOR",
+      'layer.id === "singleFlashlightTool"'
+    ]) {
+      expect(bootstrap, `legacy fixed-beam symbol should be gone: ${legacyFixedBeamSymbol}`).not.toContain(
+        legacyFixedBeamSymbol
+      );
+    }
+
+    // ② 旧「手持指针拖动」路径不可达(指针跟随/拖动瞄准/滚轮射程全删)。
+    for (const legacyHeldPointerSymbol of [
+      "moveHeldFlashlightWithPointer",
+      "moveFlashlightBeamWithPointer",
+      "beginFlashlightBeamGesture",
+      "updateFlashlightBeamGesture",
+      "flashlightBeamTarget",
+      "flashlightBeamGesturePointerId",
+      "heldFlashlightId",
+      "heldFlashlightPointerId",
+      "suppressHeldFlashlightFollow",
+      "flashlightBeamReach",
+      "setFlashlightBeamReach",
+      "adjustFlashlightBeamReach",
+      "MOUSE_WHEEL",
+      "revealAllFragmentsWithActiveFlashlight"
+    ]) {
+      expect(bootstrap, `legacy held-pointer symbol should be gone: ${legacyHeldPointerSymbol}`).not.toContain(
+        legacyHeldPointerSymbol
+      );
+    }
+
+    // ③ 旧三色按钮 token + drop 选光入口不可达。
+    expect(layout).not.toContain("buildFlashlightNode");
+    expect(layout).not.toContain("positionForFlashlightButton");
+    expect(layout).not.toContain("M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE");
+    expect(layout).not.toContain("flashlights");
+    expect(drag).not.toContain("select_flashlight");
+    expect(bootstrap).not.toContain("select_flashlight");
+    expect(art).not.toContain("layout.flashlights");
+
+    // KEEP: Session 的显色/选色模型(读 config.flashlights, 与 layout 按钮无关) + 新"灭"态。
+    expect(session).toContain("selectFlashlight(flashlightId: string)");
+    expect(session).toContain("clearFlashlight()");
+    expect(session).toContain("this.config.flashlights");
+    expect(session).toContain("revealFragment(");
   });
 
   it("syncs the M01 flashlight runtime art from the shared M02 flashlight source", () => {
@@ -632,118 +663,28 @@ describe("Cocos Creator project scaffold", () => {
     expect(manifest).toContain("Do not use image generation to freely redesign or rearrange this target pattern.");
   });
 
-  it("reveals all M01 candidates with a fixed floodlight after a flashlight color is selected", () => {
+  it("turns the flashlight observation off when a fragment press begins", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-
-    expect(bootstrap).toContain("flashlightBeamTarget");
-    expect(bootstrap).toContain("flashlightBeamReach");
-    expect(bootstrap).toContain("setFlashlightBeamReach");
-    expect(bootstrap).toContain("activateFixedFlashlightBeam");
-    expect(bootstrap).toContain("revealAllFragmentsWithActiveFlashlight");
-    expect(bootstrap).toContain("scheduleObservedColorResets");
-    expect(bootstrap).toContain("this.flashlightBeamTarget = this.getFlashlightBeamTarget();");
-    expect(bootstrap).toContain("getFlashlightBeamTarget");
-    expect(bootstrap).toContain("getFlashlightBeamReach");
-    expect(bootstrap).toContain("if (this.flashlightBeamTarget)");
-    expect(bootstrap).toContain("this.layout.fragments");
-    expect(bootstrap).not.toContain("const target = this.layout.board.position");
-
-    const dragBlock = bootstrap.slice(
-      bootstrap.indexOf("private moveActivePointerDrag"),
-      bootstrap.indexOf("private moveFlashlightBeamWithPointer")
-    );
-    expect(dragBlock).not.toContain("moveFlashlightBeamWithPointer");
-    expect(dragBlock).not.toContain("updateFlashlightBeamGesture");
-  });
-
-  it("keeps the M01 flashlight beam visible over the current right-side fragment grid", () => {
-    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-
-    expect(bootstrap).toContain("maxY: 120");
-    expect(bootstrap).toContain("minY: -260");
-    expect(bootstrap).toContain("minX: 200");
-    expect(bootstrap).toContain("maxX: 440");
-  });
-
-  it("does not let pointer movement steer the selected M01 flashlight beam", () => {
-    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-    const dragBlock = bootstrap.slice(
-      bootstrap.indexOf("private moveActivePointerDrag"),
-      bootstrap.indexOf("private moveFlashlightBeamWithPointer")
-    );
-    const rootPressBlock = bootstrap.slice(
-      bootstrap.indexOf("private beginActivePointerPress"),
-      bootstrap.indexOf("private beginTokenDrag")
+    const suspendBlock = bootstrap.slice(
+      bootstrap.indexOf("private suspendFlashlightObservation"),
+      bootstrap.indexOf("private suppressRootClickOnce")
     );
 
-    expect(dragBlock).not.toContain("moveFlashlightBeamWithPointer");
-    expect(dragBlock).not.toContain("updateFlashlightBeamGesture");
-    expect(rootPressBlock).not.toContain("beginFlashlightBeamGesture");
-  });
-
-  it("treats M01 flashlights as fixed color emitters instead of held tools", () => {
-    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-    const clickBlock = bootstrap.slice(
-      bootstrap.indexOf("private handleFlashlightClick"),
-      bootstrap.indexOf("private stopTouchPropagation")
-    );
-    const dropBlock = bootstrap.slice(
-      bootstrap.indexOf('if (action.type === "select_flashlight")'),
-      bootstrap.indexOf('if (action.type === "place_fragment")')
-    );
-
-    expect(bootstrap).toContain("heldFlashlightId");
-    expect(bootstrap).toContain("handleFlashlightClick");
-    expect(clickBlock).toContain("this.cycleFixedFlashlight();");
-    expect(clickBlock).not.toContain("this.heldFlashlightId = token.controllerId");
-    expect(clickBlock).not.toContain("this.flashlightBeamLit = false");
-    expect(dropBlock).toContain("this.activateFixedFlashlightBeam(token, selected);");
-    expect(dropBlock).not.toContain("this.releaseHeldFlashlightAfterBeamGesture();");
-    expect(bootstrap).toContain("flashlightBeamAnchor");
-    expect(bootstrap).toContain("flashlightBeamLit");
-    expect(bootstrap).toContain('token.kind === "flashlight"');
+    expect(bootstrap).toContain("private suspendFlashlightObservation(): void");
+    expect(bootstrap).toContain('if (hitToken?.kind === "fragment") {');
+    expect(bootstrap).toContain("this.suspendFlashlightObservation();");
+    // 点拼片=拾取且手电灭(spec §5.2): 灭灯统一走 Session 的"灭"态。
+    expect(suspendBlock).toContain("this.session?.clearFlashlight();");
+    expect(suspendBlock).toContain("this.syncVisualState();");
     expect(bootstrap).toContain("Input.EventType.MOUSE_DOWN");
     expect(bootstrap).toContain("Input.EventType.TOUCH_START");
   });
 
-  it("turns off fixed flashlight reveal state when a fragment press begins", () => {
-    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-    const suspendBlock = bootstrap.slice(
-      bootstrap.indexOf("private suspendHeldFlashlightInteraction"),
-      bootstrap.indexOf("private releaseHeldFlashlightAfterBeamGesture")
-    );
-
-    expect(bootstrap).toContain("private suspendHeldFlashlightInteraction(): void");
-    expect(bootstrap).toContain("private releaseHeldFlashlightAfterBeamGesture(): void");
-    expect(bootstrap).toContain('if (hitToken?.kind === "fragment") {');
-    expect(bootstrap).toContain("this.suspendHeldFlashlightInteraction();");
-    expect(suspendBlock).toContain("this.activeFlashlightId = undefined;");
-    expect(suspendBlock).toContain("this.activeFlashlightColor = undefined;");
-    expect(suspendBlock).toContain("this.heldFlashlightId = undefined;");
-    expect(suspendBlock).toContain("this.flashlightBeamGesturePointerId = undefined;");
-    expect(suspendBlock).toContain("this.flashlightBeamLit = false;");
-    expect(suspendBlock).toContain("this.flashlightBeamAnchor = undefined;");
-    expect(suspendBlock).toContain("this.flashlightBeamTarget = undefined;");
-    expect(suspendBlock).toContain("this.clearObservedColorReset();");
-    expect(suspendBlock).toContain("this.session?.clearObservedFragmentColors();");
-    expect(suspendBlock).toContain("this.syncVisualState();");
-    expect(suspendBlock).toContain("this.drawFlashlightBeam();");
-  });
-
-  it("lets player input adjust the M01 flashlight beam reach", () => {
-    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-
-    expect(bootstrap).toContain("Input.EventType.MOUSE_WHEEL");
-    expect(bootstrap).toContain("adjustFlashlightBeamReach");
-    expect(bootstrap).toContain("event.getScrollY?.()");
-  });
-
-  it("highlights M01 flashlight and evidence hint targets in the bootstrap", () => {
+  it("highlights M01 evidence hint targets in the bootstrap", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("hintedTargetIds");
     expect(bootstrap).toContain("this.hintedTargetIds = new Set(hint.targetIds)");
-    expect(bootstrap).toContain('entry.token.kind === "flashlight"');
     expect(bootstrap).toContain('entry.token.kind === "evidence"');
   });
 
@@ -791,24 +732,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("pointerId: this.pointerIdForActiveDragEvent(event)");
   });
 
-  it("renders M01 flashlight beam, validation bottom light, and sketch hint note", () => {
+  it("renders M01 validation bottom light and sketch hint note without the legacy beam stack", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("M01FlashlightBeam");
     expect(bootstrap).toContain("M01BottomLight");
     expect(bootstrap).toContain("M01BottomLightNote");
-    expect(bootstrap).toContain("drawFlashlightBeam");
-    expect(bootstrap).toContain("SOFT_FLASHLIGHT_BEAM_LAYERS");
-    expect(bootstrap).toContain("FLASHLIGHT_BEAM_GLOW_STOPS");
-    expect(bootstrap).toContain("drawSoftFlashlightBeam");
-    expect(bootstrap).toContain("drawSoftFlashlightBeamLayer");
-    expect(bootstrap).toContain("drawFlashlightGlowTrail");
-    expect(bootstrap).toContain("drawFlashlightLensGlow");
     expect(bootstrap).toContain("drawBottomLight");
     expect(bootstrap).toContain("drawBottomLightHintNote");
-    expect(bootstrap).toContain("colorForBeam");
-    expect(bootstrap).toContain("red: new Color(238, 116, 108, 104)");
-    expect(bootstrap).not.toContain("colorForBeamStroke");
     expect(bootstrap).toContain("colorForBottomLightFill");
     expect(bootstrap).toContain('bottomLight === "steady_on"');
     expect(bootstrap).toContain('bottomLight === "flash_then_off"');
@@ -818,14 +748,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validation.validationLightSeconds");
     expect(bootstrap).toContain("setTimeout(() =>");
     expect(bootstrap).toContain("clearTimeout(this.validationLightResetTimeout)");
-  });
-
-  it("clips the visible M01 flashlight beam to the fragment floor", () => {
-    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
-
-    expect(bootstrap).toContain("drawFlashlightBeam");
-    expect(bootstrap).toContain("FRAGMENT_FLOOR");
-    expect(bootstrap).toContain("clipFlashlightBeamToFragmentFloor");
+    // 旧固定/指针光束的整套渲染栈已随两条旧路径删除(新莱米锚定光束在后续任务新建)。
+    expect(bootstrap).not.toContain("M01FlashlightBeam");
+    expect(bootstrap).not.toContain("drawFlashlightBeam");
+    expect(bootstrap).not.toContain("SOFT_FLASHLIGHT_BEAM_LAYERS");
+    expect(bootstrap).not.toContain("FLASHLIGHT_BEAM_GLOW_STOPS");
+    expect(bootstrap).not.toContain("colorForBeam");
+    expect(bootstrap).not.toContain("FRAGMENT_FLOOR");
+    expect(bootstrap).not.toContain("clipFlashlightBeamToFragmentFloor");
   });
 
   it("uses valid Cocos Size objects for M01 physics boundary box colliders", () => {
@@ -1234,18 +1164,19 @@ describe("Cocos Creator project scaffold", () => {
 
   it("uses observed flashlight blend colors when redrawing M01 fragments", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const session = readText("assets/scripts/cocos/M01GreyboxSession.ts");
 
     expect(bootstrap).toContain("view.observedColor");
     expect(bootstrap).toContain("colorTokenOverride");
     expect(bootstrap).toContain("shouldUseTextureBackedFragmentReveal");
     expect(bootstrap).toContain("textureBackedFragmentReveal ? \"normal\" : presentation");
     expect(bootstrap).toContain("textureBackedFragmentReveal ? undefined : fragmentColorOverride");
-    expect(bootstrap).toContain("ObservedResetScheduler");
-    expect(bootstrap).toContain("observedColorResetScheduler");
-    expect(bootstrap).toContain("this.observedColorResetScheduler.schedule");
-    expect(bootstrap).toContain("scheduleObservedColorReset");
-    expect(bootstrap).toContain("clearObservedColorReset");
-    expect(bootstrap).toContain("M01_OBSERVED_REVEAL_MS");
+    // 观察显色的有效期模型保留在 Session(显色模型 KEEP); bootstrap 端的旧定时刷新随旧路径删除,
+    // 由后续覆盖面玩法在莱米移动/换色时重算取代。
+    expect(session).toContain("M01_OBSERVED_REVEAL_MS");
+    expect(session).toContain("observedFragmentColors");
+    expect(bootstrap).not.toContain("ObservedResetScheduler");
+    expect(bootstrap).not.toContain("scheduleObservedColorReset");
   });
 
   it("keeps translucent hidden fragment sprites while tinting observed flashlight colors", () => {

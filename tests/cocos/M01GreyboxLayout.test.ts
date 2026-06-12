@@ -11,7 +11,7 @@ import m01ConfigJson from "../../assets/resources/configs/stage1/m01-memory-gear
 const config = m01ConfigJson as unknown as M01MemoryGearConfig;
 
 describe("buildM01GreyboxLayout", () => {
-  it("builds flashlight, candidate fragment, evidence, and board nodes", () => {
+  it("builds candidate fragment, evidence, and board nodes without legacy flashlight buttons", () => {
     const layout = buildM01GreyboxLayout(config);
 
     expect(layout.canvas).toEqual({ width: 960, height: 640 });
@@ -20,65 +20,13 @@ describe("buildM01GreyboxLayout", () => {
     expect(layout.gear.size).toEqual({ width: 430, height: 430 });
     expect(layout.board.position).toEqual({ x: -60, y: 0 });
     expect(layout.board.size).toEqual({ width: 430, height: 430 });
-    expect(layout.flashlights).toHaveLength(3);
-    expect(layout.flashlights.map((flashlight) => flashlight.position)).toEqual([
-      { x: 361, y: 77 },
-      { x: 360, y: 59 },
-      { x: 359, y: 43 }
-    ]);
-    expect(layout.flashlights.map((flashlight) => flashlight.size)).toEqual([
-      { width: 14, height: 14 },
-      { width: 14, height: 14 },
-      { width: 14, height: 14 }
-    ]);
+    // 旧三色手电按钮 token 已删除(v4: 手电由莱米手持, Session 仍读 config.flashlights 管显色)。
+    expect("flashlights" in layout).toBe(false);
     expect(layout.fragments).toHaveLength(config.fragments.length);
     expect(layout.evidence).toHaveLength(config.evidence.length);
     expect(layout.targetPieceSlots).toHaveLength(config.targetPattern?.pieces.length ?? 0);
     expect(layout.board.kind).toBe("board");
     expect(layout.slots).toBeUndefined();
-  });
-
-  it("keeps fixed flashlight button hit zones on the visible single-tool buttons", () => {
-    const layout = buildM01GreyboxLayout(config);
-    const buttons = layout.flashlights;
-
-    expect(buttons.map((button) => ({
-      id: button.id,
-      position: button.position,
-      size: button.size
-    }))).toEqual([
-      {
-        id: "flashlight_red",
-        position: { x: 361, y: 77 },
-        size: { width: 14, height: 14 }
-      },
-      {
-        id: "flashlight_yellow",
-        position: { x: 360, y: 59 },
-        size: { width: 14, height: 14 }
-      },
-      {
-        id: "flashlight_blue",
-        position: { x: 359, y: 43 },
-        size: { width: 14, height: 14 }
-      }
-    ]);
-
-    for (const source of buttons) {
-      const halfWidth = source.size.width / 2;
-      const halfHeight = source.size.height / 2;
-
-      for (const target of buttons) {
-        if (source.id === target.id) {
-          continue;
-        }
-
-        expect(
-          Math.abs(source.position.x - target.position.x) > halfWidth ||
-            Math.abs(source.position.y - target.position.y) > halfHeight
-        ).toBe(true);
-      }
-    }
   });
 
   it("uses each candidate fragment's own color on its standard piece", () => {
@@ -165,13 +113,12 @@ describe("buildM01GreyboxLayout", () => {
     );
   });
 
-  it("keeps only nine candidate fragments grouped below the flashlight", () => {
+  it("keeps only nine candidate fragments grouped in the lower observation floor area", () => {
     const layout = buildM01GreyboxLayout(config);
     const shapeCounts = layout.fragments.reduce<Record<string, number>>((counts, fragment) => {
       counts[fragment.shapeToken] = (counts[fragment.shapeToken] ?? 0) + 1;
       return counts;
     }, {});
-    const flashlightBottomY = Math.min(...layout.flashlights.map((flashlight) => flashlight.position.y));
     const columns = [...new Set(layout.fragments.map((fragment) => fragment.position.x))].sort(
       (left, right) => left - right
     );
@@ -183,8 +130,7 @@ describe("buildM01GreyboxLayout", () => {
       hexagon: 3
     });
     expect(columns).toEqual([272, 332, 392]);
-    expect(layout.fragments.every((fragment) => fragment.position.y < flashlightBottomY - 40))
-      .toBe(true);
+    expect(layout.fragments.every((fragment) => fragment.position.y < -40)).toBe(true);
   });
 
   it("uses only circle, triangle, and hexagon as fragment display shapes", () => {

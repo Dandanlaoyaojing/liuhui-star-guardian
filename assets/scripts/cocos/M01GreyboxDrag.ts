@@ -11,10 +11,6 @@ const TARGET_PIECE_SNAP_ROTATION_TOLERANCE = 1;
 
 export type M01GreyboxDropAction =
   | {
-      type: "select_flashlight";
-      flashlightId: string;
-    }
-  | {
       type: "weak_snap_fragment";
       fragmentId: string;
       evidenceId: string;
@@ -57,10 +53,6 @@ export function resolveM01GreyboxDrop(
   dropPosition: M01GreyboxPoint,
   options: M01GreyboxDropOptions = {}
 ): M01GreyboxDropAction {
-  if (token.kind === "flashlight") {
-    return { type: "select_flashlight", flashlightId: token.controllerId };
-  }
-
   if (token.kind === "filter") {
     const result = resolveDropResult(toSnapEntity(token), [buildFilterDropZone(layout)], dropPosition);
 

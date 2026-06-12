@@ -1581,7 +1581,6 @@ describe("M01 greybox art slices", () => {
     const blueHexagon = getM01GreyboxRuntimeSpriteResourceForToken(layout.fragments[8]);
     const firstEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[0]);
     const greenTriangleEvidence = getM01GreyboxRuntimeSpriteResourceForToken(layout.evidence[4]);
-    const redFlashlight = getM01GreyboxRuntimeSpriteResourceForToken(layout.flashlights[0]);
 
     expect(redCircle).toMatchObject({
       id: "hidden_circle",
@@ -1607,7 +1606,6 @@ describe("M01 greybox art slices", () => {
     });
     expect(firstEvidence).toBeUndefined();
     expect(greenTriangleEvidence).toBeUndefined();
-    expect(redFlashlight).toBeUndefined();
 
     expect(plan.tokens.find((token) => token.controllerId === layout.fragments[0]?.controllerId)).toMatchObject({
       controllerId: "fragment_circle_blue_1",
@@ -1616,7 +1614,8 @@ describe("M01 greybox art slices", () => {
       interactive: false
     });
     expect(plan.tokens.find((token) => token.controllerId === layout.evidence[0]?.controllerId)).toBeUndefined();
-    expect(plan.tokens.find((token) => token.controllerId === layout.flashlights[0]?.controllerId)).toBeUndefined();
+    // 旧三色手电 token 已不在 layout 中, art plan 自然不含 flashlight_token。
+    expect(plan.tokens.some((token) => token.role === "flashlight_token")).toBe(false);
   });
 
   it("builds a static gameplay art plan without fragment or filter composite sheets", () => {

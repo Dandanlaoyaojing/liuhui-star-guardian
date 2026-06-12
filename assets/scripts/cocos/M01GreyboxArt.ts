@@ -700,10 +700,6 @@ export function getM01GreyboxRuntimeSpriteResourceForToken(
     );
   }
 
-  if (token.kind === "flashlight") {
-    return undefined;
-  }
-
   if (token.kind === "gear") {
     return M01_GREYBOX_RUNTIME_OBJECT_RESOURCES.find((resource) => resource.id === "gearStar");
   }
@@ -870,7 +866,6 @@ export function buildM01GreyboxTokenArtPlan(layout: M01GreyboxLayout): M01Greybo
     layout.gear,
     ...layout.fragments,
     ...layout.evidence,
-    ...layout.flashlights,
     ...(layout.filters ?? [])
   ]
     .filter((token) => token.kind !== "evidence")

@@ -2,7 +2,6 @@ import type {
   M01BaseColor,
   M01CandidateFragmentDef,
   M01FilterDef,
-  M01FlashlightDef,
   M01MemoryGearConfig,
   M01OverlapEvidenceDef,
   M01Shape,
@@ -24,7 +23,6 @@ import { resolveM01ConfigWithCurrentTargetEvidence } from "./M01TargetPatternGen
 export type M01GreyboxNodeKind =
   | "gear"
   | "board"
-  | "flashlight"
   | "filter"
   | "fragment"
   | "evidence"
@@ -76,7 +74,6 @@ export interface M01GreyboxLayout {
   gear: M01GreyboxTokenNode;
   board: M01GreyboxTokenNode;
   targetPieceSlots: M01GreyboxPieceSnapZone[];
-  flashlights: M01GreyboxTokenNode[];
   filters?: M01GreyboxTokenNode[];
   fragments: M01GreyboxTokenNode[];
   evidence: M01GreyboxTokenNode[];
@@ -98,7 +95,6 @@ const MIN_EVIDENCE_FRAGMENT_SNAP_DISTANCE = 34;
 export const M01_STANDARD_PIECE_DISPLAY_SIZE: M01GreyboxSize = { width: 56, height: 56 };
 export const M01_TARGET_REFERENCE_DISPLAY_SIZE: M01GreyboxSize = { width: 196, height: 170.32 };
 export const M01_TARGET_REFERENCE_PIECE_SLOT_SIZE: M01GreyboxSize = M01_STANDARD_PIECE_DISPLAY_SIZE;
-export const M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE: M01GreyboxSize = { width: 14, height: 14 };
 const REFERENCE_PATTERN_CENTER: M01GreyboxPoint = { x: -360, y: 120 };
 const REFERENCE_PATTERN_SCALE = 0.4;
 const EVIDENCE_WORK_AREA_CENTER: M01GreyboxPoint = { x: -60, y: 0 };
@@ -124,9 +120,6 @@ export function buildM01GreyboxLayout(
     gear: buildGearNode(resolvedConfig),
     board: buildBoardNode(),
     targetPieceSlots: buildTargetPieceSnapZones(resolvedConfig),
-    flashlights: (resolvedConfig.flashlights ?? []).map((flashlight) =>
-      buildFlashlightNode(flashlight, options.text)
-    ),
     fragments: resolvedConfig.fragments.map((fragment) => buildFragmentNode(fragment, options.text)),
     evidence,
     ...(referenceEvidence.length > 0 ? { referencePattern: buildReferencePatternNode(referenceEvidence) } : {}),
@@ -258,35 +251,6 @@ function targetPieceSnapZoneFromManifest(
       `shape:${standardPiece.shape}`
     ]
   };
-}
-
-function buildFlashlightNode(
-  flashlight: M01FlashlightDef,
-  text: M01GreyboxTextOverrides = {}
-): M01GreyboxTokenNode {
-  const color = formatM01ColorLabel(flashlight.color, text);
-
-  return {
-    id: flashlight.id,
-    controllerId: flashlight.id,
-    kind: "flashlight",
-    label: flashlight.label ?? `${color}手电`,
-    position: positionForFlashlightButton(flashlight.color),
-    size: M01_FLASHLIGHT_ART_BUTTON_HIT_SIZE,
-    colorToken: flashlight.color,
-    shapeToken: "flashlight",
-    tags: ["flashlight", flashlight.color]
-  };
-}
-
-function positionForFlashlightButton(color: M01FlashlightDef["color"]): M01GreyboxPoint {
-  const positions: Record<M01FlashlightDef["color"], M01GreyboxPoint> = {
-    red: { x: 361, y: 77 },
-    yellow: { x: 360, y: 59 },
-    blue: { x: 359, y: 43 }
-  };
-
-  return positions[color];
 }
 
 function buildFilterNode(

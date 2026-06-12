@@ -351,6 +351,41 @@ describe("M01GreyboxSession", () => {
     }
   });
 
+  it("turns the flashlight off via clearFlashlight and resets candidate reveal colors", () => {
+    const session = M01GreyboxSession.fromConfig(realConfig);
+    const fragmentIds = realConfig.fragments.map((fragment) => fragment.id);
+
+    session.selectFlashlight("flashlight_red");
+    session.revealFragments(fragmentIds, { persistent: true });
+
+    expect(session.clearFlashlight()).toMatchObject({
+      accepted: true,
+      activeFlashlightId: undefined,
+      activeFlashlightColor: undefined,
+      clearedFragmentIds: fragmentIds
+    });
+
+    for (const fragmentId of fragmentIds) {
+      expect(session.getFragmentView(fragmentId)).not.toHaveProperty("observedColor");
+      expect(session.getFragmentView(fragmentId)).toMatchObject({ presentation: "normal" });
+    }
+
+    // 灭态下无法显色:必须重新选灯。
+    expect(session.revealFragment("fragment_circle_blue_1")).toMatchObject({
+      accepted: false
+    });
+
+    // 显色/选色模型保持完好:再开灯立即恢复工作。
+    expect(session.selectFlashlight("flashlight_yellow")).toMatchObject({
+      accepted: true,
+      activeFlashlightColor: "yellow"
+    });
+    expect(session.revealFragment("fragment_circle_blue_1")).toMatchObject({
+      accepted: true,
+      revealedColor: "green"
+    });
+  });
+
   it("expires observed flashlight colors after a short reveal window", () => {
     let now = 1_000;
     const session = M01GreyboxSession.fromConfig(realConfig, { now: () => now });

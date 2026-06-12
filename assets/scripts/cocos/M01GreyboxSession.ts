@@ -303,6 +303,28 @@ export class M01GreyboxSession {
     };
   }
 
+  clearFlashlight(): {
+    accepted: true;
+    activeFlashlightId: undefined;
+    activeFlashlightColor: undefined;
+    clearedFragmentIds: string[];
+    status: string;
+  } {
+    this.activeFlashlightId = undefined;
+    this.activeFlashlightColor = undefined;
+    const clearedFragmentIds = this.clearObservedFragmentColors();
+    this.lastHint = undefined;
+    this.lastFeedback = undefined;
+
+    return {
+      accepted: true,
+      activeFlashlightId: undefined,
+      activeFlashlightColor: undefined,
+      clearedFragmentIds,
+      status: this.format("flashlightCleared")
+    };
+  }
+
   revealFragment(
     fragmentId: string,
     options: M01GreyboxRevealOptions = {}

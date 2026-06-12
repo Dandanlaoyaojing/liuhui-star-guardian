@@ -10,16 +10,6 @@ const config = m01ConfigJson as unknown as M01MemoryGearConfig;
 describe("resolveM01GreyboxDrop", () => {
   const layout = buildM01GreyboxLayout(config);
 
-  it("selects a flashlight when dropped or clicked", () => {
-    const flashlight = layout.flashlights.find((item) => item.controllerId === "flashlight_red");
-
-    expect(flashlight).toBeDefined();
-    expect(resolveM01GreyboxDrop(layout, flashlight!, flashlight!.position)).toEqual({
-      type: "select_flashlight",
-      flashlightId: "flashlight_red"
-    });
-  });
-
   it("does not use evidence magnetism while the target pattern is still being composed", () => {
     const manualLayout = buildM01GreyboxLayout({
       ...config,
