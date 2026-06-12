@@ -169,6 +169,8 @@ const FLASHLIGHT_TO_GROUND_MS = 300; // 砸到后弹落到地面侧旁用时
 const FLASHLIGHT_GROUND_DX = 56; // 落地点相对莱米的横向偏移(落在脚边一侧)
 const FLASHLIGHT_HEAD_DY = 56; // 莱米头顶相对其节点中心(LEMMY_Y)的高度, startle 接触点
 const FLASHLIGHT_GROUND_Y = GROUND_Y + 24; // 手电躺在地面的 y
+// 拾起后手电挂到莱米节点下的局部偏移(身前手位; 简化不随朝向镜像, 细化属后续打磨)。
+const HELD_FLASHLIGHT_OFFSET = { x: 20, y: 6 };
 
 export interface M01IntroFragment {
   /** The real M01 puzzle-piece node managed by the bootstrap. */
@@ -182,8 +184,14 @@ export interface M01IntroSequenceOptions {
   onSpill: (originX: number, originY: number) => void;
   /** Called once the pieces have spilled and the puzzle workspace is live. */
   onSettled: () => void;
-  /** Called when Lemmy has picked the fallen flashlight up (intro 终点; 接 v4 手持工具用, 现可空). */
-  onFlashlightAcquired?: () => void;
+  /**
+   * Called when Lemmy has picked the fallen flashlight up. v4 手持手电交接载荷:
+   * lemmyNode = 覆盖面圆心/beam 锚(bootstrap 每帧读位置); flashlightNode = 手持手电节点(挂在场上,
+   * acquired 后点它经 onHeldFlashlightTap 循环灯色)。
+   */
+  onFlashlightAcquired?: (handoff: { lemmyNode: Node; flashlightNode: Node }) => void;
+  /** acquired 后玩家点莱米手里的手电 → 循环 红/黄/蓝/灭(bootstrap 接 cycleLight, spec §5.2)。 */
+  onHeldFlashlightTap?: () => void;
 }
 
 type SpriteKey = "basketHanging" | "basketTipped" | "basketFrontOccluder";
@@ -274,7 +282,8 @@ export class M01IntroSequence extends Component {
    * 手电掉出来后还能随鼠标点的地方移动, 直到点掉在地上的手电才去拾起)。靠近篮下自动收耳见 roamLemmyTo。
    */
   private handleStageTap(event: EventTouch): void {
-    const roamable = this.phase === "roaming" || this.phase === "waitingPickup";
+    const roamable =
+      this.phase === "roaming" || this.phase === "waitingPickup" || this.phase === "acquired";
     if (!roamable || this.headbuttInProgress || this.pickupInProgress) return;
     const worldX = event.getUILocation().x - CANVAS_HALF_WIDTH;
     void this.roamLemmyTo(clampStageX(worldX));
@@ -913,8 +922,12 @@ export class M01IntroSequence extends Component {
       .start();
   }
 
-  /** waitingPickup: 玩家点地上的手电 → 莱米走过去蹲下拾起。 */
+  /** waitingPickup: 点地上的手电 → 蹲下拾起; acquired: 点手里的手电 → 转发循环灯色(v4)。 */
   private handleFlashlightTap(_event: EventTouch): void {
+    if (this.phase === "acquired") {
+      this.options?.onHeldFlashlightTap?.();
+      return;
+    }
     if (this.phase !== "waitingPickup" || this.pickupInProgress) return;
     void this.beginPickup();
   }
@@ -929,11 +942,17 @@ export class M01IntroSequence extends Component {
         await this.walkLemmyTo(clampStageX(flashX - 30)); // 走到手电旁
       }
       await this.lemmyActor.playFrameAction("crouch"); // 蹲下拾取
-      // 拾起: 手电移到莱米身前(简化; v4 手持工具接管时再细化锚点)
-      this.flashlightNode.setPosition(this.lemmyActor.node.position.x + 20, LEMMY_Y + 6, 0);
+      // 拾起 = 手持: 重挂到莱米节点下(身前小偏移), 之后点哪走哪手电随身走(覆盖面随莱米, spec §5.2)。
+      // cc 的 addChild 会自动从旧父节点摘下再挂新父(运行时语义), shim 只声明 addChild。
+      this.lemmyActor.node.addChild(this.flashlightNode);
+      this.flashlightNode.setPosition(HELD_FLASHLIGHT_OFFSET.x, HELD_FLASHLIGHT_OFFSET.y, 0);
       this.advance("crouchDone"); // pickingUp → acquired
       this.lemmyActor.playIdle();
-      this.options?.onFlashlightAcquired?.();
+      // v4 交接: beam/覆盖面锚莱米节点; 手持手电节点供"点它循环灯色"。
+      this.options?.onFlashlightAcquired?.({
+        lemmyNode: this.lemmyActor.node,
+        flashlightNode: this.flashlightNode
+      });
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     } finally {
