@@ -50,3 +50,37 @@ export function fragmentsInCoverage(
   }
   return lit;
 }
+
+export interface CoveragePoolClampOptions {
+  /** Pool (drawn light puddle) center, same space as the board bounds. */
+  center: { x: number; y: number };
+  /** Pool horizontal half-width (the coverage radius). */
+  radiusX: number;
+  /** Unclamped pool half-height (the flattened "light on the ground" look). */
+  naturalHalfHeight: number;
+  /** Assembly board bounds (center + size); only the bottom edge and x-span matter here. */
+  board: { x: number; y: number; width: number; height: number };
+  /** Extra gap kept between the pool top and the board bottom edge. */
+  clearance: number;
+}
+
+/**
+ * Vertical half-height for the drawn coverage pool so the light never washes over the
+ * assembly board (spec §5.2: 光束只照候选区, 不照拼接盘). When the pool's x-span overlaps
+ * the board's x-span, the pool top is clamped below the board's bottom edge (minus
+ * clearance); a non-positive result means "don't draw at all". Pure so the spec rule is
+ * unit-testable; the cc glue only feeds in live geometry.
+ */
+export function coveragePoolHalfHeight(options: CoveragePoolClampOptions): number {
+  const { center, radiusX, naturalHalfHeight, board, clearance } = options;
+  const boardLeft = board.x - board.width / 2;
+  const boardRight = board.x + board.width / 2;
+  const overlapsBoardSpan = center.x + radiusX > boardLeft && center.x - radiusX < boardRight;
+  if (!overlapsBoardSpan) {
+    return naturalHalfHeight;
+  }
+
+  const boardBottom = board.y - board.height / 2;
+  const available = boardBottom - clearance - center.y;
+  return Math.max(0, Math.min(naturalHalfHeight, available));
+}

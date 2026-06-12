@@ -228,8 +228,10 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain("private hintButtonRoot: Node | null = null");
     expect(bootstrap).toContain("this.hintButtonRoot = this.addHintButton(this.greyboxRoot)");
-    // 完成时灭灯走 Session 的"灭"态(清激活手电色 + 候选碎片显色), 不再清散落的 bootstrap 镜像字段。
-    expect(completionBlock).toContain("this.session.clearFlashlight();");
+    // 完成时灭灯走统一出口 suspendFlashlightObservation(灯态归 off + 手电体复白 + 收光池 +
+    // Session.clearFlashlight), 完成路径不再单独清 Session(Task9 收编, 防双轨漂移)。
+    expect(completionBlock).toContain("this.suspendFlashlightObservation();");
+    expect(completionBlock).not.toContain("this.session.clearFlashlight();");
     expect(bootstrap).toContain("this.hintButtonRoot.active = false");
   });
 
@@ -678,6 +680,92 @@ describe("Cocos Creator project scaffold", () => {
     expect(suspendBlock).toContain("this.syncVisualState();");
     expect(bootstrap).toContain("Input.EventType.MOUSE_DOWN");
     expect(bootstrap).toContain("Input.EventType.TOUCH_START");
+  });
+
+  it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, double gating", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const config = readJson("assets/resources/configs/stage1/m01-memory-gear.json") as {
+      flashlightCoverage?: Record<string, unknown>;
+    };
+
+    // ① intro 交接: onFlashlightAcquired 闩 flashlightAcquired + 记 beam 锚(莱米节点)与手持手电
+    //    节点; onHeldFlashlightTap 转发到 puzzle 侧循环灯色。
+    expect(bootstrap).toContain("onFlashlightAcquired: ({ lemmyNode, flashlightNode }) => {");
+    expect(bootstrap).toContain("this.flashlightAcquired = true;");
+    expect(bootstrap).toContain("this.lemmyAnchorNode = lemmyNode;");
+    expect(bootstrap).toContain("this.lemmyFlashlightNode = flashlightNode;");
+    expect(bootstrap).toContain("onHeldFlashlightTap: () => this.handleHeldFlashlightTap()");
+
+    // ② 点手电循环 红/黄/蓝/灭(cycleLight): 颜色映射 Session.selectFlashlight(flashlight_<color>),
+    //    "灭"走 Session.clearFlashlight()。
+    expect(bootstrap).toContain("this.activeLightState = cycleLight(this.activeLightState);");
+    expect(bootstrap).toContain("? this.session.clearFlashlight()");
+    expect(bootstrap).toContain(
+      "this.session.selectFlashlight(`flashlight_${this.activeLightState}`)"
+    );
+
+    // ③ 覆盖面显色锚莱米: fragmentsInCoverage(排除拼接盘上的) + 进圈持久显色/出圈清显色;
+    //    每帧 update 跟随走位 tween, 且不被 manual-target 模式的 early-return 挡住。
+    expect(bootstrap).toContain(
+      "fragmentsInCoverage(center, coverage.radius, this.collectCoverageCandidates())"
+    );
+    expect(bootstrap).toContain("this.session.clearObservedFragmentColors();");
+    expect(bootstrap).toContain("this.session.revealFragments(covered, { persistent: true });");
+    expect(bootstrap).toContain("onTray: onAssemblyBoard");
+    const updateBlock = bootstrap.slice(
+      bootstrap.indexOf("update(): void"),
+      bootstrap.indexOf("selectFilter(")
+    );
+    expect(updateBlock).toContain("this.syncFlashlightCoverage();");
+    expect(updateBlock.indexOf("this.syncFlashlightCoverage();")).toBeLessThan(
+      updateBlock.indexOf("evidenceSnapEnabled")
+    );
+
+    // ④ 光束只照候选区、不照拼接盘(spec §5.2): 逻辑面 onTray 排除(已放槽/弱吸附在证据/位于盘内)
+    //    + 视觉面光池顶边经纯函数钳到盘下缘以下。
+    expect(bootstrap).toContain("coveragePoolHalfHeight({");
+    expect(bootstrap).toContain("COVERAGE_POOL_BOARD_CLEARANCE");
+    expect(bootstrap).toContain("this.isPointInsideManualTargetBoard(position)");
+    expect(bootstrap).toContain("this.isFragmentWeakSnappedToEvidence(fragment.controllerId)");
+
+    // ⑤ 双门控: 拾片(beginTokenDrag)与底光整体验证都要求 physicsSettled && flashlightAcquired;
+    //    开场点地走位/点篮/点掉落手电由 intro sequence 自管, 不经这两处门控。
+    const beginDragBlock = bootstrap.slice(
+      bootstrap.indexOf("private beginTokenDrag"),
+      bootstrap.indexOf("private moveActivePointerDrag")
+    );
+    expect(beginDragBlock).toContain("!(this.physicsSettled && this.flashlightAcquired)");
+    const validateBlock = bootstrap.slice(
+      bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),
+      bootstrap.indexOf("private scheduleValidationLightReset")
+    );
+    expect(validateBlock).toContain("!(this.physicsSettled && this.flashlightAcquired)");
+
+    // ⑥ 两阶段点击路由(routeTap 纯函数): 点拼片 = 玩家拾取且灭灯(pickupPieceAndLightOff →
+    //    suspendFlashlightObservation 统一灭灯), beginTokenDrag 不再重复灭灯。
+    expect(bootstrap).toContain(
+      'import { routeTap, type TapHit } from "./M01PuzzleInputRouter.ts";'
+    );
+    expect(bootstrap).toContain(
+      'if (action === "pickupPieceAndLightOff" && this.physicsSettled) {'
+    );
+    expect(bootstrap).toContain('if (action !== "cycleLight") {');
+    expect(beginDragBlock).not.toContain("suspendFlashlightObservation");
+
+    // ⑦ 光池仅 拾起后且灯亮 时显示; 灯灭/拾片立即收池复灰。
+    expect(bootstrap).toContain('this.activeLightState === "off"');
+    expect(bootstrap).toContain("this.hideCoverageBeam();");
+    expect(bootstrap).toContain('new Node("M01LemmyCoverageLightPool")');
+
+    // ⑧ 覆盖半径等玩法数值入 config(puzzle-configs 规则: 每个数值带 _comment 说明)。
+    expect(config.flashlightCoverage).toBeDefined();
+    const coverage = config.flashlightCoverage as Record<string, unknown>;
+    expect(typeof coverage.radius).toBe("number");
+    expect(typeof coverage.centerOffsetX).toBe("number");
+    expect(typeof coverage.centerOffsetY).toBe("number");
+    expect(typeof coverage.radius_comment).toBe("string");
+    expect(typeof coverage.centerOffsetX_comment).toBe("string");
+    expect(typeof coverage.centerOffsetY_comment).toBe("string");
   });
 
   it("highlights M01 evidence hint targets in the bootstrap", () => {

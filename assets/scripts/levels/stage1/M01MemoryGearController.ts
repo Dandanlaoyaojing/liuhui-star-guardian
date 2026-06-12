@@ -55,6 +55,19 @@ export interface M01FlashlightDef {
   position?: { x: number; y: number };
 }
 
+/**
+ * Held-flashlight coverage (v4): the beam is a coverage AREA anchored to Lemmy.
+ * Values live in m01-memory-gear.json (`flashlightCoverage`) per puzzle-config rules.
+ */
+export interface M01FlashlightCoverageDef {
+  /** px — coverage radius around the beam center; candidates inside reveal under the current light. */
+  radius: number;
+  /** px — beam/coverage center offset from Lemmy's node, horizontal. */
+  centerOffsetX: number;
+  /** px — beam/coverage center offset from Lemmy's node, vertical (down to the fragment ground line). */
+  centerOffsetY: number;
+}
+
 export interface M01CandidateFragmentDef {
   id: string;
   hiddenColor: M01BaseColor;
@@ -126,6 +139,8 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
   colors: M01BaseColor[];
   blendColors: Exclude<M01BlendColor, M01BaseColor>[];
   flashlights: M01FlashlightDef[];
+  /** Optional so test fixtures stay small; absent → the runtime draws no coverage beam. */
+  flashlightCoverage?: M01FlashlightCoverageDef;
   fragments: M01CandidateFragmentDef[];
   evidence: M01OverlapEvidenceDef[];
   standardPieces?: M01StandardPieceDef[];

@@ -58,6 +58,14 @@ import type {
   M01GreyboxRepairPresentation,
   M01GreyboxSlotPresentation
 } from "./M01GreyboxSession.ts";
+import {
+  coveragePoolHalfHeight,
+  cycleLight,
+  fragmentsInCoverage,
+  type CoverageFragment,
+  type LightState
+} from "./M01FlashlightObservation.ts";
+import { routeTap, type TapHit } from "./M01PuzzleInputRouter.ts";
 import type {
   M01BaseColor,
   M01BlendColor,
@@ -128,6 +136,15 @@ const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, numb
   green:  M01_TARGET_BLEND_RGB.green,
   purple: M01_TARGET_BLEND_RGB.purple
 };
+// --- 莱米手持手电的覆盖面光池(v4; spec §5.2) -----------------------------------------------
+// 视觉常量(玩法数值 radius/centerOffset 在 config.flashlightCoverage, 按 puzzle-configs 规则)。
+// 光池画成贴地的扁椭圆(宽=覆盖半径), 顶边经 coveragePoolHalfHeight 钳在拼接盘下缘以下(光不照盘)。
+const COVERAGE_POOL_SQUASH = 0.32; // 椭圆纵横比(ry = radius × 此); 扁→读作"光落在地面上"
+const COVERAGE_POOL_BOARD_CLEARANCE = 6; // px; 光池顶边与拼接盘下缘之间保留的间隙
+const COVERAGE_POOL_SEGMENTS = 40; // 椭圆描点段数(Graphics 无 ellipse, 用多边形逼近)
+const COVERAGE_POOL_OUTER_ALPHA = 56; // 外圈柔光透明度
+const COVERAGE_POOL_INNER_ALPHA = 84; // 内圈亮核透明度
+const COVERAGE_POOL_INNER_SCALE = 0.55; // 内圈相对外圈的缩放
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
@@ -211,6 +228,21 @@ export class M01GreyboxBootstrap extends Component {
   private readonly tokenPositions = new Map<string, M01GreyboxPoint>();
   private readonly tokenRotations = new Map<string, number>();
   private hintedTargetIds = new Set<string>();
+  // --- v4 手持手电状态(intro 捡起后交接; beam/覆盖面锚莱米, 点手电循环 红/黄/蓝/灭) ---
+  /** Lemmy 已捡起手电(intro onFlashlightAcquired 交接后置 true; 与 physicsSettled 共同门控正式拼接)。 */
+  private flashlightAcquired = false;
+  /** 当前灯态(off/red/yellow/blue); 点手持手电经 cycleLight 循环, off 走 Session.clearFlashlight()。 */
+  private activeLightState: LightState = "off";
+  /** intro 交接的莱米节点 = beam/覆盖面锚点(每帧读其位置, 走位 tween 时光池随行)。 */
+  private lemmyAnchorNode: Node | null = null;
+  /** intro 交接的手持手电节点(挂在莱米身上); 用于按灯态给手电体着色反馈。 */
+  private lemmyFlashlightNode: Node | null = null;
+  private coverageBeamNode: Node | null = null;
+  private coverageBeamGraphics: Graphics | null = null;
+  /** 上次显色重算的覆盖状态键(灯色+覆盖集合); 变化才触发 Session 重显色, 避免逐帧churn。 */
+  private coverageStateKey: string | undefined;
+  /** 上次光池重绘键(灯色+圆心); 变化才清画 Graphics。 */
+  private coverageDrawKey: string | undefined;
 
   start(): void {
     resources.load("configs/stage1/m01-memory-gear", JsonAsset, (error, asset) => {
@@ -284,7 +316,12 @@ export class M01GreyboxBootstrap extends Component {
         }
 
         // Step 4: lock input + show intro hint text. Player must tap basket to start.
+        // 正式拼接双门控的两个闩在此一起复位: 拼片要等物理沉降 + 手电到手(spec §5.2 交互流程 ①)。
         this.physicsSettled = false;
+        this.flashlightAcquired = false;
+        this.activeLightState = "off";
+        this.coverageStateKey = undefined;
+        this.coverageDrawKey = undefined;
         this.setStatus(this.formatText("physicsSettling", {}));
 
         // Step 5: spawn the intro and hand it the REAL 9 fragment nodes. The
@@ -317,7 +354,18 @@ export class M01GreyboxBootstrap extends Component {
           },
           onSettled: () => {
             // Lemmy walked off-stage. Physics settle runs independently.
-          }
+          },
+          // v4 手持手电交接(intro 蹲下捡起后): 闩 flashlightAcquired + 记 beam 锚点(莱米节点,
+          // 走位 tween 时每帧读位置)与手持手电节点。光束/覆盖面从此随莱米移动(spec §5.2)。
+          onFlashlightAcquired: ({ lemmyNode, flashlightNode }) => {
+            this.flashlightAcquired = true;
+            this.lemmyAnchorNode = lemmyNode;
+            this.lemmyFlashlightNode = flashlightNode;
+            this.ensureCoverageBeamNode();
+            this.applyHeldFlashlightTint();
+          },
+          // acquired 后点莱米手里的手电 → 循环 红/黄/蓝/灭(intro 只转发, 路由与显色在 puzzle 侧)。
+          onHeldFlashlightTap: () => this.handleHeldFlashlightTap()
         });
       }
     });
@@ -333,6 +381,9 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   update(): void {
+    // 莱米走位是 tween 驱动 → 光池/覆盖面在 update 跟随其当前位置(位置派生, 非时间积分, 无需 dt)。
+    this.syncFlashlightCoverage();
+
     if (!this.layout || this.layout.evidenceSnapEnabled) {
       return;
     }
@@ -1263,10 +1314,24 @@ export class M01GreyboxBootstrap extends Component {
     this.globalPointerInputBound = false;
   }
 
+  /**
+   * Puzzle 侧两阶段点击路由(routeTap 纯函数定优先级)。此处只消费"点拼片=拾取且灭灯"这一拍:
+   * 地面/吊篮/掉落手电归 intro sequence(点哪走哪/顶篮/拾取), 手持手电点击经 onHeldFlashlightTap
+   * 进 handleHeldFlashlightTap, 持片放下由根节点 touch-end(placeHeldFragmentAt)结算 — 不双重处理。
+   */
   private beginActivePointerPress(event: M01GreyboxPointerEvent): void {
     const position = this.eventToLocalPoint(event);
     const hitToken = this.findTokenAtPosition(this.layout?.fragments ?? [], position);
+    const hit: TapHit = {};
     if (hitToken?.kind === "fragment") {
+      hit.fragment = true;
+    }
+    const action = routeTap(hit, {
+      flashlightAcquired: this.flashlightAcquired,
+      holdingPiece: this.heldFragmentId !== undefined
+    });
+    // 双门控的另一半: 物理未沉降时拼片尚不可拾(beginTokenDrag 同样拦), 灯也不该被这次点击灭掉。
+    if (action === "pickupPieceAndLightOff" && this.physicsSettled) {
       this.suspendFlashlightObservation();
     }
   }
@@ -1275,11 +1340,11 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.layout) {
       return;
     }
-    if (token.kind === "fragment" && !this.physicsSettled) {
+    // 正式拼接双门控(spec §5.2 / v4 决策 5): 拾片要求 落堆稳定 且 手电已到手。仅门控拼图侧
+    // (拾/放/验证);开场点地走位、点吊篮、点掉落手电均由 intro sequence 自管, 不经此处。
+    // 灭灯不在此重复触发 — 统一由 beginActivePointerPress 的 routeTap 路由(pickupPieceAndLightOff)。
+    if (token.kind === "fragment" && !(this.physicsSettled && this.flashlightAcquired)) {
       return;
-    }
-    if (token.kind === "fragment") {
-      this.suspendFlashlightObservation();
     }
 
     const position = this.eventToLocalPoint(event);
@@ -1410,8 +1475,238 @@ export class M01GreyboxBootstrap extends Component {
     };
   }
 
-  /** 拼片被按下/拾起时灭灯:清掉激活手电色与所有候选碎片的观察显色(spec §5.2 点拼片=拾取且手电灭)。 */
+  // ── v4 手持手电: 点手电循环灯色 + 覆盖面显色 + 光池渲染(锚莱米) ────────────────────────
+
+  /**
+   * acquired 后点莱米手里的手电(intro 仅转发)。routeTap 决定这次点击归谁: 持片时任何点击 =
+   * 放下(由根节点 touch-end 的 placeHeldFragmentAt 结算, 此处不切灯), 否则循环 红→黄→蓝→灭。
+   * red/yellow/blue 映射 Session.selectFlashlight(flashlight_<color>), off 走 clearFlashlight()。
+   */
+  private handleHeldFlashlightTap(): void {
+    if (!this.session) {
+      return;
+    }
+
+    const action = routeTap(
+      { heldFlashlight: true },
+      { flashlightAcquired: this.flashlightAcquired, holdingPiece: this.heldFragmentId !== undefined }
+    );
+    if (action !== "cycleLight") {
+      return;
+    }
+
+    this.activeLightState = cycleLight(this.activeLightState);
+    const result =
+      this.activeLightState === "off"
+        ? this.session.clearFlashlight()
+        : this.session.selectFlashlight(`flashlight_${this.activeLightState}`);
+    this.setStatus(result.status);
+    this.applyHeldFlashlightTint();
+    this.syncFlashlightCoverage();
+    this.syncVisualState();
+  }
+
+  /**
+   * 覆盖面随莱米(每帧 update + 换色时调): 圆心 = 莱米当前位置 + config 偏移(flashlightCoverage);
+   * fragmentsInCoverage 决定覆盖面内(排除已在拼接盘上的)哪些碎片以当前灯色显色。覆盖集合或灯色
+   * 变化才走 Session 重显色 — 进圈显色、出圈/灭灯立即复灰(取代已删的一次性全场显色)。
+   */
+  private syncFlashlightCoverage(): void {
+    const coverage = this.config?.flashlightCoverage;
+    const anchor = this.lemmyAnchorNode;
+    if (
+      !this.session ||
+      !coverage ||
+      !anchor ||
+      !this.flashlightAcquired ||
+      this.activeLightState === "off"
+    ) {
+      this.hideCoverageBeam();
+      return;
+    }
+
+    const center = {
+      x: anchor.position.x + coverage.centerOffsetX,
+      y: anchor.position.y + coverage.centerOffsetY
+    };
+    const covered = fragmentsInCoverage(center, coverage.radius, this.collectCoverageCandidates());
+    const stateKey = `${this.activeLightState}:${covered.join(",")}`;
+    if (stateKey !== this.coverageStateKey) {
+      this.coverageStateKey = stateKey;
+      this.session.clearObservedFragmentColors();
+      if (covered.length > 0) {
+        // persistent: 显色由覆盖面成员关系决定(出圈经上面的 clear 复灰), 不靠 2s 计时过期。
+        this.session.revealFragments(covered, { persistent: true });
+      }
+      this.syncVisualState();
+    }
+
+    this.redrawCoverageBeam(center, coverage.radius);
+  }
+
+  /** 覆盖面候选: 9 拼片的实时位置 + 是否在拼接盘上(已放槽/弱吸附在证据/位于盘圆内 → 光束不照)。 */
+  private collectCoverageCandidates(): CoverageFragment[] {
+    if (!this.layout || !this.session) {
+      return [];
+    }
+
+    const candidates: CoverageFragment[] = [];
+    for (const fragment of this.layout.fragments) {
+      const entry = this.greyboxNodes.get(fragment.controllerId);
+      if (!entry) {
+        continue;
+      }
+      const position = this.pointFromNodePosition(entry.node.position);
+      const view = this.session.getFragmentView(fragment.controllerId);
+      const onAssemblyBoard =
+        view.placed ||
+        this.isFragmentWeakSnappedToEvidence(fragment.controllerId) ||
+        this.isPointInsideManualTargetBoard(position);
+      candidates.push({ id: fragment.controllerId, pos: position, onTray: onAssemblyBoard });
+    }
+    return candidates;
+  }
+
+  private isFragmentWeakSnappedToEvidence(fragmentId: string): boolean {
+    for (const fragmentIds of this.weakSnappedFragmentsByEvidence.values()) {
+      if (fragmentIds.includes(fragmentId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** 光池节点(Graphics)挂 greybox 根; 手电交接时创建, 仅 flashlightAcquired 且灯亮时显示。 */
+  private ensureCoverageBeamNode(): void {
+    if (this.coverageBeamNode || !this.greyboxRoot || !this.layout) {
+      return;
+    }
+
+    const beamNode = new Node("M01LemmyCoverageLightPool");
+    this.greyboxRoot.addChild(beamNode);
+    beamNode.setPosition(0, 0, 0);
+    beamNode
+      .addComponent(UITransform)
+      .setContentSize(this.layout.canvas.width, this.layout.canvas.height);
+    this.coverageBeamGraphics = beamNode.addComponent(Graphics);
+    beamNode.active = false;
+    this.coverageBeamNode = beamNode;
+  }
+
+  private hideCoverageBeam(): void {
+    if (this.coverageBeamNode?.active) {
+      this.coverageBeamNode.active = false;
+    }
+    this.coverageDrawKey = undefined;
+    this.coverageStateKey = undefined;
+  }
+
+  /**
+   * 重绘光池(灯色或圆心变化才清画): 贴地扁椭圆, 宽 = 覆盖半径; 顶边经 coveragePoolHalfHeight
+   * 钳制 — 与拼接盘横向重叠时压到盘下缘以下(spec: 光束只照候选区, 不照拼接盘; 钳到 0 则整池不画)。
+   */
+  private redrawCoverageBeam(center: M01GreyboxPoint, radius: number): void {
+    const beamNode = this.coverageBeamNode;
+    const graphics = this.coverageBeamGraphics;
+    const lightState = this.activeLightState;
+    if (!beamNode || !graphics || !this.layout || lightState === "off") {
+      return;
+    }
+
+    const drawKey = `${lightState}:${Math.round(center.x)}:${Math.round(center.y)}`;
+    if (drawKey === this.coverageDrawKey && beamNode.active) {
+      return;
+    }
+    this.coverageDrawKey = drawKey;
+    beamNode.active = true;
+
+    const board = this.layout.board;
+    const halfHeight = coveragePoolHalfHeight({
+      center,
+      radiusX: radius,
+      naturalHalfHeight: radius * COVERAGE_POOL_SQUASH,
+      board: {
+        x: board.position.x,
+        y: board.position.y,
+        width: board.size.width,
+        height: board.size.height
+      },
+      clearance: COVERAGE_POOL_BOARD_CLEARANCE
+    });
+
+    graphics.clear();
+    if (halfHeight <= 0) {
+      return; // 光池任何画法都会蹭到拼接盘 → 宁可整池不画(光不照盘是硬规则)
+    }
+
+    const [r, g, b] = M01_BEAM_RGB[lightState];
+    graphics.lineWidth = 0;
+    graphics.strokeColor = new Color(0, 0, 0, 0);
+    graphics.fillColor = new Color(r, g, b, COVERAGE_POOL_OUTER_ALPHA);
+    this.traceCoveragePool(graphics, center, radius, halfHeight);
+    graphics.fill();
+    graphics.fillColor = new Color(r, g, b, COVERAGE_POOL_INNER_ALPHA);
+    this.traceCoveragePool(
+      graphics,
+      center,
+      radius * COVERAGE_POOL_INNER_SCALE,
+      halfHeight * COVERAGE_POOL_INNER_SCALE
+    );
+    graphics.fill();
+  }
+
+  /** Graphics 没有椭圆 API → 多边形逼近贴地光池。 */
+  private traceCoveragePool(
+    graphics: Graphics,
+    center: M01GreyboxPoint,
+    radiusX: number,
+    halfHeight: number
+  ): void {
+    graphics.moveTo(center.x + radiusX, center.y);
+    for (let i = 1; i < COVERAGE_POOL_SEGMENTS; i += 1) {
+      const angle = (Math.PI * 2 * i) / COVERAGE_POOL_SEGMENTS;
+      graphics.lineTo(
+        center.x + Math.cos(angle) * radiusX,
+        center.y + Math.sin(angle) * halfHeight
+      );
+    }
+    graphics.close();
+  }
+
+  /** 手电体按灯态着色(亮=对应灯色, 灭=还原白), 给"点手电循环"即时可见反馈。 */
+  private applyHeldFlashlightTint(): void {
+    const flashlightNode = this.lemmyFlashlightNode;
+    if (!flashlightNode) {
+      return;
+    }
+
+    const sprite =
+      flashlightNode.getComponent(Sprite) ??
+      flashlightNode.children
+        .map((child) => child.getComponent(Sprite))
+        .find((childSprite) => childSprite !== null) ??
+      null;
+    if (!sprite) {
+      return;
+    }
+
+    const lightState = this.activeLightState;
+    if (lightState === "off") {
+      sprite.color = new Color(255, 255, 255, 255);
+      return;
+    }
+    const [r, g, b] = M01_BEAM_RGB[lightState];
+    sprite.color = new Color(r, g, b, 255);
+  }
+
+  /**
+   * 灭灯统一出口(点拼片拾取 / 完成收尾): 灯态归 off、手电体复白、收光池, 并清 Session 激活
+   * 手电色与所有候选碎片的观察显色(spec §5.2 点拼片=拾取且手电灭)。
+   */
   private suspendFlashlightObservation(): void {
+    this.activeLightState = "off";
+    this.applyHeldFlashlightTint();
+    this.hideCoverageBeam();
     this.session?.clearFlashlight();
     this.syncVisualState();
   }
@@ -1797,6 +2092,10 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.session || !this.layout || this.layout.evidence.length === 0) {
       return;
     }
+    // 双门控(与 beginTokenDrag 同一对闩): 底光整体验证属正式拼接判定, 落堆稳定且手电到手才触发。
+    if (!(this.physicsSettled && this.flashlightAcquired)) {
+      return;
+    }
 
     const allEvidenceStaged = this.session.areAllEvidenceStaged();
     if (!allEvidenceStaged) {
@@ -1910,7 +2209,8 @@ export class M01GreyboxBootstrap extends Component {
     const card = this.session.getLastToolCard();
     if (card) {
       this.setFeedback("");
-      this.session.clearFlashlight();
+      // 完成收尾灭灯走统一出口(灯态/手电体/光池/Session 显色一起收), 不再单清 Session。
+      this.suspendFlashlightObservation();
       if (this.hintButtonRoot) {
         this.hintButtonRoot.active = false;
       }

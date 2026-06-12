@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  coveragePoolHalfHeight,
   cycleLight,
   fragmentsInCoverage,
   type LightState
@@ -42,5 +43,57 @@ describe("M01 flashlight coverage hit-test", () => {
 
   it("recomputes from the beam center, so moving Lemmy changes which candidates light up", () => {
     expect(fragmentsInCoverage({ x: 200, y: 0 }, 50, fragments)).toEqual(["c"]);
+  });
+});
+
+describe("M01 coverage-pool board exclusion (spec §5.2: 光束只照候选区, 不照拼接盘)", () => {
+  // M01 stage facts: assembly board circle at (-60, 0) with 430px bounding box → bottom edge -215;
+  // the beam pool centers near the fragment ground line (~y -242).
+  const board = { x: -60, y: 0, width: 430, height: 430 };
+
+  it("keeps the natural pool height when the pool is horizontally clear of the board", () => {
+    const half = coveragePoolHalfHeight({
+      center: { x: 400, y: -242 },
+      radiusX: 140,
+      naturalHalfHeight: 48,
+      board,
+      clearance: 6
+    });
+    expect(half).toBe(48);
+  });
+
+  it("clamps the pool top below the board bottom edge when their x-spans overlap", () => {
+    const half = coveragePoolHalfHeight({
+      center: { x: -60, y: -242 },
+      radiusX: 140,
+      naturalHalfHeight: 48,
+      board,
+      clearance: 6
+    });
+    // board bottom (-215) - clearance (6) - center (-242) = 21 → pool never touches the board.
+    expect(half).toBe(21);
+    expect(-242 + half).toBeLessThanOrEqual(-215 - 6);
+  });
+
+  it("does not grow the pool when the natural height already clears the board", () => {
+    const half = coveragePoolHalfHeight({
+      center: { x: -60, y: -242 },
+      radiusX: 140,
+      naturalHalfHeight: 10,
+      board,
+      clearance: 6
+    });
+    expect(half).toBe(10);
+  });
+
+  it("suppresses the pool entirely when the center would sit at or above the board bottom", () => {
+    const half = coveragePoolHalfHeight({
+      center: { x: -60, y: -210 },
+      radiusX: 140,
+      naturalHalfHeight: 48,
+      board,
+      clearance: 6
+    });
+    expect(half).toBe(0);
   });
 });
