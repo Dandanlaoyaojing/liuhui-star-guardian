@@ -901,10 +901,38 @@
         "type": "entity_animate",
         "params": {
           "entityId": "entity_memory_gear",
-          "animation": "turn"
+          "animation": "turn",
+          "turns": 2,
+          "turns_comment": "齿轮整转圈数(修复起手)"
         },
         "duration": 2.5,
-        "delay": 0
+        "duration_comment": "齿轮转动秒数",
+        "delay": 0,
+        "delay_comment": "相对修复动画开始的延迟秒数"
+      },
+      {
+        "type": "fragments_spiral_out",
+        "params": {
+          "radius": 320,
+          "radius_comment": "碎片漩涡喷出终半径(px, 以拼接盘心为圆心)",
+          "turnsDeg": 540,
+          "turnsDeg_comment": "喷出途中每片自旋总角度(漩涡感)"
+        },
+        "duration": 1.6,
+        "duration_comment": "喷出飞行秒数",
+        "delay": 0.6,
+        "delay_comment": "齿轮先转 0.6s 后碎片才喷出"
+      },
+      {
+        "type": "starlight",
+        "params": {
+          "pulses": 3,
+          "pulses_comment": "星光常亮前的脉冲次数"
+        },
+        "duration": 2.0,
+        "duration_comment": "化星光段秒数",
+        "delay": 2.2,
+        "delay_comment": "喷出结束(0.6+1.6)后接星光"
       }
     ]
   },

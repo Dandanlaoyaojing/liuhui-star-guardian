@@ -86,7 +86,10 @@ export type RepairStepType =
   | "entity_animate"
   | "audio_play"
   | "screen_flash"
-  | "text_show";
+  | "text_show"
+  // M01 修复动画(spec §5.2, 2026-06-08): 碎片漩涡状喷出 / 化为持续星光(M01RepairSequence 编排)。
+  | "fragments_spiral_out"
+  | "starlight";
 
 export interface RepairStepDef {
   type: RepairStepType;
@@ -150,7 +153,9 @@ const repairStepTypes: readonly RepairStepType[] = [
   "entity_animate",
   "audio_play",
   "screen_flash",
-  "text_show"
+  "text_show",
+  "fragments_spiral_out",
+  "starlight"
 ];
 
 export function validatePuzzleConfig(value: unknown): ValidationResult<PuzzleConfig> {
