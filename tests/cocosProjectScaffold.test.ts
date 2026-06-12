@@ -698,6 +698,10 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toMatch(/timeline\.total \* 1000\s*\)\s*\);/);
     // 清理: onDestroy 收掉修复动画定时器(防场景销毁后残留回调)。
     expect(bootstrap).toContain("this.clearRepairSequenceTimeouts()");
+    // 输入锁(codex P2): 动画窗内 拖拼片/点手电循环/重复验证 全部封住, 防玩家和喷出 tween 打架。
+    const repairLockHits = bootstrap.split("this.repairSequencePlaying").length - 1;
+    expect(repairLockHits).toBeGreaterThanOrEqual(6); // 字段+置位/复位+三处输入闸
+    expect(bootstrap).toMatch(/!\(this\.physicsSettled && this\.flashlightAcquired\) \|\| this\.repairSequencePlaying/);
   });
 
   it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, double gating", () => {

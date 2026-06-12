@@ -1357,6 +1357,10 @@ export class M01GreyboxBootstrap extends Component {
     if (token.kind === "fragment" && !(this.physicsSettled && this.flashlightAcquired)) {
       return;
     }
+    // 修复动画播放窗内锁输入(codex P2): 不许把刚验证的拼片拖走和喷出 tween 打架。
+    if (this.repairSequencePlaying) {
+      return;
+    }
 
     const position = this.eventToLocalPoint(event);
     this.activeDragNode = node;
@@ -1494,8 +1498,8 @@ export class M01GreyboxBootstrap extends Component {
    * red/yellow/blue 映射 Session.selectFlashlight(flashlight_<color>), off 走 clearFlashlight()。
    */
   private handleHeldFlashlightTap(): void {
-    if (!this.session) {
-      return;
+    if (!this.session || this.repairSequencePlaying) {
+      return; // 修复动画窗内不再循环灯色(codex P2 输入锁)
     }
 
     const action = routeTap(
@@ -2104,7 +2108,8 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
     // 双门控(与 beginTokenDrag 同一对闩): 底光整体验证属正式拼接判定, 落堆稳定且手电到手才触发。
-    if (!(this.physicsSettled && this.flashlightAcquired)) {
+    // 修复动画窗内也不再触发(codex P2 输入锁: 防动画期间重复验证)。
+    if (!(this.physicsSettled && this.flashlightAcquired) || this.repairSequencePlaying) {
       return;
     }
 
