@@ -13,8 +13,10 @@ export const LEMMY_CLEAN_MASTER_PATH =
 // reach_up_right + 引擎走路)已废弃删除——现在有了对齐原图的足量帧(见 source-videos/README)。
 export type LemmyFrameActionId =
   | "idle" | "walk" | "reach" | "startle" | "crouch"
+  // reachmiss(2026-06-08): 伸手够篮【够不着】教学 beat —— 踮脚伸够两次落空、耳朵耷拉失望、回站。
+  | "reachmiss"
   // 2026-06-08 耳后贴系列(惊扰→顶篮): 收耳(立→后贴) / 耳后贴 idle / 耳后贴走 / 跳起顶篮 / 展耳(后贴→立)。
-  // 统一缩放对齐 idle 躯干宽(身高略矮),固定机位无忽大忽小;见 skill jimeng / project_sprite_size_consistency_methodology。
+  // 渲染缩放见各动作 renderScale(逐帧/ramp 补回源姿势身高差, 脚底锚定, 接缝恒 404)。
   | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup";
 /** Any Lemmy action id. (All actions are frame sequences now.) */
 export type LemmyActionId = LemmyFrameActionId;
@@ -201,6 +203,14 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     loop: false,
     holdLast: true,
     events: [{ frameIndex: 23, event: "reach_contact" }]
+  },
+  // reachmiss 够不着(2026-06-08, spec §5.2 教学 beat): 踮脚伸手够两次→落空→耳朵耷拉失望→回站。
+  // 无 events(够不着=零接触, 篮子纹丝不动); 即梦 frames2video 首尾双锁生成, arc 抽帧(统一缩放保高度弧)。
+  reachmiss: {
+    dir: "art/characters/lemmy/reachmiss",
+    fps: 18,
+    loop: false,
+    holdLast: true
   },
   startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true },

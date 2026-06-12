@@ -25,8 +25,8 @@ describe("LemmyActor identity constants", () => {
   });
 });
 
-describe("Lemmy frame actions (10 frame-based: 5 base + 耳后贴系列)", () => {
-  it("registers all ten; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
+describe("Lemmy frame actions (11 frame-based: 5 base + reachmiss + 耳后贴系列)", () => {
+  it("registers all eleven; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
     expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual([
       "crouch",
       "earsback",
@@ -35,6 +35,7 @@ describe("Lemmy frame actions (10 frame-based: 5 base + 耳后贴系列)", () =>
       "idle",
       "idleback",
       "reach",
+      "reachmiss",
       "startle",
       "walk",
       "walkback"
@@ -217,7 +218,7 @@ describe("lemmyRenderScaleAt (逐动作渲染缩放, ramp 按帧插值)", () => 
   });
 
   it("non-ear actions carry no renderScale (idle/walk/reach/startle/crouch 不缩放)", () => {
-    for (const id of ["idle", "walk", "reach", "startle", "crouch"] as const) {
+    for (const id of ["idle", "walk", "reach", "reachmiss", "startle", "crouch"] as const) {
       expect(LEMMY_FRAME_ACTIONS[id].renderScale).toBeUndefined();
     }
   });

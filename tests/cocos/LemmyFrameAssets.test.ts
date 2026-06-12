@@ -22,6 +22,7 @@ const FRAME_ACTIONS = [
   { action: "idle", frameCount: 24 },
   { action: "walk", frameCount: 48 },
   { action: "reach", frameCount: 36 },
+  { action: "reachmiss", frameCount: 40 },
   { action: "startle", frameCount: 29 },
   { action: "crouch", frameCount: 40 },
   // 耳后贴系列 (2026-06-08): 单周期循环 + 统一缩放对齐 idle 躯干宽; headbutt 跳跃模式保留腾空。

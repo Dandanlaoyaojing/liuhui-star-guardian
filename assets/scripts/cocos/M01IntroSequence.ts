@@ -114,7 +114,6 @@ const LEMMY_BASKET_REACH_X = 230; // 不在篮下点篮: 莱米走到这个"靠�
 // 点地走向篮下时(目的地在 under 容差区内)莱米在【到位前 FOLD_LEAD 处】就收耳 → 耳后贴走完最后一段进篮下,
 // 而非到了才收耳(2026-06-08 用户现场: "靠近篮子就收耳, 不是要撞篮才收")。走出 under 区则抬耳复原。
 const HEADBUTT_FOLD_LEAD_X = 70;
-const BASKET_GENTLE_NUDGE_KICK = 70; // 轻碰篮底的链尾小冲击(px/s; 同一软绳物理, 劲远小于顶篮 600)
 // 注: 起跳全靠 headbutt 帧自身腾空(jump_mode 抽帧已保留脚离地), 不再叠引擎纵移(否则=多一次原地跳)。
 // 顶篮冲量(2026-06-08 用户现场两轮: 先 200→130 仍"太大", 再降到【原始 200/95/45/220 的 1/10】=
 // 20/10/5/22 —— 拼片只被轻轻向上一推就靠重力落出, 不再大力崩飞)。
@@ -233,7 +232,15 @@ export class M01IntroSequence extends Component {
     void this.lemmyReady.then(() => {
       const actor = this.lemmyActor;
       if (!actor) return;
-      for (const id of ["earsback", "headbutt", "idleback", "walkback", "startle", "crouch"] as const) {
+      for (const id of [
+        "earsback",
+        "headbutt",
+        "idleback",
+        "walkback",
+        "startle",
+        "crouch",
+        "reachmiss"
+      ] as const) {
         void actor.preloadFrames(id);
       }
     });
@@ -642,9 +649,9 @@ export class M01IntroSequence extends Component {
       return;
     }
     if (this.phase !== "roaming") return;
-    // 位置判定(2026-06-08 用户现场): 莱米在篮正下方(玩家已点地走过去)→ 顶篮; 否则 → 走近够篮只轻晃。
+    // 位置判定: 莱米在篮正下方(玩家已点地走过去)→ 顶篮; 否则 → 走近伸手够、够不着(教学 beat)。
     if (this.isLemmyUnderBasket()) void this.beginHeadbutt();
-    else void this.beginBasketReachNudge();
+    else void this.beginBasketReachMiss();
   }
 
   /** 某个 stage x 是否落在篮子正下方容差区(顶篮判定 + 走近自动收耳共用同一判定, 二者对齐)。 */
@@ -658,11 +665,11 @@ export class M01IntroSequence extends Component {
   }
 
   /**
-   * 不在篮下点篮(2026-06-08 用户现场): 莱米走【近】篮子(到 REACH_X, 不进正下方)→ 伸手够篮底边(reach)→
-   * 触到那刻篮子轻轻晃一下(gentleNudge, 柔, 不顶)。不改相位(仍 roaming)、不收耳、不顶篮——
-   * 只有玩家点地把莱米走到篮下再点篮才顶。headbuttInProgress 复用为"篮子交互占用"防重入。
+   * 不在篮下点篮 = 教学 beat(spec §5.2 ②): 莱米走【近】篮子(到 REACH_X, 不进正下方)→ 踮脚伸手够
+   * 两次——【够不着】(reachmiss 帧: 伸够→落空→耳朵耷拉失望→回站)→ 篮子【纹丝不动】(暗示得换个办法:
+   * 走到正下方用头顶)。不改相位(仍 roaming)、不收耳、不顶篮。headbuttInProgress 复用为防重入。
    */
-  private async beginBasketReachNudge(): Promise<void> {
+  private async beginBasketReachMiss(): Promise<void> {
     if (!this.lemmyActor || this.headbuttInProgress) return;
     this.headbuttInProgress = true;
     try {
@@ -672,27 +679,13 @@ export class M01IntroSequence extends Component {
       await actor.walkTo(new Vec3(LEMMY_BASKET_REACH_X, LEMMY_Y, 0), {
         durationMs: walkSegmentMs(startX, LEMMY_BASKET_REACH_X)
       });
-      // 伸手够篮底边, 触到(reach_contact @ #23)→ 篮子轻晃
-      await actor.playFrameAction("reach", {
-        onEvent: (e) => {
-          if (e === "reach_contact") this.gentleNudgeBasket();
-        }
-      });
-      actor.playIdle(); // 收手回待机
+      await actor.playFrameAction("reachmiss"); // 够不着: 无接触事件、篮子零运动
+      actor.playIdle(); // 失望收手回待机
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     } finally {
       this.headbuttInProgress = false;
     }
-  }
-
-  /** 轻碰篮底: 给链尾一记很小的冲击 → 篮子被软绳拽着轻轻荡两下自收(同一物理, 只是劲小)。 */
-  private gentleNudgeBasket(): void {
-    const rope = this.rope;
-    if (!rope) return;
-    const lemmyX = this.lemmyActor?.node.position.x ?? BASKET_X;
-    const side = lemmyX <= BASKET_X ? 1 : -1; // 从莱米那侧被碰 → 往反方向轻荡
-    kickTail(rope, side * BASKET_GENTLE_NUDGE_KICK, BASKET_GENTLE_NUDGE_KICK * 0.4, ROPE_OPTS.substepDt);
   }
 
   /** Lemmy auto-walks in from offscreen, stops on stage, then hands control to the player (roaming). */

@@ -83,3 +83,7 @@ python3 .claude/skills/jimeng-video-to-sprite-frames/scripts/extract-frames.py \
 
 ## 发行平台
 iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给足(复杂动作可多抽)。
+
+## reachmiss(2026-06-08, 伸手够不着教学 beat)
+- `lemmy-reachmiss-source.mp4`: frames2video 首尾双锁 `lemmy-firstframe-pencil-white.png`(pencil 已烘, 抽帧后**跳过**描边脚本), prompt 动作段=踮脚伸手够两次够不到、放下手耳朵微耷拉失望、回站。
+- 抽帧: `extract-frames-arc.py <mp4> lemmy-rabbit-canonical-pencil.png <out> reachmiss 40 0.08 0.96`(统一缩放保高度弧, 站姿躯干实测 102-103% idle、脚底 490)。
