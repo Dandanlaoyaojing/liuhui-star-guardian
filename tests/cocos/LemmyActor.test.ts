@@ -256,3 +256,32 @@ describe("lemmyRenderScaleAt (逐动作渲染缩放, ramp 按帧插值)", () => 
     );
   });
 });
+
+describe("renderScale 逐帧曲线 (earsback/earsup, codex High 修复守卫)", () => {
+  it("array 形态: 越界夹到末端, 空数组回退 1", () => {
+    expect(lemmyRenderScaleAt([1.1, 1.2, 1.3], 99, 3)).toBe(1.3);
+    expect(lemmyRenderScaleAt([1.1, 1.2, 1.3], -1, 3)).toBe(1.1);
+    expect(lemmyRenderScaleAt([], 0, 0)).toBe(1);
+  });
+
+  it("曲线长度与盘上帧数一致 (重抽帧后必须重测重定曲线)", () => {
+    const { readdirSync } = require("node:fs") as typeof import("node:fs");
+    const { join } = require("node:path") as typeof import("node:path");
+    const root = join(process.cwd(), "assets/resources/art/characters/lemmy");
+    for (const action of ["earsback", "earsup"] as const) {
+      const curve = LEMMY_FRAME_ACTIONS[action].renderScale;
+      expect(Array.isArray(curve)).toBe(true);
+      const pngs = readdirSync(join(root, action)).filter((f: string) => f.endsWith(".png"));
+      expect((curve as ReadonlyArray<number>).length).toBe(pngs.length);
+    }
+  });
+
+  it("曲线平滑: 帧间变化 ≤5% (防量具伪影直灌曲线造成尺寸脉冲)", () => {
+    for (const action of ["earsback", "earsup"] as const) {
+      const curve = LEMMY_FRAME_ACTIONS[action].renderScale as ReadonlyArray<number>;
+      for (let i = 1; i < curve.length; i += 1) {
+        expect(Math.abs(curve[i] - curve[i - 1]) / curve[i - 1]).toBeLessThanOrEqual(0.05);
+      }
+    }
+  });
+});

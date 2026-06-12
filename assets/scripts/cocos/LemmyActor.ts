@@ -77,8 +77,12 @@ export class LemmyActor extends Component {
   private readonly frameCache = new Map<LemmyFrameActionId, SpriteFrame[]>();
   private framePlayback: LemmyFramePlaybackState | null = null;
   private framePlaybackFrames: SpriteFrame[] = [];
-  /** 当前动作的渲染缩放(number 恒定 / {from,to} 按帧 ramp / undefined=1), 每帧经 showFrame 应用。 */
-  private framePlaybackRenderScale: number | { from: number; to: number } | undefined;
+  /** 当前动作的渲染缩放(number 恒定 / {from,to} ramp / number[] 逐帧曲线 / undefined=1), 每帧经 showFrame 应用。 */
+  private framePlaybackRenderScale:
+    | number
+    | { from: number; to: number }
+    | ReadonlyArray<number>
+    | undefined;
   private framePlaybackToken: LemmyActionToken | null = null;
   private framePlaybackOnEvent: ((event: LemmyActorEvent) => void) | null = null;
   // events clamped to the actually-loaded frame count (an out-of-range beat fires on the

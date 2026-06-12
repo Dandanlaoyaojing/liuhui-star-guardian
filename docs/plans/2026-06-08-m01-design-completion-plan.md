@@ -50,7 +50,7 @@
 
 ## Task D: 绳子动态真实化(研究→统一重做)
 
-**Files:** Create `assets/scripts/cocos/M01RopePhysics.ts`(纯)、Test `tests/cocos/M01RopePhysics.test.ts`、Modify `assets/scripts/cocos/M01IntroSequence.ts`(删 basketSusp* 2D 钟摆+视觉链双系统 → 单链)
+**Files:** Create `assets/scripts/cocos/M01RopePhysics.ts`(纯)、Test `tests/cocos/M01RopePhysics.test.ts`、Modify `assets/scripts/cocos/M01IntroSequence.ts`(删 basketSusp* 2D 钟摆+视觉链双系统 → 单链)、Modify `tests/cocosProjectScaffold.test.ts`(它断言 intro 源码含 BASKET_KICK_STRENGTH/spawnBasketRope 及钟摆时代注释语境——保符号名不改名, 语境断言随实现更新)。旋钮去向:**保留** BASKET_KICK_STRENGTH(竖直踢)+ 新增 BASKET_KICK_LATERAL_PER_PX(侧向=莱米偏心物理来源);**删** BASKET_GRAVITY / BASKET_AIR_DAMPING / basketSusp*(被链模型吸收;H1 死符号 grep 全列入)
 
 - [ ] D1 研究:WebSearch「Cut the Rope rope physics verlet」「2d rope verlet distance constraint heavy tail mass」等,拿到业界做法(预期:Verlet 链+质量加权约束,**重物=链末端粒子**,而非两套系统)。要点记进本文件附录。
 - [ ] D2 失败测试(纯):静置收敛到绳长悬垂;kickTail 后回落、x 振荡衰减(被绳拽着乱晃→渐停);头端钉死;长仿真无 NaN;质量加权(篮重→绳点让位)。
@@ -61,7 +61,7 @@
 
 **Files:** 抽帧→`assets/resources/art/characters/lemmy/reachmiss/`(512²+meta);Modify contract(加 `reachmiss`)、`M01IntroSequence.ts`(beginBasketReachNudge→beginBasketReachMiss:走近→reachmiss→idle,**篮子零运动**,删 gentleNudgeBasket+WOBBLE 常量+reach_contact 消费)、tests(scaffold/IntroFlow 相应断言)
 
-- [ ] E1 抽帧:弧线动作 → `extract-frames-arc.py`/bodynorm【站姿首帧躯干基准·统一缩放】对齐 idle 躯干 131、脚底锚定(skill「保持大小一致·进阶」);**跳过描边脚本**(pencil 已烘);512² 压缩+meta(参照既有 5 套;Cocos 断线 → meta 手建同模板,用户 Play 时注册)。
+- [ ] E1 抽帧:弧线动作 → `extract-frames-arc.py`/bodynorm【站姿首帧躯干基准·统一缩放】对齐 idle 躯干 131、脚底锚定(skill「保持大小一致·进阶」);**跳过描边脚本**(pencil 已烘);512² 压缩;meta 按既有 5 套已验证模式手建——**每文件 uuidgen 全新 uuid(严禁复制模板 uuid:重复 uuid 腐蚀 asset DB)**、512²+trimType none;编辑器下次启动 reimport 接管(2026-06-03 计划「不手写假 meta」在此按 5 套先例有意反转,已知代价=用户 Play 前不可见)。同步把 reachmiss 加进 `tests/cocos/LemmyFrameAssets.test.ts` 固定动作清单(否则 meta/orphan 守卫静默跳过新目录)。
 - [ ] E2 量化验收:站姿首/末帧躯干≈131±3、脚底行≈490、与 idle 等高并排目检 contact-sheet。
 - [ ] E3 接线+删旧 nudge;contract `reachmiss {fps≈18, loop:false, holdLast:true}` 无 events;reach 动作与其 contract 事件保留(他处暂无消费,合同稳定)。
 - [ ] E4 typecheck+全测绿;自审+codex;commit `feat(m01): 伸手够不着教学 beat(即梦 reachmiss 帧), 篮子不动`。
@@ -70,15 +70,15 @@
 
 **Files:** 按 2026-06-03 计划:`M01GreyboxSession/Layout/Drag/Art/Bootstrap` + 相应测试;intro 衔接:`M01GreyboxBootstrap.init` 传 `onFlashlightAcquired` → 置 `flashlightAcquired` + 起 beam。
 
-- [ ] F1 Task8 删两套旧路径+Session.clearFlashlight(按符号名清单,TDD:先写 clearFlashlight 失败测试);同步全部受影响测试;typecheck+全测绿;commit。
+- [ ] F1 Task8 删两套旧路径+【新增】Session.clearFlashlight(灭态;今日 Session 尚无此法。按符号名清单,TDD:先写 clearFlashlight 失败测试);同步全部受影响测试;typecheck+全测绿;commit。
 - [ ] F2 Task9 新接线:beam/覆盖面锚莱米(Task6 fragmentsInCoverage)、routeTap(Task7)分派 点手电循环/点地 walkTo/点拼片拾取+灭灯、`physicsSettled && flashlightAcquired` 双门控(只门控拼接侧);覆盖面半径等数值若 config 缺 → 按 puzzle-configs 规则补 config+comment;typecheck+全测绿;commit。
 - [ ] F3 Task10 逐拍核验 spec §5.2(B 回写后版本)+ 旧路径不可达断言;自审(code-reviewer subagent,本里程碑最大)+codex;commit。
 
 ## Task G: 修复动画 v1(齿轮转+碎片漩涡+星光)
 
-**Files:** Modify `M01GreyboxBootstrap.ts`(completed→repairSequence:大螺母节点旋转 tween + solution 拼片螺旋收束 tween + 底光/glow 脉冲);数值入 config `repair`(已有 dict,执行时读结构,缺则补+comment);Test:repair 编排纯函数(时序表)单测。
+**Files:** Create `assets/scripts/cocos/M01RepairSequence.ts`(纯时序编排, 仿 M01IntroFlow/M01RopePhysics 模式——Bootstrap 3629 行含 cc 不可直接 vitest)、Test `tests/cocos/M01RepairSequence.test.ts`、Modify `M01GreyboxBootstrap.ts`(completed→驱动时序)。**方向按 spec §5.2 修复动画原文:齿轮转动 → 碎片以漩涡状【喷出】→ 化为持续星光(不是收束!)**;镜头拉远无相机系统 → 省略并在汇报明示(电影化留后续美术轮, spec 不动)。数值入 config `repair`(执行时读结构,缺则补+comment)。
 
-- [ ] G1 读 config.repair 现结构;写时序纯函数+失败测试 → 实现 → 绿。
+- [ ] G1 读 config.repair 现结构;M01RepairSequence.ts 时序纯函数(齿轮转/喷出/星光各 phase 的 t→指令)+失败测试 → 实现 → 绿。
 - [ ] G2 bootstrap 接 completed → 播放;不做镜头拉远(无相机系统,YAGNI;spec 全量电影化留后续美术轮,汇报明示)。
 - [ ] G3 自审+codex;commit `feat(m01): 修复动画 v1(齿轮转动+碎片漩涡收束+星光脉冲)`。
 

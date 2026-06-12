@@ -141,28 +141,52 @@ export interface LemmyFrameActionSpec {
   events?: ReadonlyArray<LemmyFrameEvent>;
   /**
    * 渲染缩放(治"收耳后变小", 2026-06-08): 折耳族源姿势更胖更矮(站姿去耳身高仅 idle 的 ~75%),
-   * 引擎渲染时按此放大补回, 配合 LemmyActor 的脚底锚定 → 各动作接缝处显示身体高恒等 idle(404)。
-   * number = 整段恒定; {from,to} = 按帧序线性渐变(earsback/earsup 源内身体渐缩/渐胀, 必须 ramp 保两端接缝)。
-   * 缺省 = 1.0(不缩放)。数值依据 scripts/lemmy-measure-framesets.py 实测; 任何帧集重抽后必须重测重定。
+   * 引擎渲染时按此放大补回, 配合 LemmyActor 的脚底锚定 → 显示身体高全程恒等 idle(404)。
+   * number = 整段恒定; {from,to} = 线性渐变(headbutt: 蹲跳压缩是真实动作, 只校两端接缝);
+   * number[] = 逐帧曲线(earsback/earsup: 源内身体非线性渐缩, 线性 ramp 中段会瘪 ~14% —— codex 审出)。
+   * 缺省 = 1.0。数值依据 scripts/lemmy-measure-framesets.py 实测; 任何帧集重抽后必须重测重定。
    */
-  renderScale?: number | { from: number; to: number };
+  renderScale?: number | { from: number; to: number } | ReadonlyArray<number>;
 }
 
 /**
- * 某动作第 frameIndex 帧的渲染缩放。ramp 按 [0, frameCount-1] 线性插值, 越界帧夹到端点;
- * 单帧序列取 to(动作的"完成态")。LemmyActor 每帧据此 setContentSize + 脚底锚定。
+ * 某动作第 frameIndex 帧的渲染缩放。数组=逐帧查表(越界夹到末端); ramp 按 [0, frameCount-1]
+ * 线性插值, 单帧序列取 to(动作的"完成态")。LemmyActor 每帧据此 setContentSize + 脚底锚定。
  */
 export function lemmyRenderScaleAt(
-  scale: number | { from: number; to: number } | undefined,
+  scale: number | { from: number; to: number } | ReadonlyArray<number> | undefined,
   frameIndex: number,
   frameCount: number
 ): number {
   if (scale === undefined) return 1;
   if (typeof scale === "number") return scale;
-  if (frameCount <= 1) return scale.to;
+  if (Array.isArray(scale)) {
+    if (scale.length === 0) return 1;
+    return scale[Math.min(Math.max(0, frameIndex), scale.length - 1)];
+  }
+  const ramp = scale as { from: number; to: number };
+  if (frameCount <= 1) return ramp.to;
   const t = Math.min(1, Math.max(0, frameIndex / (frameCount - 1)));
-  return scale.from + (scale.to - scale.from) * t;
+  return ramp.from + (ramp.to - ramp.from) * t;
 }
+
+// 折耳/展耳的逐帧缩放曲线(2026-06-08): 量具(35% 行宽阈值找颅顶)在【耳翻越段】有换挡伪影
+// (earsback f17→18 耳摊平后阈值从颅顶跳到耳顶, bodyH 305→341 而 totH 平滑 385→369), 直接用
+// 原始逐帧值会人为制造 ~10% 尺寸脉冲 → 改用可信锚点分段拟合: 量具可信段用实测, 翻越段平滑桥接。
+// earsback 锚点: f0=1.0(直立=idle) → f17=1.325(折叠完成) → f39=1.342(稳态); 最大帧间变化 1.9%。
+const EARSBACK_SCALE_CURVE: ReadonlyArray<number> = [
+  1.0, 1.019, 1.038, 1.057, 1.076, 1.096, 1.115, 1.134, 1.153, 1.172,
+  1.191, 1.21, 1.229, 1.249, 1.268, 1.287, 1.306, 1.325, 1.326, 1.327,
+  1.327, 1.328, 1.329, 1.33, 1.33, 1.331, 1.332, 1.333, 1.333, 1.334,
+  1.335, 1.336, 1.337, 1.337, 1.338, 1.339, 1.34, 1.34, 1.341, 1.342
+];
+// earsup 锚点: f0-10 实测(折耳稳态) → f10-23 桥接(耳竖起翻越段) → f23-37 实测(立耳段平滑落回 idle)。
+const EARSUP_SCALE_CURVE: ReadonlyArray<number> = [
+  1.333, 1.333, 1.333, 1.329, 1.329, 1.325, 1.32, 1.312, 1.312, 1.307,
+  1.307, 1.3, 1.294, 1.287, 1.281, 1.274, 1.267, 1.261, 1.254, 1.247,
+  1.241, 1.234, 1.228, 1.221, 1.221, 1.213, 1.199, 1.199, 1.181, 1.168,
+  1.168, 1.141, 1.128, 1.128, 1.11, 1.095, 1.086, 1.036
+];
 
 // fps 是观感参数,可在引擎内微调;帧数见 assets/art/characters/lemmy/source-videos/README。
 export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpec> = {
@@ -191,7 +215,7 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     fps: 24,
     loop: false,
     holdLast: true,
-    renderScale: { from: 1.0, to: 1.342 }
+    renderScale: EARSBACK_SCALE_CURVE
   },
   // idleback 耳后贴待机, 单呼吸周期循环 (48帧@24fps=2.0s, 与 idle 同呼吸节奏)。
   idleback: {
@@ -228,7 +252,7 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     fps: 24,
     loop: false,
     holdLast: true,
-    renderScale: { from: 1.333, to: 1.036 }
+    renderScale: EARSUP_SCALE_CURVE
   }
 };
 
