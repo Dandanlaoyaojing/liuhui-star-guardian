@@ -139,6 +139,29 @@ export interface LemmyFrameActionSpec {
   holdLast: boolean;
   /** frame-indexed gameplay beats (e.g. reach apex → reach_contact). */
   events?: ReadonlyArray<LemmyFrameEvent>;
+  /**
+   * 渲染缩放(治"收耳后变小", 2026-06-08): 折耳族源姿势更胖更矮(站姿去耳身高仅 idle 的 ~75%),
+   * 引擎渲染时按此放大补回, 配合 LemmyActor 的脚底锚定 → 各动作接缝处显示身体高恒等 idle(404)。
+   * number = 整段恒定; {from,to} = 按帧序线性渐变(earsback/earsup 源内身体渐缩/渐胀, 必须 ramp 保两端接缝)。
+   * 缺省 = 1.0(不缩放)。数值依据 scripts/lemmy-measure-framesets.py 实测; 任何帧集重抽后必须重测重定。
+   */
+  renderScale?: number | { from: number; to: number };
+}
+
+/**
+ * 某动作第 frameIndex 帧的渲染缩放。ramp 按 [0, frameCount-1] 线性插值, 越界帧夹到端点;
+ * 单帧序列取 to(动作的"完成态")。LemmyActor 每帧据此 setContentSize + 脚底锚定。
+ */
+export function lemmyRenderScaleAt(
+  scale: number | { from: number; to: number } | undefined,
+  frameIndex: number,
+  frameCount: number
+): number {
+  if (scale === undefined) return 1;
+  if (typeof scale === "number") return scale;
+  if (frameCount <= 1) return scale.to;
+  const t = Math.min(1, Math.max(0, frameIndex / (frameCount - 1)));
+  return scale.from + (scale.to - scale.from) * t;
 }
 
 // fps 是观感参数,可在引擎内微调;帧数见 assets/art/characters/lemmy/source-videos/README。
@@ -158,12 +181,34 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true },
   // ── 耳后贴系列(2026-06-08) ── 统一缩放对齐 idle 躯干宽; fps 是观感参数, 引擎内可微调。
+  // renderScale: 折耳族源站姿身体只有 idle 的 ~75%(404 vs ~302), 渲染放大补回(实测见 measure 脚本):
+  // earsback 首帧≈idle(402)末帧 301 → ramp 1.0→1.342; idleback/walkback 302 恒 → 1.338;
+  // earsup 反向 303→390 → ramp 1.333→1.036; headbutt 284→269(含起跳落地) → ramp 1.423→1.502。
+  // 不变量: 每个接缝两侧【显示身体高】恒 ≈404(LemmyActor.test「治忽大忽小」断言守卫)。
   // earsback 收耳(立→后贴), 一次性 hold-last。
-  earsback: { dir: "art/characters/lemmy/earsback", fps: 24, loop: false, holdLast: true },
+  earsback: {
+    dir: "art/characters/lemmy/earsback",
+    fps: 24,
+    loop: false,
+    holdLast: true,
+    renderScale: { from: 1.0, to: 1.342 }
+  },
   // idleback 耳后贴待机, 单呼吸周期循环 (48帧@24fps=2.0s, 与 idle 同呼吸节奏)。
-  idleback: { dir: "art/characters/lemmy/idleback", fps: 24, loop: true, holdLast: false },
+  idleback: {
+    dir: "art/characters/lemmy/idleback",
+    fps: 24,
+    loop: true,
+    holdLast: false,
+    renderScale: 1.338
+  },
   // walkback 耳后贴走, 单步循环 (28帧@35fps=0.8s/步)。朝左原生, 朝右 scaleX=-1。
-  walkback: { dir: "art/characters/lemmy/walkback", fps: 35, loop: true, holdLast: false },
+  walkback: {
+    dir: "art/characters/lemmy/walkback",
+    fps: 35,
+    loop: true,
+    holdLast: false,
+    renderScale: 1.338
+  },
   // headbutt 蹲地→起跳顶篮底→落 (124帧, 跳跃模式抽帧已保留腾空)。
   // ⚠️ contact 帧 = 头【在上升段初次触到篮底】那刻, 不是头停在篮底的峰值、更不是脚离地最高那刻:
   // 逐帧测头顶 Y —— #60=165 → #63=112 → #66=87 → #72=77(到顶, 之后一直贴篮底到 #96), 脚离地最高在 #81。
@@ -174,10 +219,17 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     fps: 40,
     loop: false,
     holdLast: true,
-    events: [{ frameIndex: 66, event: "headbutt_contact" }]
+    events: [{ frameIndex: 66, event: "headbutt_contact" }],
+    renderScale: { from: 1.423, to: 1.502 }
   },
   // earsup 展耳(后贴→立, 复原), 一次性 hold-last。
-  earsup: { dir: "art/characters/lemmy/earsup", fps: 24, loop: false, holdLast: true }
+  earsup: {
+    dir: "art/characters/lemmy/earsup",
+    fps: 24,
+    loop: false,
+    holdLast: true,
+    renderScale: { from: 1.333, to: 1.036 }
+  }
 };
 
 export interface LemmyFramePlaybackState {

@@ -18,6 +18,7 @@ import {
   createLemmyCancellationContext,
   frameEventsBetween,
   isExpectedLemmyActionCancel,
+  lemmyRenderScaleAt,
   type LemmyActionToken,
   type LemmyActorEvent,
   type LemmyFrameActionId,
@@ -60,6 +61,9 @@ const DEFAULT_WALK_DURATION_MS = 2000;
 // 定妆图(canonical)是紧贴兔子的裁剪; 运行时帧是 512² 画布、兔子占约 84% 高。把定妆图按此系数
 // 缩小, 让初始站姿尺寸与帧动画一致(canonical 只在 walk 前短暂显示, idle 帧一播即接管)。
 const CANONICAL_FIT_SCALE = 0.854;
+// 全部运行时帧集的脚底行恒在 512² 画布的 y=490(measure 脚本实测, 各集一致)。renderScale 放大时
+// 以脚底为锚(精灵子节点上移补偿), 否则绕中心放大会让脚穿进地面。
+const LEMMY_FRAME_FOOT_FRACTION = 490 / 512;
 
 const { ccclass } = _decorator;
 
@@ -73,6 +77,8 @@ export class LemmyActor extends Component {
   private readonly frameCache = new Map<LemmyFrameActionId, SpriteFrame[]>();
   private framePlayback: LemmyFramePlaybackState | null = null;
   private framePlaybackFrames: SpriteFrame[] = [];
+  /** 当前动作的渲染缩放(number 恒定 / {from,to} 按帧 ramp / undefined=1), 每帧经 showFrame 应用。 */
+  private framePlaybackRenderScale: number | { from: number; to: number } | undefined;
   private framePlaybackToken: LemmyActionToken | null = null;
   private framePlaybackOnEvent: ((event: LemmyActorEvent) => void) | null = null;
   // events clamped to the actually-loaded frame count (an out-of-range beat fires on the
@@ -223,8 +229,8 @@ export class LemmyActor extends Component {
     this.framePlaybackEvents = (LEMMY_FRAME_ACTIONS[actionId].events ?? []).map((entry) =>
       entry.frameIndex <= lastFrame ? entry : { ...entry, frameIndex: lastFrame }
     );
-    this.fitSpriteToFrame(frames[0]);
-    this.showFrame(0);
+    this.framePlaybackRenderScale = LEMMY_FRAME_ACTIONS[actionId].renderScale;
+    this.showFrame(0); // showFrame 自带按帧缩放适配(含脚底锚定)
   }
 
   private clearFramePlayback(): void {
@@ -233,6 +239,7 @@ export class LemmyActor extends Component {
     this.framePlaybackOnEvent = null;
     this.framePlaybackFrames = [];
     this.framePlaybackEvents = [];
+    this.framePlaybackRenderScale = undefined;
   }
 
   /** Stop & forget the walk position tween so an interrupted/destroyed walk stops sliding. */
@@ -243,7 +250,29 @@ export class LemmyActor extends Component {
 
   private showFrame(index: number): void {
     const frame = this.framePlaybackFrames[index];
-    if (this.sprite && frame) this.sprite.spriteFrame = frame;
+    if (!this.sprite || !frame) return;
+    // 每帧应用渲染缩放(恒定动作 = 同值幂等; ramp 动作 = 逐帧渐变), 含脚底锚定。
+    const scale = lemmyRenderScaleAt(
+      this.framePlaybackRenderScale,
+      index,
+      this.framePlaybackFrames.length
+    );
+    this.fitFramePlaybackSprite(frame, scale);
+    this.sprite.spriteFrame = frame;
+  }
+
+  /**
+   * 帧播放专用适配: 在 fitSpriteToFrame 的比例适配之上, 把精灵子节点上移
+   * (fittedH − displayH)·(FOOT_FRAC − 0.5) → 渲染放大以【脚底】为锚, 脚不穿地、头向上长。
+   * (canonical 定妆帧不走此路径: 它不是 512² 帧画布, 脚底行不同。)
+   */
+  private fitFramePlaybackSprite(frame: SpriteFrame, scale: number): void {
+    this.fitSpriteToFrame(frame, scale);
+    const box = this.sprite?.node.getComponent(UITransform);
+    if (!box || !this.spriteNode) return;
+    const liftY =
+      (box.contentSize.height - this.displaySize.height) * (LEMMY_FRAME_FOOT_FRACTION - 0.5);
+    this.spriteNode.setPosition(0, liftY, 0);
   }
 
   /** Mirror the sprite horizontally. Walk frames face left, so flip=true makes Lemmy face right. */
