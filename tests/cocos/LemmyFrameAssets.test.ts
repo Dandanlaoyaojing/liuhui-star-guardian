@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -23,12 +23,13 @@ const FRAME_ACTIONS = [
   { action: "walk", frameCount: 48 },
   { action: "reach", frameCount: 36 },
   { action: "reachmiss", frameCount: 40 },
+  { action: "headshake", frameCount: 15 }, // 即梦 v9 正脸左右摇头(2026-06-17): 够不着的"不行"; 只留第一次摇(截掉第二次); 转脸因平面正脸/立体侧脸几何不自洽鬼影→砍
   { action: "startle", frameCount: 29 },
   { action: "crouch", frameCount: 40 },
   // 耳后贴系列 (2026-06-08): 单周期循环 + 统一缩放对齐 idle 躯干宽; headbutt 跳跃模式保留腾空。
   { action: "earsback", frameCount: 40 },
-  { action: "idleback", frameCount: 48 },
-  { action: "walkback", frameCount: 28 },
+  { action: "idleback", frameCount: 19 }, // 2026-06-17 去重: 原48帧含27重复/held帧→19独立帧·相位闭合(fps 24→10)
+  { action: "walkback", frameCount: 12 }, // 2026-06-17 去重: 原28帧过采样含重复端点→12独立帧·相位闭合(fps 35→15)
   { action: "earsup", frameCount: 38 },
   { action: "headbutt", frameCount: 124 }
 ] as const;
@@ -36,9 +37,20 @@ const FRAME_ACTIONS = [
 describe("Lemmy frame-sequence assets (idle / walk / reach / startle / crouch / 耳后贴系列)", () => {
   for (const { action, frameCount } of FRAME_ACTIONS) {
     describe(action, () => {
+      const dir = join(LEMMY_FRAME_ROOT, action);
+      // 缺帧目录 → 该动作单条优雅报红, 不让 readdirSync 在收集期抛异常崩掉整个 guard 文件
+      // (否则一个动作缺失会让其余所有动作都无法验证)。
+      if (!existsSync(dir)) {
+        it(`has a frame directory at ${action}/`, () => {
+          throw new Error(
+            `missing frame dir: ${dir} — 抽帧到该目录, 或从 FRAME_ACTIONS 移除 "${action}"`
+          );
+        });
+        return;
+      }
       // >99 帧的动作用 3 位补零, 否则 loadDir 的字符串排序会把 "100" 排到 "99" 前面 → 帧乱序。
       const pad = Math.max(2, String(frameCount - 1).length);
-      const files = readdirSync(join(LEMMY_FRAME_ROOT, action));
+      const files = readdirSync(dir);
       const framePattern = new RegExp(`^${action}-(\\d{${pad}})\\.png$`);
       const frames = files.filter((name) => framePattern.test(name)).sort();
 

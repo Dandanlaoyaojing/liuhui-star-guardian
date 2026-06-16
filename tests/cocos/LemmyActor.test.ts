@@ -26,12 +26,13 @@ describe("LemmyActor identity constants", () => {
 });
 
 describe("Lemmy frame actions (11 frame-based: 5 base + reachmiss + 耳后贴系列)", () => {
-  it("registers all eleven; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
+  it("registers all twelve; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
     expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual([
       "crouch",
       "earsback",
       "earsup",
       "headbutt",
+      "headshake",
       "idle",
       "idleback",
       "reach",
@@ -49,7 +50,7 @@ describe("Lemmy frame actions (11 frame-based: 5 base + reachmiss + 耳后贴系
       expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: true, holdLast: false });
     }
     // 一次性反应/转换(够篮/受惊/蹲/收耳/展耳/顶篮): loop false, hold-last 停末帧。
-    for (const id of ["reach", "startle", "crouch", "earsback", "earsup", "headbutt"] as const) {
+    for (const id of ["reach", "startle", "crouch", "earsback", "earsup", "headbutt", "headshake"] as const) {
       expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: false, holdLast: true });
     }
   });
@@ -178,26 +179,11 @@ describe("Lemmy frame playback (pure)", () => {
   });
 });
 
-// ── 渲染缩放(治"收耳后变小", 2026-06-08) ──────────────────────────────────────────
-// 实测站姿去耳身体高(scripts/lemmy-measure-framesets.py, 2026-06-08): 各接缝端点帧。
-// 折耳族源姿势更胖更矮(≈75%), 等比缩放在引擎渲染时补回, 接缝处显示身体高必须恒等 idle。
-const IDLE_BODY_H = 404;
-const MEASURED_BODY_H = {
-  earsbackStart: 402,
-  earsbackEnd: 301,
-  idleback: 302,
-  walkback: 302,
-  earsupStart: 303,
-  earsupEnd: 390,
-  headbuttStart: 284,
-  headbuttEnd: 269
-} as const;
-
-const displayedBody = (bodyH: number, scale: number): number => bodyH * scale;
-const expectSeam = (bodyH: number, scale: number): void => {
-  const shown = displayedBody(bodyH, scale);
-  expect(Math.abs(shown - IDLE_BODY_H) / IDLE_BODY_H).toBeLessThan(0.015);
-};
+// ── 渲染缩放: 当前全部动作【不设】renderScale ──────────────────────────────────────
+// 2026-06-15 修「走到篮下变大」: LemmyActor.fitSpriteToFrame 的 contain 适配已把每帧裁剪框
+// (竖长 → 高度受限)归一到 displayH, 再乘 renderScale = 整体超调 34~50%。各帧脚底恒 y≈490、
+// 源帧本就等比, 不需要逐动作缩放。旧测试守的是"身体像素高×renderScale≈404"(自洽标定, 与运行时
+// contain 渲染无关 → 测试绿而画面错), 已删。守卫改为: 任何动作都不得带 renderScale(见下)。
 
 describe("lemmyRenderScaleAt (逐动作渲染缩放, ramp 按帧插值)", () => {
   it("defaults to 1 when unset; constant number applies across all frames", () => {
@@ -217,72 +203,19 @@ describe("lemmyRenderScaleAt (逐动作渲染缩放, ramp 按帧插值)", () => 
     expect(lemmyRenderScaleAt({ from: 1.2, to: 1.4 }, 0, 1)).toBeCloseTo(1.4, 5); // 单帧取 to
   });
 
-  it("non-ear actions carry no renderScale (idle/walk/reach/startle/crouch 不缩放)", () => {
-    for (const id of ["idle", "walk", "reach", "reachmiss", "startle", "crouch"] as const) {
+  it("NO action carries renderScale — contain 适配已归一, 折耳族不得再放大(治走到篮下变大)", () => {
+    for (const id of Object.keys(LEMMY_FRAME_ACTIONS) as LemmyActionId[]) {
       expect(LEMMY_FRAME_ACTIONS[id].renderScale).toBeUndefined();
     }
   });
-
-  it("every transition seam shows the SAME body height as idle (404±1.5%) — 治忽大忽小的核心不变量", () => {
-    const acts = LEMMY_FRAME_ACTIONS;
-    // idle → earsback 首帧(源本就≈idle, 缩放≈1)
-    expectSeam(
-      MEASURED_BODY_H.earsbackStart,
-      lemmyRenderScaleAt(acts.earsback.renderScale, 0, 40)
-    );
-    // earsback 末帧 → idleback / walkback(折耳态全程恒 404)
-    expectSeam(
-      MEASURED_BODY_H.earsbackEnd,
-      lemmyRenderScaleAt(acts.earsback.renderScale, 39, 40)
-    );
-    expectSeam(MEASURED_BODY_H.idleback, lemmyRenderScaleAt(acts.idleback.renderScale, 0, 48));
-    expectSeam(MEASURED_BODY_H.walkback, lemmyRenderScaleAt(acts.walkback.renderScale, 0, 28));
-    // idleback → headbutt 首帧, headbutt 末帧 → idleback
-    expectSeam(
-      MEASURED_BODY_H.headbuttStart,
-      lemmyRenderScaleAt(acts.headbutt.renderScale, 0, 124)
-    );
-    expectSeam(
-      MEASURED_BODY_H.headbuttEnd,
-      lemmyRenderScaleAt(acts.headbutt.renderScale, 123, 124)
-    );
-    // idleback → earsup 首帧, earsup 末帧 → idle
-    expectSeam(
-      MEASURED_BODY_H.earsupStart,
-      lemmyRenderScaleAt(acts.earsup.renderScale, 0, 38)
-    );
-    expectSeam(
-      MEASURED_BODY_H.earsupEnd,
-      lemmyRenderScaleAt(acts.earsup.renderScale, 37, 38)
-    );
-  });
 });
 
-describe("renderScale 逐帧曲线 (earsback/earsup, codex High 修复守卫)", () => {
-  it("array 形态: 越界夹到末端, 空数组回退 1", () => {
+// lemmyRenderScaleAt 仍是工具函数(showFrame 每帧调用, 当前所有动作传 undefined → 恒返回 1)。
+// 数组/越界处理保留单测, 以便日后若按身体高重启逐帧缩放时函数行为可靠。
+describe("lemmyRenderScaleAt array 形态 (工具函数; 当前无动作使用)", () => {
+  it("越界夹到末端, 空数组回退 1", () => {
     expect(lemmyRenderScaleAt([1.1, 1.2, 1.3], 99, 3)).toBe(1.3);
     expect(lemmyRenderScaleAt([1.1, 1.2, 1.3], -1, 3)).toBe(1.1);
     expect(lemmyRenderScaleAt([], 0, 0)).toBe(1);
-  });
-
-  it("曲线长度与盘上帧数一致 (重抽帧后必须重测重定曲线)", () => {
-    const { readdirSync } = require("node:fs") as typeof import("node:fs");
-    const { join } = require("node:path") as typeof import("node:path");
-    const root = join(process.cwd(), "assets/resources/art/characters/lemmy");
-    for (const action of ["earsback", "earsup"] as const) {
-      const curve = LEMMY_FRAME_ACTIONS[action].renderScale;
-      expect(Array.isArray(curve)).toBe(true);
-      const pngs = readdirSync(join(root, action)).filter((f: string) => f.endsWith(".png"));
-      expect((curve as ReadonlyArray<number>).length).toBe(pngs.length);
-    }
-  });
-
-  it("曲线平滑: 帧间变化 ≤5% (防量具伪影直灌曲线造成尺寸脉冲)", () => {
-    for (const action of ["earsback", "earsup"] as const) {
-      const curve = LEMMY_FRAME_ACTIONS[action].renderScale as ReadonlyArray<number>;
-      for (let i = 1; i < curve.length; i += 1) {
-        expect(Math.abs(curve[i] - curve[i - 1]) / curve[i - 1]).toBeLessThanOrEqual(0.05);
-      }
-    }
   });
 });

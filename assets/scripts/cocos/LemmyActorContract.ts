@@ -14,7 +14,10 @@ export const LEMMY_CLEAN_MASTER_PATH =
 export type LemmyFrameActionId =
   | "idle" | "walk" | "reach" | "startle" | "crouch"
   // reachmiss(2026-06-08): 伸手够篮【够不着】教学 beat —— 踮脚伸够两次落空、耳朵耷拉失望、回站。
+  // (2026-06-16 弃用: 用户嫌不好看, 改回 reach 伸手 + headshake 摇头; 帧集留盘上可切回)
   | "reachmiss"
+  // headshake(2026-06-16, 即梦生成): 够不着后的"不行"轻轻摇头, 身体静止只头动; 接在 reach 之后。
+  | "headshake"
   // 2026-06-08 耳后贴系列(惊扰→顶篮): 收耳(立→后贴) / 耳后贴 idle / 耳后贴走 / 跳起顶篮 / 展耳(后贴→立)。
   // 渲染缩放见各动作 renderScale(逐帧/ramp 补回源姿势身高差, 脚底锚定, 接缝恒 404)。
   | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup";
@@ -142,11 +145,15 @@ export interface LemmyFrameActionSpec {
   /** frame-indexed gameplay beats (e.g. reach apex → reach_contact). */
   events?: ReadonlyArray<LemmyFrameEvent>;
   /**
-   * 渲染缩放(治"收耳后变小", 2026-06-08): 折耳族源姿势更胖更矮(站姿去耳身高仅 idle 的 ~75%),
-   * 引擎渲染时按此放大补回, 配合 LemmyActor 的脚底锚定 → 显示身体高全程恒等 idle(404)。
-   * number = 整段恒定; {from,to} = 线性渐变(headbutt: 蹲跳压缩是真实动作, 只校两端接缝);
-   * number[] = 逐帧曲线(earsback/earsup: 源内身体非线性渐缩, 线性 ramp 中段会瘪 ~14% —— codex 审出)。
-   * 缺省 = 1.0。数值依据 scripts/lemmy-measure-framesets.py 实测; 任何帧集重抽后必须重测重定。
+   * 渲染缩放(可选; ⚠️ 当前全部动作均【不设】= 1.0)。
+   * 2026-06-15 修「走到篮下变大」根因: 曾给折耳族设 1.34~1.5 想"补回更矮的源姿势", 但
+   * LemmyActor.fitSpriteToFrame 的 "contain" 适配【已经】把每帧裁剪框(alpha 包围盒, 各帧实测均竖长,
+   * 高度受限)归一到 displayH —— 于是 renderScale 是在已归一的渲染高上再乘一遍, 折耳族整体被放大
+   * 34~50%(idleback 1.338 / headbutt 1.502)。各动作脚底行恒在 512² 画布 y≈490(measure 脚本实测),
+   * 源帧本就脚底对齐+等比, 不需要逐动作缩放。旧测试守的是"身体像素高×renderScale≈404"(自洽标定),
+   * 与运行时 contain 渲染无关, 所以测试恒绿而画面恒错。
+   * 字段保留: 若日后要让"去耳身体高"严格恒等(竖耳姿势自然更高), 应在 LemmyActor 按【身体高】锚定,
+   * 而非整框乘系数。number = 整段恒定; {from,to} = 线性渐变; number[] = 逐帧查表。
    */
   renderScale?: number | { from: number; to: number } | ReadonlyArray<number>;
 }
@@ -172,24 +179,6 @@ export function lemmyRenderScaleAt(
   return ramp.from + (ramp.to - ramp.from) * t;
 }
 
-// 折耳/展耳的逐帧缩放曲线(2026-06-08): 量具(35% 行宽阈值找颅顶)在【耳翻越段】有换挡伪影
-// (earsback f17→18 耳摊平后阈值从颅顶跳到耳顶, bodyH 305→341 而 totH 平滑 385→369), 直接用
-// 原始逐帧值会人为制造 ~10% 尺寸脉冲 → 改用可信锚点分段拟合: 量具可信段用实测, 翻越段平滑桥接。
-// earsback 锚点: f0=1.0(直立=idle) → f17=1.325(折叠完成) → f39=1.342(稳态); 最大帧间变化 1.9%。
-const EARSBACK_SCALE_CURVE: ReadonlyArray<number> = [
-  1.0, 1.019, 1.038, 1.057, 1.076, 1.096, 1.115, 1.134, 1.153, 1.172,
-  1.191, 1.21, 1.229, 1.249, 1.268, 1.287, 1.306, 1.325, 1.326, 1.327,
-  1.327, 1.328, 1.329, 1.33, 1.33, 1.331, 1.332, 1.333, 1.333, 1.334,
-  1.335, 1.336, 1.337, 1.337, 1.338, 1.339, 1.34, 1.34, 1.341, 1.342
-];
-// earsup 锚点: f0-10 实测(折耳稳态) → f10-23 桥接(耳竖起翻越段) → f23-37 实测(立耳段平滑落回 idle)。
-const EARSUP_SCALE_CURVE: ReadonlyArray<number> = [
-  1.333, 1.333, 1.333, 1.329, 1.329, 1.325, 1.32, 1.312, 1.312, 1.307,
-  1.307, 1.3, 1.294, 1.287, 1.281, 1.274, 1.267, 1.261, 1.254, 1.247,
-  1.241, 1.234, 1.228, 1.221, 1.221, 1.213, 1.199, 1.199, 1.181, 1.168,
-  1.168, 1.141, 1.128, 1.128, 1.11, 1.095, 1.086, 1.036
-];
-
 // fps 是观感参数,可在引擎内微调;帧数见 assets/art/characters/lemmy/source-videos/README。
 export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpec> = {
   idle: { dir: "art/characters/lemmy/idle", fps: 12, loop: true, holdLast: false },
@@ -212,36 +201,42 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     loop: false,
     holdLast: true
   },
+  // headshake 轻轻摇头(2026-06-16, 即梦生成): 够不着后的"不行"小手势, 一次性 hold-last。
+  // 源帧身体/脚静止、只头左右摆(实测 foot_x 恒定、head_x 摆动); 躯干131/脚底490 与 idle 同基准。
+  headshake: {
+    dir: "art/characters/lemmy/headshake",
+    fps: 8, // 2026-06-17 摇头放慢(20→12→8; 28帧≈3.5s); 嫌快/慢再调
+    loop: false,
+    holdLast: true
+  },
   startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true },
-  // ── 耳后贴系列(2026-06-08) ── 统一缩放对齐 idle 躯干宽; fps 是观感参数, 引擎内可微调。
-  // renderScale: 折耳族源站姿身体只有 idle 的 ~75%(404 vs ~302), 渲染放大补回(实测见 measure 脚本):
-  // earsback 首帧≈idle(402)末帧 301 → ramp 1.0→1.342; idleback/walkback 302 恒 → 1.338;
-  // earsup 反向 303→390 → ramp 1.333→1.036; headbutt 284→269(含起跳落地) → ramp 1.423→1.502。
-  // 不变量: 每个接缝两侧【显示身体高】恒 ≈404(LemmyActor.test「治忽大忽小」断言守卫)。
+  // ── 耳后贴系列(2026-06-08) ── fps 是观感参数, 引擎内可微调。
+  // ⚠️ 不设 renderScale(2026-06-15 修「走到篮下变大」): fitSpriteToFrame 的 contain 适配已把每帧
+  //    裁剪框归一到 displayH, 再乘系数 = 整体超调 34~50%(详见上方 renderScale 字段注释)。
   // earsback 收耳(立→后贴), 一次性 hold-last。
   earsback: {
     dir: "art/characters/lemmy/earsback",
     fps: 24,
     loop: false,
-    holdLast: true,
-    renderScale: EARSBACK_SCALE_CURVE
+    holdLast: true
   },
-  // idleback 耳后贴待机, 单呼吸周期循环 (48帧@24fps=2.0s, 与 idle 同呼吸节奏)。
+  // idleback 耳后贴待机, 单呼吸周期循环 (19帧@10fps≈1.9s, 与 idle 同呼吸节奏)。
+  // 2026-06-17 去重: 即梦源有效帧率低, 原48帧含27个重复/held帧 → 去重为19独立帧并旋转到相位闭合
+  // (尾→首≈邻帧,无接缝跳), fps 24→10 保时长。帧数运行时数 loadDir, 改这里只需同步 fps。
   idleback: {
     dir: "art/characters/lemmy/idleback",
-    fps: 24,
+    fps: 10,
     loop: true,
-    holdLast: false,
-    renderScale: 1.338
+    holdLast: false
   },
-  // walkback 耳后贴走, 单步循环 (28帧@35fps=0.8s/步)。朝左原生, 朝右 scaleX=-1。
+  // walkback 耳后贴走, 单步循环 (12帧@15fps=0.8s/步)。朝左原生, 朝右 scaleX=-1。
+  // 2026-06-17 去重: 原28帧过采样(0.46s窗口抽28帧)含重复端点+16重复帧 → 12独立帧相位闭合, fps 35→15。
   walkback: {
     dir: "art/characters/lemmy/walkback",
-    fps: 35,
+    fps: 15,
     loop: true,
-    holdLast: false,
-    renderScale: 1.338
+    holdLast: false
   },
   // headbutt 蹲地→起跳顶篮底→落 (124帧, 跳跃模式抽帧已保留腾空)。
   // ⚠️ contact 帧 = 头【在上升段初次触到篮底】那刻, 不是头停在篮底的峰值、更不是脚离地最高那刻:
@@ -253,16 +248,14 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     fps: 40,
     loop: false,
     holdLast: true,
-    events: [{ frameIndex: 66, event: "headbutt_contact" }],
-    renderScale: { from: 1.423, to: 1.502 }
+    events: [{ frameIndex: 66, event: "headbutt_contact" }]
   },
   // earsup 展耳(后贴→立, 复原), 一次性 hold-last。
   earsup: {
     dir: "art/characters/lemmy/earsup",
     fps: 24,
     loop: false,
-    holdLast: true,
-    renderScale: EARSUP_SCALE_CURVE
+    holdLast: true
   }
 };
 

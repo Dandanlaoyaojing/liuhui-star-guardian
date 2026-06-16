@@ -6,6 +6,7 @@ import {
   EventTouch,
   Graphics,
   Node,
+  Rect,
   RigidBody2D,
   ERigidBody2DType,
   Sprite,
@@ -149,11 +150,20 @@ const FLASHLIGHT_TAP_MIN = 44;
 // (invMass 远小于绳点)。顶篮 kickTail → 链松弛甩动 → 回落绷紧瞬间径向被吸收(不可拉伸·非弹簧·不回弹)、
 // 切向保留 → 篮子被绳拽住乱晃、渐收。篮子靠节点位移跟随链尾(内胆/拼片自然跟随, 不引刚体→无脱节)。
 const ROPE_POINTS = 12; // 绳链粒子数(含两端); 越多越柔
-const ROPE_WIDTH = 9; // 单股吊带线宽(px); 原吊带共 ~18px=两股各 ~9
-// 两股吊带: 钉子处汇聚(offset 0)、篮子【两耳打结处】分开 ±此。实测原图吊带接在篮心 ±约 99 显示px
-// 处(原图 1586px 中两带在 y545 接篮于 img x426/1148=中心±361 → ×433/1586≈±99)。同链渲两次, 横向偏移。
-const STRAP_HALF_WIDTH = 99;
-const ROPE_COLOR = new Color(196, 148, 74, 255); // 琥珀(原绳 hue~37.7); live 可调
+const ROPE_WIDTH = 9; // 描边回退线宽(px); 仅贴图未到时用
+// 吊绳接篮点 = 篮沿上【打结处】(绳缠绕系在篮沿的结), 不是更外侧的篮耳圆环(用户: "接打结的地方, 不是篮子耳朵")。
+// 相对 basketNode 中心的偏移(px, y-up)。量自 m01-basket-hanging-empty.png(整图 1586×992 trimType none → 满图映射
+// 到 DISPLAY_SIZE): 左结 px(335,628)、右结 px(1205,625), 图心(793,496); 偏移 = (knotX-793, 496-knotY)×0.273。
+// 右结落在 local x≈473(<480 画布边内, 之前的篮耳 499 在边外→那半根绳被裁掉看不见)。可 live 微调对准结。
+// 绳头落在【打结处第一道横向缠绳的上沿】(不是结心、更不是外侧篮耳环): 比结心高 ~6px → 两股都更短。
+// 左股再往内收(x 减小)→ 收口角度更立(用户: 左边太往外, 向内靠篮); 右股角度本就合适, x 不动。
+const BASKET_KNOT_LEFT = { x: -108, y: -29 };
+const BASKET_KNOT_RIGHT = { x: 113, y: -28 };
+const ROPE_COLOR = new Color(196, 148, 74, 255); // 琥珀(原绳 hue~37.7); 仅贴图未到时的描边回退用
+// 手绘麻花绳贴图(拧绳, 整图 204×550, 绳芯 trim 后 ~29×550)。两股吊带各一条整根贴图, 拉伸成 钉子→篮耳 一条直绳。
+const ROPE_TEXTURE_PATH =
+  "art/stage1-m01/runtime-sprites/intro/m01-rope-segment/spriteFrame";
+const ROPE_RENDER_WIDTH = 12; // 单股吊带贴图渲染宽(px); 2026-06-16 用户要求调细 1/4(16→12)。可 live 调
 const ROPE_OPTS: RopeOptions = {
   gravity: -1500, // 链重力 px/s²; 决定甩动/下垂的劲道与篮子回落速度
   damping: 0.995, // 每【子步】速度保留(120Hz 下 ≈0.55/s); 越小乱晃收得越快
@@ -168,7 +178,8 @@ const FLASHLIGHT_BONK_FALL_MS = 420; // 从篮口弧线落到莱米头顶用时
 const FLASHLIGHT_TO_GROUND_MS = 300; // 砸到后弹落到地面侧旁用时
 const FLASHLIGHT_GROUND_DX = 56; // 落地点相对莱米的横向偏移(落在脚边一侧)
 const FLASHLIGHT_HEAD_DY = 56; // 莱米头顶相对其节点中心(LEMMY_Y)的高度, startle 接触点
-const FLASHLIGHT_GROUND_Y = GROUND_Y + 24; // 手电躺在地面的 y
+const FLASHLIGHT_GROUND_Y = GROUND_Y + 10; // 手电【躺平】在地面的 y(node 中心≈地线+半个横躺厚度); 可调
+const FLASHLIGHT_LYING_ANGLE = -80; // 落地后倒下【躺平】角(deg; 旧=0 竖直站立, 不合理)。-90=纯水平; 可 live 调
 // 拾起后手电挂到莱米节点下的局部偏移(身前手位; 简化不随朝向镜像, 细化属后续打磨)。
 const HELD_FLASHLIGHT_OFFSET = { x: 20, y: 6 };
 
@@ -222,6 +233,9 @@ export class M01IntroSequence extends Component {
   // 统一软绳(M01RopePhysics): 钉子=链头(钉死)、篮子=链尾重粒子(this.node 局部坐标=世界坐标)。
   private ropeGraphics: Graphics | null = null;
   private rope: RopeState | null = null;
+  // 麻花绳贴图渲染: 两股吊带各一条【整根贴图精灵】, 每帧拉伸/旋转成 钉子→篮耳 一条直绳。
+  // 贴图异步未到时 drawRope 回退到 ropeGraphics 描边。
+  private ropeStraps: Sprite[] = [];
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
@@ -247,7 +261,8 @@ export class M01IntroSequence extends Component {
         "walkback",
         "startle",
         "crouch",
-        "reachmiss"
+        "reach",
+        "headshake"
       ] as const) {
         void actor.preloadFrames(id);
       }
@@ -408,6 +423,37 @@ export class M01IntroSequence extends Component {
     const attach = this.basketAttachPoint();
     this.rope = createRope(nail.x, nail.y, attach.x, attach.y, ROPE_POINTS, ROPE_TAIL_INV_MASS);
     this.drawRope(); // 初次静态绘制(update 每帧重绘; 先画一根防首帧空白)
+    this.loadRopeTexture(); // 异步加载麻花绳贴图 → 就位后改纹理渲染(见 loadRopeTexture / drawRope)
+  }
+
+  /**
+   * 加载麻花绳贴图, 沿高度竖切成 ROPE_POINTS-1 条条带, 给两股吊带各建一排纹理精灵(沿物理链逐段铺贴图)。
+   * 异步: 贴图到达前 drawRope 走描边回退; 到达后清掉描边、改由这些纹理精灵渲染(从此看着是拧绳)。
+   */
+  private loadRopeTexture(): void {
+    resources.load(ROPE_TEXTURE_PATH, SpriteFrame, (error, frame) => {
+      const gfx = this.ropeGraphics;
+      if (error || !frame || !frame.texture || !gfx) return;
+      const base = frame.rect; // 绳芯内容区(trim 后 ~29×550 整根麻花绳)
+      // 两股吊带各一条【整根贴图精灵】, 挂在 this.node 下; 每帧由 drawRope 拉伸/旋转成 钉子→打结处 一条直绳。
+      // ⚠️ 无头预览(playwright :7456)只画得出左股、右股不渲染 —— 是无头渲染的怪癖, 编辑器里两股都正常;
+      // 绳子的视觉(角度/长度/左右对称)只在 Cocos 编辑器里核, 别信无头截图。
+      for (let s = 0; s < 2; s += 1) {
+        const node = new Node("M01IntroRopeStrap");
+        this.node.addChild(node);
+        node.addComponent(UITransform);
+        const sprite = node.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        const rope = new SpriteFrame();
+        rope.texture = frame.texture;
+        rope.rect = new Rect(base.x, base.y, base.width, base.height);
+        rope.packable = false;
+        sprite.spriteFrame = rope;
+        this.ropeStraps.push(sprite);
+      }
+      gfx.clear(); // 纹理精灵就位 → 撤掉描边回退
+      this.drawRope();
+    });
   }
 
   /** 钉子(绳子固定端), this.node 局部坐标(= 绳子 Graphics 的绘制空间; pivot 直接 setPosition 在此)。 */
@@ -449,25 +495,48 @@ export class M01IntroSequence extends Component {
   }
 
   /**
-   * 重绘绳子为【两股吊带】(this.node 局部=世界坐标)。同一根物理链渲两次, 横向偏移 = ±STRAP_HALF_WIDTH×t
-   * (t: 0=钉子→1=篮口)→ 钉子处汇聚、篮口处分开成 V 形(像原画死的双吊带), 随链一起甩/垂/绷。
+   * 两股吊带各一条整根麻花绳贴图, 从【钉子】拉到对应【篮耳打结环】(篮耳 = basketNode 中心 + BASKET_EAR_*)。
+   * 篮子随物理链摆动 → 篮耳跟着动 → 每帧重算 钉子→篮耳 的位置/角度/长度, 绳头始终接在打结环上。
+   * 贴图异步未到 → 回退 Graphics 描边(同样两股, 钉子→篮耳; 不留空绳)。
    */
   private drawRope(): void {
-    const gfx = this.ropeGraphics;
     const rope = this.rope;
-    if (!gfx || !rope) return;
+    if (!rope) return;
     const pts = rope.pts;
-    const n = pts.length;
-    gfx.clear();
-    gfx.lineWidth = ROPE_WIDTH;
-    gfx.strokeColor = ROPE_COLOR;
-    for (const sign of [-1, 1]) {
-      gfx.moveTo(pts[0].x, pts[0].y); // 钉子端汇聚(offset 0)
-      for (let i = 1; i < n; i += 1) {
-        const t = i / (n - 1);
-        gfx.lineTo(pts[i].x + sign * STRAP_HALF_WIDTH * t, pts[i].y);
+    const nail = pts[0]; // 钉子(固定端)
+    const tail = pts[pts.length - 1]; // 链尾 = 篮子接绳点
+    const cx = tail.x; // 篮子中心(this.node 局部): 由 update 的反推, 篮心 = (tail.x, tail.y - ATTACH_OFFSET)
+    const cy = tail.y - ROPE_BASKET_ATTACH_OFFSET_Y;
+    const knots = [BASKET_KNOT_LEFT, BASKET_KNOT_RIGHT];
+
+    if (this.ropeStraps.length < 2) {
+      // 回退: 贴图还没加载好, 先用描边占位(钉子→两篮耳; 首帧不空白)。
+      const gfx = this.ropeGraphics;
+      if (!gfx) return;
+      gfx.clear();
+      gfx.lineWidth = ROPE_WIDTH;
+      gfx.strokeColor = ROPE_COLOR;
+      for (const knot of knots) {
+        gfx.moveTo(nail.x, nail.y);
+        gfx.lineTo(cx + knot.x, cy + knot.y);
+        gfx.stroke();
       }
-      gfx.stroke();
+      return;
+    }
+
+    // 贴图就位: 每股 = 一条整根绳贴图, 钉子→篮耳 拉伸成直绳。
+    for (let s = 0; s < this.ropeStraps.length; s += 1) {
+      const ex = cx + knots[s].x;
+      const ey = cy + knots[s].y;
+      const dx = ex - nail.x;
+      const dy = ey - nail.y;
+      const len = Math.hypot(dx, dy) || 1e-3;
+      const node = this.ropeStraps[s].node;
+      node.setPosition((nail.x + ex) / 2, (nail.y + ey) / 2, 0); // 钉子↔篮耳中点
+      // 局部 +Y(贴图顶)对齐钉子端: 把 (0,1) 转到 up=(nail-ear)/len → deg=atan2(dx,-dy)。
+      node.setRotationFromEuler(0, 0, (Math.atan2(dx, -dy) * 180) / Math.PI);
+      const transform = node.getComponent(UITransform);
+      if (transform) transform.setContentSize(ROPE_RENDER_WIDTH, len);
     }
   }
 
@@ -674,9 +743,10 @@ export class M01IntroSequence extends Component {
   }
 
   /**
-   * 不在篮下点篮 = 教学 beat(spec §5.2 ②): 莱米走【近】篮子(到 REACH_X, 不进正下方)→ 踮脚伸手够
-   * 两次——【够不着】(reachmiss 帧: 伸够→落空→耳朵耷拉失望→回站)→ 篮子【纹丝不动】(暗示得换个办法:
-   * 走到正下方用头顶)。不改相位(仍 roaming)、不收耳、不顶篮。headbuttInProgress 复用为防重入。
+   * 不在篮下点篮 = 教学 beat(spec §5.2 ②): 莱米走【近】篮子(到 REACH_X, 不进正下方)→ 伸手够篮
+   * (复用原 reach 伸手动作)→【够不着】→ 轻轻摇头"不行"→ 篮子【纹丝不动】(暗示得换个办法: 走到正下方用头顶)。
+   * 2026-06-16 用户现场: 换掉旧 reachmiss 帧(觉得不好看), 改回 reach 伸手 + 摇头小手势。
+   * 不改相位(仍 roaming)、不收耳、不顶篮。headbuttInProgress 复用为防重入。
    */
   private async beginBasketReachMiss(): Promise<void> {
     if (!this.lemmyActor || this.headbuttInProgress) return;
@@ -688,8 +758,10 @@ export class M01IntroSequence extends Component {
       await actor.walkTo(new Vec3(LEMMY_BASKET_REACH_X, LEMMY_Y, 0), {
         durationMs: walkSegmentMs(startX, LEMMY_BASKET_REACH_X)
       });
-      await actor.playFrameAction("reachmiss"); // 够不着: 无接触事件、篮子零运动
-      actor.playIdle(); // 失望收手回待机
+      // 伸手够篮: 朝篮子(右); 不传 onEvent → reach_contact 落空、篮子零运动(够不着)
+      await actor.playFrameAction("reach", { facing: "right" });
+      await actor.playFrameAction("headshake", { facing: "right" }); // 够不着 → 轻轻摇头"不行"(即梦帧, 身体静止只头动)
+      actor.playIdle(); // 收手回待机
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     } finally {
@@ -915,7 +987,12 @@ export class M01IntroSequence extends Component {
           if (!isExpectedLemmyActionCancel(e)) throw e;
         });
       })
-      .to(FLASHLIGHT_TO_GROUND_MS / 1000, { position: groundPos }, { easing: "bounceOut" }) // 弹落脚边
+      // 弹落脚边 + 同时倒下躺平(竖直站着不合理); eulerAngles z: 0 → 躺平角
+      .to(
+        FLASHLIGHT_TO_GROUND_MS / 1000,
+        { position: groundPos, eulerAngles: new Vec3(0, 0, FLASHLIGHT_LYING_ANGLE) },
+        { easing: "bounceOut" }
+      )
       .call(() => {
         this.advance("flashlightBonked"); // bonking → waitingPickup(手电可点)
       })
@@ -946,6 +1023,7 @@ export class M01IntroSequence extends Component {
       // cc 的 addChild 会自动从旧父节点摘下再挂新父(运行时语义), shim 只声明 addChild。
       this.lemmyActor.node.addChild(this.flashlightNode);
       this.flashlightNode.setPosition(HELD_FLASHLIGHT_OFFSET.x, HELD_FLASHLIGHT_OFFSET.y, 0);
+      this.flashlightNode.setRotationFromEuler(0, 0, 0); // 拾起后立直, 撤掉落地的躺平角
       this.advance("crouchDone"); // pickingUp → acquired
       this.lemmyActor.playIdle();
       // v4 交接: beam/覆盖面锚莱米节点; 手持手电节点供"点它循环灯色"。

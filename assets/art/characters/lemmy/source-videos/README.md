@@ -17,6 +17,8 @@
 | `lemmy-walkback-source.mp4` | **耳后贴③走路**(耳后贴迈步;单步 seg 2.47-2.93s 循环) | 28 | `…/lemmy/walkback/` |
 | `lemmy-headbutt-source.mp4` | **耳后贴④顶篮=蹲地起跳**(0.6s蹲蓄力→2.2s腾空脚离地→3.3s落;seg 0.4-3.5s) | 124 | `…/lemmy/headbutt/` |
 | `lemmy-earsup-source.mp4` | **耳后贴⑤展耳**(耳后贴→立起复原;seg 1.6-3.5s 抬耳段) | 38 | `…/lemmy/earsup/` |
+| `lemmy-nod-source.mp4` | **点头**(2026-06-16 误生成:想要左右摇头、即梦出了上下点头;留用, 说不定后面用得上) | 27 | `…/lemmy/nod/` |
+| `lemmy-headshake-source.mp4` | **正脸左右摇头="不行"**(v9 正脸定妆 frames2video 首尾双锁;够不着 beat 用;抽帧只取第一次摇·fps8) | 15 | `…/lemmy/headshake/` |
 | `lemmy-firstframe-earsback-pencil-white.png` | 耳后贴锚图(白底,frames2video 锁②③④尾) | — | — |
 | `lemmy-firstframe-white.png` | 旧首帧(**干净无描边** canonical 白底版;最早 5 套源视频用它生成) | — | — |
 | `lemmy-firstframe-pencil-white.png` | **新首帧(2026-06-07,带铅笔描边 W5 白底版)**;新动作即梦生图用它,描边烘进画面 | — | — |
@@ -87,3 +89,13 @@ iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给�
 ## reachmiss(2026-06-08, 伸手够不着教学 beat)
 - `lemmy-reachmiss-source.mp4`: frames2video 首尾双锁 `lemmy-firstframe-pencil-white.png`(pencil 已烘, 抽帧后**跳过**描边脚本), prompt 动作段=踮脚伸手够两次够不到、放下手耳朵微耷拉失望、回站。
 - 抽帧: `extract-frames-arc.py <mp4> lemmy-rabbit-canonical-pencil.png <out> reachmiss 40 0.08 0.96`(统一缩放保高度弧, 站姿躯干实测 102-103% idle、脚底 490)。
+
+## nod(2026-06-16, 误生成的点头 — 留用)
+- `lemmy-nod-source.mp4`: 本想生成"左右摇头"(submit_id `bf4041b9-b788-45d6-a993-20bb1e2c7fc6`, prompt 写了"头部左右摇"), 但**即梦理解成了上下点头**(AI 对头部俯仰/偏航常分不清)。用户判定是点头、要求改左右摇, 但**点头这套留着,说不定后面用得上**。
+- 抽帧: ffmpeg 全 242 帧 → 窗口 f-019..f-097 每 3 取 1 → `extract-frames-bodynorm.py <帧目录> lemmy-rabbit-canonical-pencil.png <out> nod 24 0 1 0.754 131`(目录模式 + uniform_torso=131 统一缩放=idle 基准)。27 帧, 躯干 132/脚底 490 与 idle 一致, 在 `…/lemmy/nod/`(未接进契约, 要用时加 `nod` 动作即可)。
+
+## headshake(2026-06-17 定稿, 够不着后的"不行"【正脸原地左右摇头】— 运行时取代 reachmiss)
+- `lemmy-headshake-source.mp4`: frames2video 首尾双锁【v9 正脸定妆】(`assets/art/style-references/lemmy-rabbit-front-canonical.png`)白底, 正脸原地左右摇头。1440²/60fps/4s。
+- 抽帧: bodynorm 目录模式 + uniform_torso=131(色彩参考用 v9 正脸定妆=不跑色), 归一脚底 490/totH≈430 与 idle 同屏高。**只取第一次摇**(head_x 中点 f14 回正处截断)→ 15 帧; contract fps 8(现场调 20→12→8)。
+- **转脸方案已放弃**: v9 正脸=平面脸、侧脸定妆=立体脸, 几何不自洽 → 即梦转头中段必生鬼眼(frames2video 形变 / multimodal2video 全能参考都试过, 后者还要 Dreamina 网页一次性内容授权)。结论: 不做转脸, reach(侧3/4)→ 切到正脸摇头 → idle。
+- 缘由链: 旧 reachmiss(踮脚两次失望)嫌不好看 → 引擎 tween 摇头=刚性整体晃被否 → 即梦只动头(第一版出成点头=见 nod)→ v9 正脸原地左右摇定稿。reachmiss 帧集留盘上可切回。

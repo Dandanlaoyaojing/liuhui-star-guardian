@@ -1035,7 +1035,10 @@ describe("Cocos Creator project scaffold", () => {
     expect(intro).toContain("isLemmyUnderBasket");
     expect(intro).toContain("LEMMY_HEADBUTT_UNDER_TOLERANCE");
     expect(intro).toContain("beginBasketReachMiss");
-    expect(intro).toContain('playFrameAction("reachmiss")'); // 够不着: 无接触事件、零篮子运动
+    // 够不着(2026-06-16 改): 复用原 reach 伸手(不挂 onEvent → reach_contact 落空、篮子零运动)+ 轻轻摇头。
+    expect(intro).toContain('playFrameAction("reach", { facing: "right" })');
+    expect(intro).toContain('playFrameAction("headshake"'); // 够不着 → 即梦摇头帧(取代旧引擎 tween)
+    expect(intro).not.toContain('playFrameAction("reachmiss")'); // 旧 reachmiss 帧弃用(用户嫌不好看)
     expect(intro).not.toContain("gentleNudgeBasket"); // 旧"够到轻晃"路径已删(篮子只在被顶时受力)
     // 手电掉落砸头(startle)→ 蹲下捡起(crouch)叙事(spec §5.2)。
     expect(intro).toContain("spawnIntroFlashlight");
