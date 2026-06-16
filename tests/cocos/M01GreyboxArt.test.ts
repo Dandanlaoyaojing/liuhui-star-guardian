@@ -1641,18 +1641,9 @@ describe("M01 greybox art slices", () => {
     const plan = buildM01GreyboxStaticArtPlan(layout);
 
     expect(plan.enabledByDefault).toBe(false);
-    expect(plan.layers).toEqual([
-      {
-        id: "singleFlashlightTool",
-        role: "flashlight_tool_surface",
-        resourcesLoadPath:
-          "art/stage1-m01/runtime-sprites/surfaces/m01-single-flashlight-tool/spriteFrame",
-        interactive: false,
-        position: { x: 360, y: 72 },
-        size: { width: 50, height: 128 },
-        rotationDegrees: 0
-      }
-    ]);
+    // 静态"大手电筒"占位(50×128 贴篮下 360,72)已删 → 手电只走 intro 掉落那支, 修复台静态层为空。
+    expect(plan.layers).toEqual([]);
+    expect(plan.layers.map((layer) => layer.id)).not.toContain("singleFlashlightTool");
     expect(plan.layers.map((layer) => layer.id)).not.toContain("targetReferenceCard");
     expect(getM01GreyboxTargetReferenceCardResource()).toBeDefined();
     expect(plan.layers.map((layer) => layer.id)).not.toContain("fragmentFloor");

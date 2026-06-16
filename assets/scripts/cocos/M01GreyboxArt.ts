@@ -8,8 +8,6 @@ import {
 import { M01_INTRO_BASKET_DISPLAY_SIZE } from "./M01IntroLayout.ts";
 import type { M01Shape } from "../levels/stage1/M01MemoryGearController.ts";
 
-const M01_SINGLE_FLASHLIGHT_TOOL_DISPLAY_SIZE = { width: 50, height: 128 };
-
 export type M01GreyboxArtSliceId =
   | "gearStar"
   | "nineSlotTray"
@@ -819,27 +817,9 @@ export function buildM01GreyboxStaticArtPlan(
   layout?: M01GreyboxLayout
 ): M01GreyboxArtPreviewPlan {
   if (layout && layout.evidence.length > 0) {
-    const singleFlashlightTool = M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find(
-      (resource) => resource.id === "single_flashlight_tool"
-    );
-    const layers: M01GreyboxArtPreviewLayer[] = [];
-
-    if (singleFlashlightTool) {
-      layers.push({
-        id: "singleFlashlightTool",
-        role: "flashlight_tool_surface",
-        resourcesLoadPath: singleFlashlightTool.resourcesLoadPath,
-        interactive: false,
-        position: { x: 360, y: 72 },
-        size: M01_SINGLE_FLASHLIGHT_TOOL_DISPLAY_SIZE,
-        rotationDegrees: 0
-      });
-    }
-
-    return {
-      enabledByDefault: false,
-      layers
-    };
+    // 旧的静态"大手电筒"占位(50×128 一直贴在篮下 360,72)已删 —— 手电只保留 intro 掉落的那支
+    // (M01IntroSequence: 顶篮后从篮里掉出→落地躺平→拾起手持)。此分支不再放任何静态手电。
+    return { enabledByDefault: false, layers: [] };
   }
 
   const tray = getM01GreyboxRuntimeTransparentResource("nineSlotTray");
