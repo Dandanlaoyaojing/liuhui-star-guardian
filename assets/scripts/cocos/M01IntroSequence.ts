@@ -178,8 +178,7 @@ const FLASHLIGHT_BONK_FALL_MS = 420; // 从篮口弧线落到莱米头顶用时
 const FLASHLIGHT_TO_GROUND_MS = 300; // 砸到后弹落到地面侧旁用时
 const FLASHLIGHT_GROUND_DX = 56; // 落地点相对莱米的横向偏移(落在脚边一侧)
 const FLASHLIGHT_HEAD_DY = 56; // 莱米头顶相对其节点中心(LEMMY_Y)的高度, startle 接触点
-const FLASHLIGHT_GROUND_Y = GROUND_Y + 10; // 手电【躺平】在地面的 y(node 中心≈地线+半个横躺厚度); 可调
-const FLASHLIGHT_LYING_ANGLE = -80; // 落地后倒下【躺平】角(deg; 旧=0 竖直站立, 不合理)。-90=纯水平; 可 live 调
+const FLASHLIGHT_GROUND_Y = GROUND_Y + 24; // 手电躺在地面的 y
 // 拾起后手电挂到莱米节点下的局部偏移(身前手位; 简化不随朝向镜像, 细化属后续打磨)。
 const HELD_FLASHLIGHT_OFFSET = { x: 20, y: 6 };
 
@@ -987,12 +986,7 @@ export class M01IntroSequence extends Component {
           if (!isExpectedLemmyActionCancel(e)) throw e;
         });
       })
-      // 弹落脚边 + 同时倒下躺平(竖直站着不合理); eulerAngles z: 0 → 躺平角
-      .to(
-        FLASHLIGHT_TO_GROUND_MS / 1000,
-        { position: groundPos, eulerAngles: new Vec3(0, 0, FLASHLIGHT_LYING_ANGLE) },
-        { easing: "bounceOut" }
-      )
+      .to(FLASHLIGHT_TO_GROUND_MS / 1000, { position: groundPos }, { easing: "bounceOut" }) // 弹落脚边
       .call(() => {
         this.advance("flashlightBonked"); // bonking → waitingPickup(手电可点)
       })
@@ -1023,7 +1017,6 @@ export class M01IntroSequence extends Component {
       // cc 的 addChild 会自动从旧父节点摘下再挂新父(运行时语义), shim 只声明 addChild。
       this.lemmyActor.node.addChild(this.flashlightNode);
       this.flashlightNode.setPosition(HELD_FLASHLIGHT_OFFSET.x, HELD_FLASHLIGHT_OFFSET.y, 0);
-      this.flashlightNode.setRotationFromEuler(0, 0, 0); // 拾起后立直, 撤掉落地的躺平角
       this.advance("crouchDone"); // pickingUp → acquired
       this.lemmyActor.playIdle();
       // v4 交接: beam/覆盖面锚莱米节点; 手持手电节点供"点它循环灯色"。
