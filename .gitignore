@@ -48,3 +48,5 @@ coverage/
 /tmp/
 # API response dumps (ideogram/luma)
 *.response.bin
+/.claude/launch.json
+docs/design/generated-stage1-intro-art/
