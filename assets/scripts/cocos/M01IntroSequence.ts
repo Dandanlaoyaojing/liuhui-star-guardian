@@ -157,8 +157,8 @@ const ROPE_WIDTH = 9; // 描边回退线宽(px); 仅贴图未到时用
 // 右结落在 local x≈473(<480 画布边内, 之前的篮耳 499 在边外→那半根绳被裁掉看不见)。可 live 微调对准结。
 // 绳头落在【打结处第一道横向缠绳的上沿】(不是结心、更不是外侧篮耳环): 比结心高 ~6px → 两股都更短。
 // 左股再往内收(x 减小)→ 收口角度更立(用户: 左边太往外, 向内靠篮); 右股角度本就合适, x 不动。
-const BASKET_KNOT_LEFT = { x: -108, y: -29 };
-const BASKET_KNOT_RIGHT = { x: 113, y: -28 };
+const BASKET_KNOT_LEFT = { x: -111, y: -27 };
+const BASKET_KNOT_RIGHT = { x: 109, y: -28 };
 const ROPE_COLOR = new Color(196, 148, 74, 255); // 琥珀(原绳 hue~37.7); 仅贴图未到时的描边回退用
 // 手绘麻花绳贴图(拧绳, 整图 204×550, 绳芯 trim 后 ~29×550)。两股吊带各一条整根贴图, 拉伸成 钉子→篮耳 一条直绳。
 const ROPE_TEXTURE_PATH =

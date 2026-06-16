@@ -106,8 +106,15 @@ declare module "cc" {
     name: string;
     /** 原始(未裁剪)尺寸,用于按真实宽高比设置 contentSize 防止变形 */
     getOriginalSize(): { width: number; height: number };
-    rect: { width: number; height: number };
+    /** 裁剪后内容区(含 x/y 偏移); 可读可写, 用底图+子 rect 切条带时需设置。 */
+    rect: Rect;
+    /** 底层贴图(整张图); 由它 + 子 rect 可切出条带 SpriteFrame。 */
+    texture: Texture2D | null;
+    /** 是否允许进动态图集; 运行时切的子帧设 false 避免打包后渲染异常。 */
+    packable: boolean;
   }
+
+  export class Texture2D {}
 
   export class JsonAsset {
     json: unknown;
@@ -165,6 +172,14 @@ declare module "cc" {
     width: number;
     height: number;
     constructor(width?: number, height?: number);
+  }
+
+  export class Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    constructor(x?: number, y?: number, width?: number, height?: number);
   }
 
   export enum ERigidBody2DType {
