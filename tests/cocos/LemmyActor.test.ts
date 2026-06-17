@@ -163,9 +163,9 @@ describe("Lemmy frame playback (pure)", () => {
   });
 
   it("steps frame-by-frame using fps before completion", () => {
-    // crouch 40 frames @ 16fps = 62.5ms/frame
+    // crouch 40 frames @ 32fps = 31.25ms/frame (2026-06-17 提速 2×)
     let state = createFramePlayback("crouch", 40);
-    state = advanceFramePlayback(state, 70);
+    state = advanceFramePlayback(state, 40);
     expect(state.frameIndex).toBe(1);
     expect(state.done).toBe(false);
   });

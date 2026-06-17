@@ -210,14 +210,14 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     holdLast: true
   },
   startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
-  crouch: { dir: "art/characters/lemmy/crouch", fps: 16, loop: false, holdLast: true },
+  crouch: { dir: "art/characters/lemmy/crouch", fps: 32, loop: false, holdLast: true }, // 2026-06-17 捡东西下蹲提速 2×(16→32)
   // ── 耳后贴系列(2026-06-08) ── fps 是观感参数, 引擎内可微调。
   // ⚠️ 不设 renderScale(2026-06-15 修「走到篮下变大」): fitSpriteToFrame 的 contain 适配已把每帧
   //    裁剪框归一到 displayH, 再乘系数 = 整体超调 34~50%(详见上方 renderScale 字段注释)。
   // earsback 收耳(立→后贴), 一次性 hold-last。
   earsback: {
     dir: "art/characters/lemmy/earsback",
-    fps: 24,
+    fps: 48, // 2026-06-17 走去篮下收耳提速 2×(24→48)
     loop: false,
     holdLast: true
   },

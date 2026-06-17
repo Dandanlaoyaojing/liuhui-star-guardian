@@ -82,7 +82,7 @@ const BASKET_X = 360;
 // Anchor the basket SPRITE bottom here (≈ the bowl bottom). Enlarging the basket
 // (M01_INTRO_BASKET_SCALE) then grows it UPWARD from this line, keeping Lemmy's
 // reach-to-the-bowl-bottom intact. (At scale 1.0 this is the old hand-tuned -61.)
-const BASKET_SPRITE_BOTTOM_Y = -182;
+const BASKET_SPRITE_BOTTOM_Y = -167; // 2026-06-17 整篮上移(原 -182→-177→-167); 篮+绳+钉+内胆全随之上移
 const BASKET_Y = BASKET_SPRITE_BOTTOM_Y + BASKET_DISPLAY.height / 2;
 
 // Basket mouth in world coords once tipped — used as a fallback drop origin
@@ -96,6 +96,16 @@ const WALK_TO_BASKET_DURATION = 7.2; // 走入前进速度再次减半(1.8→3.6
 const LEMMY_WALK_SPEED = (LEMMY_UNDER_BASKET_X - LEMMY_OFFSCREEN_X) / WALK_TO_BASKET_DURATION;
 const walkSegmentMs = (fromX: number, toX: number): number =>
   (Math.abs(toX - fromX) / LEMMY_WALK_SPEED) * 1000;
+// 频繁连点召唤提速(2026-06-17): 两次点地间隔 < WINDOW 视为"催它快来"→ 走速倍率累加(封顶), 否则回基础速。
+const WALK_BOOST_WINDOW_MS = 650; // 连点判定窗(ms); 超过则下次点回 1×
+const WALK_BOOST_STEP = 0.7; // 每次连点 +这么多倍速
+const WALK_BOOST_MAX = 3; // 倍速上限(3× = 急召)
+/** 下一次走速倍率: 距上次点地够近(连点)则 +STEP 封顶 MAX, 否则回 1×。纯函数便于测。 */
+export function nextWalkBoost(prevMult: number, msSinceLastTap: number): number {
+  return msSinceLastTap < WALK_BOOST_WINDOW_MS
+    ? Math.min(prevMult + WALK_BOOST_STEP, WALK_BOOST_MAX)
+    : 1;
+}
 // Nail sits ~105px above the basket sprite's center (sprite anchorY≈0.934 of a 242-tall display).
 // The wobble/tip pivot is placed here so the basket swings from the nail, nail itself fixed.
 const BASKET_NAIL_OFFSET_Y = 105 * M01_INTRO_BASKET_SCALE;
@@ -175,12 +185,22 @@ const ROPE_TAIL_INV_MASS = 0.05; // 篮子≈20×绳点质量; 越小篮子越"�
 const ROPE_BASKET_ATTACH_OFFSET_Y =
   ((496 - 545) / 992) * M01_INTRO_BASKET_DISPLAY_SIZE.height; // ≈ -13
 const FLASHLIGHT_BONK_FALL_MS = 420; // 从篮口弧线落到莱米头顶用时
-const FLASHLIGHT_TO_GROUND_MS = 300; // 砸到后弹落到地面侧旁用时
-const FLASHLIGHT_GROUND_DX = 56; // 落地点相对莱米的横向偏移(落在脚边一侧)
 const FLASHLIGHT_HEAD_DY = 56; // 莱米头顶相对其节点中心(LEMMY_Y)的高度, startle 接触点
-const FLASHLIGHT_GROUND_Y = GROUND_Y + 24; // 手电躺在地面的 y
-// 拾起后手电挂到莱米节点下的局部偏移(身前手位; 简化不随朝向镜像, 细化属后续打磨)。
-const HELD_FLASHLIGHT_OFFSET = { x: 20, y: 6 };
+// 砸头后【松给物理】(取代旧脚本落地 tween): 给手电刚体初速(被头从下弹起、朝脚边偏)→ 重力拉下、
+// 撞地上拼片/地面、细长身子自己躺平。碰撞体让它与拼片真碰、不再穿叠。落定后冻 static 待捡。
+// 松物理前先把手电转成【近水平】→ 平着掉、平着落 = 稳。(竖着 + 自转的细长体落到动态拼片堆会楔进去被
+// Box2D 大冲量弹飞出界 —— 这就是"手电飞出屏幕"的根因。所以不上抛、不自转、预先躺平。)
+const FLASHLIGHT_LYING_ANGLE = -82; // 落地躺平角(deg); -90=纯水平
+const FLASHLIGHT_TOSS_VX = 20; // px/s 横向(轻微偏脚边, 别正砸莱米脚下); 可 live 调
+const FLASHLIGHT_TOSS_VY = 0; // px/s 竖向初速; 0=从头部直接下落(不上抛, 免得冲回篮子区)
+const FLASHLIGHT_TOSS_SPIN = 0; // deg/s 自转; 0=不转(细长体带自转落拼片堆会楔住被弹飞)
+const FLASHLIGHT_SETTLE_MS = 1100; // 松物理后多久判定落定→冻 static(够掉落+弹稳); 可调
+const FLASHLIGHT_COLLIDER = { width: 14, height: 30 }; // 手电碰撞体(≈视觉 12×30 略宽好碰); 可调
+// 拾起后手电挂到莱米【手部】的局部偏移(身前手位)。y 调低=贴手不悬空; 可 live 调。
+// idle 帧前爪在身体【正中偏左】抱在一起(量自 idle-00: 爪≈节点局部 -7,-28); 手电放这才像握着。
+// x≈0=正中爪位(原 +16 在身体右侧→飘着不像握), y 负=爪/腹部高度。可 live 调。
+const HELD_FLASHLIGHT_OFFSET = { x: -5, y: -26 };
+const HELD_FLASHLIGHT_ANGLE = 180; // 手持角度(deg); 180=大头朝下(0 时大头朝上=拿反了)。可 live 调
 
 export interface M01IntroFragment {
   /** The real M01 puzzle-piece node managed by the bootstrap. */
@@ -226,6 +246,11 @@ export class M01IntroSequence extends Component {
   private headbuttReleasedCount = 0; // 累计已撞出的拼片数; >= 总数 = 全出 → 接手电叙事
   private flashlightNode: Node | null = null;
   private flashlightSprite: Sprite | null = null;
+  /** 砸头松物理后, 计时到落定→冻 static 待捡; 拾取/重置时清掉防误冻。 */
+  private flashlightSettleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 点哪走哪的"催促提速": 频繁连点累加倍速(nextWalkBoost), 应用到 roamLemmyTo 走时长。 */
+  private walkBoostMult = 1;
+  private lastRoamTapMs = 0;
   private pickupInProgress = false;
   /** 莱米当前是否耳后贴(走近篮下时已收耳)。供 roam 走位/顶篮判断是否要再收/抬耳, 避免重复收耳。 */
   private earsFolded = false;
@@ -239,10 +264,12 @@ export class M01IntroSequence extends Component {
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
     this.spawnStageTapCatcher();
+    // 莱米先挂 → 渲染在篮子【后面】: 顶篮时头抬进篮子会被篮子挡住(塞到篮底后方), 不再"穿过篮子"。
+    // 这是渲染层级遮挡, 不是物理 —— kinematic 头 × static 篮内胆在 Box2D 里不产生碰撞, 加碰撞体也挡不住穿帮。
+    this.spawnLemmy();
     this.spawnBasket();
     this.spawnBasketRope(); // 独立 Verlet 绳子(钉子→篮顶), 每帧跟随篮子物理摆动
     this.spawnBasketInnerCavity();
-    this.spawnLemmy();
     this.stageFragmentsInBasket();
     // Front-wall occluder LAST so it is the topmost child of the basket and draws
     // over the staged pieces' lower halves (the "pieces tucked inside" look).
@@ -300,6 +327,10 @@ export class M01IntroSequence extends Component {
       this.phase === "roaming" || this.phase === "waitingPickup" || this.phase === "acquired";
     if (!roamable || this.headbuttInProgress || this.pickupInProgress) return;
     const worldX = event.getUILocation().x - CANVAS_HALF_WIDTH;
+    // 频繁连点 → 催它快来: 据距上次点地的间隔累加走速倍率(见 nextWalkBoost), 应用到 roam 走时长。
+    const now = Date.now();
+    this.walkBoostMult = nextWalkBoost(this.walkBoostMult, now - this.lastRoamTapMs);
+    this.lastRoamTapMs = now;
     void this.roamLemmyTo(clampStageX(worldX));
   }
 
@@ -315,6 +346,11 @@ export class M01IntroSequence extends Component {
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     }
+  }
+
+  /** 走时长 ÷ 频繁连点提速倍率(催促召唤, 见 handleStageTap/nextWalkBoost); 仅 roam 走位用, 脚本走不提速。 */
+  private boostedWalkMs(fromX: number, toX: number): number {
+    return walkSegmentMs(fromX, toX) / this.walkBoostMult;
   }
 
   /**
@@ -335,7 +371,7 @@ export class M01IntroSequence extends Component {
         const foldX = clampStageX(targetX - dir * HEADBUTT_FOLD_LEAD_X);
         if ((dir > 0 && foldX > cur + 4) || (dir < 0 && foldX < cur - 4)) {
           await actor.walkTo(new Vec3(foldX, LEMMY_Y, 0), {
-            durationMs: walkSegmentMs(cur, foldX),
+            durationMs: this.boostedWalkMs(cur, foldX),
             action: "walk"
           });
         }
@@ -344,7 +380,7 @@ export class M01IntroSequence extends Component {
         const afterFoldX = actor.node.position.x;
         if (Math.abs(targetX - afterFoldX) > 4) {
           await actor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-            durationMs: walkSegmentMs(afterFoldX, targetX),
+            durationMs: this.boostedWalkMs(afterFoldX, targetX),
             action: "walkback"
           });
         }
@@ -354,14 +390,14 @@ export class M01IntroSequence extends Component {
         await actor.playFrameAction("earsup");
         this.earsFolded = false;
         await actor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-          durationMs: walkSegmentMs(actor.node.position.x, targetX),
+          durationMs: this.boostedWalkMs(actor.node.position.x, targetX),
           action: "walk"
         });
         actor.playIdle();
       } else {
         // 同态走(都耳竖 或 都耳后贴), 不切耳态
         await actor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-          durationMs: walkSegmentMs(actor.node.position.x, targetX),
+          durationMs: this.boostedWalkMs(actor.node.position.x, targetX),
           action: this.earsFolded ? "walkback" : "walk"
         });
         if (this.earsFolded) this.playIdleback();
@@ -974,9 +1010,9 @@ export class M01IntroSequence extends Component {
     this.advance("fragmentsSettled"); // spillingFragments → bonking
     const lemmyX = this.lemmyActor.node.position.x;
     const headPos = new Vec3(lemmyX, LEMMY_Y + FLASHLIGHT_HEAD_DY, 0);
-    const groundPos = new Vec3(clampStageX(lemmyX + FLASHLIGHT_GROUND_DX), FLASHLIGHT_GROUND_Y, 0);
     this.flashlightNode.active = true;
     this.flashlightNode.setPosition(BASKET_MOUTH_X, BASKET_MOUTH_Y, 0);
+    this.flashlightNode.setRotationFromEuler(0, 0, 0);
     tween(this.flashlightNode)
       .to(FLASHLIGHT_BONK_FALL_MS / 1000, { position: headPos }, { easing: "quadIn" }) // 弧线落到头顶
       .call(() => {
@@ -985,12 +1021,53 @@ export class M01IntroSequence extends Component {
         void this.lemmyActor?.playFrameAction("startle").catch((e) => {
           if (!isExpectedLemmyActionCancel(e)) throw e;
         });
-      })
-      .to(FLASHLIGHT_TO_GROUND_MS / 1000, { position: groundPos }, { easing: "bounceOut" }) // 弹落脚边
-      .call(() => {
-        this.advance("flashlightBonked"); // bonking → waitingPickup(手电可点)
+        this.releaseFlashlightToPhysics(); // 砸头后松给物理: dynamic 掉落、撞拼片、自己躺平
       })
       .start();
+  }
+
+  /**
+   * 砸头瞬间把手电交给 Cocos 物理: 启用 dynamic 刚体 + 碰撞体, 给初速(被头弹起、朝脚边偏) →
+   * 重力拉下、与地上拼片/地面真碰、细长身子自然躺平。落定(FLASHLIGHT_SETTLE_MS)后冻 static 待捡。
+   */
+  private releaseFlashlightToPhysics(): void {
+    const node = this.flashlightNode;
+    if (!node) return;
+    node.setRotationFromEuler(0, 0, FLASHLIGHT_LYING_ANGLE); // 先转平再松物理 → 平着掉、平着落, 不楔进拼片堆被弹飞
+    let body = node.getComponent(RigidBody2D);
+    if (!body) body = node.addComponent(RigidBody2D);
+    let collider = node.getComponent(BoxCollider2D);
+    if (!collider) collider = node.addComponent(BoxCollider2D);
+    collider.size = new Size(FLASHLIGHT_COLLIDER.width, FLASHLIGHT_COLLIDER.height);
+    collider.offset = new Vec2(0, 0);
+    collider.density = 1;
+    collider.friction = 0.6;
+    collider.restitution = 0.04;
+    collider.enabled = true;
+    collider.apply();
+    body.enabled = true;
+    body.type = ERigidBody2DType.Dynamic;
+    body.gravityScale = 1;
+    body.linearVelocity = new Vec2(FLASHLIGHT_TOSS_VX, FLASHLIGHT_TOSS_VY);
+    body.angularVelocity = FLASHLIGHT_TOSS_SPIN;
+    if (this.flashlightSettleTimer !== undefined) clearTimeout(this.flashlightSettleTimer);
+    this.flashlightSettleTimer = setTimeout(() => {
+      this.flashlightSettleTimer = undefined;
+      // 兜底: 物理万一仍把它甩出界 / 掉穿地面 → 拉回莱米脚边躺好, 保证可见可捡(绝不丢出屏幕)。
+      const p = node.position;
+      if (Math.abs(p.x) > CANVAS_HALF_WIDTH || p.y < GROUND_Y - 20) {
+        const lx = this.lemmyActor ? this.lemmyActor.node.position.x : 0;
+        node.setPosition(clampStageX(lx + 30), GROUND_Y + 8, 0);
+        node.setRotationFromEuler(0, 0, FLASHLIGHT_LYING_ANGLE);
+      }
+      const settled = node.getComponent(RigidBody2D);
+      if (settled) {
+        settled.linearVelocity = new Vec2(0, 0);
+        settled.angularVelocity = 0;
+        settled.type = ERigidBody2DType.Static; // 落定: 冻住, 莱米走近拾取时不被撞跑
+      }
+      this.advance("flashlightBonked"); // bonking → waitingPickup(手电可点)
+    }, FLASHLIGHT_SETTLE_MS);
   }
 
   /** waitingPickup: 点地上的手电 → 蹲下拾起; acquired: 点手里的手电 → 转发循环灯色(v4)。 */
@@ -1013,10 +1090,19 @@ export class M01IntroSequence extends Component {
         await this.walkLemmyTo(clampStageX(flashX - 30)); // 走到手电旁
       }
       await this.lemmyActor.playFrameAction("crouch"); // 蹲下拾取
-      // 拾起 = 手持: 重挂到莱米节点下(身前小偏移), 之后点哪走哪手电随身走(覆盖面随莱米, spec §5.2)。
+      // 拾起 = 手持: 关物理(不再受重力/碰撞) → 贴到莱米手部, 之后点哪走哪手电随身走(覆盖面随莱米, spec §5.2)。
       // cc 的 addChild 会自动从旧父节点摘下再挂新父(运行时语义), shim 只声明 addChild。
+      if (this.flashlightSettleTimer !== undefined) {
+        clearTimeout(this.flashlightSettleTimer);
+        this.flashlightSettleTimer = undefined;
+      }
+      const heldBody = this.flashlightNode.getComponent(RigidBody2D);
+      if (heldBody) heldBody.enabled = false; // 手持: 停物理, 跟莱米手走不掉落
+      const heldCollider = this.flashlightNode.getComponent(BoxCollider2D);
+      if (heldCollider) heldCollider.enabled = false;
       this.lemmyActor.node.addChild(this.flashlightNode);
       this.flashlightNode.setPosition(HELD_FLASHLIGHT_OFFSET.x, HELD_FLASHLIGHT_OFFSET.y, 0);
+      this.flashlightNode.setRotationFromEuler(0, 0, HELD_FLASHLIGHT_ANGLE); // 手持角度(立直)
       this.advance("crouchDone"); // pickingUp → acquired
       this.lemmyActor.playIdle();
       // v4 交接: beam/覆盖面锚莱米节点; 手持手电节点供"点它循环灯色"。
