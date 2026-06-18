@@ -210,7 +210,7 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     holdLast: true
   },
   startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
-  crouch: { dir: "art/characters/lemmy/crouch", fps: 32, loop: false, holdLast: true }, // 2026-06-17 捡东西下蹲提速 2×(16→32)
+  crouch: { dir: "art/characters/lemmy/crouch", fps: 50, loop: false, holdLast: true }, // 下蹲+起身(反播)节奏; 16→32→42→50(2026-06-17 再快 30% 后又 20%)
   // ── 耳后贴系列(2026-06-08) ── fps 是观感参数, 引擎内可微调。
   // ⚠️ 不设 renderScale(2026-06-15 修「走到篮下变大」): fitSpriteToFrame 的 contain 适配已把每帧
   //    裁剪框归一到 displayH, 再乘系数 = 整体超调 34~50%(详见上方 renderScale 字段注释)。
@@ -268,6 +268,21 @@ export interface LemmyFramePlaybackState {
   elapsedMs: number;
   frameIndex: number;
   done: boolean;
+}
+
+/**
+ * 帧播放顺序: reverse=true 返回**倒序的新数组**(蹲→站起身 = 反播 crouch 帧); 否则原样返回。
+ * ⚠️ reverse 必须 slice 复制后再 reverse —— 直接 `.reverse()` 会原地改调用方(loadFrames)的
+ * 缓存数组, 之后所有正播都被永久倒放(隐蔽回归)。
+ */
+export function framesInPlayOrder<T>(frames: T[], reverse: boolean): T[] {
+  return reverse ? frames.slice().reverse() : frames;
+}
+
+/** 该动作能否安全倒放(reverse): 仅无 events 且无 renderScale 的对称动作(如 crouch); 否则事件落在镜像错的帧、renderScale 反向。 */
+export function reverseSupportedFor(actionId: LemmyFrameActionId): boolean {
+  const spec = LEMMY_FRAME_ACTIONS[actionId];
+  return (spec.events?.length ?? 0) === 0 && spec.renderScale === undefined;
 }
 
 export function createFramePlayback(

@@ -5,12 +5,14 @@ import {
   createFramePlayback,
   createLemmyCancellationContext,
   frameEventsBetween,
+  framesInPlayOrder,
   LemmyActionInterrupted,
   LemmyActorDestroyed,
   LEMMY_APPROVED_IDENTITY_SOURCE,
   LEMMY_CLEAN_MASTER_PATH,
   LEMMY_FRAME_ACTIONS,
-  lemmyRenderScaleAt
+  lemmyRenderScaleAt,
+  reverseSupportedFor
 } from "../../assets/scripts/cocos/LemmyActorContract.ts";
 import type { LemmyActionId } from "../../assets/scripts/cocos/LemmyActorContract.ts";
 
@@ -163,9 +165,10 @@ describe("Lemmy frame playback (pure)", () => {
   });
 
   it("steps frame-by-frame using fps before completion", () => {
-    // crouch 40 frames @ 32fps = 31.25ms/frame (2026-06-17 提速 2×)
+    // 与 crouch fps 解耦: 推进 1.5 帧时长 → 必落在第 1 帧(以后改调速度不破此测)。
+    const msPerFrame = 1000 / LEMMY_FRAME_ACTIONS.crouch.fps;
     let state = createFramePlayback("crouch", 40);
-    state = advanceFramePlayback(state, 40);
+    state = advanceFramePlayback(state, msPerFrame * 1.5);
     expect(state.frameIndex).toBe(1);
     expect(state.done).toBe(false);
   });
@@ -184,6 +187,28 @@ describe("Lemmy frame playback (pure)", () => {
 // (竖长 → 高度受限)归一到 displayH, 再乘 renderScale = 整体超调 34~50%。各帧脚底恒 y≈490、
 // 源帧本就等比, 不需要逐动作缩放。旧测试守的是"身体像素高×renderScale≈404"(自洽标定, 与运行时
 // contain 渲染无关 → 测试绿而画面错), 已删。守卫改为: 任何动作都不得带 renderScale(见下)。
+
+describe("framesInPlayOrder (起身 = 反播 crouch 帧)", () => {
+  it("reverse 倒序且不原地改输入(防污染 loadFrames 缓存)", () => {
+    const src = ["a", "b", "c"];
+    const out = framesInPlayOrder(src, true);
+    expect(out).toEqual(["c", "b", "a"]);
+    expect(src).toEqual(["a", "b", "c"]); // 缓存数组未被原地 reverse
+    expect(out).not.toBe(src);
+  });
+
+  it("非 reverse 原样返回同一引用(零拷贝)", () => {
+    const src = ["a", "b", "c"];
+    expect(framesInPlayOrder(src, false)).toBe(src);
+  });
+});
+
+describe("reverseSupportedFor (倒放仅限无 events/无 renderScale 的对称动作)", () => {
+  it("crouch 可倒放(无 events/无 renderScale); reach 不可(带 reach_contact 事件)", () => {
+    expect(reverseSupportedFor("crouch")).toBe(true);
+    expect(reverseSupportedFor("reach")).toBe(false);
+  });
+});
 
 describe("lemmyRenderScaleAt (逐动作渲染缩放, ramp 按帧插值)", () => {
   it("defaults to 1 when unset; constant number applies across all frames", () => {

@@ -29,6 +29,7 @@ declare module "cc" {
     setWorldPosition(pos: Vec3): void;
     setRotationFromEuler(x: number, y: number, z: number): void;
     setScale(x: number, y?: number, z?: number): void;
+    setSiblingIndex(index: number): void;
     static EventType: {
       TOUCH_START: string;
       TOUCH_MOVE: string;
@@ -144,6 +145,7 @@ declare module "cc" {
 
   export class UITransform extends Component {
     setContentSize(width: number, height: number): void;
+    setAnchorPoint(x: number, y: number): void;
     readonly contentSize: { width: number; height: number };
     width: number;
     height: number;

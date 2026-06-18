@@ -17,8 +17,10 @@ import {
   createFramePlayback,
   createLemmyCancellationContext,
   frameEventsBetween,
+  framesInPlayOrder,
   isExpectedLemmyActionCancel,
   lemmyRenderScaleAt,
+  reverseSupportedFor,
   type LemmyActionToken,
   type LemmyActorEvent,
   type LemmyFrameActionId,
@@ -44,6 +46,8 @@ export interface LemmyWalkOptions {
 export interface LemmyFramePlayOptions {
   facing?: "left" | "right";
   onEvent?: (event: LemmyActorEvent) => void;
+  /** 倒序播放帧序列(蹲→站起身 = 反播 crouch)。仅适合无 events、无 renderScale 的对称动作; 有 events 的动作不会映射事件帧。 */
+  reverse?: boolean;
 }
 
 export {
@@ -148,6 +152,11 @@ export class LemmyActor extends Component {
     return handle.promise;
   }
 
+  /** 当前朝向(粘性): 供手持道具跟脸朝向镜像(手电大头朝脸前方)。 */
+  getFacing(): "left" | "right" {
+    return this.facing;
+  }
+
   /**
    * Play a loaded frame sequence. idle/walk loop (never resolve until superseded);
    * reach/startle/crouch are one-shot hold-last and resolve when complete. reach emits
@@ -157,8 +166,16 @@ export class LemmyActor extends Component {
     actionId: LemmyFrameActionId,
     options: LemmyFramePlayOptions = {}
   ): Promise<void> {
+    if (options.reverse && !reverseSupportedFor(actionId)) {
+      // 倒放只对无 events/无 renderScale 的对称动作正确; 其余直接拒绝 —— 静默错误最难查, fail-fast 逼调用方处理。
+      throw new Error(
+        `LemmyActor.playFrameAction: 不支持 reverse 播放 "${actionId}"(它带 events/renderScale, 倒放会让事件落在镜像错的帧、renderScale 反向)。reverse 仅支持无 events、无 renderScale 的对称动作(如 crouch)。`
+      );
+    }
     await this.readyPromise;
-    const frames = await this.loadFrames(actionId);
+    const loaded = await this.loadFrames(actionId);
+    // reverse: 倒放帧 = 起身(反播 crouch 蹲→站)。framesInPlayOrder slice 复制, 不污染 loadFrames 缓存。
+    const frames = framesInPlayOrder(loaded, options.reverse ?? false);
     const handle = this.cancellation.beginAction(actionId);
 
     // 朝向: 调用方显式指定则用之, 否则沿用上一动作(走右后 idle/reach 不会翻回朝左)。

@@ -170,6 +170,9 @@ const ROPE_WIDTH = 9; // 描边回退线宽(px); 仅贴图未到时用
 const BASKET_KNOT_LEFT = { x: -111, y: -27 };
 const BASKET_KNOT_RIGHT = { x: 109, y: -28 };
 const ROPE_COLOR = new Color(196, 148, 74, 255); // 琥珀(原绳 hue~37.7); 仅贴图未到时的描边回退用
+// 绳子贴图整体压暗(2026-06-17 用户: 吊带太浅, 再加深一点)。Sprite.color 是乘法 → 等比降明度、保琥珀色相。
+// 调深浅只改这一个值: 越小越深(255=原图不染, 220≈暗 14%, 190≈暗 25%, 165≈暗 35%)。
+const ROPE_STRAP_TINT = new Color(220, 220, 220, 255);
 // 手绘麻花绳贴图(拧绳, 整图 204×550, 绳芯 trim 后 ~29×550)。两股吊带各一条整根贴图, 拉伸成 钉子→篮耳 一条直绳。
 const ROPE_TEXTURE_PATH =
   "art/stage1-m01/runtime-sprites/intro/m01-rope-segment/spriteFrame";
@@ -184,6 +187,18 @@ const ROPE_TAIL_INV_MASS = 0.05; // 篮子≈20×绳点质量; 越小篮子越"�
 // 绳子接篮端 = 篮子【两耳打结处】相对 basketNode 中心的竖直偏移(原图两带接篮于 img y545, 中心 y496 → 上偏一点)。
 const ROPE_BASKET_ATTACH_OFFSET_Y =
   ((496 - 545) / 992) * M01_INTRO_BASKET_DISPLAY_SIZE.height; // ≈ -13
+// 固定钉子贴图(2026-06-17): 原"钉子"画死在篮 PNG 顶, 随篮节点每帧平移跟随链尾 → "钉子跟着绳子跑";
+// strip 抹吊带时又把整颗钉+一小段后沿一起抹了。解法: 把钉子抠成独立贴图, 钉死在 nailPoint(绳子固定端,
+// this.node 局部坐标, 不挂篮子节点)→ 篮子摆动它纹丝不动。后沿已在 PNG 里补回, 钉子只在此独立渲染。
+const NAIL_TEXTURE_PATH =
+  "art/stage1-m01/runtime-sprites/intro/m01-basket-nail/spriteFrame";
+const NAIL_SRC = { width: 93, height: 115 }; // 抠出的钉子源图尺寸(trimType none, 整图即内容)
+// 篮子源整图宽 1586px → BASKET_DISPLAY.width(含 BASKET_SCALE); 同比缩放钉子, 随篮一起放大。
+const NAIL_DISPLAY = {
+  width: NAIL_SRC.width * (BASKET_DISPLAY.width / 1586),
+  height: NAIL_SRC.height * (BASKET_DISPLAY.width / 1586)
+};
+const NAIL_ANCHOR_Y = 0.33; // 贴图里"两股绳汇聚点"在底起 33% 高处; 锚此点对齐 nailPoint, 钉头朝上露出
 const FLASHLIGHT_BONK_FALL_MS = 420; // 从篮口弧线落到莱米头顶用时
 const FLASHLIGHT_HEAD_DY = 56; // 莱米头顶相对其节点中心(LEMMY_Y)的高度, startle 接触点
 // 砸头后【松给物理】(取代旧脚本落地 tween): 给手电刚体初速(被头从下弹起、朝脚边偏)→ 重力拉下、
@@ -197,10 +212,11 @@ const FLASHLIGHT_TOSS_SPIN = 0; // deg/s 自转; 0=不转(细长体带自转落�
 const FLASHLIGHT_SETTLE_MS = 1100; // 松物理后多久判定落定→冻 static(够掉落+弹稳); 可调
 const FLASHLIGHT_COLLIDER = { width: 14, height: 30 }; // 手电碰撞体(≈视觉 12×30 略宽好碰); 可调
 // 拾起后手电挂到莱米【手部】的局部偏移(身前手位)。y 调低=贴手不悬空; 可 live 调。
-// idle 帧前爪在身体【正中偏左】抱在一起(量自 idle-00: 爪≈节点局部 -7,-28); 手电放这才像握着。
-// x≈0=正中爪位(原 +16 在身体右侧→飘着不像握), y 负=爪/腹部高度。可 live 调。
-const HELD_FLASHLIGHT_OFFSET = { x: -5, y: -26 };
-const HELD_FLASHLIGHT_ANGLE = 180; // 手持角度(deg); 180=大头朝下(0 时大头朝上=拿反了)。可 live 调
+// 手持手电【跟脸朝向镜像】(syncHeldFlashlight 每帧据 lemmyActor.getFacing 设): 大头朝脸前方上翘 30°,
+// 像人拿手电。下面是【朝右】的值, 朝左自动镜像(x 取反、angle 取反)。
+// ⚠️ 手电挂在莱米【节点】上、而朝向翻转(scaleX=-1)在【内层 spriteNode】, 二者不联动 → 必须手动镜像。
+const HELD_FLASHLIGHT_OFFSET = { x: 6, y: -26 }; // 朝右时手部位(爪位); 朝左镜像取 -x。可 live 调
+const HELD_FLASHLIGHT_ANGLE = -120; // 朝右手持角(deg): 大头【右前下方】斜 30°照地(0=头竖直上, -90=头水平右, -120=下垂30°)
 
 export interface M01IntroFragment {
   /** The real M01 puzzle-piece node managed by the bootstrap. */
@@ -260,6 +276,8 @@ export class M01IntroSequence extends Component {
   // 麻花绳贴图渲染: 两股吊带各一条【整根贴图精灵】, 每帧拉伸/旋转成 钉子→篮耳 一条直绳。
   // 贴图异步未到时 drawRope 回退到 ropeGraphics 描边。
   private ropeStraps: Sprite[] = [];
+  // 固定钉子(绳子固定端的独立贴图; 挂 this.node 不挂篮子 → 篮摆它不动)。
+  private nailNode: Node | null = null;
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
@@ -269,6 +287,7 @@ export class M01IntroSequence extends Component {
     this.spawnLemmy();
     this.spawnBasket();
     this.spawnBasketRope(); // 独立 Verlet 绳子(钉子→篮顶), 每帧跟随篮子物理摆动
+    this.spawnFixedNail(); // 钉死的钉子贴图(nailPoint), 不随篮摆动
     this.spawnBasketInnerCavity();
     this.stageFragmentsInBasket();
     // Front-wall occluder LAST so it is the topmost child of the basket and draws
@@ -462,6 +481,28 @@ export class M01IntroSequence extends Component {
   }
 
   /**
+   * 固定钉子: 抠出的钉子贴图钉死在 nailPoint(绳子固定端, this.node 局部坐标)。
+   * 关键: 挂 this.node 而非篮子节点 → 篮子每帧跟随链尾平移/摆动时钉子纹丝不动(修"钉子跟着绳子跑")。
+   * 锚点 (0.5, NAIL_ANCHOR_Y) 让贴图里"两股绳汇聚点"对齐 nailPoint, 钉头露在绳结之上。
+   */
+  private spawnFixedNail(): void {
+    const node = new Node("M01IntroBasketNail");
+    this.node.addChild(node);
+    const transform = node.addComponent(UITransform);
+    transform.setContentSize(NAIL_DISPLAY.width, NAIL_DISPLAY.height);
+    transform.setAnchorPoint(0.5, NAIL_ANCHOR_Y);
+    const nail = this.nailPoint();
+    node.setPosition(nail.x, nail.y, 0);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.nailNode = node;
+    resources.load(NAIL_TEXTURE_PATH, SpriteFrame, (error, frame) => {
+      if (error || !frame) return;
+      sprite.spriteFrame = frame;
+    });
+  }
+
+  /**
    * 加载麻花绳贴图, 沿高度竖切成 ROPE_POINTS-1 条条带, 给两股吊带各建一排纹理精灵(沿物理链逐段铺贴图)。
    * 异步: 贴图到达前 drawRope 走描边回退; 到达后清掉描边、改由这些纹理精灵渲染(从此看着是拧绳)。
    */
@@ -479,6 +520,7 @@ export class M01IntroSequence extends Component {
         node.addComponent(UITransform);
         const sprite = node.addComponent(Sprite);
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        sprite.color = ROPE_STRAP_TINT; // 压暗绳子(太浅, 用户 2026-06-17)
         const rope = new SpriteFrame();
         rope.texture = frame.texture;
         rope.rect = new Rect(base.x, base.y, base.width, base.height);
@@ -487,6 +529,8 @@ export class M01IntroSequence extends Component {
         this.ropeStraps.push(sprite);
       }
       gfx.clear(); // 纹理精灵就位 → 撤掉描边回退
+      // 两股吊带贴图后挂进 this.node, 会盖住钉子 → 把钉子重新置顶, 钉头露在绳头汇聚处之上。
+      this.nailNode?.setSiblingIndex(this.node.children.length - 1);
       this.drawRope();
     });
   }
@@ -512,7 +556,21 @@ export class M01IntroSequence extends Component {
    * (内胆/冻结拼片是 basketNode 子节点, 自然跟随)→ ③ 渲两股吊带。被顶起后的"弹起→被绳拽住乱晃→
    * 渐收"全部由链自身涌现, 这里不再有第二套篮子物理。
    */
+  /** 手持手电跟莱米脸朝向: 大头朝脸前方、上翘 30°(朝右 -60° / 朝左镜像 +60°), x 也镜像到对应爪位。
+   *  仅 acquired(已捡起手持)时生效。手电挂莱米节点、朝向翻转在内层 sprite, 二者不联动 → 必须手动镜像。 */
+  private syncHeldFlashlight(): void {
+    if (this.phase !== "acquired" || !this.flashlightNode || !this.lemmyActor) return;
+    const right = this.lemmyActor.getFacing() === "right";
+    this.flashlightNode.setPosition(
+      right ? HELD_FLASHLIGHT_OFFSET.x : -HELD_FLASHLIGHT_OFFSET.x,
+      HELD_FLASHLIGHT_OFFSET.y,
+      0
+    );
+    this.flashlightNode.setRotationFromEuler(0, 0, right ? HELD_FLASHLIGHT_ANGLE : -HELD_FLASHLIGHT_ANGLE);
+  }
+
   update(deltaSeconds: number): void {
+    this.syncHeldFlashlight(); // 手持手电跟脸朝向(大头朝前上方翘); 独立于绳子, 放最前
     const rope = this.rope;
     if (!this.ropeGraphics || !rope) return;
     stepRope(rope, Math.min(deltaSeconds, 1 / 30), ROPE_OPTS);
@@ -1101,11 +1159,13 @@ export class M01IntroSequence extends Component {
       const heldCollider = this.flashlightNode.getComponent(BoxCollider2D);
       if (heldCollider) heldCollider.enabled = false;
       this.lemmyActor.node.addChild(this.flashlightNode);
-      this.flashlightNode.setPosition(HELD_FLASHLIGHT_OFFSET.x, HELD_FLASHLIGHT_OFFSET.y, 0);
-      this.flashlightNode.setRotationFromEuler(0, 0, HELD_FLASHLIGHT_ANGLE); // 手持角度(立直)
-      this.advance("crouchDone"); // pickingUp → acquired
+      this.advance("crouchDone"); // pickingUp → acquired(让 syncHeldFlashlight 起身期间就贴手; 与下方输入门禁解耦)
+      this.syncHeldFlashlight(); // 贴手部(之后每帧由 update 维持)
+      await this.lemmyActor.playFrameAction("crouch", { reverse: true }); // 反播 crouch = 拿着手电起身(无专门起身帧, 复用蹲下帧倒放)
       this.lemmyActor.playIdle();
-      // v4 交接: beam/覆盖面锚莱米节点; 手持手电节点供"点它循环灯色"。
+      // v4 交接放在起身【之后】: onFlashlightAcquired 会闩 bootstrap 的 flashlightAcquired —— 它门控碎片拖拽 +
+      // beam 光池(physicsSettled && flashlightAcquired), 必须等莱米站定才开放; 否则起身动画没播完, 解谜输入/
+      // beam 就提前打开(codex 审查发现)。起身只会被 destroy 中断(整体废弃), 那时丢交接无害。
       this.options?.onFlashlightAcquired?.({
         lemmyNode: this.lemmyActor.node,
         flashlightNode: this.flashlightNode
