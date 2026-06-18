@@ -278,6 +278,9 @@ export class M01IntroSequence extends Component {
   private ropeStraps: Sprite[] = [];
   // 固定钉子(绳子固定端的独立贴图; 挂 this.node 不挂篮子 → 篮摆它不动)。
   private nailNode: Node | null = null;
+  // 组件已销毁(onDestroy 置真)。Cocos 的 resources.load 回调/tween.call/await 链都不随节点自动取消,
+  // 销毁后它们仍会触发并访问已销毁节点 → 崩。所有这类异步入口开头先查此标志早返回。
+  private destroyed = false;
 
   init(options: M01IntroSequenceOptions): void {
     this.options = options;
@@ -297,6 +300,7 @@ export class M01IntroSequence extends Component {
     this.loadSpriteFrames();
     // Warm the headbutt-sequence + flashlight-narrative frames during the walk-in so playback has no hitch.
     void this.lemmyReady.then(() => {
+      if (this.destroyed) return; // lemmyReady 可能在组件销毁后才 resolve, 预热回调据此早返回(codex C1)
       const actor = this.lemmyActor;
       if (!actor) return;
       for (const id of [
@@ -497,7 +501,7 @@ export class M01IntroSequence extends Component {
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
     this.nailNode = node;
     resources.load(NAIL_TEXTURE_PATH, SpriteFrame, (error, frame) => {
-      if (error || !frame) return;
+      if (this.destroyed || error || !frame) return;
       sprite.spriteFrame = frame;
     });
   }
@@ -509,7 +513,7 @@ export class M01IntroSequence extends Component {
   private loadRopeTexture(): void {
     resources.load(ROPE_TEXTURE_PATH, SpriteFrame, (error, frame) => {
       const gfx = this.ropeGraphics;
-      if (error || !frame || !frame.texture || !gfx) return;
+      if (this.destroyed || error || !frame || !frame.texture || !gfx) return;
       const base = frame.rect; // 绳芯内容区(trim 后 ~29×550 整根麻花绳)
       // 两股吊带各一条【整根贴图精灵】, 挂在 this.node 下; 每帧由 drawRope 拉伸/旋转成 钉子→打结处 一条直绳。
       // ⚠️ 无头预览(playwright :7456)只画得出左股、右股不渲染 —— 是无头渲染的怪癖, 编辑器里两股都正常;
@@ -802,7 +806,7 @@ export class M01IntroSequence extends Component {
       const manifestEntry = getM01GreyboxRuntimeIntroResource(slot.manifestId);
       if (!manifestEntry) continue;
       resources.load(manifestEntry.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
-        if (error || !spriteFrame) return;
+        if (this.destroyed || error || !spriteFrame) return;
         this.spriteFrames[slot.key] = spriteFrame;
         tryApply(slot.key, slot.sprite);
       });
@@ -867,6 +871,7 @@ export class M01IntroSequence extends Component {
     if (!this.lemmyActor) return;
     try {
       await this.lemmyReady;
+      if (this.destroyed) return; // lemmyReady 可能在组件销毁后才 resolve(codex #2)
       await this.lemmyActor.walkTo(new Vec3(LEMMY_PLATFORM_FRONT_X, LEMMY_Y, 0), {
         durationMs: walkSegmentMs(LEMMY_OFFSCREEN_X, LEMMY_PLATFORM_FRONT_X)
       });
@@ -1054,6 +1059,7 @@ export class M01IntroSequence extends Component {
     const res = M01_GREYBOX_RUNTIME_SURFACE_RESOURCES.find((r) => r.id === "single_flashlight_tool");
     if (res) {
       resources.load(res.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
+        if (this.destroyed) return;
         if (!error && spriteFrame && this.flashlightSprite) this.flashlightSprite.spriteFrame = spriteFrame;
       });
     }
@@ -1089,6 +1095,7 @@ export class M01IntroSequence extends Component {
    * 重力拉下、与地上拼片/地面真碰、细长身子自然躺平。落定(FLASHLIGHT_SETTLE_MS)后冻 static 待捡。
    */
   private releaseFlashlightToPhysics(): void {
+    if (this.destroyed) return; // tween .call 在销毁后仍可能触发本方法(创建 settle timer + 访问节点) → 早返回(覆盖 codex #3)
     const node = this.flashlightNode;
     if (!node) return;
     node.setRotationFromEuler(0, 0, FLASHLIGHT_LYING_ANGLE); // 先转平再松物理 → 平着掉、平着落, 不楔进拼片堆被弹飞
@@ -1147,6 +1154,8 @@ export class M01IntroSequence extends Component {
       if (Math.abs(this.lemmyActor.node.position.x - flashX) > 30) {
         await this.walkLemmyTo(clampStageX(flashX - 30)); // 走到手电旁
       }
+      // walkLemmyTo 吞掉销毁/取消错误后【正常返回】→ 销毁期间走位被取消时这里必须自查, 否则继续访问已销毁的手电/莱米(codex #2)。
+      if (this.destroyed) return;
       await this.lemmyActor.playFrameAction("crouch"); // 蹲下拾取
       // 拾起 = 手持: 关物理(不再受重力/碰撞) → 贴到莱米手部, 之后点哪走哪手电随身走(覆盖面随莱米, spec §5.2)。
       // cc 的 addChild 会自动从旧父节点摘下再挂新父(运行时语义), shim 只声明 addChild。
@@ -1185,6 +1194,7 @@ export class M01IntroSequence extends Component {
   }
 
   onDestroy(): void {
+    this.destroyed = true; // 异步回调/await 链据此早返回, 不再碰已销毁节点
     this.clearBasketPileFreezeTimer();
     // teardown 落在手电落定计时(FLASHLIGHT_SETTLE_MS)窗口内时, 不清会让 settle 回调访问已销毁的手电节点(L2)。
     if (this.flashlightSettleTimer !== undefined) clearTimeout(this.flashlightSettleTimer);
