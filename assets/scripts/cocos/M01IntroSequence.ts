@@ -1186,6 +1186,8 @@ export class M01IntroSequence extends Component {
 
   onDestroy(): void {
     this.clearBasketPileFreezeTimer();
+    // teardown 落在手电落定计时(FLASHLIGHT_SETTLE_MS)窗口内时, 不清会让 settle 回调访问已销毁的手电节点(L2)。
+    if (this.flashlightSettleTimer !== undefined) clearTimeout(this.flashlightSettleTimer);
     this.destroyBasketInnerCavity();
   }
 }
