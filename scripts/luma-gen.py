@@ -18,6 +18,7 @@ from __future__ import annotations  # allow `dict | None` annotations on Python 
 
 import argparse
 import base64
+import http.client
 import json
 import os
 import os.path
@@ -44,24 +45,38 @@ def load_key() -> str:
     sys.exit("LUMA_AGENTS_API_KEY not set in ~/.claude/.env")
 
 
-def api(method: str, path: str, body: dict | None, key: str) -> dict:
+def api(method: str, path: str, body: dict | None, key: str, attempts: int = 4) -> dict:
+    # ponytail: endpoint sits behind Meta anti-bot infra that drops/stalls connections under
+    # rapid automated calls. Back off and retry connection-level failures (and 408/429/5xx); fail
+    # fast on real 4xx like 422 content_moderated — retrying those just burns the cooldown.
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        API_BASE + path,
-        data=data,
-        method=method,
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode("utf-8", "replace")[:500]
-        sys.exit(f"Luma API {e.code}: {body_text}")
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    errors = []  # 收集每次失败, 全部耗尽时一并报出(批量排错: 看清是限流还是连接问题)
+    for attempt in range(attempts):
+        req = urllib.request.Request(API_BASE + path, data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            try:
+                body_text = e.read().decode("utf-8", "replace")[:500]
+            except Exception:
+                body_text = "(body unreadable)"  # anti-bot 发完头就掐 body 时 e.read 会抛, 别让它逃出重试循环
+            # 408(请求超时)与 429 同属"该重试"; 其余真 4xx(如 422 content_moderated)立即退出。
+            if e.code not in (408, 429) and 400 <= e.code < 500:
+                sys.exit(f"Luma API {e.code}: {body_text}")
+            errors.append(f"HTTP {e.code}: {body_text}")
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
+            errors.append(f"{type(e).__name__}: {e}")
+        if attempt < attempts - 1:
+            wait = 15 * (attempt + 1)  # 线性递增 15/30/45s
+            print(f"  transient ({errors[-1]}); retry {attempt + 2}/{attempts} in {wait}s...", file=sys.stderr)
+            time.sleep(wait)
+    sys.exit(f"Luma API failed after {attempts} attempts: {' | '.join(errors)}")
 
 
 def file_to_image_obj(p: str) -> dict:
