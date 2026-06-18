@@ -18,6 +18,8 @@
 node_modules/
 dist/
 coverage/
+__pycache__/
+*.pyc
 .DS_Store
 .env
 .env.*
