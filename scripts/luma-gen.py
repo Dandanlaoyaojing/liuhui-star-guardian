@@ -58,9 +58,11 @@ def api(method: str, path: str, body: dict | None, key: str, attempts: int = 4) 
     errors = []  # 收集每次失败, 全部耗尽时一并报出(批量排错: 看清是限流还是连接问题)
     for attempt in range(attempts):
         req = urllib.request.Request(API_BASE + path, data=data, method=method, headers=headers)
+        raw = b""
         try:
             with urllib.request.urlopen(req, timeout=180) as r:
-                return json.loads(r.read())
+                raw = r.read()
+            return json.loads(raw)
         except urllib.error.HTTPError as e:
             try:
                 body_text = e.read().decode("utf-8", "replace")[:500]
@@ -70,6 +72,9 @@ def api(method: str, path: str, body: dict | None, key: str, attempts: int = 4) 
             if e.code not in (408, 429) and 400 <= e.code < 500:
                 sys.exit(f"Luma API {e.code}: {body_text}")
             errors.append(f"HTTP {e.code}: {body_text}")
+        except json.JSONDecodeError as e:
+            # 2xx 但 body 非 JSON(anti-bot 200 挑战页 / 网关截断 body)→ 当 transient 重试, 不裸崩。
+            errors.append(f"non-JSON 2xx ({len(raw)}B): {str(e)[:120]}")
         except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
             errors.append(f"{type(e).__name__}: {e}")
         if attempt < attempts - 1:
