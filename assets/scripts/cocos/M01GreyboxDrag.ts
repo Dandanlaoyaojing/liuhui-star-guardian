@@ -143,7 +143,6 @@ function resolveTargetPieceSlotDrop(
 ): M01TargetPieceSlotDropResult {
   const tokenTags = new Set(token.tags);
   const compatibleSlots = layout.targetPieceSlots
-    .filter((slot) => !slot.expectedFragmentId || slot.expectedFragmentId === token.controllerId)
     .filter((slot) => tokenTags.has(`shape:${slot.shapeToken}`))
     .filter((slot) => containsPoint(buildTargetPieceDropZone(slot).bounds, dropPosition));
 

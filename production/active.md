@@ -1,8 +1,16 @@
 # Active Work State
 
-Last updated: 2026-06-12
+Last updated: 2026-06-19
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
+
+## 当前活跃线:M01 弱磁吸一致性修复(2026-06-19)
+
+用户反馈: 拼片吸到平台按形状判断,但同形状有的能吸附有的不能。
+根因: `resolveTargetPieceSlotDrop` 的锁定目标槽位先按 `expectedFragmentId` 过滤,导致同为 `shape:circle` 的 `fragment_circle_blue_1` 不能吸到圆形目标槽;圆形无旋转问题,这里是 ID 锁死而不是形状判定。
+修复: 目标槽位吸附改为按形状 + 现有旋转容差判断,不再按具体碎片 ID 判断;完成判定仍由后续证据/solution 校验负责。未改玩法 spec。
+验证: 先加红灯用例 `fragment_circle_blue_1` 放到 `target_piece_circle_yellow_1` 圆槽失败→修复; `npm test -- tests/cocos/M01GreyboxDrag.test.ts ... M01GreyboxLayout.test.ts` ✅(82 tests); `npm run typecheck` ✅; `npm test` ✅(33 files / 364 tests)。
+下一步: Cocos Stop→Play 现场验三个圆片都能吸到圆形目标槽;三角/六边形仍需旋转角度正确才吸。
 
 ## 当前活跃线:M01 设计达成收口(2026-06-12 全部代码落地并提交;⚠️待用户 Stop→Play live 验收)
 
@@ -39,4 +47,3 @@ M01(秩序之基首关)美术/物理/手电/拼片已于 2026-05-26 收口。详
 (↑此剧情改版连同后续顶篮迭代,已于 2026-06-12 全部实现并回写 spec,见顶部「当前活跃线」;开场叙事现为: 够不着教学 beat → 顶篮分批撞出 → 手电砸头 → 蹲拾 → 手持观察。)
 **M01 手电交互最终定(v4,2026-06-03,spec §5.2 已据此改)**:**推翻 v3 的"固定三按钮工具 / 固定光束"**——手电是莱米**手持**的,固定光束讲不通。最终模型:莱米捡起手电后手持;**点手里的手电**循环 红→黄→蓝→灭(手电小,无需精准点按钮);**点地面空白**莱米走过去、手电**覆盖面(不止1片)随莱米移动**扫照;覆盖面内候选碎片按当前灯色显色,移出/灭即恢复灰白;**点某拼片 = 玩家拾取(拼片随指针、非莱米去捡)并使手电熄灭**;拼片由玩家拾放、莱米只负责持手电。代码:代码里**现有两套手电机制(固定光束路径 + 手持指针拖动路径)全删**(含旧 `heldFlashlightId` 约20处引用、`revealAllFragmentsWithActiveFlashlight` reveal-all);只保留底层显色/选色模型并**新增 `clearFlashlight()`(灭态)**;覆盖面光束**新建**、锚到莱米(新字段 `flashlightAcquired`/`lemmyFlashlightNode`/`activeLightState`,不复用旧名)。`physicsSettled && flashlightAcquired` **仅**门控正式拼接/拾放片/底光验证,**不**挡开场走位/点篮/点掉落手电。config 实路径 `assets/resources/configs/stage1/m01-memory-gear.json`(load `configs/stage1/m01-memory-gear`)。**v4 计划(`docs/plans/2026-06-03-m01-intro-frame-anim-plan.md`)Task 1-10 已于 2026-06-12 全部执行完毕**(Task8 删旧/Task9 新接线/Task10 验证见顶部), 此段仅留作设计依据。**Claude 本环境实测 cocos MCP 在线可用**(可自做 refresh/reimport/scene 查询)。但**预览服务器起停 MCP 与 HTTP(:3000) 都返回 "not supported"**(2026-06-03 双复验)——`.ts` 改动重编译须在编辑器**手动**重启预览(Project>Preview),**Codex 也做不到、无额外能力**;Codex 走 HTTP 只是做 refresh_assets。
 **M01 灯泡组件候选(2026-06-05)**:按用户要求用 Ideogram V4 `/v1/ideogram-v4/generate` 生成,不是 remix;4 张风格参考图在 `docs/design/generated-stage1-intro-art/ideogram-style-refs/bulb-style-ref-*.jpg`,调用字段 `style_reference_images`。已出 4 个独立候选源图 `docs/design/generated-stage1-intro-art/m01-bulb-ideogram-generate-v4-style-refs-v3-option-{1..4}.png`,并本地抠出透明版 `...-transparent.png`;预览拼图 `m01-bulb-ideogram-generate-v4-style-refs-v3-transparent-contact-sheet.png`。当前观感:2/4 更像可用游戏组件,1 偏旧灯泡,3 偏大和真实。
-

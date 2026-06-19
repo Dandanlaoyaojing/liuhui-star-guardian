@@ -56,7 +56,7 @@ describe("resolveM01GreyboxDrop", () => {
     });
   });
 
-  it("does not snap a same-shape wrong fragment into another fragment's locked target slot", () => {
+  it("snaps by geometry instead of solution identity", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_hexagon_red_2");
     const evidence = layout.evidence.find(
       (item) => item.controllerId === "current_manual_target_green_circle_hexagon_1"
@@ -65,9 +65,11 @@ describe("resolveM01GreyboxDrop", () => {
     expect(fragment).toBeDefined();
     expect(evidence).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position)).toEqual({
-      type: "weak_snap_fragment",
+      type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_hexagon_red_2",
-      evidenceId: "current_manual_target_green_circle_hexagon_1"
+      pieceSlotId: "target_piece_hexagon_blue_1",
+      position: { x: -93, y: 3.5 },
+      rotation: 0
     });
   });
 
@@ -96,6 +98,20 @@ describe("resolveM01GreyboxDrop", () => {
     });
   });
 
+  it("lets any circle fragment geometry-snap to a circle target slot", () => {
+    const fragment = layout.fragments.find((item) => item.controllerId === "fragment_circle_blue_1");
+    const targetPosition = { x: -98, y: -38.5 };
+
+    expect(fragment).toBeDefined();
+    expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
+      type: "snap_fragment_to_target_piece",
+      fragmentId: "fragment_circle_blue_1",
+      pieceSlotId: "target_piece_circle_yellow_1",
+      position: targetPosition,
+      rotation: 0
+    });
+  });
+
   it("does not weak-snap an expected fragment to generated evidence when its rotation is wrong", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
     const evidence = layout.evidence.find(
@@ -109,6 +125,26 @@ describe("resolveM01GreyboxDrop", () => {
       fragmentId: "fragment_triangle_blue_1",
       position: evidence!.position
     });
+  });
+
+  it("lets every circle fragment geometry-snap to circle-compatible evidence", () => {
+    const circleFragments = layout.fragments.filter((item) => item.tags.includes("shape:circle"));
+    const circleEvidence = layout.evidence.filter((item) => item.tags.includes("shape:circle"));
+
+    expect(circleFragments.map((item) => item.controllerId)).toEqual([
+      "fragment_circle_blue_1",
+      "fragment_circle_yellow_1",
+      "fragment_circle_red_2"
+    ]);
+    expect(circleEvidence.length).toBeGreaterThan(0);
+
+    for (const fragment of circleFragments) {
+      for (const evidence of circleEvidence) {
+        expect(resolveM01GreyboxDrop(layout, fragment, evidence.position, { rotation: 0 })).not.toMatchObject({
+          type: "place_fragment_freely"
+        });
+      }
+    }
   });
 
   it("keeps narrow target slots hittable after browser coordinate quantization", () => {
