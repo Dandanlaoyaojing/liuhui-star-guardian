@@ -103,6 +103,8 @@ declare module "cc" {
   }
 
   export class SpriteFrame {
+    /** 由 ImageAsset/Texture2D 直接造一帧(自动设满 rect); 运行时代码生成纹理时用。 */
+    static createWithImage(imageOrTexture: ImageAsset | Texture2D): SpriteFrame;
     /** Asset name (frame filename without extension), e.g. "startle-00"; used to order loadDir frames. */
     name: string;
     /** 原始(未裁剪)尺寸,用于按真实宽高比设置 contentSize 防止变形 */
@@ -115,7 +117,20 @@ declare module "cc" {
     packable: boolean;
   }
 
-  export class Texture2D {}
+  export class ImageAsset {
+    constructor(source: {
+      width: number;
+      height: number;
+      _data: ArrayBufferView | null;
+      _compressed: boolean;
+      format: number;
+    });
+  }
+
+  export class Texture2D {
+    static readonly PixelFormat: { readonly RGBA8888: number };
+    image: ImageAsset | null;
+  }
 
   export class JsonAsset {
     json: unknown;

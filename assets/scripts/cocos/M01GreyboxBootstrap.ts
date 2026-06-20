@@ -7,6 +7,7 @@ import {
   ERigidBody2DType,
   EventTouch,
   Graphics,
+  ImageAsset,
   input,
   Input,
   JsonAsset,
@@ -17,6 +18,7 @@ import {
   RigidBody2D,
   Sprite,
   SpriteFrame,
+  Texture2D,
   UITransform,
   tween,
   Vec2,
@@ -145,23 +147,101 @@ const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, numb
 };
 // --- 莱米手持手电的覆盖面光池(v4; spec §5.2) -----------------------------------------------
 // 视觉常量(玩法数值 radius/centerOffset 在 config.flashlightCoverage, 按 puzzle-configs 规则)。
-// 光池画成贴地的扁椭圆(宽=覆盖半径), 顶边经 coveragePoolHalfHeight 钳在拼接盘下缘以下(光不照盘)。
-const COVERAGE_POOL_SQUASH = 0.32; // 椭圆纵横比(ry = radius × 此); 扁→读作"光落在地面上"
-const COVERAGE_POOL_BOARD_CLEARANCE = 6; // px; 光池顶边与拼接盘下缘之间保留的间隙
-const COVERAGE_POOL_SEGMENTS = 40; // 椭圆描点段数(Graphics 无 ellipse, 用多边形逼近)
-// 真实手电落地光: 亮核 → 柔边渐隐。Graphics 无渐变 API, 用 N 个同心椭圆叠半透明 fill
-// 模拟径向衰减——中心被全部环覆盖(累积最亮), 边缘只被最外环覆盖(最淡), 自然出柔边。
-const COVERAGE_POOL_RINGS = 16; // 同心环数(越多越平滑, 越费 fill 调用)
-// ⚠️ 光池亮核别太亮: 被照拼片是半透"玻璃透色", 亮核会从其下/其上把拼片洗成纯灯色、盖掉颜料显色反应
-// (红灯下任何片都读作红…)→ 拼片的"本色⊗灯色"反应必须压过光池。真实感来自柔边渐隐+方向, 不是高亮度。
-const COVERAGE_POOL_RING_ALPHA = 7; // 每环透明度; 中心累积 ≈1-(1-a)^N ≈88(环境辉光级, 不抢拼片显色)
-const COVERAGE_POOL_CORE_SCALE = 0.12; // 最内环相对外圈的缩放(亮核大小)
-// 光束有方向: 从手电【大头】沿手电朝向射出, 投到地面落成光池(随脸朝向左右偏)。
-const COVERAGE_MUZZLE_REACH = 22; // px; 手电节点原点→大头(出光口)沿朝向的距离, beam 从此起
-const COVERAGE_BEAM_CONE_LAYERS = 4; // 光柱(muzzle→光池)的羽化层数
-const COVERAGE_BEAM_CONE_ALPHA = 9; // 光柱每层透明度(空气里的光柱比落地光池淡)
-const COVERAGE_BEAM_MUZZLE_HALF_W = 7; // px; 光柱在大头处的半宽(出光口窄)
-const COVERAGE_BEAM_POOL_HALF_W = 0.5; // 光柱在光池端的半宽 = radius × 此(扩散开)
+// 真实光效用【代码生成的渐变纹理】渲染(GPU 逐像素采样, 无分层/无分界线), 取代旧 Graphics 多边形硬叠。
+// 主体 = 有方向的【锥形渐变】精灵: 锥顶(出光口)最亮、沿光向张开、越远越散越淡(近强远弱发散);
+// 再叠一个【白色径向】精灵当出光口的白热核。锥顶锚在手电大头 → 光从手电射出贴地铺开, 不悬空。
+const COVERAGE_POOL_SQUASH = 0.32; // 仅用于 coveragePoolHalfHeight 的拼接盘钳制(光不照盘)
+const COVERAGE_POOL_BOARD_CLEARANCE = 6; // px; 光与拼接盘下缘之间保留的间隙
+const COVERAGE_MUZZLE_REACH = 13; // px; 手电节点中心→大头(出光口)沿朝向的距离≈半个手电长(视觉≈30/2=15, 取略内 13 让锥顶贴住镜头不留缝)。接口有缝调大、钻进手电体调小
+const COVERAGE_FALLBACK_FORWARD = 34; // px; 手电没朝下(朝上/水平, 够不到地面)时, 光池退化落在脚边前方此距离(保证打地不戳天)
+const GLOW_TEX_SIZE = 128; // 渐变纹理边长(px); 越大越细腻、越费内存
+const GLOW_FALLOFF_GAUSS = 5.2; // 白热核(径向纹理)高斯紧致度(大=核小边锐)
+// 锥形纹理: 锥顶在【左中】(出光口)最亮, 沿 +x 张开到右; 越远 alpha 越低、锥越宽 → 近强远弱发散。
+const CONE_TEX_MIN_HALF = 0.06; // 锥顶半宽(归一化, 决定出光口聚焦度)
+const CONE_TEX_MAX_HALF = 0.5; // 锥底(far)半宽 = 纹理半高(铺满)
+const CONE_ALONG_POW = 1.6; // 沿光向衰减指数(大=衰减快、近端更集中)
+const COVERAGE_CONE_ALPHA = 110; // 锥形光(灯色)整体不透明度(别太高抢拼片显色)
+const COVERAGE_CONE_FAN = 1.4; // 锥底张开宽 = len × 此(脚边光束长 ≈40px → 锥底 ≈56px, 在地面摊开)
+const COVERAGE_CORE_ALPHA = 120; // 出光口白热核不透明度
+const COVERAGE_CORE_SCALE = 0.6; // 白热核直径 = len × 此(≈24px, 贴近手电大头尺度)
+
+// 代码生成一张【白色径向渐变】柔光纹理: alpha 高斯衰减到 0, GPU 逐像素采样 → 平滑无分界线
+// (Cocos Graphics 没有 canvas 的 createRadialGradient, 故把渐变烤进运行时纹理)。建一次缓存复用。
+let cachedGlowSpriteFrame: SpriteFrame | null = null;
+function radialGlowFalloff(d: number): number {
+  // d∈[0,1]: 高斯核 × 末端压平, 保证 d=1 → 0(边缘不硬切)。处处连续 → 无可见分界。
+  if (d >= 1) return 0;
+  const g = Math.exp(-(d * d) * GLOW_FALLOFF_GAUSS);
+  const edge = 1 - d * d * d * d; // d→1 时拉到 0
+  return Math.max(0, g * edge);
+}
+function getRadialGlowSpriteFrame(): SpriteFrame {
+  if (cachedGlowSpriteFrame) {
+    return cachedGlowSpriteFrame;
+  }
+  const size = GLOW_TEX_SIZE;
+  const data = new Uint8Array(size * size * 4);
+  const c = (size - 1) / 2;
+  const maxR = size / 2;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = (x - c) / maxR;
+      const dy = (y - c) / maxR;
+      const a = Math.round(radialGlowFalloff(Math.min(1, Math.hypot(dx, dy))) * 255);
+      const i = (y * size + x) * 4;
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = a;
+    }
+  }
+  const image = new ImageAsset({
+    width: size,
+    height: size,
+    _data: data,
+    _compressed: false,
+    format: Texture2D.PixelFormat.RGBA8888
+  });
+  cachedGlowSpriteFrame = SpriteFrame.createWithImage(image);
+  return cachedGlowSpriteFrame;
+}
+
+// 代码生成一张【有方向的锥形渐变】纹理: 锥顶在左中(出光口)最亮, 沿 +x 张开到右、越远越散越淡。
+// 渲染时锥顶锚在手电大头、整片转到光向 → 光从手电射出、近端最强、向地面铺开发散变弱(真实光学)。
+let cachedConeSpriteFrame: SpriteFrame | null = null;
+function getConeGlowSpriteFrame(): SpriteFrame {
+  if (cachedConeSpriteFrame) {
+    return cachedConeSpriteFrame;
+  }
+  const size = GLOW_TEX_SIZE;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    const across = y / (size - 1) - 0.5; // -0.5..0.5(锥轴在中线)
+    for (let x = 0; x < size; x += 1) {
+      const along = x / (size - 1); // 0=锥顶(出光口) .. 1=锥底(far)
+      const halfW = CONE_TEX_MIN_HALF + along * (CONE_TEX_MAX_HALF - CONE_TEX_MIN_HALF);
+      const q = Math.abs(across) / halfW; // 0=锥轴, 1=锥侧
+      const bAlong = Math.pow(Math.max(0, 1 - along), CONE_ALONG_POW); // 近端最亮 → 远端 0
+      const bAcross = Math.max(0, 1 - q * q); // 轴最亮 → 锥侧 0(柔边)
+      const a = Math.round(Math.max(0, bAlong * bAcross) * 255);
+      const i = (y * size + x) * 4;
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = a;
+    }
+  }
+  const image = new ImageAsset({
+    width: size,
+    height: size,
+    _data: data,
+    _compressed: false,
+    format: Texture2D.PixelFormat.RGBA8888
+  });
+  cachedConeSpriteFrame = SpriteFrame.createWithImage(image);
+  return cachedConeSpriteFrame;
+}
+
 type M01GreyboxPointerEvent = EventTouch & {
   getID?: () => number;
   getUILocation: () => { x: number; y: number };
@@ -258,7 +338,9 @@ export class M01GreyboxBootstrap extends Component {
   /** intro 交接的手持手电节点(挂在莱米身上); 用于按灯态给手电体着色反馈。 */
   private lemmyFlashlightNode: Node | null = null;
   private coverageBeamNode: Node | null = null;
-  private coverageBeamGraphics: Graphics | null = null;
+  /** 光柱(空气光)/落地灯色晕/白热核 三层柔光精灵; 共用代码生成的径向渐变纹理, 每帧调位姿+染色。 */
+  private coverageConeSprite: Sprite | null = null;
+  private coverageCoreSprite: Sprite | null = null;
   /** 上次显色重算的覆盖状态键(灯色+覆盖集合); 变化才触发 Session 重显色, 避免逐帧churn。 */
   private coverageStateKey: string | undefined;
   /** 上次光池重绘键(灯色+圆心); 变化才清画 Graphics。 */
@@ -1572,11 +1654,11 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   /**
-   * 光束几何: 从手电【大头】(muzzle, 沿手电朝向偏移)向脸前方照。手电朝向取手持手电节点的 z 旋转
-   * (intro 每帧据脸朝向设 ±120°, 已镜像), 故光池随脸左右偏。朝向角约定: 0=大头竖直上, -90=水平右
-   * → 朝向单位向量 = (-sin θ, cos θ)。
-   * ⚠️ 光池圆心放在【大头正下方地面 + 朝向水平方向 × radius】, 使光池【近边正好在大头处】→ 整个圆完全落在
-   * 脸前方, 绝不照到莱米身后(真实光线: 手电只往前照)。圆面积不变(=同尺寸圆), 只是从"罩着莱米"移到"莱米身前"。
+   * 光束几何: 从手电【大头】(muzzle)沿手电真实朝向 dir 投到地面, 命中点=光池圆心(脚边)。
+   * 手电朝向取手持手电节点 z 旋转(intro 据脸朝向设 ±120°, 已镜像)。角约定: 0=大头竖直上, -90=水平右
+   * → dir = (-sin θ, cos θ)。
+   * ⚠️ 圆心 = muzzle + dir × t(t 使 y 落到地面平面)→ muzzle→center 正好沿 dir, 光锥方向 = 手电朝向。
+   * 手电斜下照 → 光打在莱米脚边(近), 不再硬塞到水平前方 150px(那会和手电朝向对不上)。
    */
   private computeBeamGeometry(
     anchor: Node,
@@ -1593,13 +1675,20 @@ export class M01GreyboxBootstrap extends Component {
       x: gripX + dir.x * COVERAGE_MUZZLE_REACH,
       y: gripY + dir.y * COVERAGE_MUZZLE_REACH
     };
-    // 地面平面 y = 莱米 + centerOffsetY(碎片落地高度)。脸前方水平向 = sign(dir.x)(竖直下照则 0=对称落脚下)。
+    // 圆心一律落在地面平面 y = 莱米 + centerOffsetY(碎片落地高度) → 光永远打地、绝不戳天。
+    // 手电朝下(dir.y<0)才真有地面交点, 沿 dir 投; 否则(朝上/水平, 够不到地面)退化为脚边前方一点。
     const groundY = anchor.position.y + coverage.centerOffsetY;
-    const forward = dir.x > 0 ? 1 : dir.x < 0 ? -1 : 0;
-    const center = {
-      x: muzzle.x + forward * coverage.radius + coverage.centerOffsetX,
-      y: groundY
-    };
+    const horiz = dir.x >= 0 ? 1 : -1; // 脸前方水平向
+    const center =
+      dir.y < -0.05
+        ? {
+            x: muzzle.x + dir.x * ((groundY - muzzle.y) / dir.y) + coverage.centerOffsetX,
+            y: groundY
+          }
+        : {
+            x: muzzle.x + horiz * COVERAGE_FALLBACK_FORWARD + coverage.centerOffsetX,
+            y: groundY
+          };
     return { muzzle, dir, center };
   }
 
@@ -1635,7 +1724,7 @@ export class M01GreyboxBootstrap extends Component {
     return false;
   }
 
-  /** 光池节点(Graphics)挂 greybox 根; 手电交接时创建, 仅 flashlightAcquired 且灯亮时显示。 */
+  /** 三层柔光精灵(共用代码生成的径向渐变纹理)挂 greybox 根最底层; 手电交接时建一次。 */
   private ensureCoverageBeamNode(): void {
     if (this.coverageBeamNode || !this.greyboxRoot || !this.layout) {
       return;
@@ -1643,18 +1732,31 @@ export class M01GreyboxBootstrap extends Component {
 
     const beamNode = new Node("M01LemmyCoverageLightPool");
     this.greyboxRoot.addChild(beamNode);
-    // 光池=地面辉光, 必须在拼片【下方】绘制(addChild 在建图后→默认最高 sibling=画在拼片上方,
-    // 亮核会把拼片洗成纯灯色、盖掉显色反应)。送到最底层, 让拼片显色叠在光池之上。
-    // ⚠️ index 0 也把光池压到了 M01BottomLight 之下(今天无害: 区域不重叠+底光半透明)。但若将来
-    // 有人在建图时往 greyboxRoot 挂一个整屏不透明背景, 光池会被它盖住 → 那时改成"插在拼片层正下方"。
+    // 光池=地面辉光, 必须在拼片【下方】(否则亮核盖掉拼片显色)。送到最底层。
+    // ⚠️ index 0 也压到 M01BottomLight 之下(今天无害: 区域不重叠+底光半透明); 若将来 greyboxRoot
+    // 挂整屏不透明背景, 光池会被盖住 → 那时改成"插在拼片层正下方"。
     beamNode.setSiblingIndex(0);
     beamNode.setPosition(0, 0, 0);
-    beamNode
-      .addComponent(UITransform)
-      .setContentSize(this.layout.canvas.width, this.layout.canvas.height);
-    this.coverageBeamGraphics = beamNode.addComponent(Graphics);
     beamNode.active = false;
     this.coverageBeamNode = beamNode;
+
+    // 画序(子节点先加=先画=在下): 锥形灯色光(主体) → 出光口白热核(上)。叠加 = 白热核→灯色→透明。
+    // 锥形精灵锚点在【左中】= 锥顶(出光口), 渲染时定位到大头并转到光向; 白热核精灵居中锚点。
+    this.coverageConeSprite = this.addGlowSprite(beamNode, getConeGlowSpriteFrame(), 0, 0.5);
+    this.coverageCoreSprite = this.addGlowSprite(beamNode, getRadialGlowSpriteFrame(), 0.5, 0.5);
+  }
+
+  /** 建一个用渐变纹理的柔光精灵子节点(内容尺寸=纹理边长, 锚点 ax/ay, 之后靠 node.scale/rotation 摆位)。 */
+  private addGlowSprite(parent: Node, frame: SpriteFrame, ax: number, ay: number): Sprite {
+    const node = new Node("M01GlowSprite");
+    parent.addChild(node);
+    const transform = node.addComponent(UITransform);
+    transform.setContentSize(GLOW_TEX_SIZE, GLOW_TEX_SIZE);
+    transform.setAnchorPoint(ax, ay);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    sprite.spriteFrame = frame;
+    return sprite;
   }
 
   private hideCoverageBeam(): void {
@@ -1666,21 +1768,21 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   /**
-   * 重绘有方向的光束(灯色/朝向/位置变化才清画): 从手电大头(muzzle)沿朝向射出一道羽化光柱, 末端落地成扁椭圆光池。
-   * 光池宽 = 覆盖半径; 顶边经 coveragePoolHalfHeight 钳制 — 与拼接盘横向重叠时压到盘下缘以下
-   * (spec: 光束只照候选区, 不照拼接盘; 钳到 0 则整束不画)。
+   * 摆放光效精灵(灯色/朝向/位置变化才更新): 锥形灯色光(锥顶=大头出光口、张开射向地面远端, 近强远弱发散)
+   * + 出光口白热核。经 coveragePoolHalfHeight 判定与拼接盘横向重叠时整束隐藏(光不照盘)。
    */
   private redrawCoverageBeam(
     beam: { muzzle: M01GreyboxPoint; dir: M01GreyboxPoint; center: M01GreyboxPoint },
     radius: number
   ): void {
     const beamNode = this.coverageBeamNode;
-    const graphics = this.coverageBeamGraphics;
+    const cone = this.coverageConeSprite;
+    const core = this.coverageCoreSprite;
     const lightState = this.activeLightState;
-    if (!beamNode || !graphics || !this.layout || lightState === "off") {
+    if (!beamNode || !cone || !core || !this.layout || lightState === "off") {
       return;
     }
-    const { muzzle, dir, center } = beam;
+    const { muzzle, center } = beam;
 
     const drawKey = `${lightState}:${Math.round(center.x)}:${Math.round(center.y)}:${Math.round(
       muzzle.x
@@ -1689,7 +1791,6 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
     this.coverageDrawKey = drawKey;
-    beamNode.active = true;
 
     const board = this.layout.board;
     const halfHeight = coveragePoolHalfHeight({
@@ -1704,74 +1805,30 @@ export class M01GreyboxBootstrap extends Component {
       },
       clearance: COVERAGE_POOL_BOARD_CLEARANCE
     });
-
-    graphics.clear();
     if (halfHeight <= 0) {
-      return; // 光束任何画法都会蹭到拼接盘 → 宁可整束不画(光不照盘是硬规则)
+      beamNode.active = false; // 与拼接盘横向重叠 → 整束隐藏(光不照盘硬规则)
+      return;
     }
+    beamNode.active = true;
 
     const [r, g, b] = M01_BEAM_RGB[lightState];
-    graphics.lineWidth = 0;
-    graphics.strokeColor = new Color(0, 0, 0, 0);
+    const s = GLOW_TEX_SIZE;
 
-    // ① 光柱: muzzle→光池的羽化四边形(空气里的光淡)。多层渐窄叠加 → 柱身柔边、中线略亮。
-    const perp = { x: -dir.y, y: dir.x };
-    for (let i = 0; i < COVERAGE_BEAM_CONE_LAYERS; i += 1) {
-      const k = 1 - i / COVERAGE_BEAM_CONE_LAYERS; // 1=最外宽, 渐窄
-      graphics.fillColor = new Color(r, g, b, COVERAGE_BEAM_CONE_ALPHA);
-      this.traceBeamCone(
-        graphics,
-        muzzle,
-        center,
-        perp,
-        COVERAGE_BEAM_MUZZLE_HALF_W * k,
-        radius * COVERAGE_BEAM_POOL_HALF_W * k
-      );
-      graphics.fill();
-    }
+    // ① 锥形灯色光: 锥顶(出光口)锚在大头, 沿【手电真实朝向】张开射到脚边命中点(center)。
+    //    muzzle→center 就是 dir → 光锥方向 = 手电朝向。尺寸按实际光束长 len(脚边小光池), 不用 radius。
+    const dx = center.x - muzzle.x;
+    const dy = center.y - muzzle.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    cone.node.setPosition(muzzle.x, muzzle.y, 0);
+    cone.node.setRotationFromEuler(0, 0, (Math.atan2(dy, dx) * 180) / Math.PI); // 锥纹理 +x(锚点左中)对准光向
+    cone.node.setScale(len / s, (len * COVERAGE_CONE_FAN) / s, 1); // 锥底张开宽 = len × FAN
+    cone.color = new Color(r, g, b, COVERAGE_CONE_ALPHA);
 
-    // ② 落地光池: 外环→内环逐个填(大半径先画), 同心叠加 → 中心累积最亮、边缘渐隐的径向光晕。
-    for (let i = 0; i < COVERAGE_POOL_RINGS; i += 1) {
-      const t = i / (COVERAGE_POOL_RINGS - 1); // 0=最外, 1=最内
-      const scale = 1 - t * (1 - COVERAGE_POOL_CORE_SCALE);
-      graphics.fillColor = new Color(r, g, b, COVERAGE_POOL_RING_ALPHA);
-      this.traceCoveragePool(graphics, center, radius * scale, halfHeight * scale);
-      graphics.fill();
-    }
-  }
-
-  /** 光柱四边形: 从 muzzle(半宽 muzzleHalf)沿朝向扩到 pool(半宽 poolHalf), perp = 朝向的法向单位向量。 */
-  private traceBeamCone(
-    graphics: Graphics,
-    muzzle: M01GreyboxPoint,
-    pool: M01GreyboxPoint,
-    perp: M01GreyboxPoint,
-    muzzleHalf: number,
-    poolHalf: number
-  ): void {
-    graphics.moveTo(muzzle.x + perp.x * muzzleHalf, muzzle.y + perp.y * muzzleHalf);
-    graphics.lineTo(pool.x + perp.x * poolHalf, pool.y + perp.y * poolHalf);
-    graphics.lineTo(pool.x - perp.x * poolHalf, pool.y - perp.y * poolHalf);
-    graphics.lineTo(muzzle.x - perp.x * muzzleHalf, muzzle.y - perp.y * muzzleHalf);
-    graphics.close();
-  }
-
-  /** Graphics 没有椭圆 API → 多边形逼近贴地光池。 */
-  private traceCoveragePool(
-    graphics: Graphics,
-    center: M01GreyboxPoint,
-    radiusX: number,
-    halfHeight: number
-  ): void {
-    graphics.moveTo(center.x + radiusX, center.y);
-    for (let i = 1; i < COVERAGE_POOL_SEGMENTS; i += 1) {
-      const angle = (Math.PI * 2 * i) / COVERAGE_POOL_SEGMENTS;
-      graphics.lineTo(
-        center.x + Math.cos(angle) * radiusX,
-        center.y + Math.sin(angle) * halfHeight
-      );
-    }
-    graphics.close();
+    // ② 出光口白热核: 大头处一小团白色柔光(光最强处) → 白热核→灯色→透明的真实分布。
+    const coreD = (len * COVERAGE_CORE_SCALE) / s; // 直径 = len × CORE_SCALE
+    core.node.setPosition(muzzle.x, muzzle.y, 0);
+    core.node.setScale(coreD, coreD, 1);
+    core.color = new Color(255, 255, 255, COVERAGE_CORE_ALPHA);
   }
 
   /** 手电体按灯态着色(亮=对应灯色, 灭=还原白), 给"点手电循环"即时可见反馈。 */
