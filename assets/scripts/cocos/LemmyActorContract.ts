@@ -245,7 +245,7 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   // 玩家看着像"跳到最高点篮子才受力"; 对到 #66(初次接触)→ 篮子在头撞上那一刻就受力。(2026-06-08 用户现场)
   headbutt: {
     dir: "art/characters/lemmy/headbutt",
-    fps: 40,
+    fps: 48, // 2026-06-19 起跳+落地整体提速 (40→48, ~20%); 与篮子下落协调。嫌快/慢再调
     loop: false,
     holdLast: true,
     events: [{ frameIndex: 66, event: "headbutt_contact" }]

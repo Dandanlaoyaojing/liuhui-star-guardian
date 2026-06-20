@@ -717,6 +717,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.lemmyAnchorNode = lemmyNode;");
     expect(bootstrap).toContain("this.lemmyFlashlightNode = flashlightNode;");
     expect(bootstrap).toContain("onHeldFlashlightTap: () => this.handleHeldFlashlightTap()");
+    // 拾片放宽(只需 physicsSettled)后, 玩家可在捡手电前就拼好完整结构; 验证仍双门控 → 手电到手时
+    // 必须补一次验证, 否则预拼好的结构要等下次挪片才触发底光(codex P2 复核发现)。
+    const acquireBlock = bootstrap.slice(
+      bootstrap.indexOf("onFlashlightAcquired: ({ lemmyNode, flashlightNode }) => {"),
+      bootstrap.indexOf("onHeldFlashlightTap: () => this.handleHeldFlashlightTap()")
+    );
+    expect(acquireBlock).toContain("this.tryValidateCompleteEvidenceCandidate();");
 
     // ② 点手电循环 红/黄/蓝/灭(cycleLight): 颜色映射 Session.selectFlashlight(flashlight_<color>),
     //    "灭"走 Session.clearFlashlight()。
@@ -750,13 +757,15 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.isPointInsideManualTargetBoard(position)");
     expect(bootstrap).toContain("this.isFragmentWeakSnappedToEvidence(fragment.controllerId)");
 
-    // ⑤ 双门控: 拾片(beginTokenDrag)与底光整体验证都要求 physicsSettled && flashlightAcquired;
-    //    开场点地走位/点篮/点掉落手电由 intro sequence 自管, 不经这两处门控。
+    // ⑤ 门控: 拾片(beginTokenDrag)只要 physicsSettled(落堆稳定即可整理, 不必先捡手电);
+    //    底光整体验证仍双门控 physicsSettled && flashlightAcquired。开场点地走位/点篮/点掉落手电
+    //    由 intro sequence 自管, 不经这两处门控。
     const beginDragBlock = bootstrap.slice(
       bootstrap.indexOf("private beginTokenDrag"),
       bootstrap.indexOf("private moveActivePointerDrag")
     );
-    expect(beginDragBlock).toContain("!(this.physicsSettled && this.flashlightAcquired)");
+    expect(beginDragBlock).toContain("token.kind === \"fragment\" && !this.physicsSettled");
+    expect(beginDragBlock).not.toContain("!(this.physicsSettled && this.flashlightAcquired)");
     const validateBlock = bootstrap.slice(
       bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),
       bootstrap.indexOf("private scheduleValidationLightReset")

@@ -25,8 +25,8 @@ describe("M01 puzzle tap routing — before the flashlight is picked up", () => 
     expect(routeTap({}, ctx)).toBe("walkLemmy");
   });
 
-  it("treats a candidate tap as a walk (fragments are not pickable before pickup)", () => {
-    expect(routeTap({ fragment: true }, ctx)).toBe("walkLemmy");
+  it("picks up a spilled fragment even before the flashlight (no beam → no light-off)", () => {
+    expect(routeTap({ fragment: true }, ctx)).toBe("pickupPiece");
   });
 
   it("prefers the fallen flashlight when it overlaps a fragment", () => {

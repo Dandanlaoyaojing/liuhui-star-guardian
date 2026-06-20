@@ -134,7 +134,7 @@ const BASKET_HEADBUTT_IMPULSE_VY_JITTER = 5; // px/s 每路竖向差(上层拼�
 const BASKET_HEADBUTT_IMPULSE_SPIN = 22; // deg/s 翻滚
 // 顶篮冲击(被头从下顶起): 给绳链尾端(=篮子)注入速度, 之后被软绳拽住乱晃、渐收(模型见 M01RopePhysics)。
 // 竖直为主; 侧向分量来自莱米头与篮心的横向偏移(物理来源: 偏着顶→往对侧甩)。
-const BASKET_KICK_STRENGTH = 600; // 顶篮上抛初速度(px/s); 越大蹦越高。可 live 调。
+const BASKET_KICK_STRENGTH = 520; // 顶篮上抛初速度(px/s); 越大蹦越高。可 live 调。(2026-06-19 600→520 配合重力调低后保持蹦起高度≈原值, 只把回落变慢)
 const BASKET_KICK_LATERAL_PER_PX = 3; // 莱米每偏离篮心 1px → 侧向初速这么多(px/s)
 const BASKET_KICK_LATERAL_MAX = 220; // 侧向初速上限(px/s), 防极端偏心甩飞
 // 可重复顶篮(active.md B「顶一下出一部分、反复顶到全出」): 每顶一次撞出这么多片(顶层优先),
@@ -178,7 +178,7 @@ const ROPE_TEXTURE_PATH =
   "art/stage1-m01/runtime-sprites/intro/m01-rope-segment/spriteFrame";
 const ROPE_RENDER_WIDTH = 12; // 单股吊带贴图渲染宽(px); 2026-06-16 用户要求调细 1/4(16→12)。可 live 调
 const ROPE_OPTS: RopeOptions = {
-  gravity: -1500, // 链重力 px/s²; 决定甩动/下垂的劲道与篮子回落速度
+  gravity: -1100, // 链重力 px/s²; 决定甩动/下垂的劲道与篮子回落速度 (2026-06-19 1500→1100 让篮子下落更柔, 与兔子落地协调)
   damping: 0.995, // 每【子步】速度保留(120Hz 下 ≈0.55/s); 越小乱晃收得越快
   iterations: 24, // 距离约束迭代 ≈2×粒子数(文献经验); 越多绳越不可拉伸
   substepDt: 1 / 120 // 固定子步长(文献强调不可用可变 dt, 否则抖)

@@ -75,9 +75,9 @@
     "radius": 150,
     "radius_comment": "px；手持手电覆盖面半径——圆心半径内且不在拼接盘上的候选碎片按当前灯色显色；覆盖多片但非全场，玩家需点地走位扫照（spec §5.2 覆盖面）",
     "centerOffsetX": 0,
-    "centerOffsetX_comment": "px；覆盖面圆心相对莱米节点的水平偏移；0=光池居中在莱米脚下，不随朝向镜像",
+    "centerOffsetX_comment": "px；在光束投影落点之上再加的水平微调偏置；0=纯按手电朝向投影定光池圆心（光束朝大头方向射出，圆心随脸朝向左右偏）",
     "centerOffsetY": -52,
-    "centerOffsetY_comment": "px；覆盖面圆心相对莱米节点的垂直偏移——从莱米节点中心(y≈-190)下移到碎片落地高度(y≈-242)，光读作\"照在地面候选区\""
+    "centerOffsetY_comment": "px；定义“地面平面”高度=莱米节点中心(y≈-190)下移此值到碎片落地高度(y≈-242)；光束沿手电朝向投到此平面成光池"
   },
   "standardPieces": [
     {

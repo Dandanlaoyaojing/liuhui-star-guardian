@@ -26,12 +26,15 @@ export type TapAction =
   | "cycleLight"
   | "walkLemmy"
   | "walkLemmyWithBeam"
+  | "pickupPiece"
   | "pickupPieceAndLightOff";
 
 /**
  * Resolve a tap to one action. Priority is phase-aware:
  * - Holding a piece: any tap drops it (highest — overrides all).
- * - Before pickup: fallen flashlight > (fragment | ground) → walk. Fragments aren't pickable yet.
+ * - Before pickup: fallen flashlight > fragment > ground. Fragments ARE pickable once spilled
+ *   (整理用; 此阶段无光束, 故 pickupPiece 不灭灯) — tapping the fallen flashlight still wins so
+ *   the player can always grab it even if a piece overlaps.
  * - After pickup: fragment > held flashlight > ground. Tapping a piece picks it up AND kills the light.
  */
 export function routeTap(hit: TapHit, ctx: TapContext): TapAction {
@@ -41,7 +44,8 @@ export function routeTap(hit: TapHit, ctx: TapContext): TapAction {
 
   if (!ctx.flashlightAcquired) {
     if (hit.fallenFlashlight) return "pickupFlashlight";
-    return "walkLemmy"; // ground, or a not-yet-pickable fragment → just move Lemmy
+    if (hit.fragment) return "pickupPiece"; // 落地碎片可直接整理(无光束→不灭灯)
+    return "walkLemmy"; // empty ground → just move Lemmy
   }
 
   if (hit.fragment) return "pickupPieceAndLightOff";
