@@ -1746,22 +1746,10 @@ export class M01GreyboxBootstrap extends Component {
 
     const beamNode = new Node("M01LemmyCoverageLightPool");
     this.greyboxRoot.addChild(beamNode);
-    // 光池层级: 必须在拼片【下方】(否则亮核盖掉拼片显色), 但要在大螺母/拼接盘等【平台贴图上方】
-    // (否则光打到平台区域会被平台贴图盖住, 不显示)。→ 插到【第一个拼片节点正下方】。
-    const children = this.greyboxRoot.children;
-    const fragmentNodes = new Set(
-      [...this.greyboxNodes.values()]
-        .filter((entry) => entry.token.kind === "fragment")
-        .map((entry) => entry.node)
-    );
-    let firstFragmentIndex = children.indexOf(beamNode); // 兜底: 没拼片就放它当前位(末尾)
-    for (let i = 0; i < children.length; i += 1) {
-      if (fragmentNodes.has(children[i])) {
-        firstFragmentIndex = i;
-        break;
-      }
-    }
-    beamNode.setSiblingIndex(firstFragmentIndex);
+    // 光池=地面辉光, 必须在拼片【下方】(否则亮核盖掉拼片显色)。送到最底层。
+    // ⚠️ index 0 也压到 M01BottomLight 之下(今天无害: 区域不重叠+底光半透明); 若将来 greyboxRoot
+    // 挂整屏不透明背景, 光池会被盖住 → 那时改成"插在拼片层正下方"。
+    beamNode.setSiblingIndex(0);
     beamNode.setPosition(0, 0, 0);
     beamNode.active = false;
     this.coverageBeamNode = beamNode;
