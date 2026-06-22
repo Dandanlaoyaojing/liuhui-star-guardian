@@ -355,7 +355,6 @@ export class M01GreyboxBootstrap extends Component {
   private lemmyFlashlightNode: Node | null = null;
   private coverageBeamNode: Node | null = null;
   /** 光柱(空气光)/落地灯色晕/白热核 三层柔光精灵; 共用代码生成的径向渐变纹理, 每帧调位姿+染色。 */
-  private coveragePoolSprite: Sprite | null = null;
   private coverageConeSprite: Sprite | null = null;
   private coverageCoreSprite: Sprite | null = null;
   private flashlightHeadGlow: Sprite | null = null; // 大头灯色光晕(挂手电节点; 只大头变色, 手电体本色)
@@ -1755,9 +1754,7 @@ export class M01GreyboxBootstrap extends Component {
     beamNode.active = false;
     this.coverageBeamNode = beamNode;
 
-    // 画序(子节点先加=先画=在下): 地面光斑(贴地·最底) → 空中光锥 → 出光口白热核(上)。
-    // 地面光斑=扁椭圆(径向柔光), 平铺地面、不穿地; 锥形锚点【左中】=锥顶(出光口); 白热核居中锚点。
-    this.coveragePoolSprite = this.addGlowSprite(beamNode, getRadialGlowSpriteFrame(), 0.5, 0.5);
+    // 画序(子节点先加=先画=在下): 空中三角光锥(锚点【左中】=锥顶/出光口) → 出光口白热核(居中, 上)。
     this.coverageConeSprite = this.addGlowSprite(beamNode, getConeGlowSpriteFrame(), 0, 0.5);
     this.coverageCoreSprite = this.addGlowSprite(beamNode, getRadialGlowSpriteFrame(), 0.5, 0.5);
   }
@@ -1792,11 +1789,10 @@ export class M01GreyboxBootstrap extends Component {
     radius: number
   ): void {
     const beamNode = this.coverageBeamNode;
-    const pool = this.coveragePoolSprite;
     const cone = this.coverageConeSprite;
     const core = this.coverageCoreSprite;
     const lightState = this.activeLightState;
-    if (!beamNode || !pool || !cone || !core || !this.layout || lightState === "off") {
+    if (!beamNode || !cone || !core || !this.layout || lightState === "off") {
       return;
     }
     const { muzzle, center } = beam;
@@ -1850,9 +1846,8 @@ export class M01GreyboxBootstrap extends Component {
     cone.node.setScale(len / s, (len * COVERAGE_CONE_FAN) / s, 1); // 锥底张开宽 = len × FAN; 长度钳到地面线
     cone.color = new Color(r, g, b, COVERAGE_CONE_ALPHA);
 
-    // ①b 不叠椭圆光斑 —— 真实手电照地是【一个三角形】(顶点在大头、向前张开), 不是椭圆坨。
-    //     这一条锥光本身就是三角形, footprint = 锥落地的宽端。pool 精灵隐藏。
-    pool.node.active = false;
+    // 不叠椭圆光斑 —— 真实手电照地是【一个三角形】(顶点在大头、向前张开), 不是椭圆坨。
+    // 这一条锥光本身就是三角形, footprint = 锥落地的宽端。
 
     // ② 出光口白热核: 大头处一小团白色柔光(固定小尺寸, 贴近镜头) → 白热核→灯色→透明的真实分布。
     const coreD = COVERAGE_CORE_DIAM_PX / s;
