@@ -215,8 +215,12 @@ const FLASHLIGHT_COLLIDER = { width: 14, height: 30 }; // 手电碰撞体(≈视
 // 手持手电【跟脸朝向镜像】(syncHeldFlashlight 每帧据 lemmyActor.getFacing 设): 大头朝脸前方上翘 30°,
 // 像人拿手电。下面是【朝右】的值, 朝左自动镜像(x 取反、angle 取反)。
 // ⚠️ 手电挂在莱米【节点】上、而朝向翻转(scaleX=-1)在【内层 spriteNode】, 二者不联动 → 必须手动镜像。
-const HELD_FLASHLIGHT_OFFSET = { x: 6, y: -26 }; // 朝右时手部位(爪位); 朝左镜像取 -x。可 live 调
-const HELD_FLASHLIGHT_ANGLE = -120; // 朝右手持角(deg): 大头【右前下方】斜 30°照地(0=头竖直上, -90=头水平右, -120=下垂30°)
+const HELD_FLASHLIGHT_OFFSET = { x: 6, y: -34 }; // 朝右时手部位(爪位); 朝左镜像取 -x。2026-06-20 y -26→-34 下移到手位(原来偏高)。可 live 调
+const HELD_FLASHLIGHT_ANGLE = -113; // 朝右手持角(deg): 大头右前下方斜照地(0=头竖直上, -90=水平右, -120=下垂30°, -113≈下垂23°)。调平→往 -90 靠
+// 拾起起身: 手电从【蹲时低手位】tween 升到【站立手位】, 跟身体一起升(否则 acquired 当帧钉到站立位=手电先飞起来)。
+const PICKUP_HAND_DROP = 30; // px; 蹲时手比站立低这么多, 手电起手点从此低位起升
+const PICKUP_RISE_SEC = 1.5; // s; 手电随起身升到站立手位的 tween 时长。必须贴合起身动画(反播 crouch=80帧@50fps=1.6s),
+// 略短让收尾被 update 接管。⚠️ 之前 0.32 远快于 1.6s 起身 → 手电先飞到站立位(2026-06-19 修)。改 crouch 帧数/fps 要同步此值
 
 export interface M01IntroFragment {
   /** The real M01 puzzle-piece node managed by the bootstrap. */
@@ -1168,10 +1172,23 @@ export class M01IntroSequence extends Component {
       const heldCollider = this.flashlightNode.getComponent(BoxCollider2D);
       if (heldCollider) heldCollider.enabled = false;
       this.lemmyActor.node.addChild(this.flashlightNode);
-      this.advance("crouchDone"); // pickingUp → acquired(让 syncHeldFlashlight 起身期间就贴手; 与下方输入门禁解耦)
-      this.syncHeldFlashlight(); // 贴手部(之后每帧由 update 维持)
+      // 起身期间手电跟手一起升: 先放到蹲时低手位, 边起身边 tween 到站立手位(避免 acquired 当帧把手电钉到站立位=先飞起来)。
+      // 仍 pickingUp(未 acquired) → update 的 syncHeldFlashlight 早返回不抢位, 由这段 tween 控位。
+      const right = this.lemmyActor.getFacing() === "right";
+      const heldX = right ? HELD_FLASHLIGHT_OFFSET.x : -HELD_FLASHLIGHT_OFFSET.x;
+      this.flashlightNode.setRotationFromEuler(0, 0, right ? HELD_FLASHLIGHT_ANGLE : -HELD_FLASHLIGHT_ANGLE);
+      this.flashlightNode.setPosition(heldX, HELD_FLASHLIGHT_OFFSET.y - PICKUP_HAND_DROP, 0);
+      tween(this.flashlightNode)
+        .to(
+          PICKUP_RISE_SEC,
+          { position: new Vec3(heldX, HELD_FLASHLIGHT_OFFSET.y, 0) },
+          { easing: "sineOut" }
+        )
+        .start();
       await this.lemmyActor.playFrameAction("crouch", { reverse: true }); // 反播 crouch = 拿着手电起身(无专门起身帧, 复用蹲下帧倒放)
       this.lemmyActor.playIdle();
+      this.advance("crouchDone"); // pickingUp → acquired(起身完才让 update 接管贴手 + 开放交接, 否则起身期间就钉到站立位)
+      this.syncHeldFlashlight(); // 站定后贴手部(之后每帧由 update 维持)
       // v4 交接放在起身【之后】: onFlashlightAcquired 会闩 bootstrap 的 flashlightAcquired —— 它门控碎片拖拽 +
       // beam 光池(physicsSettled && flashlightAcquired), 必须等莱米站定才开放; 否则起身动画没播完, 解谜输入/
       // beam 就提前打开(codex 审查发现)。起身只会被 destroy 中断(整体废弃), 那时丢交接无害。
