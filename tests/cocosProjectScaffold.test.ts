@@ -672,9 +672,14 @@ describe("Cocos Creator project scaffold", () => {
       bootstrap.indexOf("private suppressRootClickOnce")
     );
 
+    // 灭灯绑定到【真正抓到拼片】: beginTokenDrag(per-node 命中拼片节点)的 fragment 分支里灭灯,
+    // 不再由全局按下的 64px 近邻命中误灭(玩家点地走位、附近恰好有片时也灭)。
+    const beginDragBlock = bootstrap.slice(
+      bootstrap.indexOf("private beginTokenDrag"),
+      bootstrap.indexOf("private moveActivePointerDrag")
+    );
     expect(bootstrap).toContain("private suspendFlashlightObservation(): void");
-    expect(bootstrap).toContain('if (hitToken?.kind === "fragment") {');
-    expect(bootstrap).toContain("this.suspendFlashlightObservation();");
+    expect(beginDragBlock).toContain("this.suspendFlashlightObservation();");
     // 点拼片=拾取且手电灭(spec §5.2): 灭灯统一走 Session 的"灭"态。
     expect(suspendBlock).toContain("this.session?.clearFlashlight();");
     expect(suspendBlock).toContain("this.syncVisualState();");
@@ -772,16 +777,12 @@ describe("Cocos Creator project scaffold", () => {
     );
     expect(validateBlock).toContain("!(this.physicsSettled && this.flashlightAcquired)");
 
-    // ⑥ 两阶段点击路由(routeTap 纯函数): 点拼片 = 玩家拾取且灭灯(pickupPieceAndLightOff →
-    //    suspendFlashlightObservation 统一灭灯), beginTokenDrag 不再重复灭灯。
-    expect(bootstrap).toContain(
-      'import { routeTap, type TapHit } from "./M01PuzzleInputRouter.ts";'
-    );
-    expect(bootstrap).toContain(
-      'if (action === "pickupPieceAndLightOff" && this.physicsSettled) {'
-    );
+    // ⑥ 灭灯绑定到【真正抓到拼片】: beginTokenDrag(per-node 命中拼片节点)里 suspendFlashlightObservation,
+    //    不再由全局 beginActivePointerPress 的 64px 近邻命中误灭(玩家点地走位、附近恰好有片时会误灭)。
+    //    手电循环仍走 routeTap(点手持手电 heldFlashlight → cycleLight)。
+    expect(bootstrap).toContain('import { routeTap } from "./M01PuzzleInputRouter.ts";');
     expect(bootstrap).toContain('if (action !== "cycleLight") {');
-    expect(beginDragBlock).not.toContain("suspendFlashlightObservation");
+    expect(beginDragBlock).toContain("this.suspendFlashlightObservation();");
 
     // ⑦ 光池仅 拾起后且灯亮 时显示; 灯灭/拾片立即收池复灰。
     expect(bootstrap).toContain('this.activeLightState === "off"');

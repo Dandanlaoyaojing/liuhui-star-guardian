@@ -74,7 +74,7 @@ import {
   type CoverageFragment,
   type LightState
 } from "./M01FlashlightObservation.ts";
-import { routeTap, type TapHit } from "./M01PuzzleInputRouter.ts";
+import { routeTap } from "./M01PuzzleInputRouter.ts";
 import type {
   M01BaseColor,
   M01BlendColor,
@@ -1443,21 +1443,9 @@ export class M01GreyboxBootstrap extends Component {
    * 地面/吊篮/掉落手电归 intro sequence(点哪走哪/顶篮/拾取), 手持手电点击经 onHeldFlashlightTap
    * 进 handleHeldFlashlightTap, 持片放下由根节点 touch-end(placeHeldFragmentAt)结算 — 不双重处理。
    */
-  private beginActivePointerPress(event: M01GreyboxPointerEvent): void {
-    const position = this.eventToLocalPoint(event);
-    const hitToken = this.findTokenAtPosition(this.layout?.fragments ?? [], position);
-    const hit: TapHit = {};
-    if (hitToken?.kind === "fragment") {
-      hit.fragment = true;
-    }
-    const action = routeTap(hit, {
-      flashlightAcquired: this.flashlightAcquired,
-      holdingPiece: this.heldFragmentId !== undefined
-    });
-    // 双门控的另一半: 物理未沉降时拼片尚不可拾(beginTokenDrag 同样拦), 灯也不该被这次点击灭掉。
-    if (action === "pickupPieceAndLightOff" && this.physicsSettled) {
-      this.suspendFlashlightObservation();
-    }
+  private beginActivePointerPress(_event: M01GreyboxPointerEvent): void {
+    // 全局按下不再做"近邻拼片→灭灯"判定(64px 近邻会误灭: 玩家点地走位、附近恰好有片时也灭)。
+    // 灭灯改由 beginTokenDrag 在【真正抓到拼片节点】时触发(见该处)。拖拽的 move/end 仍走全局处理器。
   }
 
   private beginTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
@@ -1466,7 +1454,6 @@ export class M01GreyboxBootstrap extends Component {
     }
     // 拾片门控(spec §5.2): 只要碎片【落堆稳定】即可拾放整理 —— 不再要求手电已到手。
     // (盲拼无法通过底光验证, 故"先观察后拼"靠看不见颜色这一事实, 不靠锁拾片; 底光整体验证仍双门控。)
-    // 灭灯不在此重复触发 — 统一由 beginActivePointerPress 的 routeTap 路由(pickupPieceAndLightOff)。
     if (token.kind === "fragment" && !this.physicsSettled) {
       return;
     }
@@ -1484,6 +1471,9 @@ export class M01GreyboxBootstrap extends Component {
       position
     });
     if (token.kind === "fragment") {
+      // 灭灯只在【真正抓到拼片】时(本 per-node touch-start 命中拼片节点)触发 —— 不再由全局
+      // beginActivePointerPress 的 64px 近邻命中触发(那会在玩家只是点地走位、附近恰好有片时误灭灯)。
+      this.suspendFlashlightObservation();
       this.heldFragmentPointerOffset = null;
       this.activeFragmentDragOffset = {
         x: node.position.x - position.x,
@@ -2634,24 +2624,6 @@ export class M01GreyboxBootstrap extends Component {
 
   private clearHintTargets(): void {
     this.hintedTargetIds.clear();
-  }
-
-  private findTokenAtPosition(
-    tokens: M01GreyboxTokenNode[],
-    position: M01GreyboxPoint
-  ): M01GreyboxTokenNode | undefined {
-    return tokens.find((token) => {
-      const tokenPosition = this.tokenPositions.get(token.controllerId) ?? token.position;
-      const halfWidth = token.size.width / 2;
-      const halfHeight = token.size.height / 2;
-
-      return (
-        position.x >= tokenPosition.x - halfWidth &&
-        position.x <= tokenPosition.x + halfWidth &&
-        position.y >= tokenPosition.y - halfHeight &&
-        position.y <= tokenPosition.y + halfHeight
-      );
-    });
   }
 
   private pointerIdForEvent(event: M01GreyboxPointerEvent): string | number {
