@@ -219,8 +219,9 @@ const HELD_FLASHLIGHT_OFFSET = { x: 6, y: -34 }; // 朝右时手部位(爪位); 
 const HELD_FLASHLIGHT_ANGLE = -113; // 朝右手持角(deg): 大头右前下方斜照地(0=头竖直上, -90=水平右, -120=下垂30°, -113≈下垂23°)。调平→往 -90 靠
 // 拾起起身: 手电从【蹲时低手位】tween 升到【站立手位】, 跟身体一起升(否则 acquired 当帧钉到站立位=手电先飞起来)。
 const PICKUP_HAND_DROP = 30; // px; 蹲时手比站立低这么多, 手电起手点从此低位起升
-const PICKUP_RISE_SEC = 1.5; // s; 手电随起身升到站立手位的 tween 时长。必须贴合起身动画(反播 crouch=80帧@50fps=1.6s),
-// 略短让收尾被 update 接管。⚠️ 之前 0.32 远快于 1.6s 起身 → 手电先飞到站立位(2026-06-19 修)。改 crouch 帧数/fps 要同步此值
+const PICKUP_RISE_SEC = 0.7; // s; 手电随起身升到站立手位的 tween 时长。贴合起身动画(反播 crouch=40帧@50fps≈0.8s),
+// 取略短 → tween 在 await playFrameAction 结束(crouchDone 交接)前就完, 不和 update 的 syncHeldFlashlight 抢位。
+// ⚠️ 0.32 太快=手电先飞起; 1.5 太慢=滞后且越过交接抢位(codex 复核)。改 crouch 帧数/fps 要同步此值
 
 export interface M01IntroFragment {
   /** The real M01 puzzle-piece node managed by the bootstrap. */
