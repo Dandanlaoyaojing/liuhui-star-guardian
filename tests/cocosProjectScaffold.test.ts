@@ -888,7 +888,9 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain('resources.load("shaders/fx_color-filter", EffectAsset');
     expect(bootstrap).toContain("new Material()");
     expect(bootstrap).toContain("sprite.customMaterial = this.colorFilterMat");
-    expect(bootstrap).toContain("this.colorFilterMat.setProperty(");
+    // 逐拼片材质实例写 uniform(共享原件 setProperty 不一定投递到 2D 渲染实例 → 显色随机)
+    expect(bootstrap).toContain("getMaterialInstance(0)");
+    expect(bootstrap).toContain("setBeamUniformOnFragments(");
     expect(bootstrap).toContain('"u_beamOrigin"');
     expect(bootstrap).toContain('"u_beamDir"');
     expect(bootstrap).toContain("worldBeamFromGeometry(");

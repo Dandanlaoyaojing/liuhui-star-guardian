@@ -1815,9 +1815,10 @@ export class M01GreyboxBootstrap extends Component {
     }
   }
 
-  /** shader 关光(on=0): 多个早退路径(过盘/灯灭)都要写, 否则上次 on=1 残留 → 显色不灭。 */
+  /** shader 关光(on=0): 多个早退路径(过盘/灯灭)都要写到各拼片实例, 否则上次 on=1 残留 → 显色不灭。 */
   private writeBeamOff(): void {
-    this.colorFilterMat?.setProperty("u_beamOrigin", new Vec4(0, 0, 0, 0));
+    if (!this.colorFilterAvailable) return;
+    this.setBeamUniformOnFragments(new Vec4(0, 0, 0, 0), new Vec4(1, 0, 0, 0));
   }
 
   /**
@@ -1920,14 +1921,24 @@ export class M01GreyboxBootstrap extends Component {
           on: true
         }
       );
-      this.colorFilterMat.setProperty(
-        "u_beamOrigin",
-        new Vec4(field.ox, field.oy, field.length, field.on ? 1 : 0)
-      );
-      this.colorFilterMat.setProperty(
-        "u_beamDir",
+      this.setBeamUniformOnFragments(
+        new Vec4(field.ox, field.oy, field.length, field.on ? 1 : 0),
         new Vec4(field.dx, field.dy, field.nearHalf, field.farHalf)
       );
+    }
+  }
+
+  /**
+   * 逐拼片把光束 uniform 写到【各自的材质实例】上(非共享原件)。共享材质 setProperty 不一定投递到
+   * 2D sprite 的渲染实例 → 个别拼片冻结在赋材质时的旧值, 显色宽窄随机。逐实例写保证每片每帧都是最新光束。
+   */
+  private setBeamUniformOnFragments(origin: Vec4, dir: Vec4): void {
+    for (const entry of this.greyboxNodes.values()) {
+      if (entry.token.kind !== "fragment" || !entry.artSprite) continue;
+      const mat = entry.artSprite.getMaterialInstance(0);
+      if (!mat) continue;
+      mat.setProperty("u_beamOrigin", origin);
+      mat.setProperty("u_beamDir", dir);
     }
   }
 

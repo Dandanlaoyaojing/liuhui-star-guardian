@@ -93,6 +93,8 @@ declare module "cc" {
     spriteFrame: SpriteFrame | null;
     sizeMode: Sprite.SizeMode;
     customMaterial: Material | null;
+    /** 取该 sprite 的独立材质实例(从 customMaterial 派生); 逐 sprite 设 uniform 用。 */
+    getMaterialInstance(index: number): Material | null;
   }
 
   export namespace Sprite {
