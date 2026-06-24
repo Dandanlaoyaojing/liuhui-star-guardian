@@ -1899,14 +1899,21 @@ export class M01GreyboxBootstrap extends Component {
     // ③ 写 fx_color-filter 光束 uniform(世界空间): 拼片 shader 据此逐像素显色, 区域=可见光锥。
     // muzzle/center 是 greyboxRoot-local; beamNode 与拼片同在 greyboxRoot → 加 greyboxRoot 世界原点得世界坐标。
     // ⚠️ 假设 greyboxRoot 无缩放/旋转(预览需确认; 有则改 UITransform.convertToWorldSpaceAR)。
-    if (this.colorFilterAvailable && this.colorFilterMat && this.greyboxRoot) {
-      const wm = this.greyboxRoot.worldPosition;
+    const rootUT = this.greyboxRoot?.getComponent(UITransform) ?? null;
+    if (this.colorFilterAvailable && this.colorFilterMat && rootUT) {
+      // greyboxRoot-local muzzle/center → 世界坐标(含 Canvas 缩放/旋转), 与 2D sprite 顶点世界空间对齐。
+      const muzzleW = rootUT.convertToWorldSpaceAR(new Vec3(muzzle.x, muzzle.y, 0));
+      const centerW = rootUT.convertToWorldSpaceAR(new Vec3(center.x, floorY, 0)); // 落地点 = (center.x, floorY)
+      // 半宽是长度量, 也要按 Canvas 缩放换算(用世界长度比值)。
+      const worldLen = Math.hypot(centerW.x - muzzleW.x, centerW.y - muzzleW.y);
+      const localLen = Math.hypot(center.x - muzzle.x, floorY - muzzle.y) || 1;
+      const scale = worldLen / localLen;
       const field = worldBeamFromGeometry(
-        { mx: wm.x + muzzle.x, my: wm.y + muzzle.y },
-        { cx: wm.x + center.x, cy: wm.y + floorY }, // 落地点 = (center.x, floorY)
+        { mx: muzzleW.x, my: muzzleW.y },
+        { cx: centerW.x, cy: centerW.y },
         {
-          nearHalf: COVERAGE_HEAD_GLOW_PX * 0.5,
-          farHalf: (len * COVERAGE_CONE_FAN) * 0.5, // 与可见锥底半宽一致
+          nearHalf: COVERAGE_HEAD_GLOW_PX * 0.5 * scale,
+          farHalf: len * COVERAGE_CONE_FAN * 0.5 * scale, // 与可见锥底半宽一致(世界缩放后)
           on: true
         }
       );

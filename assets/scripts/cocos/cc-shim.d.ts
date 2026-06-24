@@ -173,6 +173,8 @@ declare module "cc" {
   export class UITransform extends Component {
     setContentSize(width: number, height: number): void;
     setAnchorPoint(x: number, y: number): void;
+    /** 节点局部点 → 世界坐标(含父链缩放/旋转); 与 2D sprite 顶点世界空间一致。 */
+    convertToWorldSpaceAR(nodePoint: Vec3, out?: Vec3): Vec3;
     readonly contentSize: { width: number; height: number };
     width: number;
     height: number;
