@@ -19,7 +19,10 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-const AXIAL_FEATHER = 0.12; // 轴向两端软收比例(GLSL: smoothstep(0,0.12,u)*smoothstep(1,0.88,u))
+// ⚠️ 以下三常量 + 公式必须与 fx_color-filter.effect 的 GLSL 一致(漂移哨兵 grep 这几个数)。
+const AXIAL_FEATHER = 0.25; // 轴向两端软收比例(越大越软); GLSL: smoothstep(0,0.25,u)*smoothstep(1,0.75,u)
+const BEAM_SOFT = 1.8; // 横向高斯软度(越小越散越软); across = exp(-q*q*BEAM_SOFT)
+const EDGE_CUTOFF = 1.4; // 垂距 > halfAt×此 → 清零(此处 across 已≈0.03, 清掉不可见, 保证"扇外=0")
 
 export function flashlightBeamIntensity(p: { x: number; y: number }, b: BeamField): number {
   if (!b.on || b.length <= 0) return 0;
@@ -31,7 +34,9 @@ export function flashlightBeamIntensity(p: { x: number; y: number }, b: BeamFiel
   const d = Math.abs(px * -b.dy + py * b.dx); // 垂距(法向 = (-dy,dx))
   const halfAt = b.nearHalf + u * (b.farHalf - b.nearHalf);
   if (halfAt <= 0) return 0;
-  const across = smoothstep(1, 0, d / halfAt); // 轴心1→边缘0
+  const q = d / halfAt;
+  // 横向: 高斯软钟形(轴心最亮、向两侧自然散开、长尾) —— 比 smoothstep 软, 贴近光束散射观感。
+  const across = q > EDGE_CUTOFF ? 0 : Math.exp(-q * q * BEAM_SOFT);
   const axial = smoothstep(0, AXIAL_FEATHER, u) * smoothstep(1, 1 - AXIAL_FEATHER, u);
   return Math.max(0, across * axial);
 }

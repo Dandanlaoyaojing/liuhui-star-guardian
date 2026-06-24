@@ -897,10 +897,11 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.colorFilterAvailable");
     expect(bootstrap).toContain("!this.colorFilterAvailable"); // syncArtSpriteFrame fallback 分支
     expect(bootstrap).toContain("writeBeamOff"); // 过盘/灯灭关光
-    // TS↔GLSL 漂移哨兵: 两边都含轴向羽化项 0.12/0.88
-    expect(beam).toContain("0.12");
-    expect(effect).toContain("smoothstep(0.0, 0.12, u)");
-    expect(effect).toContain("smoothstep(1.0, 0.88, u)");
+    // TS↔GLSL 漂移哨兵: 两边都含同一软度/羽化项(高斯 1.8、轴向 0.25/0.75)
+    expect(beam).toContain("BEAM_SOFT = 1.8");
+    expect(effect).toContain("exp(-q * q * 1.8)");
+    expect(effect).toContain("smoothstep(0.0, 0.25, u)");
+    expect(effect).toContain("smoothstep(1.0, 0.75, u)");
   });
 
   it("uses valid Cocos Size objects for M01 physics boundary box colliders", () => {

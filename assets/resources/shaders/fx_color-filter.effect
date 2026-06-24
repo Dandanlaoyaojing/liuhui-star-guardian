@@ -75,8 +75,10 @@ CCProgram cf-fs %{
     float d = abs(dot(rel, vec2(-u_beamDir.y, u_beamDir.x)));
     float halfAt = u_beamDir.z + u * (u_beamDir.w - u_beamDir.z);
     if (halfAt <= 0.0) return 0.0;
-    float across = smoothstep(1.0, 0.0, d / halfAt);
-    float axial = smoothstep(0.0, 0.12, u) * smoothstep(1.0, 0.88, u);
+    float q = d / halfAt;
+    // 横向高斯软钟形(必须与 M01FlashlightBeam.ts 一致: BEAM_SOFT=1.8, EDGE_CUTOFF=1.4)。
+    float across = q > 1.4 ? 0.0 : exp(-q * q * 1.8);
+    float axial = smoothstep(0.0, 0.25, u) * smoothstep(1.0, 0.75, u);
     return clamp(across * axial, 0.0, 1.0);
   }
 
