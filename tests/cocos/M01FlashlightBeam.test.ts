@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   flashlightBeamIntensity,
+  worldBeamFromGeometry,
   type BeamField
 } from "../../assets/scripts/cocos/M01FlashlightBeam.ts";
 
@@ -39,5 +40,28 @@ describe("flashlightBeamIntensity", () => {
   });
   it("lightOn=false 全灭", () => {
     expect(flashlightBeamIntensity({ x: 50, y: 0 }, { ...beam, on: false })).toBe(0);
+  });
+});
+
+describe("worldBeamFromGeometry", () => {
+  it("由 muzzle/center 世界点算出单位光向与长度", () => {
+    const f = worldBeamFromGeometry(
+      { mx: 10, my: 10 },
+      { cx: 110, cy: 10 },
+      { nearHalf: 4, farHalf: 40, on: true }
+    );
+    expect(f.length).toBeCloseTo(100, 5);
+    expect(f.dx).toBeCloseTo(1, 5);
+    expect(f.dy).toBeCloseTo(0, 5);
+    expect(f.ox).toBe(10);
+    expect(f.on).toBe(true);
+  });
+  it("muzzle==center 退化为 on=false(零长不显色)", () => {
+    const f = worldBeamFromGeometry(
+      { mx: 5, my: 5 },
+      { cx: 5, cy: 5 },
+      { nearHalf: 4, farHalf: 40, on: true }
+    );
+    expect(f.on).toBe(false);
   });
 });

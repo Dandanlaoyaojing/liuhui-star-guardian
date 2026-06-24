@@ -35,3 +35,37 @@ export function flashlightBeamIntensity(p: { x: number; y: number }, b: BeamFiel
   const axial = smoothstep(0, AXIAL_FEATHER, u) * smoothstep(1, 1 - AXIAL_FEATHER, u);
   return Math.max(0, across * axial);
 }
+
+// drawing 空间几何(muzzle/center 世界点)→ 世界空间 BeamField。世界坐标的获取(node.worldPosition)
+// 在 bootstrap 做; 这里只做无 cc 的组装, 便于单测。muzzle≈center(零长)→ on=false 不显色。
+export function worldBeamFromGeometry(
+  muzzle: { mx: number; my: number },
+  center: { cx: number; cy: number },
+  opts: { nearHalf: number; farHalf: number; on: boolean }
+): BeamField {
+  const vx = center.cx - muzzle.mx;
+  const vy = center.cy - muzzle.my;
+  const length = Math.hypot(vx, vy);
+  if (length < 1e-3) {
+    return {
+      ox: muzzle.mx,
+      oy: muzzle.my,
+      dx: 1,
+      dy: 0,
+      length: 0,
+      nearHalf: opts.nearHalf,
+      farHalf: opts.farHalf,
+      on: false
+    };
+  }
+  return {
+    ox: muzzle.mx,
+    oy: muzzle.my,
+    dx: vx / length,
+    dy: vy / length,
+    length,
+    nearHalf: opts.nearHalf,
+    farHalf: opts.farHalf,
+    on: opts.on
+  };
+}
