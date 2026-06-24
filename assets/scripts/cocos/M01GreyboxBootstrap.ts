@@ -2864,6 +2864,10 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.syncArtSpriteFrame(sprite, token, colorTokenOverride);
+    // 兜底: 每次同步都确保拼片挂着 shader 材质(防创建/重置时序漏挂 → 个别拼片回退整片染色显得"更宽")。
+    if (token?.kind === "fragment" && this.colorFilterAvailable && this.colorFilterMat) {
+      sprite.customMaterial = this.colorFilterMat;
+    }
     sprite.color = colorForArtSprite(presentation, token, colorTokenOverride);
   }
 
