@@ -4,6 +4,7 @@ import {
   CCBoolean,
   Color,
   Component,
+  EffectAsset,
   ERigidBody2DType,
   EventTouch,
   Graphics,
@@ -12,6 +13,7 @@ import {
   Input,
   JsonAsset,
   Label,
+  Material,
   Node,
   PolygonCollider2D,
   resources,
@@ -22,7 +24,8 @@ import {
   UITransform,
   tween,
   Vec2,
-  Vec3
+  Vec3,
+  Vec4
 } from "cc";
 import {
   beginDragSession,
@@ -74,6 +77,7 @@ import {
   type CoverageFragment,
   type LightState
 } from "./M01FlashlightObservation.ts";
+import { worldBeamFromGeometry } from "./M01FlashlightBeam.ts";
 import { routeTap } from "./M01PuzzleInputRouter.ts";
 import type {
   M01BaseColor,
@@ -180,6 +184,9 @@ const COVERAGE_POOL_DROP = 18; // px; 地面线相对 center.y 的下落(光斑�
 const HELD_FLASHLIGHT_HEAD_Y = 11; // px; 大头光晕相对手电节点中心的局部 y(沿手电长轴到大头一端)。在错的一端就取负
 const COVERAGE_HEAD_GLOW_PX = 18; // px; 大头灯色光晕直径(≈手电头)
 const COVERAGE_HEAD_GLOW_ALPHA = 210; // 大头光晕不透明度
+// 手电逐像素显色 shader(fx_color-filter): true=拼片显色由 shader 按光束逐像素照亮; false/加载失败=回退旧整片染色。
+// ⚠️ 真机若 shader 编译崩(headless 看不到), 置 false 强制走 fallback。
+const USE_COLOR_FILTER_SHADER = true;
 
 // 代码生成一张【白色径向渐变】柔光纹理: alpha 高斯衰减到 0, GPU 逐像素采样 → 平滑无分界线
 // (Cocos Graphics 没有 canvas 的 createRadialGradient, 故把渐变烤进运行时纹理)。建一次缓存复用。
@@ -358,12 +365,15 @@ export class M01GreyboxBootstrap extends Component {
   private coverageConeSprite: Sprite | null = null;
   private coverageCoreSprite: Sprite | null = null;
   private flashlightHeadGlow: Sprite | null = null; // 大头灯色光晕(挂手电节点; 只大头变色, 手电体本色)
+  private colorFilterMat: Material | null = null; // fx_color-filter 共享材质(挂 9 拼片; 逐像素显色)
+  private colorFilterAvailable = false; // 材质加载成功且总开关开 → 走 shader 显色; 否则 fallback 旧整片染色
   /** 上次显色重算的覆盖状态键(灯色+覆盖集合); 变化才触发 Session 重显色, 避免逐帧churn。 */
   private coverageStateKey: string | undefined;
   /** 上次光池重绘键(灯色+圆心); 变化才清画 Graphics。 */
   private coverageDrawKey: string | undefined;
 
   start(): void {
+    this.loadColorFilterShader();
     resources.load("configs/stage1/m01-memory-gear", JsonAsset, (error, asset) => {
       if (error || !asset) {
         this.setStatus(
@@ -1221,6 +1231,9 @@ export class M01GreyboxBootstrap extends Component {
 
     const sprite = spriteNode.addComponent(Sprite);
     sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    if (token.kind === "fragment" && this.colorFilterMat) {
+      sprite.customMaterial = this.colorFilterMat; // 逐像素显色 shader(材质后到则 attachColorFilterToFragments 补挂)
+    }
     this.syncArtSpriteState(sprite, "normal", token);
     return sprite;
   }
@@ -1766,8 +1779,45 @@ export class M01GreyboxBootstrap extends Component {
     if (this.coverageBeamNode?.active) {
       this.coverageBeamNode.active = false;
     }
+    this.writeBeamOff(); // 灯灭/出覆盖 → shader 关光, 否则拼片显色粘住不灭
     this.coverageDrawKey = undefined;
     this.coverageStateKey = undefined;
+  }
+
+  /** 加载 fx_color-filter effect → 建共享材质 → 挂到已建拼片。失败/总开关关 → colorFilterAvailable=false 走 fallback。 */
+  private loadColorFilterShader(): void {
+    if (!USE_COLOR_FILTER_SHADER) {
+      this.colorFilterAvailable = false;
+      return;
+    }
+    resources.load("shaders/fx_color-filter", EffectAsset, (err, eff) => {
+      if (err || !eff) {
+        this.colorFilterAvailable = false;
+        return;
+      }
+      const mat = new Material();
+      mat.initialize({ effectAsset: eff });
+      this.colorFilterMat = mat;
+      this.colorFilterAvailable = true;
+      this.attachColorFilterToFragments();
+      this.coverageDrawKey = undefined; // 强制下帧重画光束 → 写 uniform(否则光束没动时早退不写)
+      this.syncVisualState(); // 让拼片改走 shader 路径(不换 light_mask 贴图)
+    });
+  }
+
+  /** 给 9 个拼片 artSprite 挂共享 customMaterial(逐像素显色由 shader + sprite.color=revealColor 出)。 */
+  private attachColorFilterToFragments(): void {
+    if (!this.colorFilterMat) return;
+    for (const entry of this.greyboxNodes.values()) {
+      if (entry.token.kind === "fragment" && entry.artSprite) {
+        entry.artSprite.customMaterial = this.colorFilterMat;
+      }
+    }
+  }
+
+  /** shader 关光(on=0): 多个早退路径(过盘/灯灭)都要写, 否则上次 on=1 残留 → 显色不灭。 */
+  private writeBeamOff(): void {
+    this.colorFilterMat?.setProperty("u_beamOrigin", new Vec4(0, 0, 0, 0));
   }
 
   /**
@@ -1810,6 +1860,7 @@ export class M01GreyboxBootstrap extends Component {
     });
     if (halfHeight <= 0) {
       beamNode.active = false; // 与拼接盘横向重叠 → 整束隐藏(光不照盘硬规则)
+      this.writeBeamOff(); // shader 同步关光, 否则过盘时拼片仍显色(违反光不照盘)
       return;
     }
     beamNode.active = true;
@@ -1844,6 +1895,30 @@ export class M01GreyboxBootstrap extends Component {
     core.node.setPosition(muzzle.x, muzzle.y, 0);
     core.node.setScale(coreD, coreD, 1);
     core.color = new Color(255, 255, 255, COVERAGE_CORE_ALPHA);
+
+    // ③ 写 fx_color-filter 光束 uniform(世界空间): 拼片 shader 据此逐像素显色, 区域=可见光锥。
+    // muzzle/center 是 greyboxRoot-local; beamNode 与拼片同在 greyboxRoot → 加 greyboxRoot 世界原点得世界坐标。
+    // ⚠️ 假设 greyboxRoot 无缩放/旋转(预览需确认; 有则改 UITransform.convertToWorldSpaceAR)。
+    if (this.colorFilterAvailable && this.colorFilterMat && this.greyboxRoot) {
+      const wm = this.greyboxRoot.worldPosition;
+      const field = worldBeamFromGeometry(
+        { mx: wm.x + muzzle.x, my: wm.y + muzzle.y },
+        { cx: wm.x + center.x, cy: wm.y + floorY }, // 落地点 = (center.x, floorY)
+        {
+          nearHalf: COVERAGE_HEAD_GLOW_PX * 0.5,
+          farHalf: (len * COVERAGE_CONE_FAN) * 0.5, // 与可见锥底半宽一致
+          on: true
+        }
+      );
+      this.colorFilterMat.setProperty(
+        "u_beamOrigin",
+        new Vec4(field.ox, field.oy, field.length, field.on ? 1 : 0)
+      );
+      this.colorFilterMat.setProperty(
+        "u_beamDir",
+        new Vec4(field.dx, field.dy, field.nearHalf, field.farHalf)
+      );
+    }
   }
 
   /**
@@ -2791,8 +2866,10 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    // shader 显色: 拼片始终用灰白 hidden 贴图(shader 据 sprite.color=revealColor + 光束逐像素染色),
+    // 不再换 light_mask。仅 fallback(shader 不可用)才换 light_mask 整片染色。
     const resource =
-      token.kind === "fragment" && colorTokenOverride
+      token.kind === "fragment" && colorTokenOverride && !this.colorFilterAvailable
         ? getM01GreyboxRuntimeLightMaskResourceForToken(token)
         : getM01GreyboxRuntimeSpriteResourceForToken(token);
     if (!resource) {

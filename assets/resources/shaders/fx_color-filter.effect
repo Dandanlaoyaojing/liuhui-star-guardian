@@ -1,0 +1,95 @@
+// fx_color-filter — 手电逐像素显色(颜色过滤/高亮; spec §3.5 的 color-filter)。
+// 视觉意图: 手电光束扫到的拼片像素被染上其混色(v_color)、边缘自然渐变; 没照到=灰白原图。
+// ⚠️ 强度公式必须与 assets/scripts/cocos/M01FlashlightBeam.ts::flashlightBeamIntensity 一致
+//    (轴向投影 t/u + 垂距 d + 同比例 smoothstep; AXIAL_FEATHER=0.12)。改一边要同步另一边。
+// 用法: 挂到拼片 sprite 的 customMaterial; 每帧由 bootstrap setProperty u_beamOrigin/u_beamDir(世界空间)。
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: cf-vs:vert
+      frag: cf-fs:frag
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendSrcAlpha: src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      properties:
+        alphaThreshold: { value: 0.5 }
+        u_beamOrigin: { value: [0.0, 0.0, 0.0, 0.0] } # xy=muzzle世界, z=length, w=on(>0.5)
+        u_beamDir:    { value: [1.0, 0.0, 0.0, 0.0] } # xy=单位光向, z=nearHalf, w=farHalf
+        u_revealSat:  { value: [0.85, 0.0, 0.0, 0.0] } # x=REVEAL_SATURATION(预览可标定)
+}%
+
+CCProgram cf-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <builtin/uniforms/cc-local>
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec4 v_color;
+  out vec2 v_uv0;
+  out vec2 v_world;
+
+  vec4 vert () {
+    vec4 world = cc_matWorld * vec4(a_position, 1.0);
+    v_color = a_color;
+    v_uv0 = a_texCoord;
+    v_world = world.xy;
+    return cc_matViewProj * world;
+  }
+}%
+
+CCProgram cf-fs %{
+  precision highp float;
+  #include <builtin/internal/embedded-alpha>
+  #include <builtin/internal/alpha-test>
+
+  in vec4 v_color;
+  in vec2 v_uv0;
+  in vec2 v_world;
+
+  #pragma builtin(local)
+  layout(set = 2, binding = 0) uniform sampler2D cc_spriteTexture;
+
+  uniform Constants {
+    vec4 u_beamOrigin; // xy=muzzle世界, z=length, w=on
+    vec4 u_beamDir;    // xy=单位光向, z=nearHalf, w=farHalf
+    vec4 u_revealSat;  // x=饱和度插值
+  };
+
+  float beamIntensity (vec2 p) {
+    if (u_beamOrigin.w < 0.5 || u_beamOrigin.z <= 0.0) return 0.0;
+    vec2 rel = p - u_beamOrigin.xy;
+    float t = dot(rel, u_beamDir.xy);
+    if (t < 0.0 || t > u_beamOrigin.z) return 0.0;
+    float u = t / u_beamOrigin.z;
+    float d = abs(dot(rel, vec2(-u_beamDir.y, u_beamDir.x)));
+    float halfAt = u_beamDir.z + u * (u_beamDir.w - u_beamDir.z);
+    if (halfAt <= 0.0) return 0.0;
+    float across = smoothstep(1.0, 0.0, d / halfAt);
+    float axial = smoothstep(0.0, 0.12, u) * smoothstep(1.0, 0.88, u);
+    return clamp(across * axial, 0.0, 1.0);
+  }
+
+  vec4 frag () {
+    vec4 base = CCSampleWithAlphaSeparated(cc_spriteTexture, v_uv0);
+    float luma = dot(base.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 tinted = mix(vec3(luma), v_color.rgb, u_revealSat.x);
+    float intensity = beamIntensity(v_world);
+    vec3 outRgb = mix(base.rgb, tinted, intensity);
+    vec4 o = vec4(outRgb, base.a);
+    ALPHA_TEST(o);
+    return o;
+  }
+}%

@@ -268,7 +268,7 @@ liuhui-star-guardian/
 │   └── shaders/                    # 自定义Shader
 │       ├── star-glow.effect
 │       ├── particle-flow.effect
-│       ├── color-filter.effect
+│       ├── fx_color-filter.effect      # 落 assets/resources/shaders/
 │       ├── wave-propagation.effect
 │       ├── hologram.effect
 │       ├── fluid-sim.effect
@@ -378,7 +378,7 @@ interface RepairSequenceDef {
 |--------|------|---------|--------|-----|
 | `star-glow` | 星光发光、脉动 | M01 | 全局 | Yes |
 | `particle-flow` | 星沙/光尘流动 | M01 | ~20关 | Yes |
-| `color-filter` | 颜色过滤/高亮 | M01 | ~15关 | Yes |
+| `fx_color-filter` | 颜色过滤/高亮(M01 手电逐像素显色) | M01 | ~15关 | Yes |
 | `wave-propagation` | 波/声波传播 | M04 | ~8关 | Yes |
 | `hologram` | 全息投影/3D星航道 | M02 | ~5关 | Yes |
 | `fluid-sim` | 简化流体/河流 | M03 | ~6关 | Yes |
@@ -601,7 +601,7 @@ class LocalStorageSync implements ICloudSync {
 - 大螺母旁吊着的**略深吊篮**：两根**不可拉伸的软绳**（非弹力绳）从钉子分叉、接在篮身**两耳打结处**；绳子按真实软绳物理运行——篮子被顶起时绳子松弛、落回时被绳拽住晃荡几下渐渐收住。吊篮够不着也推不动（莱米伸手够它会落空、篮子纹丝不动），只有被莱米从下顶篮才受力。开场里装着 9 个记忆碎片 + 三色手电筒；篮内有物理内胆，静置视觉只露上层约 4-5 片，其余被前篮壁遮住；每被顶一次洒出一批碎片（3 片，顶层优先），三次全部洒完后手电筒掉出（砸到莱米后被蹲下捡起）
 - 9 个候选记忆碎片：3 个圆、3 个三角、3 个六边形；开场由莱米顶篮分批撞出后洒落、落到手绘地面上自然堆叠；默认灰白、半透明、有手绘边线；隐藏本色不可见
 - 三色手电筒（开场由吊篮掉出、砸到莱米、被莱米蹲下捡起后到手；视觉尺寸约为莱米身高的 **1/5**——是道具不是家具）＝莱米**手持**的观察工具：**点击手里的手电**循环切换 红 → 黄 → 蓝 → 灭 四态（手电很小，无需精准点按钮、不弹选色面板）；亮起时光束是一片**覆盖面**（不止照 1 片），且**锚在莱米身上随其移动**——点地面空白处莱米走过去、覆盖面跟着扫过候选区；覆盖面内的候选碎片以当前灯色显色，移出 / 熄灭即恢复灰白；**玩家拾起任意拼片（拼片随指针移动、并非莱米去捡）时手电立即熄灭**；光束只照候选区，不照拼接盘
-- 显色美术：候选碎片被手电照亮时，彩色填充使用低饱和玻璃透色，与目标证据图的紫 / 绿 / 橘保持同一 palette；拼片边线仍使用灰白状态原图的边线，不因显色变黑
+- 显色美术：候选碎片被手电照亮时，彩色填充使用低饱和玻璃透色，与目标证据图的紫 / 绿 / 橘保持同一 palette；拼片边线仍使用灰白状态原图的边线，不因显色变黑。**显色由 `fx_color-filter` 着色器逐像素自然照亮**——只有被光束实际扫到的像素染色、边缘渐变，非整片硬换贴图（着色器不可用时回退整片染色）
 - 目标交叠证据图：只显示若干个系统生成的两两交叠区域的局部轮廓、目标融合色和相对位置；禁止显示最终整体外轮廓、应使用碎片编号或隐藏本色提示
 - 拼接时的弱磁吸：当候选碎片的固定形状组合能形成某个目标交叠区域的大致面积 / 轮廓时，拖拽手感会轻微吸附；弱磁吸只代表形状与位置可试拼，不代表答案正确
 - 中央拼接盘底光：拼接过程中底光保持熄灭，碎片在盘上仍保持灰白，不实时显色；底光只在玩家形成一次完整候选结构后自动进行整体验证
@@ -635,7 +635,7 @@ class LocalStorageSync implements ICloudSync {
 - 目标图只能提供交叠证据，不能泄露完整轮廓答案
 
 **使用的组件**：`DragHandler`, `SnapZone`, `FilterSystem`（扩展为三色手电 / 显色探测）
-**使用的 Shader**：`star-glow`, `color-filter`, `particle-flow`
+**使用的 Shader**：`star-glow`, `fx_color-filter`, `particle-flow`
 
 **胜利条件**：`{ type: "overlap_evidence_reconstructed", params: { candidateFragments: "config_defined", recommendedCandidateRange: [12, 16], requiredFragments: "solution_defined", evidenceCount: [4, 6], maxLayersPerEvidence: 2, validationLightSeconds: 2, baseColors: ["red", "yellow", "blue"], blendColors: ["orange", "green", "purple"] } }` — 目标交叠证据图上的全部证据均被正确复原才判成功。每个证据必须同时满足：固定形状组合能形成该目标交叠区域、相对位置匹配、提交的两片碎片正是该证据的 `solution.fragmentIds`、两片隐藏本色混合后等于目标融合色；不要求使用所有候选碎片，实际使用数量由配置中所有 `solution.fragmentIds` 的并集派生。未全对的候选结构只触发约 2 秒底光闪亮并随后熄灭；全对时底光保持亮起并进入修复。
 
@@ -752,7 +752,7 @@ class LocalStorageSync implements ICloudSync {
 5. 维持动态平衡持续 5 秒 → 轴承冷却，天平稳定
 
 **使用的组件**：`DragHandler`, `SnapZone`
-**使用的 Shader**：`star-glow`, `color-filter`, `particle-flow`
+**使用的 Shader**：`star-glow`, `fx_color-filter`, `particle-flow`
 
 **胜利条件**：`{ type: "dynamic_balance", params: { metric: "balance_delta", tolerance: 0.1, sustainSeconds: 5 } }`
 
@@ -808,7 +808,7 @@ class LocalStorageSync implements ICloudSync {
 5. 全部对齐 → 万花筒旋转，投射出完整的星光图案
 
 **使用的组件**：`DragHandler`, `SnapZone`, `RotateHandler`
-**使用的 Shader**：`star-glow`, `color-filter`, `particle-flow`
+**使用的 Shader**：`star-glow`, `fx_color-filter`, `particle-flow`
 
 **胜利条件**：`{ type: "assembly", params: { pieces: ["frag_A", "frag_B", "frag_C", "frag_D"], alignmentTolerance: 8 } }`
 
@@ -898,7 +898,7 @@ class LocalStorageSync implements ICloudSync {
 6. 花园全景展示 → 生成独特的"花园之印"图案（每个玩家不同）
 
 **使用的组件**：`DragHandler`, `SnapZone`
-**使用的 Shader**：`star-glow`, `particle-flow`, `color-filter`
+**使用的 Shader**：`star-glow`, `particle-flow`, `fx_color-filter`
 
 **胜利条件**：`{ type: "creative_threshold", params: { minPlantsPlaced: 5, playerConfirm: true } }`
 

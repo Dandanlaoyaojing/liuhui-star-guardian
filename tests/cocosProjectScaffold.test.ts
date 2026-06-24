@@ -868,14 +868,39 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("validation.validationLightSeconds");
     expect(bootstrap).toContain("setTimeout(() =>");
     expect(bootstrap).toContain("clearTimeout(this.validationLightResetTimeout)");
-    // 旧固定/指针光束的整套渲染栈已随两条旧路径删除(新莱米锚定光束在后续任务新建)。
-    expect(bootstrap).not.toContain("M01FlashlightBeam");
+    // 旧固定/指针光束的整套渲染栈已随两条旧路径删除(新莱米锚定光束 + fx_color-filter 显色另建)。
     expect(bootstrap).not.toContain("drawFlashlightBeam");
     expect(bootstrap).not.toContain("SOFT_FLASHLIGHT_BEAM_LAYERS");
     expect(bootstrap).not.toContain("FLASHLIGHT_BEAM_GLOW_STOPS");
     expect(bootstrap).not.toContain("colorForBeam");
     expect(bootstrap).not.toContain("FRAGMENT_FLOOR");
     expect(bootstrap).not.toContain("clipFlashlightBeamToFragmentFloor");
+  });
+
+  it("wires the fx_color-filter 手电逐像素显色 shader (材质/uniform/fallback/漂移哨兵)", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const effect = readText("assets/resources/shaders/fx_color-filter.effect");
+    const beam = readText("assets/scripts/cocos/M01FlashlightBeam.ts");
+
+    // effect 资源存在
+    expect(existsSync(join(projectRoot, "assets/resources/shaders/fx_color-filter.effect"))).toBe(true);
+    // 加载/建材质/挂拼片/写 uniform 的接线
+    expect(bootstrap).toContain('resources.load("shaders/fx_color-filter", EffectAsset');
+    expect(bootstrap).toContain("new Material()");
+    expect(bootstrap).toContain("sprite.customMaterial = this.colorFilterMat");
+    expect(bootstrap).toContain("this.colorFilterMat.setProperty(");
+    expect(bootstrap).toContain('"u_beamOrigin"');
+    expect(bootstrap).toContain('"u_beamDir"');
+    expect(bootstrap).toContain("worldBeamFromGeometry(");
+    // fallback + 总开关
+    expect(bootstrap).toContain("USE_COLOR_FILTER_SHADER");
+    expect(bootstrap).toContain("this.colorFilterAvailable");
+    expect(bootstrap).toContain("!this.colorFilterAvailable"); // syncArtSpriteFrame fallback 分支
+    expect(bootstrap).toContain("writeBeamOff"); // 过盘/灯灭关光
+    // TS↔GLSL 漂移哨兵: 两边都含轴向羽化项 0.12/0.88
+    expect(beam).toContain("0.12");
+    expect(effect).toContain("smoothstep(0.0, 0.12, u)");
+    expect(effect).toContain("smoothstep(1.0, 0.88, u)");
   });
 
   it("uses valid Cocos Size objects for M01 physics boundary box colliders", () => {
