@@ -92,6 +92,7 @@ declare module "cc" {
     color: Color;
     spriteFrame: SpriteFrame | null;
     sizeMode: Sprite.SizeMode;
+    customMaterial: Material | null;
   }
 
   export namespace Sprite {
@@ -130,6 +131,17 @@ declare module "cc" {
   export class Texture2D {
     static readonly PixelFormat: { readonly RGBA8888: number };
     image: ImageAsset | null;
+  }
+
+  export class EffectAsset {}
+
+  export class Material {
+    initialize(info: { effectAsset: EffectAsset | null }): void;
+    setProperty(name: string, value: unknown): void;
+  }
+
+  export class Vec4 {
+    constructor(x?: number, y?: number, z?: number, w?: number);
   }
 
   export class JsonAsset {
