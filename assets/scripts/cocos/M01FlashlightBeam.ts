@@ -13,16 +13,10 @@ export interface BeamField {
   on: boolean;
 }
 
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  if (edge0 === edge1) return x < edge0 ? 0 : 1;
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
-// ⚠️ 以下三常量 + 公式必须与 fx_color-filter.effect 的 GLSL 一致(漂移哨兵 grep 这几个数)。
-const AXIAL_FEATHER = 0.25; // 轴向两端软收比例(越大越软); GLSL: smoothstep(0,0.25,u)*smoothstep(1,0.75,u)
-const BEAM_SOFT = 1.8; // 横向高斯软度(越小越散越软); across = exp(-q*q*BEAM_SOFT)
-const EDGE_CUTOFF = 1.4; // 垂距 > halfAt×此 → 清零(此处 across 已≈0.03, 清掉不可见, 保证"扇外=0")
+// ⚠️ 公式 + CONE_ALONG_POW 必须与 fx_color-filter.effect 的 GLSL 一致, 且与可见光锥纹理
+//    getConeGlowSpriteFrame 同一套衰减(bAlong=pow(1-along,0.8) × bAcross=1-q²) —— 这样
+//    "光打在拼片上的显色"与"手电光束本身"质感完全一致(同一衰减形状)。漂移哨兵 grep 这个数。
+const CONE_ALONG_POW = 0.8; // 沿光向衰减(近出光口最亮→远端落地渐暗); = bootstrap CONE_ALONG_POW
 
 export function flashlightBeamIntensity(p: { x: number; y: number }, b: BeamField): number {
   if (!b.on || b.length <= 0) return 0;
@@ -30,15 +24,14 @@ export function flashlightBeamIntensity(p: { x: number; y: number }, b: BeamFiel
   const py = p.y - b.oy;
   const t = px * b.dx + py * b.dy; // 轴向投影(沿光向距离)
   if (t < 0 || t > b.length) return 0;
-  const u = t / b.length; // 0..1
+  const u = t / b.length; // 0=出光口 .. 1=落地远端
   const d = Math.abs(px * -b.dy + py * b.dx); // 垂距(法向 = (-dy,dx))
-  const halfAt = b.nearHalf + u * (b.farHalf - b.nearHalf);
+  const halfAt = b.nearHalf + u * (b.farHalf - b.nearHalf); // 锥半宽随轴向线性张开
   if (halfAt <= 0) return 0;
-  const q = d / halfAt;
-  // 横向: 高斯软钟形(轴心最亮、向两侧自然散开、长尾) —— 比 smoothstep 软, 贴近光束散射观感。
-  const across = q > EDGE_CUTOFF ? 0 : Math.exp(-q * q * BEAM_SOFT);
-  const axial = smoothstep(0, AXIAL_FEATHER, u) * smoothstep(1, 1 - AXIAL_FEATHER, u);
-  return Math.max(0, across * axial);
+  const q = d / halfAt; // 0=锥轴, 1=锥侧
+  const bAcross = Math.max(0, 1 - q * q); // 轴最亮→锥侧 0(柔抛物边, 同锥纹理)
+  const bAlong = Math.pow(Math.max(0, 1 - u), CONE_ALONG_POW); // 近端亮→远端暗(同锥纹理)
+  return Math.max(0, bAlong * bAcross);
 }
 
 // drawing 空间几何(muzzle/center 世界点)→ 世界空间 BeamField。世界坐标的获取(node.worldPosition)

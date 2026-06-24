@@ -19,8 +19,8 @@ const beam: BeamField = {
 };
 
 describe("flashlightBeamIntensity", () => {
-  it("轴心中段最强 ≈1", () => {
-    expect(flashlightBeamIntensity({ x: 50, y: 0 }, beam)).toBeGreaterThan(0.9);
+  it("近出光口、锥轴上最强 ≈1", () => {
+    expect(flashlightBeamIntensity({ x: 5, y: 0 }, beam)).toBeGreaterThan(0.9);
   });
   it("锥外(超长度)=0", () => {
     expect(flashlightBeamIntensity({ x: 130, y: 0 }, beam)).toBe(0);
@@ -28,18 +28,24 @@ describe("flashlightBeamIntensity", () => {
   it("muzzle 之后(负轴向)=0", () => {
     expect(flashlightBeamIntensity({ x: -10, y: 0 }, beam)).toBe(0);
   });
-  it("扇形外(垂距 > farHalf)=0", () => {
+  it("扇形外(垂距 > 锥半宽)=0", () => {
     expect(flashlightBeamIntensity({ x: 50, y: 60 }, beam)).toBe(0);
   });
-  it("边缘 smoothstep 单调: 轴心 > 半幅处 > 边缘", () => {
-    const mid = flashlightBeamIntensity({ x: 50, y: 0 }, beam);
-    const half = flashlightBeamIntensity({ x: 50, y: 11 }, beam);
-    const edge = flashlightBeamIntensity({ x: 50, y: 21 }, beam);
+  it("沿光向衰减: 近端 > 远端(锥轴上)", () => {
+    const near = flashlightBeamIntensity({ x: 10, y: 0 }, beam);
+    const far = flashlightBeamIntensity({ x: 90, y: 0 }, beam);
+    expect(near).toBeGreaterThan(far);
+    expect(far).toBeGreaterThan(0);
+  });
+  it("横向抛物柔边单调: 轴心 > 半幅 > 锥侧", () => {
+    const mid = flashlightBeamIntensity({ x: 50, y: 0 }, beam); // q=0
+    const half = flashlightBeamIntensity({ x: 50, y: 11 }, beam); // halfAt@u0.5=22, q≈0.5
+    const edge = flashlightBeamIntensity({ x: 50, y: 21 }, beam); // q≈0.95
     expect(mid).toBeGreaterThan(half);
     expect(half).toBeGreaterThan(edge);
   });
   it("lightOn=false 全灭", () => {
-    expect(flashlightBeamIntensity({ x: 50, y: 0 }, { ...beam, on: false })).toBe(0);
+    expect(flashlightBeamIntensity({ x: 5, y: 0 }, { ...beam, on: false })).toBe(0);
   });
 });
 

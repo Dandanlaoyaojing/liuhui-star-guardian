@@ -1908,12 +1908,15 @@ export class M01GreyboxBootstrap extends Component {
       const worldLen = Math.hypot(centerW.x - muzzleW.x, centerW.y - muzzleW.y);
       const localLen = Math.hypot(center.x - muzzle.x, floorY - muzzle.y) || 1;
       const scale = worldLen / localLen;
+      // 半宽与可见光锥纹理(getConeGlowSpriteFrame)几何完全一致: 锥全宽 = len×CONE_FAN,
+      // 纹理近端半宽 = MIN_HALF×全宽, 远端 = MAX_HALF×全宽 → 显色区 = 可见光锥区(同形)。
+      const fanwidth = len * COVERAGE_CONE_FAN;
       const field = worldBeamFromGeometry(
         { mx: muzzleW.x, my: muzzleW.y },
         { cx: centerW.x, cy: centerW.y },
         {
-          nearHalf: COVERAGE_HEAD_GLOW_PX * 0.5 * scale,
-          farHalf: len * COVERAGE_CONE_FAN * 0.5 * scale, // 与可见锥底半宽一致(世界缩放后)
+          nearHalf: CONE_TEX_MIN_HALF * fanwidth * scale,
+          farHalf: CONE_TEX_MAX_HALF * fanwidth * scale,
           on: true
         }
       );

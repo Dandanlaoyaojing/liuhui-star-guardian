@@ -71,15 +71,16 @@ CCProgram cf-fs %{
     vec2 rel = p - u_beamOrigin.xy;
     float t = dot(rel, u_beamDir.xy);
     if (t < 0.0 || t > u_beamOrigin.z) return 0.0;
-    float u = t / u_beamOrigin.z;
+    float u = t / u_beamOrigin.z; // 0=出光口 .. 1=落地远端
     float d = abs(dot(rel, vec2(-u_beamDir.y, u_beamDir.x)));
     float halfAt = u_beamDir.z + u * (u_beamDir.w - u_beamDir.z);
     if (halfAt <= 0.0) return 0.0;
     float q = d / halfAt;
-    // 横向高斯软钟形(必须与 M01FlashlightBeam.ts 一致: BEAM_SOFT=1.8, EDGE_CUTOFF=1.4)。
-    float across = q > 1.4 ? 0.0 : exp(-q * q * 1.8);
-    float axial = smoothstep(0.0, 0.25, u) * smoothstep(1.0, 0.75, u);
-    return clamp(across * axial, 0.0, 1.0);
+    // 必须与 M01FlashlightBeam.ts 一致, 且与可见光锥纹理 getConeGlowSpriteFrame 同一衰减:
+    // bAcross = 1-q²(柔抛物边), bAlong = pow(1-u, 0.8)。→ 显色质感 = 光束质感。
+    float bAcross = max(0.0, 1.0 - q * q);
+    float bAlong = pow(max(0.0, 1.0 - u), 0.8);
+    return clamp(bAlong * bAcross, 0.0, 1.0);
   }
 
   vec4 frag () {
