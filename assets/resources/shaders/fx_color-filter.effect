@@ -1,7 +1,7 @@
 // fx_color-filter — 手电逐像素显色(颜色过滤/高亮; spec §3.5 的 color-filter)。
 // 视觉意图: 手电光束扫到的拼片像素被染上其混色(v_color)、边缘自然渐变; 没照到=灰白原图。
 // ⚠️ 强度公式必须与 assets/scripts/cocos/M01FlashlightBeam.ts::flashlightBeamIntensity 一致
-//    (轴向投影 t/u + 垂距 d + 同比例 smoothstep; AXIAL_FEATHER=0.12)。改一边要同步另一边。
+//    (轴向投影 t/u + 垂距 d + 沿光向 pow(1-u,0.8) × 横向 1-q²; 与可见光锥纹理同衰减)。改一边要同步另一边。
 // 用法: 挂到拼片 sprite 的 customMaterial; 每帧由 bootstrap setProperty u_beamOrigin/u_beamDir(世界空间)。
 
 CCEffect %{

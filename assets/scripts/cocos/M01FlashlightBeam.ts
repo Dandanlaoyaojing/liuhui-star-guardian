@@ -1,6 +1,6 @@
 // M01 手电光束逐像素强度(纯几何, 无 cc 依赖 → vitest 可跑)。
 // ⚠️ GLSL(assets/resources/shaders/fx_color-filter.effect) 必须复刻同一公式 ——
-//    改这里的强度数学要同步改 .effect(轴向投影 + 垂距 + 同比例 smoothstep)。
+//    改这里的强度数学要同步改 .effect(轴向投影 + 垂距 + 沿光向 pow(1-u,0.8) × 横向 1-q²)。
 
 export interface BeamField {
   ox: number; // 光锥顶(muzzle)世界坐标
