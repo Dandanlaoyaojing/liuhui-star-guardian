@@ -53,11 +53,12 @@
 - 每帧(`syncFlashlightCoverage` 已有): 把光束几何**转世界空间后**(评审#2)+ `lightOn` 经 `mat.setProperty(...)` 写到共享材质全局 uniform。
 - 显色集合/灯色变化时(已有 `coverageStateKey` 节流): 给每个**在覆盖内**的拼片 `sprite.color = 该片混色`(revealColor, 经 `colorForObservedFragmentTint`/blend 逻辑算, 不变); 不在覆盖内的片 `sprite.color = 白`(shader 中 intensity 仍由光束几何决定, 双保险)。
 - 选 **v_color 传 revealColor** 而非每片一个材质实例 → 一套材质 + 每片用现成 `sprite.color` 通道, 不做 N 份材质实例(省、简单)。
-- ⚠️ **评审#7: `sprite.color` 在这 9 个拼片上被征用为 revealColor 通道** —— 实现前先审计现有对拼片 sprite.color 的写入(约 1247/1276/2782/2865 行), 确认改用 shader 后那些路径不冲突(多半是旧 light_mask 染色路径, 随之删/改)。
+- ⚠️ **评审#7(地址已校正): `sprite.color` 在这 9 个拼片上被征用为 revealColor 通道** —— 实现前审计现有拼片显色路径: `syncArtSpriteState`(~2782 `sprite.color = colorForArtSprite(...)`)、`syncArtSpriteFrame`(~2796 换 `light_mask` 贴图)、`syncArtEdgeSpriteState`(~2865 light_edge)、`colorForArtSprite`/`colorForObservedFragmentTint`(~3501/3506)。前两条是旧整片染色路径, 改 shader 后删/改。
+- ⚠️ **评审#新: `light_edge` 描边发光层**(`syncArtEdgeSpriteState`)是第三条显色相关 sprite —— shader 接管显色后明确其去留: **保留原样**(它是边线发光, 与逐像素填充显色不冲突, 可叠在 shader 之上)。若预览发现冲突再折进 shader。
 
 ### 3.3 光束强度模型(纯函数, 可单测) — 坐标空间(评审#2)
 
-⚠️ **统一世界空间**: 现有 `computeBeamGeometry` 的量在节点"drawing 空间"(anchor.position 等父相对坐标), **不是世界坐标**。本特性必须把光束几何转世界空间(`node.getWorldPosition()` / `UITransform` 世界换算)再传 uniform, 且 shader 用 `cc_matWorld * a_position` 出 `v_worldPos` —— 两边同在世界空间, 否则显色区漂移。这条是首要落地前提。
+⚠️ **统一世界空间**: 现有 `computeBeamGeometry` 的量在节点"drawing 空间"(anchor.position 等父相对坐标), **不是世界坐标**。本特性必须把光束几何转世界空间(用 `node.worldPosition`(shim 已有该属性, 非 `getWorldPosition()` 方法) / `UITransform` 世界换算)再传 uniform, 且 shader 用 `cc_matWorld * a_position` 出 `v_worldPos` —— 两边同在世界空间, 否则显色区漂移。这条是首要落地前提。
 
 把"世界坐标 → 光束强度"的数学抽成纯 TS 函数 `flashlightBeamIntensity(worldPoint, beamWorld)`(供单测), shader 里用 GLSL 复刻同一公式:
 
