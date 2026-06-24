@@ -31,9 +31,8 @@ CCEffect %{
 CCProgram cf-vs %{
   precision highp float;
   #include <builtin/uniforms/cc-global>
-  #include <builtin/uniforms/cc-local>
 
-  in vec3 a_position;
+  in vec3 a_position; // ⚠️ Cocos 2D: 已是世界坐标(批处理 CPU 端预变换), 不要再乘 cc_matWorld(否则双变换→几何飞出屏幕→拼片消失)
   in vec2 a_texCoord;
   in vec4 a_color;
 
@@ -42,11 +41,10 @@ CCProgram cf-vs %{
   out vec2 v_world;
 
   vec4 vert () {
-    vec4 world = cc_matWorld * vec4(a_position, 1.0);
     v_color = a_color;
     v_uv0 = a_texCoord;
-    v_world = world.xy;
-    return cc_matViewProj * world;
+    v_world = a_position.xy; // 已世界空间 → 直接给片元和光束几何比对
+    return cc_matViewProj * vec4(a_position, 1.0);
   }
 }%
 

@@ -186,7 +186,7 @@ const COVERAGE_HEAD_GLOW_PX = 18; // px; 大头灯色光晕直径(≈手电头)
 const COVERAGE_HEAD_GLOW_ALPHA = 210; // 大头光晕不透明度
 // 手电逐像素显色 shader(fx_color-filter): true=拼片显色由 shader 按光束逐像素照亮; false/加载失败=回退旧整片染色。
 // ⚠️ 真机若 shader 编译崩(headless 看不到), 置 false 强制走 fallback。
-const USE_COLOR_FILTER_SHADER = false; // 2026-06: 暂关 —— effect 首版让拼片消失(疑 GPU 编译/采样问题), 修好 .effect 再开
+const USE_COLOR_FILTER_SHADER = true; // 拼片消失修复后重开(根因: 2D sprite a_position 已是世界坐标, 旧 vert 又乘 cc_matWorld 双变换→飞出屏幕)。再崩就置 false 回退
 
 // 代码生成一张【白色径向渐变】柔光纹理: alpha 高斯衰减到 0, GPU 逐像素采样 → 平滑无分界线
 // (Cocos Graphics 没有 canvas 的 createRadialGradient, 故把渐变烤进运行时纹理)。建一次缓存复用。
