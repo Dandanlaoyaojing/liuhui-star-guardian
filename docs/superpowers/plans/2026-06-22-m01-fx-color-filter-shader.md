@@ -203,6 +203,10 @@ git commit -m "feat(M01): worldBeamFromGeometry 组装世界空间 BeamField+单
     initialize(info: { effectAsset: EffectAsset | null }): void;
     setProperty(name: string, value: unknown): void;
   }
+
+  export class Vec4 {
+    constructor(x?: number, y?: number, z?: number, w?: number);
+  }
 ```
 
 并在 `export class Sprite` 内补一行：
@@ -210,6 +214,8 @@ git commit -m "feat(M01): worldBeamFromGeometry 组装世界空间 BeamField+单
 ```ts
     customMaterial: Material | null;
 ```
+
+(评审: `Vec4` 现在 shim 里**没有**，Task 5 用 `new Vec4(...)` 四次，必须在此先补，否则 typecheck 挂。)
 
 (`resources.load<EffectAsset>` 已被现有泛型 `load<T>(path, type, cb)` 覆盖，无需额外重载。)
 
@@ -372,15 +378,25 @@ private attachColorFilterToFragments(): void {
 
 - [ ] **Step 3: 每帧写光束 uniform**
 
-在 `redrawCoverageBeam`(已有 muzzle/center/角度/长度)末尾，把光束转**世界空间**后写 uniform：
+先加一个统一的关灯 helper(评审#2: 多个早退路径都要写 on=0, 否则显色"粘住"不灭)：
 
 ```ts
-if (this.colorFilterAvailable && this.colorFilterMat && this.lemmyAnchorNode) {
-  // muzzle/center 是 drawing 空间 → 转世界: beamNode 与拼片同在 greyboxRoot, 用 greyboxRoot 世界变换
-  const root = this.greyboxRoot!;
-  const wm = root.worldPosition; // greyboxRoot 世界原点(假设无缩放/旋转; 若有需用 UITransform 换算)
+private writeBeamOff(): void {
+  this.colorFilterMat?.setProperty("u_beamOrigin", new Vec4(0, 0, 0, 0));
+}
+```
+
+在 `redrawCoverageBeam` 的 **`halfHeight <= 0` 早退分支**(~1811, `beamNode.active=false; return;` 之前)加 `this.writeBeamOff();` —— 否则光扫到拼接盘、可见光锥消失了, shader 还留着上次 on=1 → 拼片仍显色, 违反"光不照盘"。
+在 `hideCoverageBeam` 里也调 `this.writeBeamOff();`(灯灭/出覆盖)。
+
+在 `redrawCoverageBeam` **正常画完末尾**(已有 `muzzle`/`center`/`floorY`/`len`; ⚠️ **没有 `contactX` 这个变量——落地点 x 就是 `center.x`**)，把光束转**世界空间**后写 uniform：
+
+```ts
+if (this.colorFilterAvailable && this.colorFilterMat) {
+  // muzzle/center 是 greyboxRoot-local; beamNode 与拼片同在 greyboxRoot → 加 greyboxRoot 世界原点得世界坐标
+  const wm = this.greyboxRoot!.worldPosition; // 假设 greyboxRoot 无缩放/旋转(见下警告)
   const muzzleW = { mx: wm.x + muzzle.x, my: wm.y + muzzle.y };
-  const centerW = { cx: wm.x + contactX, cy: wm.y + floorY };
+  const centerW = { cx: wm.x + center.x, cy: wm.y + floorY }; // 落地点 = (center.x, floorY)
   const field = worldBeamFromGeometry(muzzleW, centerW, {
     nearHalf: COVERAGE_HEAD_GLOW_PX * 0.5, farHalf: (len * COVERAGE_CONE_FAN) * 0.5, on: true
   });
@@ -389,9 +405,9 @@ if (this.colorFilterAvailable && this.colorFilterMat && this.lemmyAnchorNode) {
 }
 ```
 
-灯灭/隐藏时写 `on=0`(在 hideCoverageBeam 里 `colorFilterMat?.setProperty("u_beamOrigin", new Vec4(0,0,0,0))`)。import 补 `Vec4`，shim 若无 Vec4 则补。typecheck。
+import 补 `Vec4`(类型已在 Task 3 进 shim)。typecheck。
 
-> ⚠️ greyboxRoot 若有非单位变换，`wm.x + muzzle.x` 不准——实现时确认 greyboxRoot 的 worldPosition/scale；有缩放则改用 `UITransform.convertToWorldSpaceAR`。这是 spec §3.3 钉的首要前提。
+> ⚠️ greyboxRoot 若有非单位变换(缩放/旋转)，`wm.x + muzzle.x` 不准——实现时**先确认** greyboxRoot 的 worldPosition/scale。有缩放/旋转则改用 `UITransform.convertToWorldSpaceAR`，或更简单：两边都在 greyboxRoot-local 空间算(shader 端减去 root 世界原点)，绕开缩放/旋转。这是 spec §3.3 钉的首要前提。
 
 - [ ] **Step 4: 显色改 shader 驱动 + 保留 fallback**
 
