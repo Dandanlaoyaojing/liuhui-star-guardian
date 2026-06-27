@@ -51,7 +51,7 @@ describe("resolveM01GreyboxDrop", () => {
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_hexagon_blue_1",
       pieceSlotId: "target_piece_hexagon_blue_1",
-      position: { x: -93, y: 3.5 },
+      position: { x: -153, y: 3.5 },
       rotation: 0
     });
   });
@@ -68,7 +68,7 @@ describe("resolveM01GreyboxDrop", () => {
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_hexagon_red_2",
       pieceSlotId: "target_piece_hexagon_blue_1",
-      position: { x: -93, y: 3.5 },
+      position: { x: -153, y: 3.5 },
       rotation: 0
     });
   });
@@ -77,18 +77,18 @@ describe("resolveM01GreyboxDrop", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
 
     expect(fragment).toBeDefined();
-    expect(resolveM01GreyboxDrop(layout, fragment!, { x: -42, y: -40.5 })).toEqual({
+    expect(resolveM01GreyboxDrop(layout, fragment!, { x: -102, y: -40.5 })).toEqual({
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_triangle_blue_1",
       pieceSlotId: "target_piece_triangle_blue_1",
-      position: { x: -42, y: -40.5 },
+      position: { x: -102, y: -40.5 },
       rotation: 90
     });
   });
 
   it("does not snap an expected fragment to a locked target slot when its rotation is wrong", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
-    const targetPosition = { x: -42, y: -40.5 };
+    const targetPosition = { x: -102, y: -40.5 };
 
     expect(fragment).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
@@ -100,7 +100,7 @@ describe("resolveM01GreyboxDrop", () => {
 
   it("lets any circle fragment geometry-snap to a circle target slot", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_circle_blue_1");
-    const targetPosition = { x: -98, y: -38.5 };
+    const targetPosition = { x: -158, y: -38.5 };
 
     expect(fragment).toBeDefined();
     expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
@@ -171,7 +171,7 @@ describe("resolveM01GreyboxDrop", () => {
       type: "snap_fragment_to_target_piece",
       fragmentId: "fragment_circle_red_2",
       pieceSlotId: "target_piece_circle_red_2",
-      position: { x: -62, y: 14.5 },
+      position: { x: -122, y: 14.5 },
       rotation: 0
     });
   });

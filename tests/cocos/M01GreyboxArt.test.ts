@@ -1550,7 +1550,7 @@ describe("M01 greybox art slices", () => {
       role: "repair_object_token",
       sourceFile:
         "docs/design/generated-m01-art-slices/m01-overlap-memory-gear-full-outline-rich-color-runtime.png",
-      displaySize: { width: 553, height: 553 },
+      displaySize: { width: 581, height: 581 },
       resourcesLoadPath:
         "art/stage1-m01/runtime-sprites/surfaces/m01-overlap-memory-gear/spriteFrame"
     });
@@ -1669,37 +1669,37 @@ describe("M01 greybox art slices", () => {
       {
         evidenceId: "current_manual_target_green_circle_hexagon_1",
         colorToken: "green",
-        position: { x: -94.5, y: -15.62 },
+        position: { x: -154.5, y: -15.62 },
         outline: realM01Config.evidence[0].generatedOverlap?.outline
       },
       {
         evidenceId: "current_manual_target_orange_circle_hexagon_1",
         colorToken: "orange",
-        position: { x: -75.76, y: -51.53 },
+        position: { x: -135.76, y: -51.53 },
         outline: realM01Config.evidence[1].generatedOverlap?.outline
       },
       {
         evidenceId: "current_manual_target_orange_circle_triangle_1",
         colorToken: "orange",
-        position: { x: -43.04, y: 3.93 },
+        position: { x: -43.04 + (-60), y: 3.93 },
         outline: realM01Config.evidence[2].generatedOverlap?.outline
       },
       {
         evidenceId: "current_manual_target_purple_circle_hexagon_1",
         colorToken: "purple",
-        position: { x: -77.5, y: 8.35 },
+        position: { x: -137.5, y: 8.35 },
         outline: realM01Config.evidence[3].generatedOverlap?.outline
       },
       {
         evidenceId: "current_manual_target_green_triangle_triangle_1",
         colorToken: "green",
-        position: { x: -25.13, y: -24.12 },
+        position: { x: -85.13, y: -24.12 },
         outline: realM01Config.evidence[4].generatedOverlap?.outline
       },
       {
         evidenceId: "current_manual_target_purple_triangle_hexagon_1",
         colorToken: "purple",
-        position: { x: -49.5, y: -47.33 },
+        position: { x: -109.5, y: -47.33 },
         outline: realM01Config.evidence[5].generatedOverlap?.outline
       }
     ]);

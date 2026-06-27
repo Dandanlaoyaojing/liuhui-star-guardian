@@ -869,7 +869,11 @@ export class M01IntroSequence extends Component {
       // 伸手够篮: 朝篮子(右); 不传 onEvent → reach_contact 落空、篮子零运动(够不着)
       await actor.playFrameAction("reach", { facing: "right" });
       await actor.playFrameAction("headshake", { facing: "right" }); // 够不着 → 轻轻摇头"不行"(即梦帧, 身体静止只头动)
-      actor.playIdle(); // 收手回待机
+      actor.playIdle(); // 收手回待机(竖耳)
+      // 同步: reachmiss 全程用竖耳帧(walk/reach/headshake/idle), earsFolded 必须归位 false —— 否则若进 reachmiss
+      // 前标志残留 true, 之后走到篮下点篮 beginHeadbutt 会因 earsFolded===true 跳过 earsback → 竖耳顶篮(脱节)。
+      // 下次玩家点地走位时 roamLemmyTo 开头的 alignEarToPosition 会按实际位置(REACH_X 在收耳区内)再补收耳。
+      this.earsFolded = false;
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     } finally {
@@ -1168,6 +1172,7 @@ export class M01IntroSequence extends Component {
       // 砸头 startle 可能把耳弹竖, 但莱米若站在篮下, 捡前应按位置先收耳 → 消除"明明站篮下却竖着耳去捡"。
       await this.alignEarToPosition();
       if (this.destroyed) return;
+      this.walkBoostMult = 1; // 脚本编排走位不继承连点催速
       const flashX = this.flashlightNode.position.x;
       if (Math.abs(this.lemmyActor.node.position.x - flashX) > 30) {
         await this.roamLemmyTo(clampStageX(flashX - 30)); // 分段收耳走到手电旁(篮下保持收耳, 出篮下才立耳)

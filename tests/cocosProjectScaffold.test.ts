@@ -1053,8 +1053,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(intro).not.toContain("partResourcePaths");
     expect(intro).not.toContain("lemmy_body");
     expect(intro).toContain("node.addComponent(LemmyActor)");
-    // 2026-06-08 顶篮 headbutt + 点哪走哪重构: 收耳→跳起顶篮→倒出, 自由走位经 walkLemmyTo。
-    expect(intro).toContain("walkLemmyTo"); // 点哪走哪
+    // 顶篮 headbutt + 点哪走哪: 收耳→跳起顶篮→倒出, 自由走位经 roamLemmyTo(分段收耳, 取代旧 walkLemmyTo)。
+    expect(intro).toContain("roamLemmyTo"); // 点哪走哪
     // 动作名断言不绑接收者(this.lemmyActor vs 局部 actor), 减少重构脆性。
     expect(intro).toContain('playFrameAction("earsback")'); // 收耳
     expect(intro).toContain('playFrameAction("headbutt"'); // 顶篮(帧自带腾空)

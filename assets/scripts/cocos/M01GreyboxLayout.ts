@@ -158,14 +158,13 @@ function shiftBoardContentToMatchBoard(layout: M01GreyboxLayout): void {
       e.fragmentSnapPositions = moved;
     }
   };
+  // 只平移【盘上】内容: work-area evidence(中心 EVIDENCE_WORK_AREA_CENTER=-60=GEAR_BOARD_DESIGN_X, 与盘同基准)
+  // + 吸附点。referenceEvidence / referencePattern 是左侧独立的参考预览卡(中心 REFERENCE_PATTERN_CENTER=-360,
+  // 不依赖盘位置), 不能跟盘平移, 否则被多移 ~60px 挤到屏幕左缘。
   layout.evidence.forEach(shiftEvidence);
-  layout.referenceEvidence.forEach(shiftEvidence);
   layout.targetPieceSlots.forEach((slot) => {
     slot.position = sp(slot.position);
   });
-  if (layout.referencePattern) {
-    layout.referencePattern.position = sp(layout.referencePattern.position);
-  }
 }
 
 function shouldEnableEvidenceSnap(config: M01MemoryGearConfig): boolean {
