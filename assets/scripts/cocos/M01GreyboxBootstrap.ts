@@ -103,6 +103,8 @@ import { M01IntroSequence } from "./M01IntroSequence.ts";
 import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
 
 const { ccclass, property } = _decorator;
+// ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
+const HIDE_SCREEN_TEXT = true;
 const CLICK_DRAG_THRESHOLD = 6;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
@@ -943,6 +945,7 @@ export class M01GreyboxBootstrap extends Component {
     transform.setContentSize(880, 32);
 
     const label = labelNode.addComponent(Label);
+    label.enabled = !HIDE_SCREEN_TEXT;
     label.fontSize = 18;
     label.lineHeight = 24;
     label.color = new Color(43, 43, 39, 255);
@@ -958,6 +961,7 @@ export class M01GreyboxBootstrap extends Component {
     transform.setContentSize(820, 28);
 
     const label = labelNode.addComponent(Label);
+    label.enabled = !HIDE_SCREEN_TEXT;
     label.string = "";
     label.fontSize = 16;
     label.lineHeight = 22;
@@ -1050,6 +1054,7 @@ export class M01GreyboxBootstrap extends Component {
     transform.setContentSize(72, 22);
 
     const label = labelNode.addComponent(Label);
+    label.enabled = !HIDE_SCREEN_TEXT;
     label.string = text;
     label.fontSize = 15;
     label.lineHeight = 20;
@@ -1136,6 +1141,7 @@ export class M01GreyboxBootstrap extends Component {
     transform.setContentSize(320, 24);
 
     const label = labelNode.addComponent(Label);
+    label.enabled = !HIDE_SCREEN_TEXT;
     label.string = text;
     label.fontSize = fontSize;
     label.lineHeight = fontSize + 5;
