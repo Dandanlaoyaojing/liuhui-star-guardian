@@ -469,7 +469,7 @@ function runtimeGearResource(): M01GreyboxRuntimeSpriteResource {
     "repair_object_token",
     "m01-overlap-memory-gear.png",
     "docs/design/generated-m01-art-slices/m01-overlap-memory-gear-full-outline-rich-color-runtime.png",
-    { width: 553, height: 553 }
+    { width: 581, height: 581 } // 553×1.05: 平台放大5%(齿轮修圆后高度变矮→底部略浮空, 放大补偿贴回地面)
   );
 }
 

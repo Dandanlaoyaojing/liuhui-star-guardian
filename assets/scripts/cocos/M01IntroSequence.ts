@@ -78,7 +78,7 @@ const clampStageX = (x: number): number =>
 
 // Shallow wide tray basket suspended beneath the flashlight beam anchor (360, 110).
 const BASKET_DISPLAY = M01_INTRO_BASKET_DISPLAY_SIZE;
-const BASKET_X = 360;
+const BASKET_X = 300; // 2026-06 右移 160→300: 拉开与左侧平台的距离(原 160 离平台太近)。钉/绳 pivot 与 BASKET_MOUTH_X 跟着自动走
 // Anchor the basket SPRITE bottom here (≈ the bowl bottom). Enlarging the basket
 // (M01_INTRO_BASKET_SCALE) then grows it UPWARD from this line, keeping Lemmy's
 // reach-to-the-bowl-bottom intact. (At scale 1.0 this is the old hand-tuned -61.)
@@ -117,14 +117,21 @@ const BASKET_PILE_SETTLE_MS = 900;
 // 玩家点哪走哪自己把莱米走到篮下; 走近篮下时就收耳(earsback→耳后贴走入, 见 roamLemmyTo)→ 点篮(在篮下)
 // 原地起跳用头顶篮底 → 上升段初次触篮底给拼片【向上+外扩】真实冲量(从下往上顶出)。
 // ⚠️ 点篮【不再为顶篮走位】(原"走到正下方再顶"被吐槽"还是走到篮下才顶"); 收耳已前移到走近篮下时。
-const LEMMY_HEADBUTT_X = 320; // 顶篮判定中心(篮心 360 略偏左); 莱米在此 ±容差内 = 在篮下
+const LEMMY_HEADBUTT_X = BASKET_X - 40; // 顶篮判定中心(篮心略偏左 40, 派生→随 BASKET_X 一起挪); 莱米在此 ±容差内 = 在篮下
 // 触发判定(2026-06-08 用户现场): 点篮时莱米在 |x - LEMMY_HEADBUTT_X| < 容差内 = 视为"在篮下" → 原地顶;
 // 否则 = 走近篮子(到 REACH_X, 不到正下方)伸手够篮底边、篮子轻晃, 不顶。玩家需先点地把莱米走到篮下才能顶。
 const LEMMY_HEADBUTT_UNDER_TOLERANCE = 80;
-const LEMMY_BASKET_REACH_X = 230; // 不在篮下点篮: 莱米走到这个"靠近但不在篮下"的位置够篮(在 under 容差区 [240,400] 外)
-// 点地走向篮下时(目的地在 under 容差区内)莱米在【到位前 FOLD_LEAD 处】就收耳 → 耳后贴走完最后一段进篮下,
-// 而非到了才收耳(2026-06-08 用户现场: "靠近篮子就收耳, 不是要撞篮才收")。走出 under 区则抬耳复原。
-const HEADBUTT_FOLD_LEAD_X = 70;
+// 收耳区 = 篮子【左右外沿】之间(分界=篮子外沿, 不是某个点): 中心=篮心 BASKET_X, 半宽=篮身外沿半宽。
+// 篮身实测: 贴图 m01-basket-hanging-empty.png 非透明篮身占整图宽 0.646 且居中, sprite contentSize 433(trimType
+// none 满图映射)→ 篮身显示宽 0.646×433≈280, 半宽 140(与探针实测篮底 inner-cavity 渲染范围 [160,440] 吻合)。
+// 莱米中心越过篮子外沿(进入 [160,440])即收耳, 走出即立耳。与顶篮判定(LEMMY_HEADBUTT_X 偏左40 + 容差80)分开。
+const LEMMY_EAR_FOLD_CENTER_X = BASKET_X;
+const LEMMY_EAR_FOLD_HALF_WIDTH = 140;
+// 不在篮下点篮: 莱米走到这个"靠近但不在篮下"的位置够篮。=顶篮中心左 90(在 under 容差区 80 外侧一点),
+// 派生→随 BASKET_X 一起挪(原硬编码 230 是 BASKET_X 右移前的值, 没跟着挪→落进容差区内+离篮太远→够不着)。
+const LEMMY_BASKET_REACH_X = LEMMY_HEADBUTT_X - 90;
+// 收耳: 点地目的地落在 under 容差区内 → 进区即收耳, 全程耳后贴走(见 roamLemmyTo); 走出 under 区且当前确实
+// 已离开篮下才抬耳(2026-06-08 用户现场: "靠近篮子就收耳, 不是要撞篮才收"; 篮下转身/连点走不立耳)。
 // 注: 起跳全靠 headbutt 帧自身腾空(jump_mode 抽帧已保留脚离地), 不再叠引擎纵移(否则=多一次原地跳)。
 // 顶篮冲量(2026-06-08 用户现场两轮: 先 200→130 仍"太大", 再降到【原始 200/95/45/220 的 1/10】=
 // 20/10/5/22 —— 拼片只被轻轻向上一推就靠重力落出, 不再大力崩飞)。
@@ -362,78 +369,72 @@ export class M01IntroSequence extends Component {
     void this.roamLemmyTo(clampStageX(worldX));
   }
 
-  /** Walk Lemmy to a stage X using normal walk frames, then return to idle. Interrupt-safe. */
-  private async walkLemmyTo(targetX: number, action: "walk" | "walkback" = "walk"): Promise<void> {
-    if (!this.lemmyActor) return;
-    try {
-      await this.lemmyActor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-        durationMs: walkSegmentMs(this.lemmyActor.node.position.x, targetX),
-        action
-      });
-      this.lemmyActor.playIdle();
-    } catch (error) {
-      if (!isExpectedLemmyActionCancel(error)) throw error;
-    }
-  }
-
   /** 走时长 ÷ 频繁连点提速倍率(催促召唤, 见 handleStageTap/nextWalkBoost); 仅 roam 走位用, 脚本走不提速。 */
   private boostedWalkMs(fromX: number, toX: number): number {
     return walkSegmentMs(fromX, toX) / this.walkBoostMult;
   }
 
   /**
-   * 点哪走哪(roaming/waitingPickup): 在普通走的基础上, 当目的地落在篮正下方容差区内 →【走近时就收耳】:
-   * 普通走(耳竖)到"到位前 FOLD_LEAD"处 → earsback 收耳 → walkback 耳后贴走完最后一段进篮下 → idleback 待机。
-   * 走出 under 区且当前是耳后贴 → 先 earsup 抬耳复原再普通走。其余(同态)按当前耳态直接走。
+   * 点哪走哪(roaming/waitingPickup/acquired): 分段走向目标 —— 路径跨篮子外沿(收耳区边界)时, 在边界点播
+   * earsback/earsup 收/抬耳过程动画, 再继续走完。位置只是触发点, 收/抬耳动作完整、走路不被打断。从外走进→收耳,
+   * 从内走出→立耳(按跨界方向)。收耳完全由兔子与篮子相对位置决定, 不看点击目标。
    * 之后玩家点篮(已在篮下且耳已折)→ beginHeadbutt 跳过收耳直接顶。
    */
   private async roamLemmyTo(targetX: number): Promise<void> {
     const actor = this.lemmyActor;
     if (!actor) return;
-    const toUnderBasket = this.isXUnderBasket(targetX);
     try {
-      if (toUnderBasket && !this.earsFolded) {
-        // 走近篮下: 普通走到将近点 → 收耳 → 耳后贴走完最后一段
-        const cur = actor.node.position.x;
-        const dir = targetX >= cur ? 1 : -1;
-        const foldX = clampStageX(targetX - dir * HEADBUTT_FOLD_LEAD_X);
-        if ((dir > 0 && foldX > cur + 4) || (dir < 0 && foldX < cur - 4)) {
-          await actor.walkTo(new Vec3(foldX, LEMMY_Y, 0), {
-            durationMs: this.boostedWalkMs(cur, foldX),
-            action: "walk"
+      // 走路前先按当前位置校正耳态(砸头 startle / 拾取起身等弄成竖耳但人站篮下 → 先补收耳), 消除"站篮下竖耳"。
+      await this.alignEarToPosition();
+      // 分段走: 路径若跨篮子外沿(收耳区边界 中心±半宽), 先走到边界点 → 播 earsback/earsup【收/抬耳过程动画】
+      // → 再继续走完剩余。位置只是【触发点】, 收/抬耳动作完整保留, 且走路不被打断(分段连续走到 targetX)。
+      const fromX = actor.node.position.x;
+      const dir = Math.sign(targetX - fromX);
+      if (dir !== 0) {
+        const leftEdge = LEMMY_EAR_FOLD_CENTER_X - LEMMY_EAR_FOLD_HALF_WIDTH;
+        const rightEdge = LEMMY_EAR_FOLD_CENTER_X + LEMMY_EAR_FOLD_HALF_WIDTH;
+        // 本次行进路径跨过的外沿边界, 按行进方向排序(先遇到的先处理)
+        const crossings = [leftEdge, rightEdge]
+          .filter((edge) => fromX < edge !== targetX < edge)
+          .sort((a, b) => dir * (a - b));
+        let cur = fromX;
+        for (const edge of crossings) {
+          await actor.walkTo(new Vec3(edge, LEMMY_Y, 0), {
+            durationMs: this.boostedWalkMs(cur, edge),
+            action: this.earsFolded ? "walkback" : "walk"
           });
+          // 跨过 edge 朝行进方向一步是否落在篮下 → 从外走进(收耳) / 从内走出(立耳)
+          const nowUnder = this.isXEarFoldZone(edge + dir);
+          if (nowUnder !== this.earsFolded) {
+            this.earsFolded = nowUnder; // 先置标志(连点打断 earsback 也按已切, 不回退)
+            await actor.playFrameAction(nowUnder ? "earsback" : "earsup"); // 收/抬耳过程动画(原地)
+          }
+          cur = edge;
         }
-        await actor.playFrameAction("earsback"); // 收耳(立→后贴), 原地
-        this.earsFolded = true;
-        const afterFoldX = actor.node.position.x;
-        if (Math.abs(targetX - afterFoldX) > 4) {
+        if (Math.abs(targetX - cur) > 1) {
           await actor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-            durationMs: this.boostedWalkMs(afterFoldX, targetX),
-            action: "walkback"
+            durationMs: this.boostedWalkMs(cur, targetX),
+            action: this.earsFolded ? "walkback" : "walk"
           });
         }
-        this.playIdleback();
-      } else if (!toUnderBasket && this.earsFolded) {
-        // 走离篮下: 先抬耳复原, 再普通走
-        await actor.playFrameAction("earsup");
-        this.earsFolded = false;
-        await actor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-          durationMs: this.boostedWalkMs(actor.node.position.x, targetX),
-          action: "walk"
-        });
-        actor.playIdle();
-      } else {
-        // 同态走(都耳竖 或 都耳后贴), 不切耳态
-        await actor.walkTo(new Vec3(targetX, LEMMY_Y, 0), {
-          durationMs: this.boostedWalkMs(actor.node.position.x, targetX),
-          action: this.earsFolded ? "walkback" : "walk"
-        });
-        if (this.earsFolded) this.playIdleback();
-        else actor.playIdle();
       }
+      // 停下: 按最终落点收尾待机
+      if (this.earsFolded) this.playIdleback();
+      else actor.playIdle();
     } catch (error) {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     }
+  }
+
+  /** 按莱米【当前位置】校正耳态: 站在篮下却竖着耳(如砸头 startle 弹竖) → 补 earsback 收耳过程; 反之补 earsup。
+   *  状态本就与位置一致则不动。用于走路/拾取开始前, 消除"明明站篮下却竖耳"。 */
+  private async alignEarToPosition(): Promise<void> {
+    const actor = this.lemmyActor;
+    if (!actor) return;
+    const under = this.isXEarFoldZone(actor.node.position.x);
+    if (under === this.earsFolded) return;
+    this.earsFolded = under;
+    await actor.playFrameAction(under ? "earsback" : "earsup");
   }
 
   /** 耳后贴待机循环(fire-and-forget; 吞被后续动作打断的预期 cancel)。 */
@@ -839,6 +840,11 @@ export class M01IntroSequence extends Component {
     return Math.abs(x - LEMMY_HEADBUTT_X) < LEMMY_HEADBUTT_UNDER_TOLERANCE;
   }
 
+  /** 某 stage x 是否在【收耳】容差区(中心=篮心 BASKET_X, 与顶篮判定 isXUnderBasket 分开 → 收耳对准篮子正下方)。 */
+  private isXEarFoldZone(x: number): boolean {
+    return Math.abs(x - LEMMY_EAR_FOLD_CENTER_X) < LEMMY_EAR_FOLD_HALF_WIDTH;
+  }
+
   /** 莱米是否站在篮子正下方(玩家点地把它走到了 LEMMY_HEADBUTT_X 容差内)。 */
   private isLemmyUnderBasket(): boolean {
     return this.isXUnderBasket(this.lemmyActor?.node.position.x ?? 0);
@@ -1085,11 +1091,15 @@ export class M01IntroSequence extends Component {
     tween(this.flashlightNode)
       .to(FLASHLIGHT_BONK_FALL_MS / 1000, { position: headPos }, { easing: "quadIn" }) // 弧线落到头顶
       .call(() => {
-        // 手电砸头: startle 把耳后贴态弹成耳竖 → 复位 earsFolded, 之后走位/拾取按耳竖。
+        // 手电砸头: startle 惊吓把耳弹竖(动画过程合理), 但它【末帧是立耳】, 莱米会定格在立耳。播完按位置校正 ——
+        // 此刻莱米站在篮下(顶篮落点)则补一个 earsback 收回去, 不停在立耳末帧(用户: 砸头收尾不该立耳)。
         this.earsFolded = false;
-        void this.lemmyActor?.playFrameAction("startle").catch((e) => {
-          if (!isExpectedLemmyActionCancel(e)) throw e;
-        });
+        void this.lemmyActor
+          ?.playFrameAction("startle")
+          .then(() => this.alignEarToPosition())
+          .catch((e) => {
+            if (!isExpectedLemmyActionCancel(e)) throw e;
+          });
         this.releaseFlashlightToPhysics(); // 砸头后松给物理: dynamic 掉落、撞拼片、自己躺平
       })
       .start();
@@ -1155,11 +1165,14 @@ export class M01IntroSequence extends Component {
     if (!this.advance("flashlightTapped")) return; // waitingPickup → pickingUp
     this.pickupInProgress = true;
     try {
+      // 砸头 startle 可能把耳弹竖, 但莱米若站在篮下, 捡前应按位置先收耳 → 消除"明明站篮下却竖着耳去捡"。
+      await this.alignEarToPosition();
+      if (this.destroyed) return;
       const flashX = this.flashlightNode.position.x;
       if (Math.abs(this.lemmyActor.node.position.x - flashX) > 30) {
-        await this.walkLemmyTo(clampStageX(flashX - 30)); // 走到手电旁
+        await this.roamLemmyTo(clampStageX(flashX - 30)); // 分段收耳走到手电旁(篮下保持收耳, 出篮下才立耳)
       }
-      // walkLemmyTo 吞掉销毁/取消错误后【正常返回】→ 销毁期间走位被取消时这里必须自查, 否则继续访问已销毁的手电/莱米(codex #2)。
+      // roamLemmyTo 吞掉销毁/取消错误后【正常返回】→ 销毁期间走位被取消时这里必须自查, 否则继续访问已销毁的手电/莱米(codex #2)。
       if (this.destroyed) return;
       await this.lemmyActor.playFrameAction("crouch"); // 蹲下拾取
       // 拾起 = 手持: 关物理(不再受重力/碰撞) → 贴到莱米手部, 之后点哪走哪手电随身走(覆盖面随莱米, spec §5.2)。
@@ -1188,6 +1201,9 @@ export class M01IntroSequence extends Component {
         .start();
       await this.lemmyActor.playFrameAction("crouch", { reverse: true }); // 反播 crouch = 拿着手电起身(无专门起身帧, 复用蹲下帧倒放)
       this.lemmyActor.playIdle();
+      // 起身 idle = 竖耳态 → 同步 earsFolded。否则拾取前若在篮下收过耳(标志残留 true), acquired 后走向
+      // 篮下时 roamLemmyTo 的 !earsFolded 判定为假 → 跳过收耳 → "拿手电在篮下忘记收耳"(手电落点随机故间歇)。
+      this.earsFolded = false;
       this.advance("crouchDone"); // pickingUp → acquired(起身完才让 update 接管贴手 + 开放交接, 否则起身期间就钉到站立位)
       this.syncHeldFlashlight(); // 站定后贴手部(之后每帧由 update 维持)
       // v4 交接放在起身【之后】: onFlashlightAcquired 会闩 bootstrap 的 flashlightAcquired —— 它门控碎片拖拽 +

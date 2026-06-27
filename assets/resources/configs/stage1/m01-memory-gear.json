@@ -839,7 +839,7 @@
         "type": "animated",
         "sprite": "stage1/m01/gear-star-dim",
         "position": {
-          "x": -60,
+          "x": -120,
           "y": 0
         },
         "properties": {},

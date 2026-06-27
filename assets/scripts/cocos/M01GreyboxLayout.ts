@@ -128,7 +128,44 @@ export function buildM01GreyboxLayout(
     ...(slots.length > 0 ? { slots } : {})
   };
 
-  return layout as M01GreyboxLayout;
+  const result = layout as M01GreyboxLayout;
+  // 盘内容(目标图/弱磁吸附点/参考图)坐标是按 board 历史位置(GEAR_BOARD_DESIGN_X)的绝对值, 不挂 board 节点 →
+  // board 平移后不会自动跟。这里在数据源头统一把盘位移补到所有盘内容坐标 —— 渲染(plan 读 evidence)与
+  // 弱磁吸附判定(snapNodeToEvidence 读同一份 evidence)共用这份数据, 一次全跟、不会再出现"目标图移了吸附没跟"。
+  shiftBoardContentToMatchBoard(result);
+  return result;
+}
+
+// 盘内容坐标的设计基准 = board 历史 x(-60)。board 实际 x 与之的差 = 盘整体位移, 统一补到盘内容。
+const GEAR_BOARD_DESIGN_X = -60;
+
+function shiftBoardContentToMatchBoard(layout: M01GreyboxLayout): void {
+  const shiftX = layout.board.position.x - GEAR_BOARD_DESIGN_X;
+  if (shiftX === 0) {
+    return;
+  }
+  const sp = (p: M01GreyboxPoint): M01GreyboxPoint => ({ x: p.x + shiftX, y: p.y });
+  const shiftEvidence = (e: M01GreyboxTokenNode): void => {
+    e.position = sp(e.position);
+    if (e.sourcePosition) {
+      e.sourcePosition = sp(e.sourcePosition);
+    }
+    if (e.fragmentSnapPositions) {
+      const moved: Record<string, M01GreyboxPoint> = {};
+      for (const [fragmentId, point] of Object.entries(e.fragmentSnapPositions)) {
+        moved[fragmentId] = sp(point);
+      }
+      e.fragmentSnapPositions = moved;
+    }
+  };
+  layout.evidence.forEach(shiftEvidence);
+  layout.referenceEvidence.forEach(shiftEvidence);
+  layout.targetPieceSlots.forEach((slot) => {
+    slot.position = sp(slot.position);
+  });
+  if (layout.referencePattern) {
+    layout.referencePattern.position = sp(layout.referencePattern.position);
+  }
 }
 
 function shouldEnableEvidenceSnap(config: M01MemoryGearConfig): boolean {
@@ -194,7 +231,7 @@ function buildBoardNode(): M01GreyboxTokenNode {
     controllerId: "m01_overlap_board",
     kind: "board",
     label: "拼接盘",
-    position: { x: -60, y: 0 },
+    position: { x: -120, y: 0 }, // 与大螺母 entity_memory_gear 同 x(平台整体); 2026-06 左移 -60→-120 平衡布局
     size: { width: 430, height: 430 },
     colorToken: "neutral",
     shapeToken: "board",

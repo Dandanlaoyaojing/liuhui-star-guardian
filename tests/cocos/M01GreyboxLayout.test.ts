@@ -16,9 +16,9 @@ describe("buildM01GreyboxLayout", () => {
 
     expect(layout.canvas).toEqual({ width: 960, height: 640 });
     expect(layout.gear.id).toBe("entity_memory_gear");
-    expect(layout.gear.position).toEqual({ x: -60, y: 0 });
+    expect(layout.gear.position).toEqual({ x: -120, y: 0 });
     expect(layout.gear.size).toEqual({ width: 430, height: 430 });
-    expect(layout.board.position).toEqual({ x: -60, y: 0 });
+    expect(layout.board.position).toEqual({ x: -120, y: 0 });
     expect(layout.board.size).toEqual({ width: 430, height: 430 });
     // 旧三色手电按钮 token 已删除(v4: 手电由莱米手持, Session 仍读 config.flashlights 管显色)。
     expect("flashlights" in layout).toBe(false);

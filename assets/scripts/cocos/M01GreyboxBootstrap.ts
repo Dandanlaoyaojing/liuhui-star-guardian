@@ -2939,7 +2939,11 @@ export class M01GreyboxBootstrap extends Component {
       // contain 模式: 贴图完整放进原框内、不超框、不变形(交互框不受影响)。
       const box = sprite.node.getComponent(UITransform);
       if (box) {
-        const real = spriteFrameSize(spriteFrame);
+        // ⚠️ 用裁剪后 rect(内容真实比例)而非 spriteFrameSize —— 后者优先 getOriginalSize=整画布(齿轮 750×750
+        // 正方含透明边), contain 会把略宽的齿轮压成正方→视觉"细长/变窄"。同 line~1005 hint icon 的正确写法。
+        const rect = spriteFrame.rect;
+        const real =
+          rect && rect.width > 0 && rect.height > 0 ? rect : spriteFrameSize(spriteFrame);
         const fitted = aspectContentSize(real.width, real.height, box.width, box.height, "contain");
         box.setContentSize(fitted.width, fitted.height);
       }
