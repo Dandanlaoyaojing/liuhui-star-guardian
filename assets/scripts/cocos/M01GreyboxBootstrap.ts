@@ -1471,9 +1471,11 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.layout) {
       return;
     }
-    // 拾片门控(spec §5.2): 只要碎片【落堆稳定】即可拾放整理 —— 不再要求手电已到手。
-    // (盲拼无法通过底光验证, 故"先观察后拼"靠看不见颜色这一事实, 不靠锁拾片; 底光整体验证仍双门控。)
-    if (token.kind === "fragment" && !this.physicsSettled) {
+    // 拾片门控(spec §5.2): 碎片【已从篮里顶出落到舞台】即可拾放整理 —— 不要求手电已到手, 也不等整堆落定。
+    // 释放时 intro 把该片 reparent 到 greyboxRoot(releaseFragmentsFromBasket); 仍堆在篮内的片 parent 还是
+    // 篮节点 → 不可拾。旧逻辑用全局 physicsSettled(仅【最后一批】落定才 true)→ 前两次顶篮已掉地的片在整篮
+    // 顶空前一律捡不起。盲拼仍靠"看不见颜色"防作弊, 不靠锁拾片; 底光整体验证另双门控 physicsSettled&&acquired。
+    if (token.kind === "fragment" && node.parent !== this.greyboxRoot) {
       return;
     }
     // 修复动画播放窗内锁输入(codex P2): 不许把刚验证的拼片拖走和喷出 tween 打架。

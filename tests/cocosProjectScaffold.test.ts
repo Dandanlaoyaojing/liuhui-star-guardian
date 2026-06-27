@@ -762,14 +762,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.isPointInsideManualTargetBoard(position)");
     expect(bootstrap).toContain("this.isFragmentWeakSnappedToEvidence(fragment.controllerId)");
 
-    // ⑤ 门控: 拾片(beginTokenDrag)只要 physicsSettled(落堆稳定即可整理, 不必先捡手电);
-    //    底光整体验证仍双门控 physicsSettled && flashlightAcquired。开场点地走位/点篮/点掉落手电
-    //    由 intro sequence 自管, 不经这两处门控。
+    // ⑤ 门控: 拾片(beginTokenDrag)按【单片是否已从篮里顶出】判定(reparent 到 greyboxRoot 即可整理,
+    //    不必先捡手电、不等整堆落定)→ 前两次顶篮已掉地的片也能马上捡。底光整体验证仍双门控
+    //    physicsSettled && flashlightAcquired。开场点地走位/点篮/点掉落手电由 intro sequence 自管。
     const beginDragBlock = bootstrap.slice(
       bootstrap.indexOf("private beginTokenDrag"),
       bootstrap.indexOf("private moveActivePointerDrag")
     );
-    expect(beginDragBlock).toContain("token.kind === \"fragment\" && !this.physicsSettled");
+    expect(beginDragBlock).toContain("token.kind === \"fragment\" && node.parent !== this.greyboxRoot");
     expect(beginDragBlock).not.toContain("!(this.physicsSettled && this.flashlightAcquired)");
     const validateBlock = bootstrap.slice(
       bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),
