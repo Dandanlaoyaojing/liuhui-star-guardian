@@ -2013,9 +2013,13 @@ export class M01GreyboxBootstrap extends Component {
     token: M01GreyboxTokenNode,
     session: NonNullable<ReturnType<typeof endDragSession>["outcome"]["session"]>
   ): boolean {
+    // 拼片走"点击拿起 / 再点放下"开关模型: 按下到松开无论是否移动都当一次点击 —— 松开【绝不】把片掉回物理
+    // (旧的拖拽结算 handleTokenDrop 在未落到目标上时会 releaseFragmentBodyToPhysics 让片坠落, 正是用户报的
+    // "点一下松手拼片就掉了": 一次点击难免有几像素位移→被判成拖拽→松手坠落)。filters 等非拼片仍按位移分点击/拖拽。
+    const isFragmentInteraction = this.heldFragmentId !== undefined || token.kind === "fragment";
     const movedSquared =
       session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
-    if (movedSquared > CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD) {
+    if (!isFragmentInteraction && movedSquared > CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD) {
       return false;
     }
 
