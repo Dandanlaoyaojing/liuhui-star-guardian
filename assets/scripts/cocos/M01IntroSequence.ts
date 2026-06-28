@@ -1179,11 +1179,12 @@ export class M01IntroSequence extends Component {
         settled.linearVelocity = new Vec2(0, 0);
         settled.angularVelocity = 0;
         // 保持 Dynamic(不冻 Static): 万一落在拼片上, 玩家挪走该片时手电要随重力继续落地, 不能悬空。
-        // 莱米非物理体(无刚体/碰撞), 不会撞跑它; allowSleep=false 保证支撑被撤时一定重新受力下落。
-        // ponytail: 单个常驻动态体, 开销可忽略。
+        // 莱米非物理体(无刚体/碰撞), 不会撞跑它。allowSleep=true: 落地/落片后随接触 island 一起休眠 ——
+        // 否则永不睡的手电会把它压着的 dynamic 拼片堆也一起钉醒(拼片 finishSettling 只清速度未冻 Static),
+        // 谜题阶段拼片被持续唤醒抖动(codex P1)。支撑片被拖走=该接触销毁, box2d 会自动唤醒两端 → 手电照样掉。
         settled.type = ERigidBody2DType.Dynamic;
         settled.gravityScale = 1;
-        settled.allowSleep = false;
+        settled.allowSleep = true;
       }
       this.advance("flashlightBonked"); // bonking → waitingPickup(手电可点)
     }, FLASHLIGHT_SETTLE_MS);
