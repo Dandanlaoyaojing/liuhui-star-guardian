@@ -25,7 +25,8 @@ import {
   tween,
   Vec2,
   Vec3,
-  Vec4
+  Vec4,
+  game
 } from "cc";
 import {
   beginDragSession,
@@ -506,7 +507,12 @@ export class M01GreyboxBootstrap extends Component {
     });
   }
 
+  private setCanvasCursor(style: string): void {
+    if (game.canvas) game.canvas.style.cursor = style;
+  }
+
   onDestroy(): void {
+    this.setCanvasCursor("default");
     this.hideManualTargetTools();
     this.clearValidationLightReset();
     this.clearFailedCandidateReturn();
@@ -1365,6 +1371,17 @@ export class M01GreyboxBootstrap extends Component {
       node.on("touch-move", (event: EventTouch) => this.moveTokenDrag(event, node), this);
       node.on("touch-end", (event: EventTouch) => this.endTokenDrag(event, node, token), this);
       node.on("touch-cancel", (event: EventTouch) => this.cancelTokenDrag(event, node, token), this);
+      // 光标手型提示(桌面/Steam; iOS 触屏无 hover, no-op): 悬到【此刻真能拖】的 token 上变摊开手(grab),
+      // 移开复箭头, 抓起时由 beginTokenDrag 切握拳(grabbing)。fragment 跟拾片门控对齐(未顶出篮的不显手,
+      // 否则视觉骗"能捡"); filter 恒可拖。落点松手后若仍悬在片上要移开再回才刷新成 grab(不跟踪 hover, 可接受)。
+      node.on(
+        "mouse-enter" as any,
+        () => {
+          if (token.kind !== "fragment" || node.parent === this.greyboxRoot) this.setCanvasCursor("grab");
+        },
+        this
+      );
+      node.on("mouse-leave" as any, () => this.setCanvasCursor("default"), this);
     }
   }
 
@@ -1484,6 +1501,7 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     const position = this.eventToLocalPoint(event);
+    this.setCanvasCursor("grabbing"); // 抓起=握拳; clearActiveDrag(松手/取消)复位
     this.activeDragNode = node;
     this.activeDragToken = token;
     this.dragState = beginDragSession({
@@ -1604,6 +1622,7 @@ export class M01GreyboxBootstrap extends Component {
     this.activeFragmentDragOffset = null;
     this.activeDragNode = null;
     this.activeDragToken = null;
+    this.setCanvasCursor("default"); // 松手/取消: 复箭头(再悬到片上由 mouse-enter 切回 grab)
   }
 
   private resolveActiveFragmentDragTarget(pointerPosition: M01GreyboxPoint): M01GreyboxPoint {
