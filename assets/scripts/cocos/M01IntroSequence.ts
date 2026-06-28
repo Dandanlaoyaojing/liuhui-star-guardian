@@ -772,17 +772,21 @@ export class M01IntroSequence extends Component {
   }
 
   /**
-   * 拼片是否已【真正顶出篮】可拾(整理): 必须已 reparent 到舞台根(从篮里释放)【且】落到篮底以下。
+   * 拼片是否已【真正顶出篮】可拾(整理): 必须已 reparent 到舞台根(从篮里释放)【且】不在篮子当前 AABB 框内。
    * 仅判 parent 不够 —— 被头顶起的片可能弹回、落在篮内仍 Static 的未释放拼片堆上, 此时 parent 已是 root
-   * (释放过)却仍在篮筐里, 用 parent 判定会误显"篮里可拾"。叠加"低于篮【当前】底边"(篮被绳物理摆动)=确实出篮。
+   * (释放过)却仍在篮筐里, 用 parent 判定会误显"篮里可拾"。叠加"不在篮子【当前】AABB 框内"=确实出篮。
    */
   isFragmentSpilledOut(node: Node): boolean {
     const root = this.basketPivotNode?.parent;
     if (!root || node.parent !== root || !this.basketNode) return false; // 仍挂篮节点(未释放)或无篮 → 不可拾
-    // 篮子被绳物理摆动(headbutt 后弹跳/下沉), 故用篮子【当前】底边而非启动常量 BASKET_SPRITE_BOTTOM_Y —— 摆到
-    // 低位时也不会把"仍在篮里的片"误判出篮(codex)。两侧都取 worldPosition → 同世界系, 不依赖 root 在原点。
-    const basketBottomY = this.basketNode.worldPosition.y - BASKET_DISPLAY.height / 2;
-    return node.worldPosition.y < basketBottomY;
+    // 用篮子【当前】AABB(篮被绳物理摆动, 取 worldPosition 跟着摆): 框外(掉地在框下 / 被玩家挪到盘上, 盘 x≈-420
+    // 远离篮 x≈300, 落在框侧)都算出篮可拾; 只挡【仍落在篮筐内】的片(弹回堆上)。只判"低于篮底"会误锁玩家挪到
+    // 盘上、与篮同高的片(codex P2)。两侧都取 worldPosition → 同世界系, 不依赖 root 在原点。
+    const bc = this.basketNode.worldPosition;
+    const p = node.worldPosition;
+    const insideBasket =
+      Math.abs(p.x - bc.x) < BASKET_DISPLAY.width / 2 && Math.abs(p.y - bc.y) < BASKET_DISPLAY.height / 2;
+    return !insideBasket;
   }
 
   private spawnLemmy(): void {

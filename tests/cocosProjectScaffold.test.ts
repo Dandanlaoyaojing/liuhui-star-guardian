@@ -771,9 +771,11 @@ describe("Cocos Creator project scaffold", () => {
       bootstrap.indexOf("private moveActivePointerDrag")
     );
     expect(beginDragBlock).toContain("this.physicsSettled || (this.introSequence?.isFragmentSpilledOut(node)");
-    // intro 侧门控真值: 已 reparent 到 root【且】低于篮【当前】底边(篮被绳物理摆动, 不能用启动常量)。
-    expect(intro).toContain("this.basketNode.worldPosition.y - BASKET_DISPLAY.height / 2");
-    expect(intro).toContain("node.worldPosition.y < basketBottomY");
+    // intro 侧门控真值: 已 reparent 到 root【且】不在篮子【当前】AABB 框内(篮被绳物理摆动, 取 worldPosition;
+    // 只判"低于篮底"会误锁玩家挪到盘上、与篮同高的片 → codex P2)。
+    expect(intro).toContain("Math.abs(p.x - bc.x) < BASKET_DISPLAY.width / 2");
+    expect(intro).toContain("Math.abs(p.y - bc.y) < BASKET_DISPLAY.height / 2");
+    expect(intro).toContain("return !insideBasket;");
     expect(beginDragBlock).not.toContain("!(this.physicsSettled && this.flashlightAcquired)");
     const validateBlock = bootstrap.slice(
       bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),
