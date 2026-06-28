@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   advanceFramePlayback,
+  buildPacedFrameDurations,
   createFramePlayback,
   createLemmyCancellationContext,
   frameEventsBetween,
@@ -27,8 +28,8 @@ describe("LemmyActor identity constants", () => {
   });
 });
 
-describe("Lemmy frame actions (11 frame-based: 5 base + reachmiss + 耳后贴系列)", () => {
-  it("registers all twelve; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
+describe("Lemmy frame actions (12 frame-based: 5 base + reachmiss + startleback + 耳后贴系列)", () => {
+  it("registers all thirteen; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
     expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual([
       "crouch",
       "earsback",
@@ -40,6 +41,7 @@ describe("Lemmy frame actions (11 frame-based: 5 base + reachmiss + 耳后贴系
       "reach",
       "reachmiss",
       "startle",
+      "startleback",
       "walk",
       "walkback"
     ]);
@@ -52,9 +54,21 @@ describe("Lemmy frame actions (11 frame-based: 5 base + reachmiss + 耳后贴系
       expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: true, holdLast: false });
     }
     // 一次性反应/转换(够篮/受惊/蹲/收耳/展耳/顶篮): loop false, hold-last 停末帧。
-    for (const id of ["reach", "startle", "crouch", "earsback", "earsup", "headbutt", "headshake"] as const) {
+    for (const id of ["reach", "startle", "startleback", "crouch", "earsback", "earsup", "headbutt", "headshake"] as const) {
       expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: false, holdLast: true });
     }
+  });
+
+  it("skipLeadFrames(砍铺垫帧)仅设在无 events/无 renderScale 的动作上(切片不会错位事件/缩放)", () => {
+    for (const [id, spec] of Object.entries(LEMMY_FRAME_ACTIONS)) {
+      if (spec.skipLeadFrames === undefined) continue;
+      expect(spec.skipLeadFrames, id).toBeGreaterThan(0);
+      expect(spec.events ?? [], id).toHaveLength(0);
+      expect(spec.renderScale, id).toBeUndefined();
+    }
+    // 砸头受惊两动作确有 skip(砍掉"愣住"铺垫帧 → 反应不迟缓)。
+    expect(LEMMY_FRAME_ACTIONS.startle.skipLeadFrames).toBeGreaterThan(0);
+    expect(LEMMY_FRAME_ACTIONS.startleback.skipLeadFrames).toBeGreaterThan(0);
   });
 
   it("accepts every frame action id where a LemmyActionId is expected (no cast)", () => {
@@ -171,6 +185,32 @@ describe("Lemmy frame playback (pure)", () => {
     state = advanceFramePlayback(state, msPerFrame * 1.5);
     expect(state.frameIndex).toBe(1);
     expect(state.done).toBe(false);
+  });
+
+  it("变速节奏: 顶点定格(惊魂未定) + 回正降速 + 末帧 done", () => {
+    // head 2 帧 @100ms, 顶点(idx1)再 hold 300ms, tail 1 帧 @200ms。skip 0, count 3。
+    const spec = { dir: "x", fps: 10, loop: false, holdLast: true,
+      pacing: { peakFrame: 1, peakHoldMs: 300, tailFps: 5 } };
+    const durs = buildPacedFrameDurations(spec, 0, 3);
+    expect(durs).toEqual([100, 400, 200]); // 顶点帧 100+300, tail 1000/5
+    let state = createFramePlayback("startleback", 3, durs);
+    state = advanceFramePlayback(state, 150); // 进入顶点帧
+    expect(state.frameIndex).toBe(1);
+    state = advanceFramePlayback(state, 200); // 仍在顶点定格窗口(100..500)
+    expect(state.frameIndex).toBe(1);
+    expect(state.done).toBe(false);
+    state = advanceFramePlayback(state, 200); // 总 550 → 越过末帧起点(500) → done
+    expect(state.frameIndex).toBe(2);
+    expect(state.done).toBe(true);
+  });
+
+  it("skipLeadFrames 偏移源帧: peakFrame 在切片后正确落位", () => {
+    // skip 5, 源顶点 10 → 切片后 idx 5。head 5 帧(src5..9)+顶点(src10).
+    const spec = { dir: "x", fps: 20, loop: false, holdLast: true,
+      pacing: { peakFrame: 10, peakHoldMs: 100, tailFps: 10 } };
+    const durs = buildPacedFrameDurations(spec, 5, 8)!; // 源 5..12
+    expect(durs[5]).toBe(1000 / 20 + 100); // 切片 idx5 = 源10 = 顶点(+hold)
+    expect(durs[6]).toBe(1000 / 10); // 源11 = tail
   });
 
   it("wraps without finishing for a looping playback (walk)", () => {

@@ -1080,7 +1080,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(intro).not.toContain("gentleNudgeBasket"); // 旧"够到轻晃"路径已删(篮子只在被顶时受力)
     // 手电掉落砸头(startle)→ 蹲下捡起(crouch)叙事(spec §5.2)。
     expect(intro).toContain("spawnIntroFlashlight");
-    expect(intro).toContain('playFrameAction("startle")'); // 砸头受惊
+    expect(intro).toContain('playFrameAction(startleAction)'); // 砸头受惊(收耳→startleback, 立耳→startle)
     expect(intro).toContain('playFrameAction("crouch")'); // 蹲下拾起
     expect(intro).toContain('this.advance("flashlightBonked")');
     expect(intro).toContain('this.advance("crouchDone")');

@@ -359,7 +359,7 @@ export class M01IntroSequence extends Component {
    */
   private handleStageTap(event: EventTouch): void {
     const roamable =
-      this.phase === "roaming" || this.phase === "waitingPickup" || this.phase === "acquired";
+      this.phase === "roaming" || this.phase === "readyToHeadbutt" || this.phase === "waitingPickup" || this.phase === "acquired";
     if (!roamable || this.headbuttInProgress || this.pickupInProgress) return;
     const worldX = event.getUILocation().x - CANVAS_HALF_WIDTH;
     // 频繁连点 → 催它快来: 据距上次点地的间隔累加走速倍率(见 nextWalkBoost), 应用到 roam 走时长。
@@ -826,7 +826,11 @@ export class M01IntroSequence extends Component {
   private handleBasketTap(_event: EventTouch): void {
     if (this.headbuttInProgress || !this.lemmyActor) return;
     if (this.phase === "readyToHeadbutt") {
-      void this.beginRepeatHeadbutt(); // 篮里还有片 + 已在篮下耳后贴 → 再顶一次
+      if (this.isLemmyUnderBasket()) {
+        void this.beginRepeatHeadbutt();
+      } else {
+        void this.walkToBasketAndHeadbutt();
+      }
       return;
     }
     if (this.phase !== "roaming") return;
@@ -921,6 +925,18 @@ export class M01IntroSequence extends Component {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     } finally {
       this.headbuttInProgress = false;
+    }
+  }
+
+  /** 不在篮下点篮(readyToHeadbutt): 走到篮下再顶。走路中玩家可点地改走别处(roamLemmyTo 自动取消旧走)。 */
+  private async walkToBasketAndHeadbutt(): Promise<void> {
+    if (!this.lemmyActor || this.headbuttInProgress) return;
+    try {
+      await this.roamLemmyTo(LEMMY_HEADBUTT_X);
+      if (this.phase !== "readyToHeadbutt") return;
+      void this.beginRepeatHeadbutt();
+    } catch (error) {
+      if (!isExpectedLemmyActionCancel(error)) throw error;
     }
   }
 
@@ -1095,11 +1111,11 @@ export class M01IntroSequence extends Component {
     tween(this.flashlightNode)
       .to(FLASHLIGHT_BONK_FALL_MS / 1000, { position: headPos }, { easing: "quadIn" }) // 弧线落到头顶
       .call(() => {
-        // 手电砸头: startle 惊吓把耳弹竖(动画过程合理), 但它【末帧是立耳】, 莱米会定格在立耳。播完按位置校正 ——
-        // 此刻莱米站在篮下(顶篮落点)则补一个 earsback 收回去, 不停在立耳末帧(用户: 砸头收尾不该立耳)。
-        this.earsFolded = false;
+        // 手电砸头: 收耳状态播 startleback(全程收耳), 立耳状态播 startle; 播完按位置校正残留耳态。
+        const startleAction = this.earsFolded ? "startleback" : "startle";
+        if (!this.earsFolded) this.earsFolded = false;
         void this.lemmyActor
-          ?.playFrameAction("startle")
+          ?.playFrameAction(startleAction)
           .then(() => this.alignEarToPosition())
           .catch((e) => {
             if (!isExpectedLemmyActionCancel(e)) throw e;

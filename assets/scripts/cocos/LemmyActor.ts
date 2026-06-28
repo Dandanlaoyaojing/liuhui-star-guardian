@@ -14,6 +14,7 @@ import type { TweenAction } from "cc";
 import {
   LEMMY_FRAME_ACTIONS,
   advanceFramePlayback,
+  buildPacedFrameDurations,
   createFramePlayback,
   createLemmyCancellationContext,
   frameEventsBetween,
@@ -175,7 +176,10 @@ export class LemmyActor extends Component {
     await this.readyPromise;
     const loaded = await this.loadFrames(actionId);
     // reverse: 倒放帧 = 起身(反播 crouch 蹲→站)。framesInPlayOrder slice 复制, 不污染 loadFrames 缓存。
-    const frames = framesInPlayOrder(loaded, options.reverse ?? false);
+    let frames = framesInPlayOrder(loaded, options.reverse ?? false);
+    // skipLeadFrames: 砍掉开头"愣住"铺垫帧, 一触发立刻进动作(仅无 events/无 renderScale 的动作设, 见 contract 注释)。
+    const skip = LEMMY_FRAME_ACTIONS[actionId].skipLeadFrames ?? 0;
+    if (skip > 0 && frames.length > skip + 1) frames = frames.slice(skip);
     const handle = this.cancellation.beginAction(actionId);
 
     // 朝向: 调用方显式指定则用之, 否则沿用上一动作(走右后 idle/reach 不会翻回朝左)。
@@ -240,7 +244,13 @@ export class LemmyActor extends Component {
     onEvent?: (event: LemmyActorEvent) => void
   ): void {
     this.framePlaybackFrames = frames;
-    this.framePlayback = createFramePlayback(actionId, frames.length);
+    const skip = LEMMY_FRAME_ACTIONS[actionId].skipLeadFrames ?? 0;
+    const durations = buildPacedFrameDurations(
+      LEMMY_FRAME_ACTIONS[actionId],
+      skip,
+      frames.length
+    );
+    this.framePlayback = createFramePlayback(actionId, frames.length, durations);
     this.framePlaybackToken = token;
     this.framePlaybackOnEvent = onEvent ?? null;
     // Clamp each beat to the loaded frame count: an out-of-range frameIndex (e.g. reach

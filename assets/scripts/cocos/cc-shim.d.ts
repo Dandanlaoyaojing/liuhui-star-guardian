@@ -24,6 +24,7 @@ declare module "cc" {
     addComponent<T>(component: new (...args: never[]) => T): T;
     getComponent<T>(component: new (...args: never[]) => T): T | null;
     destroy(): void;
+    getChildByName(name: string): Node | null;
     on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
     setWorldPosition(pos: Vec3): void;
@@ -270,5 +271,6 @@ declare module "cc" {
 
   export const game: {
     deltaTime: number;
+    canvas?: HTMLCanvasElement;
   };
 }

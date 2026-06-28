@@ -20,6 +20,7 @@ export type LemmyFrameActionId =
   | "headshake"
   // 2026-06-08 耳后贴系列(惊扰→顶篮): 收耳(立→后贴) / 耳后贴 idle / 耳后贴走 / 跳起顶篮 / 展耳(后贴→立)。
   // 渲染缩放见各动作 renderScale(逐帧/ramp 补回源姿势身高差, 脚底锚定, 接缝恒 404)。
+  | "startleback"
   | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup";
 /** Any Lemmy action id. (All actions are frame sequences now.) */
 export type LemmyActionId = LemmyFrameActionId;
@@ -145,6 +146,21 @@ export interface LemmyFrameActionSpec {
   /** frame-indexed gameplay beats (e.g. reach apex → reach_contact). */
   events?: ReadonlyArray<LemmyFrameEvent>;
   /**
+   * 起手跳过的"铺垫/愣住"帧数(可选)。即梦源视频开头常有一段几乎静止的预备帧, 砸头受惊却愣着不动
+   * = 反应迟缓。从第 skipLeadFrames 帧开播, 一砸到头立刻进动作。⚠️ 仅对【无 events、无 renderScale】
+   * 的动作安全(切片会让 frameIndex 错位 → 事件落错帧、逐帧缩放错位)。
+   */
+  skipLeadFrames?: number;
+  /**
+   * 变速节奏(可选): 单一 fps 是匀速, 表达不了"惊吓"的真实节奏 = 猛地一缩(head, 快) → 顶点定格
+   * (惊魂未定) → 缓缓回神(tail, 慢)。索引用 loaded【源帧 index】(skipLeadFrames 之前的编号, 即第几张 png)。
+   * - peakFrame: 惊吓顶点源帧(缩到最紧那帧)。其前用 fps(head); 其后用 tailFps。
+   * - peakHoldMs: 顶点定格毫秒(惊魂未定的停顿)。
+   * - tailFps: 顶点之后回正段 fps(默认沿用 fps; 设更低 = 回正更慢)。
+   * 仅一次性(loop:false)动作; 与 skipLeadFrames 同账(源帧空间)。
+   */
+  pacing?: { peakFrame: number; peakHoldMs?: number; tailFps?: number };
+  /**
    * 渲染缩放(可选; ⚠️ 当前全部动作均【不设】= 1.0)。
    * 2026-06-15 修「走到篮下变大」根因: 曾给折耳族设 1.34~1.5 想"补回更矮的源姿势", 但
    * LemmyActor.fitSpriteToFrame 的 "contain" 适配【已经】把每帧裁剪框(alpha 包围盒, 各帧实测均竖长,
@@ -209,7 +225,19 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     loop: false,
     holdLast: true
   },
-  startle: { dir: "art/characters/lemmy/startle", fps: 18, loop: false, holdLast: true },
+  // 2026-06-27 砸头受惊节奏: skipLeadFrames 砍开头愣住帧 + pacing 变速(猛缩 head → 顶点定格 → 缓回 tail)。
+  // 单一匀速 fps 表达不了惊吓; head 快(snap)、tail 慢(回神), 顶点 hold 一拍(惊魂未定)。嫌快/慢调 fps/tailFps/peakHoldMs。
+  // startle(立耳): 源 00→06 已大缩头(skip 2, 顶点≈6); startleback(收耳): 源 00→05 几乎不动(skip 5, 顶点≈10)。
+  startle: {
+    dir: "art/characters/lemmy/startle", fps: 60, loop: false, holdLast: true, skipLeadFrames: 4,
+    pacing: { peakFrame: 6, peakHoldMs: 420, tailFps: 13 }
+  },
+  startleback: {
+    // 按立耳 startle 的节奏(快缩/短顶 420ms/长慢回)重排: 真顶点在源帧 12(头埋最低)非 10;
+    // skip9 紧贴深缩 → 缩头近瞬发; 回正仅 9 帧(12→21)远少于立耳 20 帧 → tail 压到 8fps 追平那段慢回占比。
+    dir: "art/characters/lemmy/startleback", fps: 60, loop: false, holdLast: true, skipLeadFrames: 9,
+    pacing: { peakFrame: 12, peakHoldMs: 420, tailFps: 8 }
+  },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 50, loop: false, holdLast: true }, // 下蹲+起身(反播)节奏; 16→32→42→50(2026-06-17 再快 30% 后又 20%)
   // ── 耳后贴系列(2026-06-08) ── fps 是观感参数, 引擎内可微调。
   // ⚠️ 不设 renderScale(2026-06-15 修「走到篮下变大」): fitSpriteToFrame 的 contain 适配已把每帧
@@ -268,6 +296,31 @@ export interface LemmyFramePlaybackState {
   elapsedMs: number;
   frameIndex: number;
   done: boolean;
+  /** 变速节奏: 每帧时长(ms), 顶点定格+回正降速。设则走变速; 不设(匀速动作)= undefined, 用 fps。 */
+  frameDurationsMs?: ReadonlyArray<number>;
+}
+
+/**
+ * 据 pacing 算【切片后】每帧时长(ms): head(顶点前)用 fps, tail(顶点后)用 tailFps, 顶点帧加 peakHoldMs。
+ * skip = skipLeadFrames(切片后第 j 帧 = 源帧 j+skip); 无 pacing 返回 undefined(走匀速)。Pure, 可测。
+ */
+export function buildPacedFrameDurations(
+  spec: LemmyFrameActionSpec,
+  skip: number,
+  count: number
+): number[] | undefined {
+  const p = spec.pacing;
+  if (!p || count <= 0) return undefined;
+  const headMs = 1000 / spec.fps;
+  const tailMs = 1000 / (p.tailFps ?? spec.fps);
+  const durs: number[] = [];
+  for (let j = 0; j < count; j++) {
+    const src = j + skip;
+    let d = src <= p.peakFrame ? headMs : tailMs;
+    if (src === p.peakFrame) d += p.peakHoldMs ?? 0;
+    durs.push(d);
+  }
+  return durs;
 }
 
 /**
@@ -287,7 +340,8 @@ export function reverseSupportedFor(actionId: LemmyFrameActionId): boolean {
 
 export function createFramePlayback(
   actionId: LemmyFrameActionId,
-  frameCount: number
+  frameCount: number,
+  frameDurationsMs?: ReadonlyArray<number>
 ): LemmyFramePlaybackState {
   const spec = LEMMY_FRAME_ACTIONS[actionId];
   return {
@@ -298,7 +352,8 @@ export function createFramePlayback(
     holdLast: spec.holdLast,
     elapsedMs: 0,
     frameIndex: 0,
-    done: false
+    done: false,
+    frameDurationsMs
   };
 }
 
@@ -316,6 +371,24 @@ export function advanceFramePlayback(
   }
 
   const elapsedMs = state.elapsedMs + Math.max(0, deltaMs);
+
+  // 变速节奏(受惊): 按逐帧时长累计定位; 一次性动作专用(loop 仍走匀速)。
+  const durs = state.frameDurationsMs;
+  if (durs && !state.loop) {
+    let lastStart = 0;
+    for (let i = 0; i < durs.length - 1; i++) lastStart += durs[i];
+    if (elapsedMs >= lastStart) {
+      return { ...state, elapsedMs, frameIndex: durs.length - 1, done: true };
+    }
+    let acc = 0;
+    let idx = 0;
+    for (; idx < durs.length; idx++) {
+      if (elapsedMs < acc + durs[idx]) break;
+      acc += durs[idx];
+    }
+    return { ...state, elapsedMs, frameIndex: idx, done: false };
+  }
+
   const frameDurationMs = 1000 / state.fps;
   const rawIndex = Math.floor(elapsedMs / frameDurationMs);
 
