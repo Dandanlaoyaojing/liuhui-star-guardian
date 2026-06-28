@@ -107,6 +107,8 @@ const { ccclass, property } = _decorator;
 // ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
 const HIDE_SCREEN_TEXT = true;
 const CLICK_DRAG_THRESHOLD = 6;
+const ROTATE_DOUBLE_TAP_MS = 300; // 双击同一持握拼片(此间隔内、几乎原位)= 旋转 90°(取代旧"旋转90°"按钮)
+const ROTATE_DOUBLE_TAP_RADIUS = 24; // 两击位移需 < 此(持片时片随指针, 原位双击≈0 位移)才算双击; 移动后点=放下
 const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
@@ -317,7 +319,6 @@ export class M01GreyboxBootstrap extends Component {
   private toolCardRoot: Node | null = null;
   private targetReferenceZoomRoot: Node | null = null;
   private hintButtonRoot: Node | null = null;
-  private rotateButtonRoot: Node | null = null;
   private feedbackLabel: Label | null = null;
   private activeDragNode: Node | null = null;
   private activeDragToken: M01GreyboxTokenNode | null = null;
@@ -337,6 +338,10 @@ export class M01GreyboxBootstrap extends Component {
   private activeFragmentDragOffset: M01GreyboxPoint | null = null;
   private globalPointerInputBound = false;
   private suppressNextRootClick = false;
+  // 双击持握拼片旋转手势(取代旧"旋转90°"按钮): 记上一次点击时间/位置/拼片, 下次点击据此判双击。
+  private lastHeldTapTime = 0;
+  private lastHeldTapPos: M01GreyboxPoint = { x: 0, y: 0 };
+  private lastHeldTapFragmentId: string | undefined;
   private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
@@ -394,7 +399,6 @@ export class M01GreyboxBootstrap extends Component {
       this.toolCardRoot = null;
       this.targetReferenceZoomRoot = null;
       this.hintButtonRoot = null;
-      this.rotateButtonRoot = null;
       this.feedbackLabel = null;
       this.manualTargetBlendGraphics = null;
       this.weakSnappedFragmentsByEvidence.clear();
@@ -683,7 +687,6 @@ export class M01GreyboxBootstrap extends Component {
     }
     this.feedbackLabel = this.addFeedbackLabel(this.greyboxRoot);
     this.hintButtonRoot = this.addHintButton(this.greyboxRoot);
-    this.rotateButtonRoot = this.addRotateButton(this.greyboxRoot);
   }
 
   private addRootPointerCapture(parent: Node): void {
@@ -1028,47 +1031,6 @@ export class M01GreyboxBootstrap extends Component {
       transform.setContentSize(fitted.width, fitted.height);
     });
     return sprite;
-  }
-
-  private addRotateButton(parent: Node): Node {
-    const buttonNode = new Node("M01Rotate90Button");
-    buttonNode.setPosition(328, 156, 0);
-    parent.addChild(buttonNode);
-
-    const transform = buttonNode.addComponent(UITransform);
-    transform.setContentSize(86, 34);
-
-    const graphics = buttonNode.addComponent(Graphics);
-    graphics.lineWidth = 2;
-    graphics.strokeColor = new Color(44, 43, 38, 255);
-    graphics.fillColor = new Color(239, 231, 203, 230);
-    graphics.rect(-43, -17, 86, 34);
-    graphics.fill();
-    graphics.stroke();
-
-    this.addButtonLabel(buttonNode, "旋转90°");
-    buttonNode.on("touch-end", (event: EventTouch) => {
-      this.stopTouchPropagation(event);
-      this.suppressRootClickOnce();
-      this.rotateHeldFragmentClockwise();
-    }, this);
-    return buttonNode;
-  }
-
-  private addButtonLabel(parent: Node, text: string): Label {
-    const labelNode = new Node("M01HintButtonLabel");
-    parent.addChild(labelNode);
-
-    const transform = labelNode.addComponent(UITransform);
-    transform.setContentSize(72, 22);
-
-    const label = labelNode.addComponent(Label);
-    label.enabled = !HIDE_SCREEN_TEXT;
-    label.string = text;
-    label.fontSize = 15;
-    label.lineHeight = 20;
-    label.color = new Color(43, 43, 39, 255);
-    return label;
   }
 
   private renderToolCardPreview(parent: Node, card: ReturnType<M01GreyboxSession["getLastToolCard"]>): void {
@@ -2057,6 +2019,12 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     if (this.heldFragmentId) {
+      // 双击同一持握拼片(原位、ROTATE_DOUBLE_TAP_MS 内)= 旋转 90°(取代旧按钮); 否则放下。
+      if (this.isHeldFragmentRotateDoubleTap(session.currentPosition)) {
+        this.rotateHeldFragmentClockwise();
+        this.recordHeldTap(session.currentPosition); // 刷新基准 → 连续双击可继续转
+        return true;
+      }
       this.placeHeldFragmentAtPosition(session.currentPosition);
       return true;
     }
@@ -2067,6 +2035,21 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     return false;
+  }
+
+  /** 双击持握拼片旋转手势判定: 同一拼片 + 间隔 < ROTATE_DOUBLE_TAP_MS + 几乎原位(移动后点=放下)。 */
+  private isHeldFragmentRotateDoubleTap(position: M01GreyboxPoint): boolean {
+    if (this.lastHeldTapFragmentId !== this.heldFragmentId) return false;
+    if (Date.now() - this.lastHeldTapTime >= ROTATE_DOUBLE_TAP_MS) return false;
+    const dx = position.x - this.lastHeldTapPos.x;
+    const dy = position.y - this.lastHeldTapPos.y;
+    return dx * dx + dy * dy <= ROTATE_DOUBLE_TAP_RADIUS * ROTATE_DOUBLE_TAP_RADIUS;
+  }
+
+  private recordHeldTap(position: M01GreyboxPoint): void {
+    this.lastHeldTapTime = Date.now();
+    this.lastHeldTapPos = position;
+    this.lastHeldTapFragmentId = this.heldFragmentId;
   }
 
   private handleFragmentClick(
@@ -2100,10 +2083,7 @@ export class M01GreyboxBootstrap extends Component {
     };
     this.tokenPositions.set(token.controllerId, currentPosition);
     this.redrawAndPersistManualTargetDraft();
-  }
-
-  private stopTouchPropagation(event: EventTouch): void {
-    (event as EventTouch & { propagationStopped?: boolean }).propagationStopped = true;
+    this.recordHeldTap(position); // 拾取这一击作为旋转双击的【第一击】基准
   }
 
   private rotateHeldFragmentClockwise(): void {
@@ -2653,9 +2633,6 @@ export class M01GreyboxBootstrap extends Component {
       this.suspendFlashlightObservation();
       if (this.hintButtonRoot) {
         this.hintButtonRoot.active = false;
-      }
-      if (this.rotateButtonRoot) {
-        this.rotateButtonRoot.active = false;
       }
       this.renderToolCardPreview(this.greyboxRoot, card);
     }

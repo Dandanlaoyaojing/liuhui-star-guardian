@@ -239,7 +239,7 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const hintButtonBlock = bootstrap.slice(
       bootstrap.indexOf("private addHintButton"),
-      bootstrap.indexOf("private addRotateButton")
+      bootstrap.indexOf("private renderToolCardPreview")
     );
 
     expect(existsSync(join(projectRoot, "assets/resources/art/icons/icon-hint.png"))).toBe(true);
@@ -825,7 +825,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("handleFragmentClick");
     expect(bootstrap).toContain("placeHeldFragmentAt");
     expect(bootstrap).toContain("placeHeldFragmentAtPosition");
-    expect(bootstrap).toContain("if (this.heldFragmentId) {\n      this.placeHeldFragmentAtPosition(session.currentPosition);");
+    // 持握时单击放下(双击改旋转后, place 仍是 held 分支默认结算)。
+    expect(bootstrap).toContain("this.placeHeldFragmentAtPosition(session.currentPosition);");
     expect(bootstrap).toContain("tryHandleTokenClick");
     expect(bootstrap).toContain("if (!this.dragState.active) {\n      this.clearActiveDrag();");
     expect(bootstrap).toContain("this.heldPointerId !== this.pointerIdForEvent(event)");
@@ -834,20 +835,24 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height');
   });
 
-  it("lets the selected M01 fragment rotate 90 degrees from a board-side edit button", () => {
+  it("rotates the held M01 fragment 90 degrees via double-tap (no on-screen rotate button)", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("private rotateButtonRoot: Node | null = null");
+    // 旋转按钮已删: 字段/创建/节点/标签全不应再出现。
+    expect(bootstrap).not.toContain("rotateButtonRoot");
+    expect(bootstrap).not.toContain("addRotateButton");
+    expect(bootstrap).not.toContain("M01Rotate90Button");
+    expect(bootstrap).not.toContain('addButtonLabel(buttonNode, "旋转90°")');
+
+    // 改为双击持握拼片旋转: tryHandleTokenClick 的 held 分支判双击 → rotateHeldFragmentClockwise。
     expect(bootstrap).toContain("private readonly tokenRotations = new Map<string, number>();");
-    expect(bootstrap).toContain("this.rotateButtonRoot = this.addRotateButton(this.greyboxRoot)");
-    expect(bootstrap).toContain('new Node("M01Rotate90Button")');
-    expect(bootstrap).toContain('this.addButtonLabel(buttonNode, "旋转90°")');
-    expect(bootstrap).toContain("this.suppressRootClickOnce();\n      this.rotateHeldFragmentClockwise();");
-    expect(bootstrap).toContain("rotateHeldFragmentClockwise()");
+    expect(bootstrap).toContain("this.isHeldFragmentRotateDoubleTap(session.currentPosition)");
+    expect(bootstrap).toContain("Date.now() - this.lastHeldTapTime >= ROTATE_DOUBLE_TAP_MS");
+    expect(bootstrap).toContain("ROTATE_DOUBLE_TAP_RADIUS * ROTATE_DOUBLE_TAP_RADIUS");
+    // 90° 步进逻辑保留(够到 90/180 目标槽)。
     expect(bootstrap).toContain("const nextRotation = (currentRotation + 90) % 360");
     expect(bootstrap).toContain("entry.node.setRotationFromEuler(0, 0, nextRotation)");
     expect(bootstrap).toContain("this.tokenRotations.set(heldFragmentId, nextRotation)");
-    expect(bootstrap).toContain("this.setFeedback(\"先选中一个拼片\")");
   });
 
   it("keeps fragment drags alive when mouse move and mouse up finish outside the token node", () => {
