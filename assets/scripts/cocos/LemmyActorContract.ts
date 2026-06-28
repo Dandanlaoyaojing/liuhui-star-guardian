@@ -233,10 +233,14 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     pacing: { peakFrame: 6, peakHoldMs: 420, tailFps: 13 }
   },
   startleback: {
-    // 按立耳 startle 的节奏(快缩/短顶 420ms/长慢回)重排: 真顶点在源帧 12(头埋最低)非 10;
-    // skip9 紧贴深缩 → 缩头近瞬发; 回正仅 9 帧(12→21)远少于立耳 20 帧 → tail 压到 8fps 追平那段慢回占比。
-    dir: "art/characters/lemmy/startleback", fps: 60, loop: false, holdLast: true, skipLeadFrames: 9,
-    pacing: { peakFrame: 12, peakHoldMs: 420, tailFps: 8 }
+    // 2026-06-28 从源视频重抽(首尾双锁 f1=f120 直立)。源弧: 直立→耳惊飞→深蹲(f19-31)→
+    // 深蹲保持(f28-85 几乎静)→慢回正(f85-113)。旧 uniform 把半数帧浪费在静止深蹲、回正仅 9 帧显跳;
+    // 改非均匀抽 20 帧: 缩头 5 帧(idx0-4) + 顶点(idx4 最深蹲, 靠 peakHoldMs 定格惊吓) + 回正 15 帧密集(idx5-19)。
+    // 2026-06-28 二次精修 14 帧: 删 idx0/1(平静+耳惊飞, 起手即低头缩身) + 删源重复帧(即梦有效帧率<60 带进的零运动帧)。
+    // 反应快慢只调【走帧速度 fps/tailFps】不砍帧(advanceFramePlayback 按累计时长走帧, fps>60 单显示帧前进多帧→动作快而帧仍贡献曲线)。
+    // peakFrame2=最深蹲(原 idx4); fps100 缩头~30ms snap; tail16 回正 11 帧~0.7s。
+    dir: "art/characters/lemmy/startleback", fps: 100, loop: false, holdLast: true,
+    pacing: { peakFrame: 2, peakHoldMs: 420, tailFps: 16 }
   },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 50, loop: false, holdLast: true }, // 下蹲+起身(反播)节奏; 16→32→42→50(2026-06-17 再快 30% 后又 20%)
   // ── 耳后贴系列(2026-06-08) ── fps 是观感参数, 引擎内可微调。

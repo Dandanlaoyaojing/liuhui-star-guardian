@@ -66,9 +66,9 @@ describe("Lemmy frame actions (12 frame-based: 5 base + reachmiss + startleback 
       expect(spec.events ?? [], id).toHaveLength(0);
       expect(spec.renderScale, id).toBeUndefined();
     }
-    // 砸头受惊两动作确有 skip(砍掉"愣住"铺垫帧 → 反应不迟缓)。
+    // 立耳 startle 用 skip 砍掉"愣住"铺垫帧 → 反应不迟缓。
+    // (收耳 startleback 改为从源重抽、抽帧时已剔除铺垫与静止深蹲, 故不设 skip; 见 LemmyActorContract 注释。)
     expect(LEMMY_FRAME_ACTIONS.startle.skipLeadFrames).toBeGreaterThan(0);
-    expect(LEMMY_FRAME_ACTIONS.startleback.skipLeadFrames).toBeGreaterThan(0);
   });
 
   it("accepts every frame action id where a LemmyActionId is expected (no cast)", () => {

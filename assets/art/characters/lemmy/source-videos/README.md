@@ -19,7 +19,7 @@
 | `lemmy-earsup-source.mp4` | **耳后贴⑤展耳**(耳后贴→立起复原;seg 1.6-3.5s 抬耳段) | 38 | `…/lemmy/earsup/` |
 | `lemmy-nod-source.mp4` | **点头**(2026-06-16 误生成:想要左右摇头、即梦出了上下点头;留用, 说不定后面用得上) | 27 | `…/lemmy/nod/` |
 | `lemmy-headshake-source.mp4` | **正脸左右摇头="不行"**(v9 正脸定妆 frames2video 首尾双锁;够不着 beat 用;抽帧只取第一次摇·fps8) | 15 | `…/lemmy/headshake/` |
-| `lemmy-startleback-source.mp4` | **耳后贴⑥受惊**(收耳状态被砸→低头→瞪眼→恢复;frames2video 首尾双锁收耳锚图;全段 arc 抽帧 uniform_torso=131;**裁帧 35→23**: 砍掉帧 1-4 多余站姿+帧 27-34 尾部冗余站姿,受惊在第 1 帧即触发) | 23 | `…/lemmy/startleback/` |
+| `lemmy-startleback-source.mp4` | **耳后贴⑥受惊**(收耳状态被砸→低头→瞪眼→恢复;frames2video 首尾双锁收耳锚图 f1=f120 直立;uniform_torso=131,pencil-baked 跳描边)。**2026-06-28 重抽为非均匀 20 帧**(治"回正显跳"): 源弧=直立→耳惊飞→深蹲(f19-31)→深蹲保持(f28-85 几乎静)→慢回正(f85-113)→直立(f120)。旧 uniform 把半数帧浪费在静止深蹲、回正仅 9 帧;新抽=缩头 5 帧(源 f19,23,26,28,31)+回正 15 帧密集(源 f85-113 每2帧),剔除铺垫与深蹲保持。**二次精修→14 帧**: 删平静起手+耳惊飞 2 帧(起手即低头缩身)+删源重复帧(即梦有效帧率<60 带进的零运动帧, 按相邻 diff<1 判)。pacing 在 `LemmyActorContract`: fps100/peakFrame2/hold420/tail16,无 skipLeadFrames(反应快慢只调走帧速度不砍帧)。 | 14 | `…/lemmy/startleback/` |
 | `lemmy-firstframe-earsback-pencil-white.png` | 耳后贴锚图(白底,frames2video 锁②③④⑥尾) | — | — |
 | `lemmy-firstframe-white.png` | 旧首帧(**干净无描边** canonical 白底版;最早 5 套源视频用它生成) | — | — |
 | `lemmy-firstframe-pencil-white.png` | **新首帧(2026-06-07,带铅笔描边 W5 白底版)**;新动作即梦生图用它,描边烘进画面 | — | — |
