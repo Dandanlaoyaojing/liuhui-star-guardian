@@ -107,8 +107,9 @@ const { ccclass, property } = _decorator;
 // ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
 const HIDE_SCREEN_TEXT = true;
 const CLICK_DRAG_THRESHOLD = 6;
-const ROTATE_DOUBLE_TAP_MS = 300; // 双击同一持握拼片(此间隔内、几乎原位)= 旋转 90°(取代旧"旋转90°"按钮)
-const ROTATE_DOUBLE_TAP_RADIUS = 24; // 两击位移需 < 此(持片时片随指针, 原位双击≈0 位移)才算双击; 移动后点=放下
+// 持握拼片: 单击放下 / 双击转 90°(取代旧"旋转90°"按钮)。二者冲突 —— 单击放下必须延迟此窗口, 等看是否
+// 来第二击: 窗口内第二击=双击→转向(取消放下), 超时无第二击→真正放下。代价=放下慢一个窗口(拼图可接受)。
+const ROTATE_DOUBLE_CLICK_MS = 220;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
@@ -338,10 +339,9 @@ export class M01GreyboxBootstrap extends Component {
   private activeFragmentDragOffset: M01GreyboxPoint | null = null;
   private globalPointerInputBound = false;
   private suppressNextRootClick = false;
-  // 双击持握拼片旋转手势(取代旧"旋转90°"按钮): 记上一次点击时间/位置/拼片, 下次点击据此判双击。
-  private lastHeldTapTime = 0;
-  private lastHeldTapPos: M01GreyboxPoint = { x: 0, y: 0 };
-  private lastHeldTapFragmentId: string | undefined;
+  // 持握拼片单击放下的延迟挂起(用于和双击转向消歧): 计时器 + 目标拼片 + 放下落点。
+  private pendingDropTimer: ReturnType<typeof setTimeout> | undefined;
+  private pendingDropFragmentId: string | undefined;
   private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
@@ -520,6 +520,7 @@ export class M01GreyboxBootstrap extends Component {
 
   onDestroy(): void {
     this.setCanvasCursor("default");
+    this.cancelPendingHeldDrop();
     this.hideManualTargetTools();
     this.clearValidationLightReset();
     this.clearFailedCandidateReturn();
@@ -2019,13 +2020,13 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     if (this.heldFragmentId) {
-      // 双击同一持握拼片(原位、ROTATE_DOUBLE_TAP_MS 内)= 旋转 90°(取代旧按钮); 否则放下。
-      if (this.isHeldFragmentRotateDoubleTap(session.currentPosition)) {
+      // 点持握拼片: 已有挂起的放下(此即窗口内第二击)→ 双击 → 转 90°, 取消放下; 否则第一击 → 挂起延迟放下。
+      if (this.pendingDropTimer !== undefined && this.pendingDropFragmentId === this.heldFragmentId) {
+        this.cancelPendingHeldDrop();
         this.rotateHeldFragmentClockwise();
-        this.recordHeldTap(session.currentPosition); // 刷新基准 → 连续双击可继续转
         return true;
       }
-      this.placeHeldFragmentAtPosition(session.currentPosition);
+      this.scheduleHeldFragmentDrop(session.currentPosition);
       return true;
     }
 
@@ -2037,19 +2038,26 @@ export class M01GreyboxBootstrap extends Component {
     return false;
   }
 
-  /** 双击持握拼片旋转手势判定: 同一拼片 + 间隔 < ROTATE_DOUBLE_TAP_MS + 几乎原位(移动后点=放下)。 */
-  private isHeldFragmentRotateDoubleTap(position: M01GreyboxPoint): boolean {
-    if (this.lastHeldTapFragmentId !== this.heldFragmentId) return false;
-    if (Date.now() - this.lastHeldTapTime >= ROTATE_DOUBLE_TAP_MS) return false;
-    const dx = position.x - this.lastHeldTapPos.x;
-    const dy = position.y - this.lastHeldTapPos.y;
-    return dx * dx + dy * dy <= ROTATE_DOUBLE_TAP_RADIUS * ROTATE_DOUBLE_TAP_RADIUS;
+  /** 挂起延迟放下(ROTATE_DOUBLE_CLICK_MS): 窗口内若来第二击则被取消改为旋转; 超时无第二击才真正放下。 */
+  private scheduleHeldFragmentDrop(position: M01GreyboxPoint): void {
+    this.cancelPendingHeldDrop();
+    const fragmentId = this.heldFragmentId;
+    this.pendingDropFragmentId = fragmentId;
+    this.pendingDropTimer = setTimeout(() => {
+      this.pendingDropTimer = undefined;
+      this.pendingDropFragmentId = undefined;
+      if (this.heldFragmentId === fragmentId) {
+        this.placeHeldFragmentAtPosition(position); // 仍持同一片才放下(中途已被别的放置路径处理则跳过)
+      }
+    }, ROTATE_DOUBLE_CLICK_MS);
   }
 
-  private recordHeldTap(position: M01GreyboxPoint): void {
-    this.lastHeldTapTime = Date.now();
-    this.lastHeldTapPos = position;
-    this.lastHeldTapFragmentId = this.heldFragmentId;
+  private cancelPendingHeldDrop(): void {
+    if (this.pendingDropTimer !== undefined) {
+      clearTimeout(this.pendingDropTimer);
+      this.pendingDropTimer = undefined;
+    }
+    this.pendingDropFragmentId = undefined;
   }
 
   private handleFragmentClick(
@@ -2083,7 +2091,6 @@ export class M01GreyboxBootstrap extends Component {
     };
     this.tokenPositions.set(token.controllerId, currentPosition);
     this.redrawAndPersistManualTargetDraft();
-    this.recordHeldTap(position); // 拾取这一击作为旋转双击的【第一击】基准
   }
 
   private rotateHeldFragmentClockwise(): void {
@@ -2258,6 +2265,10 @@ export class M01GreyboxBootstrap extends Component {
     if (!heldFragmentId || this.heldPointerId !== this.pointerIdForEvent(event)) {
       return;
     }
+    // 单击放下消歧窗口内冻住(不再跟指针): 落点定在点击处、消除"跟手又弹回"的抖动; 若是双击→旋转会解冻。
+    if (this.pendingDropTimer !== undefined) {
+      return;
+    }
 
     const entry = this.greyboxNodes.get(heldFragmentId);
     if (!entry) {
@@ -2274,6 +2285,7 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private placeHeldFragmentAtPosition(position: M01GreyboxPoint): void {
+    this.cancelPendingHeldDrop(); // 任意放置路径都清掉挂起的延迟放下, 防延后再触发一次
     const heldFragmentId = this.heldFragmentId;
     if (!heldFragmentId) {
       return;

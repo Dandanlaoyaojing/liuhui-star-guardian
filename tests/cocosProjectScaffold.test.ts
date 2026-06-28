@@ -825,8 +825,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("handleFragmentClick");
     expect(bootstrap).toContain("placeHeldFragmentAt");
     expect(bootstrap).toContain("placeHeldFragmentAtPosition");
-    // 持握时单击放下(双击改旋转后, place 仍是 held 分支默认结算)。
-    expect(bootstrap).toContain("this.placeHeldFragmentAtPosition(session.currentPosition);");
+    // 持握时单击=挂起延迟放下(等窗口看是否双击); 真正放下在延迟到时 / 别处放置时结算。
+    expect(bootstrap).toContain("this.scheduleHeldFragmentDrop(session.currentPosition);");
     expect(bootstrap).toContain("tryHandleTokenClick");
     expect(bootstrap).toContain("if (!this.dragState.active) {\n      this.clearActiveDrag();");
     expect(bootstrap).toContain("this.heldPointerId !== this.pointerIdForEvent(event)");
@@ -835,7 +835,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height');
   });
 
-  it("rotates the held M01 fragment 90 degrees via double-tap (no on-screen rotate button)", () => {
+  it("holds M01 fragment: single-click drops (deferred), double-click rotates 90° (no on-screen button)", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     // 旋转按钮已删: 字段/创建/节点/标签全不应再出现。
@@ -844,11 +844,15 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("M01Rotate90Button");
     expect(bootstrap).not.toContain('addButtonLabel(buttonNode, "旋转90°")');
 
-    // 改为双击持握拼片旋转: tryHandleTokenClick 的 held 分支判双击 → rotateHeldFragmentClockwise。
+    // 持握时: 第一击挂起延迟放下; 窗口内第二击(pendingDropTimer 已存在)= 双击 → 取消放下、转 90°。
     expect(bootstrap).toContain("private readonly tokenRotations = new Map<string, number>();");
-    expect(bootstrap).toContain("this.isHeldFragmentRotateDoubleTap(session.currentPosition)");
-    expect(bootstrap).toContain("Date.now() - this.lastHeldTapTime >= ROTATE_DOUBLE_TAP_MS");
-    expect(bootstrap).toContain("ROTATE_DOUBLE_TAP_RADIUS * ROTATE_DOUBLE_TAP_RADIUS");
+    expect(bootstrap).toContain(
+      "this.pendingDropTimer !== undefined && this.pendingDropFragmentId === this.heldFragmentId"
+    );
+    expect(bootstrap).toContain("this.cancelPendingHeldDrop();\n        this.rotateHeldFragmentClockwise();");
+    expect(bootstrap).toContain("}, ROTATE_DOUBLE_CLICK_MS);");
+    // 单击放下消歧窗口内冻住拼片(不跟指针), 落点定在点击处。
+    expect(bootstrap).toContain("if (this.pendingDropTimer !== undefined) {\n      return;\n    }");
     // 90° 步进逻辑保留(够到 90/180 目标槽)。
     expect(bootstrap).toContain("const nextRotation = (currentRotation + 90) % 360");
     expect(bootstrap).toContain("entry.node.setRotationFromEuler(0, 0, nextRotation)");
