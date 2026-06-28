@@ -711,6 +711,7 @@ describe("Cocos Creator project scaffold", () => {
 
   it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, double gating", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const intro = readText("assets/scripts/cocos/M01IntroSequence.ts");
     const config = readJson("assets/resources/configs/stage1/m01-memory-gear.json") as {
       flashlightCoverage?: Record<string, unknown>;
     };
@@ -762,14 +763,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.isPointInsideManualTargetBoard(position)");
     expect(bootstrap).toContain("this.isFragmentWeakSnappedToEvidence(fragment.controllerId)");
 
-    // ⑤ 门控: 拾片(beginTokenDrag)按【单片是否已从篮里顶出】判定(reparent 到 greyboxRoot 即可整理,
-    //    不必先捡手电、不等整堆落定)→ 前两次顶篮已掉地的片也能马上捡。底光整体验证仍双门控
-    //    physicsSettled && flashlightAcquired。开场点地走位/点篮/点掉落手电由 intro sequence 自管。
+    // ⑤ 门控: 拾片(beginTokenDrag)—— physicsSettled(谜题阶段)后盘上/地上任意位置都可拾(常态);
+    //    仅【落定前(顶篮间隙)】用 intro.isFragmentSpilledOut 限制, 只许拾真顶出篮的片, 防"弹回篮内堆上的片"
+    //    被误判可拾。必须有 physicsSettled 这一支, 否则放盘上(高于篮底)的片会变不可拾→卡死。
     const beginDragBlock = bootstrap.slice(
       bootstrap.indexOf("private beginTokenDrag"),
       bootstrap.indexOf("private moveActivePointerDrag")
     );
-    expect(beginDragBlock).toContain("token.kind === \"fragment\" && node.parent !== this.greyboxRoot");
+    expect(beginDragBlock).toContain("this.physicsSettled || (this.introSequence?.isFragmentSpilledOut(node)");
+    // intro 侧门控真值: 已 reparent 到 root【且】低于篮【当前】底边(篮被绳物理摆动, 不能用启动常量)。
+    expect(intro).toContain("this.basketNode.worldPosition.y - BASKET_DISPLAY.height / 2");
+    expect(intro).toContain("node.worldPosition.y < basketBottomY");
     expect(beginDragBlock).not.toContain("!(this.physicsSettled && this.flashlightAcquired)");
     const validateBlock = bootstrap.slice(
       bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),

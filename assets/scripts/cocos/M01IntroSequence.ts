@@ -771,6 +771,20 @@ export class M01IntroSequence extends Component {
     }
   }
 
+  /**
+   * 拼片是否已【真正顶出篮】可拾(整理): 必须已 reparent 到舞台根(从篮里释放)【且】落到篮底以下。
+   * 仅判 parent 不够 —— 被头顶起的片可能弹回、落在篮内仍 Static 的未释放拼片堆上, 此时 parent 已是 root
+   * (释放过)却仍在篮筐里, 用 parent 判定会误显"篮里可拾"。叠加"低于篮【当前】底边"(篮被绳物理摆动)=确实出篮。
+   */
+  isFragmentSpilledOut(node: Node): boolean {
+    const root = this.basketPivotNode?.parent;
+    if (!root || node.parent !== root || !this.basketNode) return false; // 仍挂篮节点(未释放)或无篮 → 不可拾
+    // 篮子被绳物理摆动(headbutt 后弹跳/下沉), 故用篮子【当前】底边而非启动常量 BASKET_SPRITE_BOTTOM_Y —— 摆到
+    // 低位时也不会把"仍在篮里的片"误判出篮(codex)。两侧都取 worldPosition → 同世界系, 不依赖 root 在原点。
+    const basketBottomY = this.basketNode.worldPosition.y - BASKET_DISPLAY.height / 2;
+    return node.worldPosition.y < basketBottomY;
+  }
+
   private spawnLemmy(): void {
     const node = new Node("M01IntroLemmy");
     node.setPosition(LEMMY_OFFSCREEN_X, LEMMY_Y, 0);
@@ -1164,7 +1178,12 @@ export class M01IntroSequence extends Component {
       if (settled) {
         settled.linearVelocity = new Vec2(0, 0);
         settled.angularVelocity = 0;
-        settled.type = ERigidBody2DType.Static; // 落定: 冻住, 莱米走近拾取时不被撞跑
+        // 保持 Dynamic(不冻 Static): 万一落在拼片上, 玩家挪走该片时手电要随重力继续落地, 不能悬空。
+        // 莱米非物理体(无刚体/碰撞), 不会撞跑它; allowSleep=false 保证支撑被撤时一定重新受力下落。
+        // ponytail: 单个常驻动态体, 开销可忽略。
+        settled.type = ERigidBody2DType.Dynamic;
+        settled.gravityScale = 1;
+        settled.allowSleep = false;
       }
       this.advance("flashlightBonked"); // bonking → waitingPickup(手电可点)
     }, FLASHLIGHT_SETTLE_MS);

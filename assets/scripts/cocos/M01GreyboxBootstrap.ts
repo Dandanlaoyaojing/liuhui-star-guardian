@@ -1380,7 +1380,12 @@ export class M01GreyboxBootstrap extends Component {
       node.on(
         "mouse-enter" as any,
         () => {
-          if (token.kind !== "fragment" || node.parent === this.greyboxRoot) this.setCanvasCursor("grab");
+          if (
+            token.kind !== "fragment" ||
+            this.physicsSettled ||
+            (this.introSequence?.isFragmentSpilledOut(node) ?? true)
+          )
+            this.setCanvasCursor("grab");
         },
         this
       );
@@ -1491,11 +1496,14 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.layout) {
       return;
     }
-    // 拾片门控(spec §5.2): 碎片【已从篮里顶出落到舞台】即可拾放整理 —— 不要求手电已到手, 也不等整堆落定。
-    // 释放时 intro 把该片 reparent 到 greyboxRoot(releaseFragmentsFromBasket); 仍堆在篮内的片 parent 还是
-    // 篮节点 → 不可拾。旧逻辑用全局 physicsSettled(仅【最后一批】落定才 true)→ 前两次顶篮已掉地的片在整篮
-    // 顶空前一律捡不起。盲拼仍靠"看不见颜色"防作弊, 不靠锁拾片; 底光整体验证另双门控 physicsSettled&&acquired。
-    if (token.kind === "fragment" && node.parent !== this.greyboxRoot) {
+    // 拾片门控(spec §5.2): physicsSettled(整堆落定=谜题阶段)后, 碎片在盘上/地上任意位置都可拾放整理 ——
+    // 这是常态。仅在【整堆落定前(顶篮间隙)】才用 intro.isFragmentSpilledOut 限制: 只许拾【真顶出篮(已释放且
+    // 低于篮当前底边)】的片, 防"被顶起又弹回落在篮内堆上的片"被误判可拾(用户报"篮里三角形可拾")。
+    // 注: 此门控贯穿全生命周期, 故必须用 physicsSettled 放行谜题阶段, 否则放到盘上(高于篮底)的片会变不可拾→卡死(codex)。
+    if (
+      token.kind === "fragment" &&
+      !(this.physicsSettled || (this.introSequence?.isFragmentSpilledOut(node) ?? true))
+    ) {
       return;
     }
     // 修复动画播放窗内锁输入(codex P2): 不许把刚验证的拼片拖走和喷出 tween 打架。
