@@ -481,6 +481,9 @@ export class M01GreyboxBootstrap extends Component {
                 if (this.layout) {
                   this.setStatus(this.layout.statusText);
                 }
+                // 拾片放宽后玩家可能在沉降【前】就预拼完整结构; 若手电先到手、物理后落定, 之前两次 retry
+                // 都因 !physicsSettled 早返回 → 落定这刻补一次, 否则要再挪片才触发底光(内部仍双门控, 没齐=no-op)。
+                this.tryValidateCompleteEvidenceCandidate();
               }
             });
           },
@@ -1622,7 +1625,8 @@ export class M01GreyboxBootstrap extends Component {
     this.activeFragmentDragOffset = null;
     this.activeDragNode = null;
     this.activeDragToken = null;
-    this.setCanvasCursor("default"); // 松手/取消: 复箭头(再悬到片上由 mouse-enter 切回 grab)
+    // 松手/取消: 仍举着片(点击式拾取 heldFragmentId)→ 维持握拳; 否则复箭头(再悬到片上由 mouse-enter 切回 grab)。
+    this.setCanvasCursor(this.heldFragmentId ? "grabbing" : "default");
   }
 
   private resolveActiveFragmentDragTarget(pointerPosition: M01GreyboxPoint): M01GreyboxPoint {

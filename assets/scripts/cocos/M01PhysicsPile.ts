@@ -135,8 +135,12 @@ export class M01PhysicsPile extends Component {
   private engagePiecesInPlace(): void {
     if (!this.options) return;
     for (const frag of this.options.fragments) {
-      frag.node.active = true;
       const body = frag.node.getComponent(RigidBody2D);
+      // 拾片放宽后玩家可在末次顶篮前就整理早批拼片: 已抓起/已落位的片是 Kinematic(beginTokenDrag /
+      // parkFragmentBodyAtSnap), 自由散落地上的是 Dynamic。末次 spill 别把受控片打回 Dynamic 抖落
+      // (否则已放好的片掉下来、session 仍以为在位 → 脱节)。只对自由片重新挂重力。
+      if (body && body.type === ERigidBody2DType.Kinematic) continue;
+      frag.node.active = true;
       if (body) {
         body.type = ERigidBody2DType.Dynamic;
         body.gravityScale = 1;
