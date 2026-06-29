@@ -1564,14 +1564,8 @@ export class M01GreyboxBootstrap extends Component {
 
     // 统一释放: 按住拖动(位移>阈值)= 按落点移动结算; 原地轻点(位移≤阈值)= 先转 90° 再原位结算。
     // 两路最终都走 handleTokenDrop —— 不再有"持握悬浮"中间态(触屏抬指后无指针可跟随, 故彻底删除)。
+    // 统一释放: 按住拖动(位移>阈值)= 按落点移动结算; 原地轻点(位移≤阈值)= 先转 90° 再原位结算。
     const session = transition.outcome.session;
-    // 落点用拼片【实际视觉中心】, 不用裸指针: 拖拽时节点摆在 指针+抓取偏移(resolveActiveFragmentDragTarget,
-    // 同 moveTokenDrag), 轻点时节点没动还在原位。直接传 session.currentPosition 会让偏心抓取的片在松手时
-    // 跳到指针、吸附判定也按指针命中而非按片中心(codex P2)。非拼片偏移为 0 → 等同裸指针。
-    const dropPosition =
-      token.kind === "fragment"
-        ? this.resolveActiveFragmentDragTarget(session.currentPosition)
-        : session.currentPosition;
     if (token.kind === "fragment") {
       const movedSquared =
         session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
@@ -1585,6 +1579,13 @@ export class M01GreyboxBootstrap extends Component {
         return;
       }
     }
+    // 拖动落点用拼片【实际视觉中心】, 不用裸指针: 拖拽时节点摆在 指针+抓取偏移(resolveActiveFragmentDragTarget,
+    // 同 moveTokenDrag)。直接传 session.currentPosition 会让偏心抓取的片在松手时跳到指针、吸附按指针命中而非
+    // 按片中心(codex P2)。非拼片偏移为 0 → 等同裸指针。
+    const dropPosition =
+      token.kind === "fragment"
+        ? this.resolveActiveFragmentDragTarget(session.currentPosition)
+        : session.currentPosition;
     this.handleTokenDrop(node, token, dropPosition);
     this.clearActiveDrag();
   }
@@ -1596,6 +1597,10 @@ export class M01GreyboxBootstrap extends Component {
     this.parkFragmentBodyAtSnap(node); // Kinematic + 复位碰撞体: 停在原地、不掉、可被再抓
     const timer = setTimeout(() => {
       this.rotatePinTimers.delete(fragmentId);
+      // 修复/完成动画窗内不结算: 否则迟到的 handleTokenDrop 会和喷出 tween 打架、并重入校验(codex P2 输入锁同理)。
+      if (this.repairSequencePlaying) {
+        return;
+      }
       const entry = this.greyboxNodes.get(fragmentId);
       if (!entry) {
         return;
@@ -1789,10 +1794,9 @@ export class M01GreyboxBootstrap extends Component {
 
     const beamNode = new Node("M01LemmyCoverageLightPool");
     this.greyboxRoot.addChild(beamNode);
-    // 光池=地面辉光, 必须在拼片【下方】(否则亮核盖掉拼片显色)。送到最底层。
-    // ⚠️ index 0 也压到 M01BottomLight 之下(今天无害: 区域不重叠+底光半透明); 若将来 greyboxRoot
-    // 挂整屏不透明背景, 光池会被盖住 → 那时改成"插在拼片层正下方"。
-    beamNode.setSiblingIndex(0);
+    // 光池=地面辉光, 必须在拼片【下方】(否则亮核盖掉拼片显色), 又必须在大螺母平台底图【上方】
+    // (否则不透明平台像素盖掉光色)。所以插在拼片层正下方, 而不是压到最底层。
+    beamNode.setSiblingIndex(this.lowestFragmentSiblingIndex());
     beamNode.setPosition(0, 0, 0);
     beamNode.active = false;
     this.coverageBeamNode = beamNode;
@@ -1800,6 +1804,22 @@ export class M01GreyboxBootstrap extends Component {
     // 画序(子节点先加=先画=在下): 空中三角光锥(锚点【左中】=锥顶/出光口) → 出光口白热核(居中, 上)。
     this.coverageConeSprite = this.addGlowSprite(beamNode, getConeGlowSpriteFrame(), 0, 0.5);
     this.coverageCoreSprite = this.addGlowSprite(beamNode, getRadialGlowSpriteFrame(), 0.5, 0.5);
+  }
+
+  /** 拼片层最低的 siblingIndex; 光池插在它下方=拼片之下、平台底图之上。无拼片则垫到最底层。 */
+  private lowestFragmentSiblingIndex(): number {
+    const children = this.greyboxRoot?.children ?? [];
+    let lowest = Number.POSITIVE_INFINITY;
+    for (const entry of this.greyboxNodes.values()) {
+      if (entry.token.kind !== "fragment") {
+        continue;
+      }
+      const index = children.indexOf(entry.node);
+      if (index >= 0) {
+        lowest = Math.min(lowest, index);
+      }
+    }
+    return Number.isFinite(lowest) ? lowest : 0;
   }
 
   /** 建一个用渐变纹理的柔光精灵子节点(内容尺寸=纹理边长, 锚点 ax/ay, 之后靠 node.scale/rotation 摆位)。 */
@@ -2323,6 +2343,7 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
     this.repairSequencePlaying = true;
+    this.cancelAllRotatePins(); // 完成进修复动画: 清掉所有"转向钉住"的迟到释放, 别和喷出 tween 打架
     const timeline = buildRepairTimeline(
       steps.map((step) => ({
         type: step.type,
