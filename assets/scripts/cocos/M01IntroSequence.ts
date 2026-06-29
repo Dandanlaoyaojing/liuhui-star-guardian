@@ -1178,6 +1178,10 @@ export class M01IntroSequence extends Component {
         node.setPosition(clampStageX(lx + 30), GROUND_Y + 8, 0);
         node.setRotationFromEuler(0, 0, FLASHLIGHT_LYING_ANGLE);
       }
+      // 落定时无条件把手电转平(细长体最终都该躺平, 立着/斜立都不合理)。确定性 set, 【不】给角速度 ——
+      // 自转的细长体旋进动态拼片堆会被 Box2D 大冲量崩飞(见上方 FLASHLIGHT_TOSS_SPIN 注释)。转平后保持
+      // Dynamic, 那点高度差由重力温和落下。
+      node.setRotationFromEuler(0, 0, FLASHLIGHT_LYING_ANGLE);
       const settled = node.getComponent(RigidBody2D);
       if (settled) {
         settled.linearVelocity = new Vec2(0, 0);
