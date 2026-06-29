@@ -847,12 +847,21 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(bootstrap).toContain("private readonly tokenRotations = new Map<string, number>();");
 
-    // 释放分流: 位移 ≤ 阈值 = 原地轻点 → 转 90°; 之后无论点/拖都走同一条 handleTokenDrop 落定。
+    // 释放分流: 位移 ≤ 阈值 = 原地轻点 → 转 90° 并钉住 2 秒; 拖动 = 按落点 handleTokenDrop 落定。
     expect(bootstrap).toContain("movedSquared <= CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD");
     expect(bootstrap).toContain("this.rotateFragmentClockwise(token.controllerId)");
+    expect(bootstrap).toContain("this.pinRotatedFragmentThenRelease(node, token);");
     expect(bootstrap).toContain("this.handleTokenDrop(node, token, dropPosition);");
     // 落点用拼片视觉中心(指针+抓取偏移), 不用裸指针 —— 偏心抓取松手不跳、吸附按片中心判定(codex P2)。
     expect(bootstrap).toContain("? this.resolveActiveFragmentDragTarget(session.currentPosition)");
+
+    // 钉住 2 秒: 转向后 Kinematic 停原地, 超时释放回物理; 再抓起(beginTokenDrag)取消计时。
+    expect(bootstrap).toContain("const ROTATE_PIN_HOLD_MS = 2000;");
+    expect(bootstrap).toContain("private pinRotatedFragmentThenRelease(node: Node, token: M01GreyboxTokenNode): void");
+    expect(bootstrap).toContain("this.parkFragmentBodyAtSnap(node);");
+    expect(bootstrap).toContain("}, ROTATE_PIN_HOLD_MS);");
+    expect(bootstrap).toContain("this.cancelRotatePin(token.controllerId);");
+    expect(bootstrap).toContain("this.cancelAllRotatePins();");
 
     // 90° 步进逻辑保留(够到 90/180 目标槽), 连点累加。
     expect(bootstrap).toContain("const nextRotation = (currentRotation + 90) % 360");

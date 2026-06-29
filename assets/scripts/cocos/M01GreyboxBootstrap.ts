@@ -108,6 +108,8 @@ const { ccclass, property } = _decorator;
 const HIDE_SCREEN_TEXT = true;
 // 区分"原地轻点"与"按住拖动": 松手时总位移 ≤ 此像素 = 轻点(转 90°), 否则 = 拖动(按落点结算)。
 const CLICK_DRAG_THRESHOLD = 6;
+// 轻点转向后把拼片钉在原地(Kinematic 不掉)的保持时长, 给玩家抓起的窗口; 超时无人抓才释放回物理。
+const ROTATE_PIN_HOLD_MS = 2000;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
@@ -333,6 +335,8 @@ export class M01GreyboxBootstrap extends Component {
   private dragState: DragState = {};
   private activeFragmentDragOffset: M01GreyboxPoint | null = null;
   private globalPointerInputBound = false;
+  // 轻点转向后"钉住 2 秒"的释放计时器(按 fragmentId); 再抓起 / 销毁 / 重置时清除。
+  private readonly rotatePinTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
@@ -393,6 +397,7 @@ export class M01GreyboxBootstrap extends Component {
       this.feedbackLabel = null;
       this.manualTargetBlendGraphics = null;
       this.weakSnappedFragmentsByEvidence.clear();
+      this.cancelAllRotatePins();
       this.tokenPositions.clear();
       this.tokenRotations.clear();
       this.hintedTargetIds.clear();
@@ -512,6 +517,7 @@ export class M01GreyboxBootstrap extends Component {
     this.clearValidationLightReset();
     this.clearFailedCandidateReturn();
     this.clearRepairSequenceTimeouts();
+    this.cancelAllRotatePins();
     this.unbindGlobalPointerInput();
     this.dragState = {};
     this.clearActiveDrag();
@@ -1470,6 +1476,8 @@ export class M01GreyboxBootstrap extends Component {
       position
     });
     if (token.kind === "fragment") {
+      // 再抓起取消"转向钉住"计时: 玩家在 2 秒窗口内抓住了, 交给本次拖拽接管(松手才重新结算)。
+      this.cancelRotatePin(token.controllerId);
       // 灭灯只在【真正抓到拼片】时(本 per-node touch-start 命中拼片节点)触发 —— 不再由全局
       // beginActivePointerPress 的 64px 近邻命中触发(那会在玩家只是点地走位、附近恰好有片时误灭灯)。
       this.suspendFlashlightObservation();
@@ -1567,11 +1575,49 @@ export class M01GreyboxBootstrap extends Component {
       const movedSquared =
         session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
       if (movedSquared <= CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD) {
-        this.rotateFragmentClockwise(token.controllerId); // 轻点连点累加 +90°
+        // 原地轻点 = 转 90°(连点累加), 然后【钉住】拼片别立刻落定: M01 拼片是 Dynamic, 直接 handleTokenDrop
+        // 走自由释放会被重力拽到地面堆里、转完抓不住。改为 Kinematic 停在原地 ROTATE_PIN_HOLD_MS, 给玩家抓起
+        // 的窗口; 期内再抓(beginTokenDrag)取消计时、正常拖; 超时无人抓才释放回物理(落地, 符合本来物理设定)。
+        this.rotateFragmentClockwise(token.controllerId);
+        this.pinRotatedFragmentThenRelease(node, token);
+        this.clearActiveDrag();
+        return;
       }
     }
     this.handleTokenDrop(node, token, dropPosition);
     this.clearActiveDrag();
+  }
+
+  /** 轻点转向后把拼片钉成 Kinematic 停在原地, ROTATE_PIN_HOLD_MS 后无人抓起则释放回物理结算(吸附/落地)。 */
+  private pinRotatedFragmentThenRelease(node: Node, token: M01GreyboxTokenNode): void {
+    const fragmentId = token.controllerId;
+    this.cancelRotatePin(fragmentId);
+    this.parkFragmentBodyAtSnap(node); // Kinematic + 复位碰撞体: 停在原地、不掉、可被再抓
+    const timer = setTimeout(() => {
+      this.rotatePinTimers.delete(fragmentId);
+      const entry = this.greyboxNodes.get(fragmentId);
+      if (!entry) {
+        return;
+      }
+      // 超时仍无人抓 → 按片当前(原地)位置结算: 朝向对上目标槽则吸附, 否则释放回物理落地。
+      this.handleTokenDrop(entry.node, entry.token, this.pointFromNodePosition(entry.node.position));
+    }, ROTATE_PIN_HOLD_MS);
+    this.rotatePinTimers.set(fragmentId, timer);
+  }
+
+  private cancelRotatePin(fragmentId: string): void {
+    const timer = this.rotatePinTimers.get(fragmentId);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this.rotatePinTimers.delete(fragmentId);
+    }
+  }
+
+  private cancelAllRotatePins(): void {
+    for (const timer of this.rotatePinTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.rotatePinTimers.clear();
   }
 
   private cancelTokenDrag(event: M01GreyboxPointerEvent, node: Node, token: M01GreyboxTokenNode): void {
