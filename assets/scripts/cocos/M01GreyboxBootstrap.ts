@@ -154,13 +154,21 @@ function multiplyRgb(
     Math.round((a[2] * b[2]) / 255)
   ];
 }
+// 显色饱和度提升: 拼片被手电照亮后的反应色比线索/底色更鲜艳。绕 luma 把各通道往离灰更远拉。
+// ⚠️ 同步改 scripts/m01-preview-smoke.mjs 的同名常量+函数, 否则真机 smoke 色值校验失配(单测只查字符串抓不到)。
+const OBSERVED_TINT_SATURATION = 1.4; // 1=不变, 越大越艳
+function saturateRgb([r, g, b]: [number, number, number], k: number): [number, number, number] {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const clamp = (v: number) => Math.round(Math.min(255, Math.max(0, v)));
+  return [clamp(lum + (r - lum) * k), clamp(lum + (g - lum) * k), clamp(lum + (b - lum) * k)];
+}
 const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, number]> = {
-  red:    multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.red),
-  yellow: multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow),
-  blue:   multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue),
-  orange: M01_TARGET_BLEND_RGB.orange,
-  green:  M01_TARGET_BLEND_RGB.green,
-  purple: M01_TARGET_BLEND_RGB.purple
+  red:    saturateRgb(multiplyRgb(M01_BASE_RGB.red,    M01_BEAM_RGB.red),    OBSERVED_TINT_SATURATION),
+  yellow: saturateRgb(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow), OBSERVED_TINT_SATURATION),
+  blue:   saturateRgb(multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue),   OBSERVED_TINT_SATURATION),
+  orange: saturateRgb(M01_TARGET_BLEND_RGB.orange, OBSERVED_TINT_SATURATION),
+  green:  saturateRgb(M01_TARGET_BLEND_RGB.green,  OBSERVED_TINT_SATURATION),
+  purple: saturateRgb(M01_TARGET_BLEND_RGB.purple, OBSERVED_TINT_SATURATION)
 };
 // --- 莱米手持手电的覆盖面光池(v4; spec §5.2) -----------------------------------------------
 // 视觉常量(玩法数值 radius/centerOffset 在 config.flashlightCoverage, 按 puzzle-configs 规则)。

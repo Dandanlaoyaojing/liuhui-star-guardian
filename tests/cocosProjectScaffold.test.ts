@@ -1374,11 +1374,16 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain(
       "const OBSERVED_FRAGMENT_TINT_COLORS: Record<M01BlendColor, [number, number, number]> = {"
     );
-    expect(bootstrap).toContain("yellow: multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow)");
-    expect(bootstrap).toContain("orange: M01_TARGET_BLEND_RGB.orange");
-    expect(bootstrap).toContain("blue:   multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue)");
-    expect(bootstrap).toContain("green:  M01_TARGET_BLEND_RGB.green");
-    expect(bootstrap).toContain("purple: M01_TARGET_BLEND_RGB.purple");
+    expect(bootstrap).toContain("function saturateRgb");
+    expect(bootstrap).toContain(
+      "yellow: saturateRgb(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow), OBSERVED_TINT_SATURATION)"
+    );
+    expect(bootstrap).toContain("orange: saturateRgb(M01_TARGET_BLEND_RGB.orange, OBSERVED_TINT_SATURATION)");
+    expect(bootstrap).toContain(
+      "blue:   saturateRgb(multiplyRgb(M01_BASE_RGB.blue,   M01_BEAM_RGB.blue),   OBSERVED_TINT_SATURATION)"
+    );
+    expect(bootstrap).toContain("green:  saturateRgb(M01_TARGET_BLEND_RGB.green,  OBSERVED_TINT_SATURATION)");
+    expect(bootstrap).toContain("purple: saturateRgb(M01_TARGET_BLEND_RGB.purple, OBSERVED_TINT_SATURATION)");
     expect(bootstrap).toContain("function colorForObservedFragmentTint(colorToken: M01BlendColor): Color");
     expect(bootstrap).toContain("return colorForObservedFragmentTint(colorTokenOverride);");
     expect(bootstrap).toContain(
@@ -1392,16 +1397,17 @@ describe("Cocos Creator project scaffold", () => {
     );
   });
 
-  it("matches observed flashlight blend tint colors to the M01 target evidence palette", () => {
+  it("derives observed flashlight blend tint colors from the M01 target evidence palette (saturation-boosted)", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("const M01_TARGET_BLEND_RGB");
     expect(bootstrap).toContain("purple: [167, 140, 166]");
     expect(bootstrap).toContain("green: [136, 166, 138]");
     expect(bootstrap).toContain("orange: [206, 154, 114]");
-    expect(bootstrap).toContain("orange: M01_TARGET_BLEND_RGB.orange");
-    expect(bootstrap).toContain("green:  M01_TARGET_BLEND_RGB.green");
-    expect(bootstrap).toContain("purple: M01_TARGET_BLEND_RGB.purple");
+    // Lit blend pieces are the evidence palette pushed more vivid; clue cards keep the raw (muted) palette.
+    expect(bootstrap).toContain("orange: saturateRgb(M01_TARGET_BLEND_RGB.orange, OBSERVED_TINT_SATURATION)");
+    expect(bootstrap).toContain("green:  saturateRgb(M01_TARGET_BLEND_RGB.green,  OBSERVED_TINT_SATURATION)");
+    expect(bootstrap).toContain("purple: saturateRgb(M01_TARGET_BLEND_RGB.purple, OBSERVED_TINT_SATURATION)");
     expect(bootstrap).toContain("colorForTargetBlendRgb(colorToken)");
   });
 

@@ -52,13 +52,21 @@ function multiplyRgb(a, b) {
     Math.round((a[2] * b[2]) / 255)
   ];
 }
+// ⚠️ 与 M01GreyboxBootstrap.ts 的 OBSERVED_TINT_SATURATION / saturateRgb 保持一致。
+const OBSERVED_TINT_SATURATION = 1.4;
+function saturateRgb([r, g, b]) {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const clamp = (v) => Math.round(Math.min(255, Math.max(0, v)));
+  const k = OBSERVED_TINT_SATURATION;
+  return [clamp(lum + (r - lum) * k), clamp(lum + (g - lum) * k), clamp(lum + (b - lum) * k)];
+}
 const OBSERVED_ART_SPRITE_TINT_COLORS = {
-  red: rgbToColor(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.red)),
-  yellow: rgbToColor(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow)),
-  blue: rgbToColor(multiplyRgb(M01_BASE_RGB.blue, M01_BEAM_RGB.blue)),
-  orange: rgbToColor(M01_TARGET_BLEND_RGB.orange),
-  green: rgbToColor(M01_TARGET_BLEND_RGB.green),
-  purple: rgbToColor(M01_TARGET_BLEND_RGB.purple)
+  red: rgbToColor(saturateRgb(multiplyRgb(M01_BASE_RGB.red, M01_BEAM_RGB.red))),
+  yellow: rgbToColor(saturateRgb(multiplyRgb(M01_BASE_RGB.yellow, M01_BEAM_RGB.yellow))),
+  blue: rgbToColor(saturateRgb(multiplyRgb(M01_BASE_RGB.blue, M01_BEAM_RGB.blue))),
+  orange: rgbToColor(saturateRgb(M01_TARGET_BLEND_RGB.orange)),
+  green: rgbToColor(saturateRgb(M01_TARGET_BLEND_RGB.green)),
+  purple: rgbToColor(saturateRgb(M01_TARGET_BLEND_RGB.purple))
 };
 
 function rgbToColor([r, g, b]) {
