@@ -60,7 +60,6 @@ const OBSERVED_ART_SPRITE_TINT_COLORS = {
   green: rgbToColor(M01_TARGET_BLEND_RGB.green),
   purple: rgbToColor(M01_TARGET_BLEND_RGB.purple)
 };
-const ROTATE_BUTTON_POSITION = { x: 328, y: 156 };
 
 function rgbToColor([r, g, b]) {
   return { r, g, b, a: OBSERVED_ART_SPRITE_TINT_MAX_ALPHA };
@@ -674,9 +673,9 @@ async function runRealInputPath(page, realInputPlan) {
       return;
     }
 
-    await clickLocalPoint(fragmentPosition);
+    // 新交互: 轻点拼片本身 = 转 90°(连点累加), 已无旋转按钮(旧 ROTATE_BUTTON_POSITION 点了没用)。
     for (let turn = 0; turn < turnCount; turn += 1) {
-      await clickLocalPoint(ROTATE_BUTTON_POSITION);
+      await clickLocalPoint(fragmentPosition);
     }
     await dragLocalPoint(fragmentPosition, targetPiece.targetPosition);
   };
@@ -938,9 +937,9 @@ async function runCompletionInputPath(page, realInputPlan) {
       return;
     }
 
-    await clickLocalPoint(fragmentPosition);
+    // 新交互: 轻点拼片本身 = 转 90°(连点累加), 无旋转按钮。每次重查位置(转向会微调落点)。
     for (let turn = 0; turn < turnCount; turn += 1) {
-      await clickLocalPoint(ROTATE_BUTTON_POSITION);
+      await clickLocalPoint(await currentFragmentPosition(targetPiece.fragmentId));
     }
     await dragLocalPoint(await currentFragmentPosition(targetPiece.fragmentId), targetPiece.targetPosition);
   };

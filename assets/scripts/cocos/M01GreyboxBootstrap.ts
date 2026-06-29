@@ -1785,7 +1785,7 @@ export class M01GreyboxBootstrap extends Component {
     return false;
   }
 
-  /** 三层柔光精灵(共用代码生成的径向渐变纹理)挂 greybox 根最底层; 手电交接时建一次。 */
+  /** 三层柔光精灵(共用代码生成的径向渐变纹理)插在拼片层正下方(平台底图之上); 手电交接时建一次。 */
   private ensureCoverageBeamNode(): void {
     if (this.coverageBeamNode || !this.greyboxRoot || !this.layout) {
       return;
@@ -2523,6 +2523,7 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    this.cancelAllRotatePins(); // 失败重置前清掉"转向钉住"的迟到释放, 否则计时器会在刚被重置的片上再跑 handleTokenDrop(codex P2)
     const fragmentIds = this.session.resetCandidateStructure();
     this.weakSnappedFragmentsByEvidence.clear();
     for (const fragmentId of fragmentIds) {
