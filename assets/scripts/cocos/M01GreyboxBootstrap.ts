@@ -2068,14 +2068,16 @@ export class M01GreyboxBootstrap extends Component {
 
     const currentRotation = this.tokenRotations.get(fragmentId) ?? 0;
     const nextRotation = (currentRotation + 90) % 360;
+    // 补偿基准必须用【节点实际角度】, 不能用 tokenRotations: 拼片是物理翻滚落定的(M01PhysicsPile 给随机初始
+    // 角且 body 不锁转), tokenRotations 初始为 0 从不回写实际角。用它当基准会让所有片均匀抬高/下沉。读真实
+    // eulerAngles.z 算"转前最低点世界 Y", 转后保持它不变(转前贴着什么、转后还贴着)。圆形无 polygon → 不补偿。
+    const polygon = entry.node.getComponent(PolygonCollider2D);
+    const actualRotationZ = entry.node.eulerAngles.z;
     this.tokenRotations.set(fragmentId, nextRotation);
     entry.node.setRotationFromEuler(0, 0, nextRotation);
-    // 绕外接框中心转会改变最低伸出量(三角形等), 不补偿就探到地平线下"一点"。把节点上移, 让碰撞体最低点
-    // 的世界 Y 不变(转前贴着什么、转后还贴着), 纯几何、不依赖物理、Kinematic 钉住仍稳。圆形各角同高 → 0。
-    const polygon = entry.node.getComponent(PolygonCollider2D);
     if (polygon) {
       const points = polygon.points.map((p) => ({ x: p.x, y: p.y }));
-      const deltaY = rotationReseatDeltaY(points, currentRotation, nextRotation);
+      const deltaY = rotationReseatDeltaY(points, actualRotationZ, nextRotation);
       if (deltaY !== 0) {
         const reseated = { x: entry.node.position.x, y: entry.node.position.y + deltaY };
         entry.node.setPosition(reseated.x, reseated.y, 0);
