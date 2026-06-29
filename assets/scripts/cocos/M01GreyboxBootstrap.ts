@@ -1556,6 +1556,13 @@ export class M01GreyboxBootstrap extends Component {
     // 统一释放: 按住拖动(位移>阈值)= 按落点移动结算; 原地轻点(位移≤阈值)= 先转 90° 再原位结算。
     // 两路最终都走 handleTokenDrop —— 不再有"持握悬浮"中间态(触屏抬指后无指针可跟随, 故彻底删除)。
     const session = transition.outcome.session;
+    // 落点用拼片【实际视觉中心】, 不用裸指针: 拖拽时节点摆在 指针+抓取偏移(resolveActiveFragmentDragTarget,
+    // 同 moveTokenDrag), 轻点时节点没动还在原位。直接传 session.currentPosition 会让偏心抓取的片在松手时
+    // 跳到指针、吸附判定也按指针命中而非按片中心(codex P2)。非拼片偏移为 0 → 等同裸指针。
+    const dropPosition =
+      token.kind === "fragment"
+        ? this.resolveActiveFragmentDragTarget(session.currentPosition)
+        : session.currentPosition;
     if (token.kind === "fragment") {
       const movedSquared =
         session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
@@ -1563,7 +1570,7 @@ export class M01GreyboxBootstrap extends Component {
         this.rotateFragmentClockwise(token.controllerId); // 轻点连点累加 +90°
       }
     }
-    this.handleTokenDrop(node, token, session.currentPosition);
+    this.handleTokenDrop(node, token, dropPosition);
     this.clearActiveDrag();
   }
 

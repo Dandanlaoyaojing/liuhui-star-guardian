@@ -669,7 +669,7 @@ describe("Cocos Creator project scaffold", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const suspendBlock = bootstrap.slice(
       bootstrap.indexOf("private suspendFlashlightObservation"),
-      bootstrap.indexOf("private suppressRootClickOnce")
+      bootstrap.indexOf("private rotateFragmentClockwise")
     );
 
     // 灭灯绑定到【真正抓到拼片】: beginTokenDrag(per-node 命中拼片节点)的 fragment 分支里灭灯,
@@ -850,7 +850,9 @@ describe("Cocos Creator project scaffold", () => {
     // 释放分流: 位移 ≤ 阈值 = 原地轻点 → 转 90°; 之后无论点/拖都走同一条 handleTokenDrop 落定。
     expect(bootstrap).toContain("movedSquared <= CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD");
     expect(bootstrap).toContain("this.rotateFragmentClockwise(token.controllerId)");
-    expect(bootstrap).toContain("this.handleTokenDrop(node, token, session.currentPosition);");
+    expect(bootstrap).toContain("this.handleTokenDrop(node, token, dropPosition);");
+    // 落点用拼片视觉中心(指针+抓取偏移), 不用裸指针 —— 偏心抓取松手不跳、吸附按片中心判定(codex P2)。
+    expect(bootstrap).toContain("? this.resolveActiveFragmentDragTarget(session.currentPosition)");
 
     // 90° 步进逻辑保留(够到 90/180 目标槽), 连点累加。
     expect(bootstrap).toContain("const nextRotation = (currentRotation + 90) % 360");
