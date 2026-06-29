@@ -102,6 +102,7 @@ import { M01PhysicsBoundary } from "./M01PhysicsBoundary.ts";
 import { M01PhysicsPile } from "./M01PhysicsPile.ts";
 import { M01IntroSequence } from "./M01IntroSequence.ts";
 import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
+import { rotationReseatDeltaY } from "./M01PhysicsCollider.ts";
 
 const { ccclass, property } = _decorator;
 // ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
@@ -2049,6 +2050,18 @@ export class M01GreyboxBootstrap extends Component {
     const nextRotation = (currentRotation + 90) % 360;
     this.tokenRotations.set(fragmentId, nextRotation);
     entry.node.setRotationFromEuler(0, 0, nextRotation);
+    // 绕外接框中心转会改变最低伸出量(三角形等), 不补偿就探到地平线下"一点"。把节点上移, 让碰撞体最低点
+    // 的世界 Y 不变(转前贴着什么、转后还贴着), 纯几何、不依赖物理、Kinematic 钉住仍稳。圆形各角同高 → 0。
+    const polygon = entry.node.getComponent(PolygonCollider2D);
+    if (polygon) {
+      const points = polygon.points.map((p) => ({ x: p.x, y: p.y }));
+      const deltaY = rotationReseatDeltaY(points, currentRotation, nextRotation);
+      if (deltaY !== 0) {
+        const reseated = { x: entry.node.position.x, y: entry.node.position.y + deltaY };
+        entry.node.setPosition(reseated.x, reseated.y, 0);
+        this.tokenPositions.set(fragmentId, reseated);
+      }
+    }
     this.redrawAndPersistManualTargetDraft();
     this.setFeedback("已旋转90°");
   }

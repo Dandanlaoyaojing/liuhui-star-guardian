@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   areM01PhysicsCircleFragmentsVisuallySeparated,
   buildM01PhysicsCollider,
-  resolveM01PhysicsColliderVisualPadding
+  lowestColliderYAtRotation,
+  resolveM01PhysicsColliderVisualPadding,
+  rotationReseatDeltaY
 } from "../../assets/scripts/cocos/M01PhysicsCollider.ts";
 
 describe("buildM01PhysicsCollider", () => {
@@ -61,5 +63,30 @@ describe("buildM01PhysicsCollider", () => {
         { shape: "circle", size: 56, x: 59.5, y: 0 }
       ])
     ).toBe(true);
+  });
+});
+
+describe("rotation re-seat (转向防沉地平线)", () => {
+  it("triangle: 转 90° 最低点变深 → 需把节点上移补偿", () => {
+    const tri = buildM01PhysicsCollider("triangle", 36);
+    if (tri.kind !== "polygon") throw new Error("expected polygon");
+
+    // 立姿(0°)底边在 -halfHeight = -18; 转 90° 后最低点到 -halfSide = -36/√3 ≈ -20.78, 更深。
+    expect(lowestColliderYAtRotation(tri.points, 0)).toBeCloseTo(-18, 5);
+    expect(lowestColliderYAtRotation(tri.points, 90)).toBeCloseTo(-36 / Math.sqrt(3), 5);
+
+    // 补偿量 = oldMin - newMin > 0(上移), 正好抵消变深, 使最低点世界 Y 不变。
+    const delta = rotationReseatDeltaY(tri.points, 0, 90);
+    expect(delta).toBeCloseTo(-18 - -36 / Math.sqrt(3), 5);
+    expect(delta).toBeGreaterThan(0);
+    expect(lowestColliderYAtRotation(tri.points, 90) + delta).toBeCloseTo(
+      lowestColliderYAtRotation(tri.points, 0),
+      5
+    );
+  });
+
+  it("空碰撞点(圆形走此路) → 补偿 0", () => {
+    expect(rotationReseatDeltaY([], 0, 90)).toBe(0);
+    expect(lowestColliderYAtRotation([], 123)).toBe(0);
   });
 });
