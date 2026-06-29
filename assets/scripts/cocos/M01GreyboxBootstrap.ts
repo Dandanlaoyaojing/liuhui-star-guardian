@@ -106,10 +106,8 @@ import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
 const { ccclass, property } = _decorator;
 // ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
 const HIDE_SCREEN_TEXT = true;
+// 区分"原地轻点"与"按住拖动": 松手时总位移 ≤ 此像素 = 轻点(转 90°), 否则 = 拖动(按落点结算)。
 const CLICK_DRAG_THRESHOLD = 6;
-// 持握拼片: 单击放下 / 双击转 90°(取代旧"旋转90°"按钮)。二者冲突 —— 单击放下必须延迟此窗口, 等看是否
-// 来第二击: 窗口内第二击=双击→转向(取消放下), 超时无第二击→真正放下。代价=放下慢一个窗口(拼图可接受)。
-const ROTATE_DOUBLE_CLICK_MS = 220;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
@@ -332,16 +330,9 @@ export class M01GreyboxBootstrap extends Component {
   // 修复动画(spec §5.2: 齿轮转动→碎片漩涡喷出→化星光; 时序由 config repair.steps 经 M01RepairSequence 编排)。
   private readonly repairSequenceTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private repairSequencePlaying = false;
-  private heldFragmentId: string | undefined;
-  private heldPointerId: string | number | undefined;
-  private heldFragmentPointerOffset: M01GreyboxPoint | null = null;
   private dragState: DragState = {};
   private activeFragmentDragOffset: M01GreyboxPoint | null = null;
   private globalPointerInputBound = false;
-  private suppressNextRootClick = false;
-  // 持握拼片单击放下的延迟挂起(用于和双击转向消歧): 计时器 + 目标拼片 + 放下落点。
-  private pendingDropTimer: ReturnType<typeof setTimeout> | undefined;
-  private pendingDropFragmentId: string | undefined;
   private readonly text: M01GreyboxTextOverrides = {};
   private readonly greyboxNodes = new Map<
     string,
@@ -405,9 +396,6 @@ export class M01GreyboxBootstrap extends Component {
       this.tokenPositions.clear();
       this.tokenRotations.clear();
       this.hintedTargetIds.clear();
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
       this.validationFlashVisible = true;
       this.introFragmentsReleased = true;
       this.enableArtPreview = this.enableArtPreview || shouldEnableM01ArtPreviewFromUrl();
@@ -520,7 +508,6 @@ export class M01GreyboxBootstrap extends Component {
 
   onDestroy(): void {
     this.setCanvasCursor("default");
-    this.cancelPendingHeldDrop();
     this.hideManualTargetTools();
     this.clearValidationLightReset();
     this.clearFailedCandidateReturn();
@@ -692,7 +679,6 @@ export class M01GreyboxBootstrap extends Component {
 
   private addRootPointerCapture(parent: Node): void {
     parent.on("touch-start", (event: EventTouch) => this.beginActivePointerPress(event), this);
-    parent.on("touch-end", (event: EventTouch) => this.placeHeldFragmentAt(event), this);
   }
 
   private addBottomLightNode(parent: Node, layout: M01GreyboxLayout): Node {
@@ -1448,7 +1434,7 @@ export class M01GreyboxBootstrap extends Component {
   /**
    * Puzzle 侧两阶段点击路由(routeTap 纯函数定优先级)。此处只消费"点拼片=拾取且灭灯"这一拍:
    * 地面/吊篮/掉落手电归 intro sequence(点哪走哪/顶篮/拾取), 手持手电点击经 onHeldFlashlightTap
-   * 进 handleHeldFlashlightTap, 持片放下由根节点 touch-end(placeHeldFragmentAt)结算 — 不双重处理。
+   * 进 handleHeldFlashlightTap。拼片的拾起/移动/转向全由 per-node 拖拽(beginTokenDrag→endTokenDrag)处理。
    */
   private beginActivePointerPress(_event: M01GreyboxPointerEvent): void {
     // 全局按下不再做"近邻拼片→灭灯"判定(64px 近邻会误灭: 玩家点地走位、附近恰好有片时也灭)。
@@ -1487,7 +1473,6 @@ export class M01GreyboxBootstrap extends Component {
       // 灭灯只在【真正抓到拼片】时(本 per-node touch-start 命中拼片节点)触发 —— 不再由全局
       // beginActivePointerPress 的 64px 近邻命中触发(那会在玩家只是点地走位、附近恰好有片时误灭灯)。
       this.suspendFlashlightObservation();
-      this.heldFragmentPointerOffset = null;
       this.activeFragmentDragOffset = {
         x: node.position.x - position.x,
         y: node.position.y - position.y
@@ -1511,10 +1496,7 @@ export class M01GreyboxBootstrap extends Component {
   private moveActivePointerDrag(event: M01GreyboxPointerEvent): void {
     if (this.activeDragNode) {
       this.moveTokenDrag(event, this.activeDragNode);
-      return;
     }
-
-    this.moveHeldFragmentWithPointer(event);
   }
 
   private moveTokenDrag(event: M01GreyboxPointerEvent, node: Node): void {
@@ -1571,14 +1553,17 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    if (this.tryHandleTokenClick(node, token, transition.outcome.session)) {
-      this.suppressRootClickOnce();
-      this.clearActiveDrag();
-      return;
+    // 统一释放: 按住拖动(位移>阈值)= 按落点移动结算; 原地轻点(位移≤阈值)= 先转 90° 再原位结算。
+    // 两路最终都走 handleTokenDrop —— 不再有"持握悬浮"中间态(触屏抬指后无指针可跟随, 故彻底删除)。
+    const session = transition.outcome.session;
+    if (token.kind === "fragment") {
+      const movedSquared =
+        session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
+      if (movedSquared <= CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD) {
+        this.rotateFragmentClockwise(token.controllerId); // 轻点连点累加 +90°
+      }
     }
-
-    this.handleTokenDrop(node, token, transition.outcome.session.currentPosition);
-    this.suppressRootClickOnce();
+    this.handleTokenDrop(node, token, session.currentPosition);
     this.clearActiveDrag();
   }
 
@@ -1596,8 +1581,8 @@ export class M01GreyboxBootstrap extends Component {
     this.activeFragmentDragOffset = null;
     this.activeDragNode = null;
     this.activeDragToken = null;
-    // 松手/取消: 仍举着片(点击式拾取 heldFragmentId)→ 维持握拳; 否则复箭头(再悬到片上由 mouse-enter 切回 grab)。
-    this.setCanvasCursor(this.heldFragmentId ? "grabbing" : "default");
+    // 松手/取消: 复箭头(再悬到片上由 mouse-enter 切回 grab)。已无跨手势"持握"态。
+    this.setCanvasCursor("default");
   }
 
   private resolveActiveFragmentDragTarget(pointerPosition: M01GreyboxPoint): M01GreyboxPoint {
@@ -1611,8 +1596,7 @@ export class M01GreyboxBootstrap extends Component {
   // ── v4 手持手电: 点手电循环灯色 + 覆盖面显色 + 光池渲染(锚莱米) ────────────────────────
 
   /**
-   * acquired 后点莱米手里的手电(intro 仅转发)。routeTap 决定这次点击归谁: 持片时任何点击 =
-   * 放下(由根节点 touch-end 的 placeHeldFragmentAt 结算, 此处不切灯), 否则循环 红→黄→蓝→灭。
+   * acquired 后点莱米手里的手电(intro 仅转发)。点手电 → 循环 红→黄→蓝→灭。
    * red/yellow/blue 映射 Session.selectFlashlight(flashlight_<color>), off 走 clearFlashlight()。
    */
   private handleHeldFlashlightTap(): void {
@@ -1622,7 +1606,7 @@ export class M01GreyboxBootstrap extends Component {
 
     const action = routeTap(
       { heldFlashlight: true },
-      { flashlightAcquired: this.flashlightAcquired, holdingPiece: this.heldFragmentId !== undefined }
+      { flashlightAcquired: this.flashlightAcquired, holdingPiece: false }
     );
     if (action !== "cycleLight") {
       return;
@@ -2001,121 +1985,16 @@ export class M01GreyboxBootstrap extends Component {
     this.syncVisualState();
   }
 
-  private suppressRootClickOnce(): void {
-    this.suppressNextRootClick = true;
-    setTimeout(() => {
-      this.suppressNextRootClick = false;
-    }, 0);
-  }
-
-  private tryHandleTokenClick(
-    node: Node,
-    token: M01GreyboxTokenNode,
-    session: NonNullable<ReturnType<typeof endDragSession>["outcome"]["session"]>
-  ): boolean {
-    // 拼片走"点击拿起 / 再点放下"开关模型: 按下到松开无论是否移动都当一次点击 —— 松开【绝不】把片掉回物理
-    // (旧的拖拽结算 handleTokenDrop 在未落到目标上时会 releaseFragmentBodyToPhysics 让片坠落, 正是用户报的
-    // "点一下松手拼片就掉了": 一次点击难免有几像素位移→被判成拖拽→松手坠落)。filters 等非拼片仍按位移分点击/拖拽。
-    const isFragmentInteraction = this.heldFragmentId !== undefined || token.kind === "fragment";
-    const movedSquared =
-      session.totalDelta.x * session.totalDelta.x + session.totalDelta.y * session.totalDelta.y;
-    if (!isFragmentInteraction && movedSquared > CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD) {
-      return false;
-    }
-
-    if (this.heldFragmentId) {
-      // 点持握拼片: 已有挂起的放下(此即窗口内第二击)→ 双击 → 转 90°, 取消放下; 否则第一击 → 挂起延迟放下。
-      if (this.pendingDropTimer !== undefined && this.pendingDropFragmentId === this.heldFragmentId) {
-        this.cancelPendingHeldDrop();
-        this.rotateHeldFragmentClockwise();
-        return true;
-      }
-      this.scheduleHeldFragmentDrop(session.currentPosition);
-      return true;
-    }
-
-    if (token.kind === "fragment") {
-      this.handleFragmentClick(node, token, session.currentPosition, session.pointerId);
-      return true;
-    }
-
-    return false;
-  }
-
-  /** 挂起延迟放下(ROTATE_DOUBLE_CLICK_MS): 窗口内若来第二击则被取消改为旋转; 超时无第二击才真正放下。 */
-  private scheduleHeldFragmentDrop(position: M01GreyboxPoint): void {
-    this.cancelPendingHeldDrop();
-    const fragmentId = this.heldFragmentId;
-    this.pendingDropFragmentId = fragmentId;
-    this.pendingDropTimer = setTimeout(() => {
-      this.pendingDropTimer = undefined;
-      this.pendingDropFragmentId = undefined;
-      if (this.heldFragmentId === fragmentId) {
-        this.placeHeldFragmentAtPosition(position); // 仍持同一片才放下(中途已被别的放置路径处理则跳过)
-      }
-    }, ROTATE_DOUBLE_CLICK_MS);
-  }
-
-  private cancelPendingHeldDrop(): void {
-    if (this.pendingDropTimer !== undefined) {
-      clearTimeout(this.pendingDropTimer);
-      this.pendingDropTimer = undefined;
-    }
-    this.pendingDropFragmentId = undefined;
-  }
-
-  private handleFragmentClick(
-    node: Node,
-    token: M01GreyboxTokenNode,
-    position: M01GreyboxPoint,
-    pointerId: string | number
-  ): void {
-    if (!this.session) {
-      this.resetTokenNode(node, token);
-      return;
-    }
-
-    const picked = this.session.pickFragment(token.controllerId);
-    this.setStatus(picked.status);
-    this.clearHintTargets();
-    this.syncFeedbackFromSession();
-    this.syncVisualState();
-    if (!picked.accepted) {
-      this.resetTokenNode(node, token);
-      return;
-    }
-
-    this.heldFragmentId = token.controllerId;
-    this.heldPointerId = pointerId;
-    this.setFragmentPointerControl(node, true);
-    const currentPosition = this.pointFromNodePosition(node.position);
-    this.heldFragmentPointerOffset = {
-      x: currentPosition.x - position.x,
-      y: currentPosition.y - position.y
-    };
-    this.tokenPositions.set(token.controllerId, currentPosition);
-    this.redrawAndPersistManualTargetDraft();
-  }
-
-  private rotateHeldFragmentClockwise(): void {
-    const heldFragmentId = this.heldFragmentId;
-    if (!heldFragmentId) {
-      this.setFeedback("先选中一个拼片");
-      return;
-    }
-
-    const entry = this.greyboxNodes.get(heldFragmentId);
+  /** 原地把拼片顺时针转 90°(累加, 连点连转); 角度写入 tokenRotations 供后续落定吸附判定。 */
+  private rotateFragmentClockwise(fragmentId: string): void {
+    const entry = this.greyboxNodes.get(fragmentId);
     if (!entry) {
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
-      this.setFeedback("先选中一个拼片");
       return;
     }
 
-    const currentRotation = this.tokenRotations.get(heldFragmentId) ?? 0;
+    const currentRotation = this.tokenRotations.get(fragmentId) ?? 0;
     const nextRotation = (currentRotation + 90) % 360;
-    this.tokenRotations.set(heldFragmentId, nextRotation);
+    this.tokenRotations.set(fragmentId, nextRotation);
     entry.node.setRotationFromEuler(0, 0, nextRotation);
     this.redrawAndPersistManualTargetDraft();
     this.setFeedback("已旋转90°");
@@ -2172,9 +2051,6 @@ export class M01GreyboxBootstrap extends Component {
       this.trackWeakSnappedFragment(action.evidenceId, action.fragmentId);
       this.snapNodeToEvidence(node, token, action.evidenceId, dropPosition);
       this.parkFragmentBodyAtSnap(node);
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
       this.clearHintTargets();
       this.trySubmitWeakSnappedEvidencePair(action.evidenceId);
       this.tryValidateCompleteEvidenceCandidate();
@@ -2195,9 +2071,6 @@ export class M01GreyboxBootstrap extends Component {
       this.removeWeakSnappedFragment(action.fragmentId);
       const placed = this.session.placeHeldFragment(action.position);
       this.setStatus(placed.status);
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
@@ -2226,9 +2099,6 @@ export class M01GreyboxBootstrap extends Component {
       const freePosition = action.position ?? dropPosition;
       const placed = this.session.placeHeldFragment(freePosition);
       this.setStatus(placed.status);
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
       this.clearHintTargets();
       this.syncFeedbackFromSession();
       this.syncVisualState();
@@ -2240,78 +2110,6 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.resetTokenNode(node, token);
-  }
-
-  private placeHeldFragmentAt(event: M01GreyboxPointerEvent): void {
-    if (this.suppressNextRootClick) {
-      this.suppressNextRootClick = false;
-      return;
-    }
-
-    const heldFragmentId = this.heldFragmentId;
-    if (!heldFragmentId) {
-      return;
-    }
-
-    const entry = this.greyboxNodes.get(heldFragmentId);
-    if (!entry) {
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
-      return;
-    }
-
-    this.placeHeldFragmentAtPosition(this.eventToLocalPoint(event));
-  }
-
-  private moveHeldFragmentWithPointer(event: M01GreyboxPointerEvent): void {
-    const heldFragmentId = this.heldFragmentId;
-    if (!heldFragmentId || this.heldPointerId !== this.pointerIdForEvent(event)) {
-      return;
-    }
-    // 单击放下消歧窗口内冻住(不再跟指针): 落点定在点击处、消除"跟手又弹回"的抖动; 若是双击→旋转会解冻。
-    if (this.pendingDropTimer !== undefined) {
-      return;
-    }
-
-    const entry = this.greyboxNodes.get(heldFragmentId);
-    if (!entry) {
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
-      return;
-    }
-
-    const position = this.resolveHeldFragmentPosition(this.eventToLocalPoint(event));
-    entry.node.setPosition(position.x, position.y, 0);
-    this.tokenPositions.set(heldFragmentId, position);
-    this.redrawAndPersistManualTargetDraft();
-  }
-
-  private placeHeldFragmentAtPosition(position: M01GreyboxPoint): void {
-    this.cancelPendingHeldDrop(); // 任意放置路径都清掉挂起的延迟放下, 防延后再触发一次
-    const heldFragmentId = this.heldFragmentId;
-    if (!heldFragmentId) {
-      return;
-    }
-
-    const entry = this.greyboxNodes.get(heldFragmentId);
-    if (!entry) {
-      this.heldFragmentId = undefined;
-      this.heldPointerId = undefined;
-      this.heldFragmentPointerOffset = null;
-      return;
-    }
-
-    this.handleTokenDrop(entry.node, entry.token, this.resolveHeldFragmentPosition(position));
-  }
-
-  private resolveHeldFragmentPosition(pointerPosition: M01GreyboxPoint): M01GreyboxPoint {
-    const offset = this.heldFragmentPointerOffset ?? { x: 0, y: 0 };
-    return {
-      x: pointerPosition.x + offset.x,
-      y: pointerPosition.y + offset.y
-    };
   }
 
   private pointFromNodePosition(position: Readonly<{ x: number; y: number }>): M01GreyboxPoint {
@@ -2623,9 +2421,6 @@ export class M01GreyboxBootstrap extends Component {
 
     const fragmentIds = this.session.resetCandidateStructure();
     this.weakSnappedFragmentsByEvidence.clear();
-    this.heldFragmentId = undefined;
-    this.heldPointerId = undefined;
-    this.heldFragmentPointerOffset = null;
     for (const fragmentId of fragmentIds) {
       const entry = this.greyboxNodes.get(fragmentId);
       if (entry) {

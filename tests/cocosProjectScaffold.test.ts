@@ -814,28 +814,29 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain('entry.token.kind === "evidence"');
   });
 
-  it("supports M01 click-pick and click-place alongside drag placement", () => {
+  it("routes M01 fragment release by movement: press-drag = move, in-place tap = rotate (no held/hover state)", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("CLICK_DRAG_THRESHOLD");
     expect(bootstrap).toContain("FRAGMENT_INPUT_HIT_SIZE");
-    expect(bootstrap).toContain("heldFragmentId");
-    expect(bootstrap).toContain("heldPointerId");
-    expect(bootstrap).toContain("moveHeldFragmentWithPointer");
-    expect(bootstrap).toContain("handleFragmentClick");
-    expect(bootstrap).toContain("placeHeldFragmentAt");
-    expect(bootstrap).toContain("placeHeldFragmentAtPosition");
-    // 持握时单击=挂起延迟放下(等窗口看是否双击); 真正放下在延迟到时 / 别处放置时结算。
-    expect(bootstrap).toContain("this.scheduleHeldFragmentDrop(session.currentPosition);");
-    expect(bootstrap).toContain("tryHandleTokenClick");
+
+    // 旧"持握悬浮"子系统已彻底删除: 触屏抬指后无指针可悬浮跟随, 故拼片不再跨手势挂在指针上。
+    expect(bootstrap).not.toContain("heldFragmentId");
+    expect(bootstrap).not.toContain("heldPointerId");
+    expect(bootstrap).not.toContain("moveHeldFragmentWithPointer");
+    expect(bootstrap).not.toContain("handleFragmentClick");
+    expect(bootstrap).not.toContain("placeHeldFragmentAt");
+    expect(bootstrap).not.toContain("scheduleHeldFragmentDrop");
+    expect(bootstrap).not.toContain("tryHandleTokenClick");
+    expect(bootstrap).not.toContain("pendingDropTimer");
+    expect(bootstrap).not.toContain("ROTATE_DOUBLE_CLICK_MS");
+
     expect(bootstrap).toContain("if (!this.dragState.active) {\n      this.clearActiveDrag();");
-    expect(bootstrap).toContain("this.heldPointerId !== this.pointerIdForEvent(event)");
-    expect(bootstrap).toContain("this.tokenPositions.set(heldFragmentId, position)");
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.width');
     expect(bootstrap).toContain('token.kind === "fragment" ? FRAGMENT_INPUT_HIT_SIZE : token.size.height');
   });
 
-  it("holds M01 fragment: single-click drops (deferred), double-click rotates 90° (no on-screen button)", () => {
+  it("M01 fragment touch-end: ≤threshold tap rotates 90° in place then drops, else drag-places (no on-screen button)", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     // 旋转按钮已删: 字段/创建/节点/标签全不应再出现。
@@ -844,19 +845,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("M01Rotate90Button");
     expect(bootstrap).not.toContain('addButtonLabel(buttonNode, "旋转90°")');
 
-    // 持握时: 第一击挂起延迟放下; 窗口内第二击(pendingDropTimer 已存在)= 双击 → 取消放下、转 90°。
     expect(bootstrap).toContain("private readonly tokenRotations = new Map<string, number>();");
-    expect(bootstrap).toContain(
-      "this.pendingDropTimer !== undefined && this.pendingDropFragmentId === this.heldFragmentId"
-    );
-    expect(bootstrap).toContain("this.cancelPendingHeldDrop();\n        this.rotateHeldFragmentClockwise();");
-    expect(bootstrap).toContain("}, ROTATE_DOUBLE_CLICK_MS);");
-    // 单击放下消歧窗口内冻住拼片(不跟指针), 落点定在点击处。
-    expect(bootstrap).toContain("if (this.pendingDropTimer !== undefined) {\n      return;\n    }");
-    // 90° 步进逻辑保留(够到 90/180 目标槽)。
+
+    // 释放分流: 位移 ≤ 阈值 = 原地轻点 → 转 90°; 之后无论点/拖都走同一条 handleTokenDrop 落定。
+    expect(bootstrap).toContain("movedSquared <= CLICK_DRAG_THRESHOLD * CLICK_DRAG_THRESHOLD");
+    expect(bootstrap).toContain("this.rotateFragmentClockwise(token.controllerId)");
+    expect(bootstrap).toContain("this.handleTokenDrop(node, token, session.currentPosition);");
+
+    // 90° 步进逻辑保留(够到 90/180 目标槽), 连点累加。
     expect(bootstrap).toContain("const nextRotation = (currentRotation + 90) % 360");
     expect(bootstrap).toContain("entry.node.setRotationFromEuler(0, 0, nextRotation)");
-    expect(bootstrap).toContain("this.tokenRotations.set(heldFragmentId, nextRotation)");
+    expect(bootstrap).toContain("this.tokenRotations.set(fragmentId, nextRotation)");
   });
 
   it("keeps fragment drags alive when mouse move and mouse up finish outside the token node", () => {
@@ -1191,7 +1190,6 @@ describe("Cocos Creator project scaffold", () => {
       "this.tokenPositions.set(token.controllerId, this.pointFromNodePosition(node.position));"
     );
     expect(bootstrap).toContain("this.resolveActiveFragmentDragTarget(active.currentPosition)");
-    expect(bootstrap).toContain("private resolveHeldFragmentPosition(pointerPosition: M01GreyboxPoint)");
     expect(bootstrap).toContain("private pointFromNodePosition");
   });
 
