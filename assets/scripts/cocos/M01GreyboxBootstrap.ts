@@ -102,7 +102,6 @@ import { M01PhysicsBoundary } from "./M01PhysicsBoundary.ts";
 import { M01PhysicsPile } from "./M01PhysicsPile.ts";
 import { M01IntroSequence } from "./M01IntroSequence.ts";
 import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
-import { rotationReseatDeltaY } from "./M01PhysicsCollider.ts";
 
 const { ccclass, property } = _decorator;
 // ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
@@ -2068,24 +2067,40 @@ export class M01GreyboxBootstrap extends Component {
 
     const currentRotation = this.tokenRotations.get(fragmentId) ?? 0;
     const nextRotation = (currentRotation + 90) % 360;
-    // 补偿基准必须用【节点实际角度】, 不能用 tokenRotations: 拼片是物理翻滚落定的(M01PhysicsPile 给随机初始
-    // 角且 body 不锁转), tokenRotations 初始为 0 从不回写实际角。用它当基准会让所有片均匀抬高/下沉。读真实
-    // eulerAngles.z 算"转前最低点世界 Y", 转后保持它不变(转前贴着什么、转后还贴着)。圆形无 polygon → 不补偿。
+    // 转后保持碰撞体【最低角的世界 Y 不变】(转前贴着什么、转后还贴着), 否则绕中心转会改变最低伸出量、片探到
+    // 地平线下。基准必须读引擎实算的世界坐标(convertToWorldSpaceAR), 不能自己用 euler 重建: 拼片是物理翻滚
+    // 落定的, 四元数→eulerAngles 有分解歧义(同朝向可能解成 (180,180,0)), 自己按 .z 转会系统性跑偏。圆形无
+    // polygon → 各角同高不需补偿。
     const polygon = entry.node.getComponent(PolygonCollider2D);
-    const actualRotationZ = entry.node.eulerAngles.z;
+    const uiTransform = entry.node.getComponent(UITransform);
+    const beforeLowestWorldY =
+      polygon && uiTransform ? this.lowestColliderWorldY(uiTransform, polygon) : null;
     this.tokenRotations.set(fragmentId, nextRotation);
     entry.node.setRotationFromEuler(0, 0, nextRotation);
-    if (polygon) {
-      const points = polygon.points.map((p) => ({ x: p.x, y: p.y }));
-      const deltaY = rotationReseatDeltaY(points, actualRotationZ, nextRotation);
-      if (deltaY !== 0) {
-        const reseated = { x: entry.node.position.x, y: entry.node.position.y + deltaY };
+    if (polygon && uiTransform && beforeLowestWorldY !== null) {
+      const afterLowestWorldY = this.lowestColliderWorldY(uiTransform, polygon);
+      const shiftY = beforeLowestWorldY - afterLowestWorldY;
+      if (shiftY !== 0) {
+        const reseated = { x: entry.node.position.x, y: entry.node.position.y + shiftY };
         entry.node.setPosition(reseated.x, reseated.y, 0);
         this.tokenPositions.set(fragmentId, reseated);
       }
     }
     this.redrawAndPersistManualTargetDraft();
     this.setFeedback("已旋转90°");
+  }
+
+  /** 碰撞体各顶点经引擎真实世界变换(含旋转/缩放/锚点)后的最低世界 Y。用引擎算、绕开 euler 分解歧义。 */
+  private lowestColliderWorldY(uiTransform: UITransform, polygon: PolygonCollider2D): number {
+    const out = new Vec3();
+    let minY = Number.POSITIVE_INFINITY;
+    for (const p of polygon.points) {
+      uiTransform.convertToWorldSpaceAR(new Vec3(p.x, p.y, 0), out);
+      if (out.y < minY) {
+        minY = out.y;
+      }
+    }
+    return minY;
   }
 
   private handleTokenDrop(node: Node, token: M01GreyboxTokenNode, dropPosition: M01GreyboxPoint): void {
