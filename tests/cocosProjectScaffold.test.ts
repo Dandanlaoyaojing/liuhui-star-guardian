@@ -482,7 +482,6 @@ describe("Cocos Creator project scaffold", () => {
   it("lets the left target reference thumbnail expand without showing the ToolCard early", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("M01TargetReferenceCircleFrame");
     expect(bootstrap).toContain("toggleTargetReferenceZoom");
     expect(bootstrap).toContain("M01TargetReferenceZoom");
     expect(bootstrap).toContain("M01TargetReferenceZoomCard");

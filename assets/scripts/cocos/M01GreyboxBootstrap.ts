@@ -1298,23 +1298,6 @@ export class M01GreyboxBootstrap extends Component {
     }
   }
 
-  private addTargetReferenceCircleFrame(parent: Node, size: { width: number; height: number }): void {
-    const frameNode = new Node("M01TargetReferenceCircleFrame");
-    parent.addChild(frameNode);
-
-    const transform = frameNode.addComponent(UITransform);
-    transform.setContentSize(size.width, size.height);
-
-    const graphics = frameNode.addComponent(Graphics);
-    const radius = Math.min(size.width, size.height) / 2;
-    graphics.lineWidth = 3;
-    graphics.strokeColor = new Color(44, 43, 38, 210);
-    graphics.fillColor = new Color(247, 240, 220, 36);
-    graphics.circle(0, 0, radius);
-    graphics.fill();
-    graphics.stroke();
-  }
-
   private bindGreyboxInput(node: Node, token: M01GreyboxTokenNode): void {
     if (token.kind === "reference_pattern") {
       node.on("touch-end", () => this.toggleTargetReferenceZoom(), this);
@@ -2943,24 +2926,6 @@ export function drawTokenShape(graphics: Graphics, token: M01GreyboxTokenNode): 
 
 function isM01StandardPieceToken(token: M01GreyboxTokenNode): boolean {
   return token.kind === "fragment";
-}
-
-function drawStandardPieceShape(
-  graphics: Graphics,
-  shapeToken: string,
-  size: { width: number; height: number }
-): void {
-  if (shapeToken === "triangle") {
-    drawExactEquilateralTriangle(graphics, size.width, size.height);
-    return;
-  }
-
-  if (shapeToken === "hexagon") {
-    drawExactRegularHexagon(graphics, size.width, size.height);
-    return;
-  }
-
-  graphics.circle(0, 0, Math.min(size.width, size.height) / 2);
 }
 
 function drawGear(graphics: Graphics, radius: number): void {
