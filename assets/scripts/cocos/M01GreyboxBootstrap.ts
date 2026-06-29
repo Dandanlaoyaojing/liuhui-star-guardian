@@ -92,7 +92,6 @@ import {
   buildM01GreyboxTargetOverlapEvidencePlan,
   getM01GreyboxRuntimeLightEdgeResourceForToken,
   getM01GreyboxRuntimeLightMaskResourceForToken,
-  getM01GreyboxTargetReferenceCardResource,
   getM01GreyboxToolCardFrameResource,
   getM01GreyboxRuntimeSpriteResourceForToken,
   type M01GreyboxRuntimeSpriteResource
@@ -1350,11 +1349,6 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const resource = getM01GreyboxTargetReferenceCardResource();
-    if (!resource) {
-      return;
-    }
-
     const zoomRoot = new Node("M01TargetReferenceZoom");
     this.greyboxRoot.addChild(zoomRoot);
     this.targetReferenceZoomRoot = zoomRoot;
@@ -1381,21 +1375,53 @@ export class M01GreyboxBootstrap extends Component {
     circleFrame.fill();
     circleFrame.stroke();
 
-    const spriteNode = new Node("M01TargetReferenceZoomImage");
-    cardNode.addChild(spriteNode);
-    const spriteTransform = spriteNode.addComponent(UITransform);
-    spriteTransform.setContentSize(310, 173);
-    const sprite = spriteNode.addComponent(Sprite);
-    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-    resources.load(resource.resourcesLoadPath, SpriteFrame, (error, spriteFrame) => {
-      if (error || !spriteFrame) {
-        this.setFeedback(
-          this.formatText("loadFailed", { reason: error?.message ?? resource.resourcesLoadPath })
-        );
-        return;
+    // 放大卡 = 代码重画盘面重叠证据(同一几何 + 同一 colorForTargetOverlapEvidence 显色), 不再贴烤死 PNG ——
+    // 调显色时卡自动同步。按 bbox 半对角线缩放到圆内(INNER_RADIUS<圆半径 180, 任意角点都不出圆)。
+    const overlaps = buildM01GreyboxTargetOverlapEvidencePlan(this.layout).overlaps.filter(
+      (overlap) => overlap.outline.length >= 3
+    );
+    if (overlaps.length > 0) {
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      for (const overlap of overlaps) {
+        for (const point of overlap.outline) {
+          const ax = overlap.position.x + point.x;
+          const ay = overlap.position.y + point.y;
+          minX = Math.min(minX, ax);
+          minY = Math.min(minY, ay);
+          maxX = Math.max(maxX, ax);
+          maxY = Math.max(maxY, ay);
+        }
       }
-      sprite.spriteFrame = spriteFrame;
-    });
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const INNER_RADIUS = 150;
+      const halfDiagonal = Math.hypot(maxX - minX, maxY - minY) / 2;
+      const scale = halfDiagonal > 0 ? INNER_RADIUS / halfDiagonal : 1;
+
+      for (const overlap of overlaps) {
+        const overlapNode = new Node(`M01TargetReferenceZoomOverlap_${overlap.evidenceId}`);
+        cardNode.addChild(overlapNode);
+        overlapNode.setPosition(
+          (overlap.position.x - centerX) * scale,
+          (overlap.position.y - centerY) * scale,
+          0
+        );
+        overlapNode.addComponent(UITransform);
+        const overlapGraphics = overlapNode.addComponent(Graphics);
+        overlapGraphics.lineWidth = 2.5;
+        overlapGraphics.fillColor = colorForTargetOverlapEvidence(overlap.colorToken);
+        overlapGraphics.strokeColor = new Color(44, 43, 38, 205);
+        drawPolygon(
+          overlapGraphics,
+          overlap.outline.map((point) => ({ x: point.x * scale, y: point.y * scale }))
+        );
+        overlapGraphics.fill();
+        overlapGraphics.stroke();
+      }
+    }
   }
 
   private bindGlobalPointerInput(): void {
@@ -3381,8 +3407,10 @@ function colorForManualTargetBlendOverlay(colorToken: string): Color {
   return new Color(r, g, b, 232);
 }
 
+// 线索证据(盘面重叠 + 放大参考卡)与"拼片被照亮的显色"同色: 共用 OBSERVED_FRAGMENT_TINT_COLORS。
+// 以后调显色(OBSERVED_TINT_SATURATION / 各调色板), 线索自动同步, 不必再单独改卡。
 function colorForTargetOverlapEvidence(colorToken: string): Color {
-  const [r, g, b] = colorForTargetBlendRgb(colorToken) ?? [150, 132, 118];
+  const [r, g, b] = OBSERVED_FRAGMENT_TINT_COLORS[colorToken as M01BlendColor] ?? [150, 132, 118];
 
   return new Color(r, g, b, 232);
 }

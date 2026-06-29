@@ -485,7 +485,9 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("toggleTargetReferenceZoom");
     expect(bootstrap).toContain("M01TargetReferenceZoom");
     expect(bootstrap).toContain("M01TargetReferenceZoomCard");
-    expect(bootstrap).toContain("getM01GreyboxTargetReferenceCardResource");
+    // 放大卡用代码重画盘面重叠证据(同色同几何), 不再贴 PNG。
+    expect(bootstrap).toContain("M01TargetReferenceZoomOverlap_");
+    expect(bootstrap).toContain("buildM01GreyboxTargetOverlapEvidencePlan(this.layout)");
     expect(bootstrap).toContain('token.kind === "reference_pattern"');
     expect(bootstrap).not.toContain("M01ToolCardPreviewTitleBeforeCompletion");
   });
@@ -1277,7 +1279,6 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("SpriteFrame");
     expect(bootstrap).toContain("sprite.sizeMode = Sprite.SizeMode.CUSTOM");
     expect(bootstrap).toContain("resources.load(layer.resourcesLoadPath");
-    expect(bootstrap).toContain("resources.load(resource.resourcesLoadPath");
     expect(bootstrap).toContain("M01ArtSprite_");
     expect(bootstrap).toContain("M01StaticArt_");
     expect(bootstrap).toContain("resource.displaySize ?? token.size");
