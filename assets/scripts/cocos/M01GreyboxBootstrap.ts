@@ -126,7 +126,7 @@ const M01_TARGET_BLEND_RGB: Record<
   orange: [206, 154, 114]
 };
 // Base/beam RGBs still drive the three same-color flashlight observations.
-// Blend observations reuse the target-evidence palette so clues and lit pieces match.
+// Clue/evidence blends reuse the (saturation-boosted) lit-piece palette so clues and lit pieces match.
 const M01_BASE_RGB: Record<"red" | "yellow" | "blue", [number, number, number]> = {
   red:    [230, 120, 110],
   yellow: [240, 220, 130],
@@ -3388,7 +3388,12 @@ function colorForTargetOverlapEvidence(colorToken: string): Color {
 }
 
 function colorForTargetBlendRgb(colorToken: string): [number, number, number] | undefined {
-  return M01_TARGET_BLEND_RGB[colorToken as Exclude<M01BlendColor, M01BaseColor>];
+  // 线索卡/重叠证据的混色 = 拼片显色同一套(已提饱和), 保证"线索 blend == 亮片 blend"。
+  // 同色(红/黄/蓝)线索另有底色, 返回 undefined 让调用方回退本地表。
+  if (colorToken === "orange" || colorToken === "green" || colorToken === "purple") {
+    return OBSERVED_FRAGMENT_TINT_COLORS[colorToken];
+  }
+  return undefined;
 }
 
 function boundsForPoints(points: M01GreyboxPoint[]): { width: number; height: number } {
