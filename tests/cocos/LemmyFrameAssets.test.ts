@@ -31,7 +31,8 @@ const FRAME_ACTIONS = [
   { action: "idleback", frameCount: 19 }, // 2026-06-17 去重: 原48帧含27重复/held帧→19独立帧·相位闭合(fps 24→10)
   { action: "walkback", frameCount: 12 }, // 2026-06-17 去重: 原28帧过采样含重复端点→12独立帧·相位闭合(fps 35→15)
   { action: "earsup", frameCount: 38 },
-  { action: "headbutt", frameCount: 124 }
+  { action: "headbutt", frameCount: 124 },
+  { action: "celebrate", frameCount: 93 } // 通关庆祝(2026-06-30 两跳定稿): jump模式抽110→贪心去重(TH3.0)+砍静止尾→93帧
 ] as const;
 
 describe("Lemmy frame-sequence assets (idle / walk / reach / startle / crouch / 耳后贴系列)", () => {

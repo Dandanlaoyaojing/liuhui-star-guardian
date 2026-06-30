@@ -280,6 +280,8 @@ export class M01IntroSequence extends Component {
   private walkBoostMult = 1;
   private lastRoamTapMs = 0;
   private pickupInProgress = false;
+  /** 通关庆祝起置真: 锁掉点地走位(庆祝/通关终态不再 roam, 避免点地打断 3.3s 庆祝或与其加载竞态)。 */
+  private celebrating = false;
   /** 莱米当前是否耳后贴(走近篮下时已收耳)。供 roam 走位/顶篮判断是否要再收/抬耳, 避免重复收耳。 */
   private earsFolded = false;
   // 统一软绳(M01RopePhysics): 钉子=链头(钉死)、篮子=链尾重粒子(this.node 局部坐标=世界坐标)。
@@ -323,7 +325,8 @@ export class M01IntroSequence extends Component {
         "startle",
         "crouch",
         "reach",
-        "headshake"
+        "headshake",
+        "celebrate"
       ] as const) {
         void actor.preloadFrames(id);
       }
@@ -360,7 +363,7 @@ export class M01IntroSequence extends Component {
   private handleStageTap(event: EventTouch): void {
     const roamable =
       this.phase === "roaming" || this.phase === "readyToHeadbutt" || this.phase === "waitingPickup" || this.phase === "acquired";
-    if (!roamable || this.headbuttInProgress || this.pickupInProgress) return;
+    if (!roamable || this.headbuttInProgress || this.pickupInProgress || this.celebrating) return;
     const worldX = event.getUILocation().x - CANVAS_HALF_WIDTH;
     // 频繁连点 → 催它快来: 据距上次点地的间隔累加走速倍率(见 nextWalkBoost), 应用到 roam 走时长。
     const now = Date.now();
@@ -442,6 +445,21 @@ export class M01IntroSequence extends Component {
     void this.lemmyActor?.playFrameAction("idleback").catch((error) => {
       if (!isExpectedLemmyActionCancel(error)) throw error;
     });
+  }
+
+  /** 通关/修复完成时的庆祝: 谜题已结束→隐藏手持手电, 正脸蹦跳欢呼播一遍, 落回站立后接 idle。
+   *  fire-and-forget; 无 actor(莱米已离场)则静默 no-op。手电隐藏后不再恢复(本关已通)。 */
+  playCelebrationThenIdle(): void {
+    const actor = this.lemmyActor;
+    if (!actor) return;
+    this.celebrating = true; // 锁掉点地走位: 庆祝期间/通关后不再 roam(handleStageTap 据此早返回)
+    if (this.flashlightNode) this.flashlightNode.active = false; // syncHeldFlashlight 只移位不重激活 → 保持隐藏
+    void actor
+      .playFrameAction("celebrate")
+      .then(() => actor.playIdle())
+      .catch((error) => {
+        if (!isExpectedLemmyActionCancel(error)) throw error;
+      });
   }
 
   private spawnBasket(): void {

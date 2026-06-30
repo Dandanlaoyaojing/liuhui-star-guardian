@@ -100,3 +100,11 @@ iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给�
 - 抽帧: bodynorm 目录模式 + uniform_torso=131(色彩参考用 v9 正脸定妆=不跑色), 归一脚底 490/totH≈430 与 idle 同屏高。**只取第一次摇**(head_x 中点 f14 回正处截断)→ 15 帧; contract fps 8(现场调 20→12→8)。
 - **转脸方案已放弃**: v9 正脸=平面脸、侧脸定妆=立体脸, 几何不自洽 → 即梦转头中段必生鬼眼(frames2video 形变 / multimodal2video 全能参考都试过, 后者还要 Dreamina 网页一次性内容授权)。结论: 不做转脸, reach(侧3/4)→ 切到正脸摇头 → idle。
 - 缘由链: 旧 reachmiss(踮脚两次失望)嫌不好看 → 引擎 tween 摇头=刚性整体晃被否 → 即梦只动头(第一版出成点头=见 nod)→ v9 正脸原地左右摇定稿。reachmiss 帧集留盘上可切回。
+
+## celebrate(2026-06-30 定稿 v3, 通关庆祝"正脸蹦跳欢呼" — 两跳/闭嘴/耳朵柔和)
+- 正源 `lemmy-celebrate-source.mp4`: frames2video 首尾双锁【v9 正脸定妆】(`lemmy-rabbit-front-canonical.png`)白底, 正面原地**只跳两下**、双前爪举起欢呼、**嘴始终闭合**、耳朵随身自然柔和摆动(不额外抖), 落回正面站立。submit_id `8e43f929-0f3d-4033-b360-0f62108cca6f`。1440²/60fps/5s。
+- **为什么两跳**: 5s 源帧总数有限, 三跳时帧分三份→第三跳源帧太稀+顶点出现冻结帧=卡顿(用户否)。改两跳→每跳帧更密、峰值帧间差 19.5→15.5、无冻结。
+- 抽帧: `extract-frames-bodynorm.py <mp4> lemmy-rabbit-front-canonical.png <out> celebrate 110 0.02 0.99 0.70 131 1`(uniform_torso=131 统一缩放=idle/headshake 同基准 + 末位 `1`=jump_mode 保腾空、按源地面线锚定)。
+- **后处理两步(治卡顿, 关键)**: ① 贪心去重 in-place, 相邻(对上一保留帧)平均像素差 **<3.0** 丢弃(即梦源有效帧率低→精确重复帧+顶点微停, 阈值 2.0 漏网了 2.2 的顶点冻结帧, 提到 3.0 才清干净); ② **砍静止长尾**: 找最后一个腾空帧(脚底≤484)其后留 3 帧站定截断(frames2video 强制尾帧=高站立定妆图→落地后又"长高"snap+一长串静止站立帧=回平静时像冻住)。最终 **93 帧**, 相邻差 min 3.18/中位 6.71/max 15.47、0 冻结、头顶 53 不触顶、离地 58px、躯干 131 同屏宽。trimType none meta 按 idle 模板逐帧新 uuid。
+- 产物: `assets/resources/art/characters/lemmy/celebrate/`(93 帧; 未接进运行时; 通关/修复完成播一遍→接 idle)。
+- 备选源 `lemmy-celebrate-3jump-alt-source.mp4`(submit_id `004a5a7d-d9d4-4600-9a38-fe4151b58c63`): 初版三跳、**张嘴**欢呼、耳朵带抖动。被两跳闭嘴版取代, 留作可重抽备选。(中间还有个三跳闭嘴版 submit_id `de1b07c7-ae19-4842-8d2d-77b0f1eadcf9` 也被弃, 要找回用 `dreamina query_result --submit_id=` 重下。)

@@ -2269,7 +2269,9 @@ export class M01GreyboxBootstrap extends Component {
     }
     const steps = (this.config?.repair?.steps ?? []) as RepairStepConfig[];
     if (steps.length === 0) {
-      this.renderCompletionToolCardIfAvailable(true); // 无修复配置: 直接收尾(向后兼容)
+      // 无修复配置: 直接收尾(向后兼容)。庆祝仍照播 —— 通关庆祝绑"完成"而非"有修复动画"。
+      this.introSequence?.playCelebrationThenIdle();
+      this.renderCompletionToolCardIfAvailable(true);
       return;
     }
     this.repairSequencePlaying = true;
@@ -2292,6 +2294,7 @@ export class M01GreyboxBootstrap extends Component {
     this.repairSequenceTimeouts.push(
       setTimeout(() => {
         this.repairSequencePlaying = false;
+        this.introSequence?.playCelebrationThenIdle(); // 修复动画完成 → 莱米正脸蹦跳庆祝一遍 → 接 idle
         this.renderCompletionToolCardIfAvailable(true);
       }, timeline.total * 1000)
     );

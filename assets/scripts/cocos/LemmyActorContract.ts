@@ -21,7 +21,9 @@ export type LemmyFrameActionId =
   // 2026-06-08 耳后贴系列(惊扰→顶篮): 收耳(立→后贴) / 耳后贴 idle / 耳后贴走 / 跳起顶篮 / 展耳(后贴→立)。
   // 渲染缩放见各动作 renderScale(逐帧/ramp 补回源姿势身高差, 脚底锚定, 接缝恒 404)。
   | "startleback"
-  | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup";
+  | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup"
+  // celebrate(2026-06-30): 通关/修复完成时的庆祝 — 正脸原地蹦两下欢呼(闭嘴/耳柔), 一次性 hold-last, 播完接 idle。
+  | "celebrate";
 /** Any Lemmy action id. (All actions are frame sequences now.) */
 export type LemmyActionId = LemmyFrameActionId;
 
@@ -286,6 +288,14 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   earsup: {
     dir: "art/characters/lemmy/earsup",
     fps: 24,
+    loop: false,
+    holdLast: true
+  },
+  // celebrate 通关庆祝(2026-06-30, 即梦正脸两跳定稿): 原地蹦两下、举爪欢呼、闭嘴、耳朵柔和摆动 → 落回站立。
+  // 一次性 hold-last(播完停末帧站姿), 调用方随后 playIdle 接管。93 帧, 脚底 490/躯干 131 与 idle 同基准(无 renderScale)。
+  celebrate: {
+    dir: "art/characters/lemmy/celebrate",
+    fps: 28, // 93帧≈3.3s; 嫌快/慢再调
     loop: false,
     holdLast: true
   }

@@ -28,9 +28,10 @@ describe("LemmyActor identity constants", () => {
   });
 });
 
-describe("Lemmy frame actions (12 frame-based: 5 base + reachmiss + startleback + 耳后贴系列)", () => {
-  it("registers all thirteen; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
+describe("Lemmy frame actions (frame-based: 5 base + reachmiss + startleback + 耳后贴系列 + celebrate)", () => {
+  it("registers all fourteen; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
     expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual([
+      "celebrate",
       "crouch",
       "earsback",
       "earsup",
@@ -54,7 +55,7 @@ describe("Lemmy frame actions (12 frame-based: 5 base + reachmiss + startleback 
       expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: true, holdLast: false });
     }
     // 一次性反应/转换(够篮/受惊/蹲/收耳/展耳/顶篮): loop false, hold-last 停末帧。
-    for (const id of ["reach", "startle", "startleback", "crouch", "earsback", "earsup", "headbutt", "headshake"] as const) {
+    for (const id of ["reach", "startle", "startleback", "crouch", "earsback", "earsup", "headbutt", "headshake", "celebrate"] as const) {
       expect(LEMMY_FRAME_ACTIONS[id]).toMatchObject({ loop: false, holdLast: true });
     }
   });
