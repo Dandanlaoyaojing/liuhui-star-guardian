@@ -99,7 +99,7 @@ import {
 import { formatM01GreyboxText, type M01GreyboxTextOverrides } from "./M01GreyboxText.ts";
 import { M01PhysicsBoundary } from "./M01PhysicsBoundary.ts";
 import { M01PhysicsPile } from "./M01PhysicsPile.ts";
-import { M01IntroSequence } from "./M01IntroSequence.ts";
+import { M01IntroSequence, BASKET_X } from "./M01IntroSequence.ts";
 import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
 
 const { ccclass, property } = _decorator;
@@ -114,7 +114,7 @@ const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
 const VALIDATION_FAILURE_FLASH_COUNT = 2;
 const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";
-const M01_HINT_ICON_DISPLAY_SIZE = { width: 24.5, height: 30 };
+const M01_HINT_ICON_DISPLAY_SIZE = { width: 62, height: 62 };
 const OBSERVED_FRAGMENT_TINT_ALPHA = 255;
 const M01_TARGET_BLEND_RGB: Record<
   Exclude<M01BlendColor, M01BaseColor>,
@@ -659,7 +659,6 @@ export class M01GreyboxBootstrap extends Component {
     this.addShapeNode(this.greyboxRoot, layout.gear);
     if (layout.evidence.length > 0) {
       this.addShapeNode(this.greyboxRoot, layout.board);
-      this.addBottomLightHintNote(this.greyboxRoot);
     }
     if (this.enableArtPreview) {
       this.renderStaticArtPreview(this.greyboxRoot, layout);
@@ -905,19 +904,6 @@ export class M01GreyboxBootstrap extends Component {
     return dx * dx + dy * dy <= radius * radius;
   }
 
-  private addBottomLightHintNote(parent: Node): Node {
-    const noteNode = new Node("M01BottomLightNote");
-    noteNode.setPosition(-372, -218, 0);
-    parent.addChild(noteNode);
-
-    const transform = noteNode.addComponent(UITransform);
-    transform.setContentSize(144, 82);
-
-    const graphics = noteNode.addComponent(Graphics);
-    drawBottomLightHintNote(graphics);
-    return noteNode;
-  }
-
   private drawBottomLight(state: M01BottomLightState): void {
     if (!this.bottomLightGraphics) {
       return;
@@ -983,11 +969,12 @@ export class M01GreyboxBootstrap extends Component {
 
   private addHintButton(parent: Node): Node {
     const buttonNode = new Node("M01HintButton");
-    buttonNode.setPosition(412, 244, 0);
+    // x = BASKET_X (M01IntroSequence) → 提示灯泡正对篮子正上方, 随篮子左右移动自动跟随; y 保持在篮子/钉子上方留白处
+    buttonNode.setPosition(BASKET_X, 180, 0);
     parent.addChild(buttonNode);
 
     const transform = buttonNode.addComponent(UITransform);
-    transform.setContentSize(54, 54);
+    transform.setContentSize(70, 70);
 
     this.addHintIcon(buttonNode);
     buttonNode.on("touch-end", () => this.requestHint(), this);
@@ -3258,75 +3245,6 @@ function cross(
     (edgeEnd.x - edgeStart.x) * (point.y - edgeStart.y) -
     (edgeEnd.y - edgeStart.y) * (point.x - edgeStart.x)
   );
-}
-
-function drawBottomLightHintNote(graphics: Graphics): void {
-  graphics.clear();
-  graphics.lineWidth = 1.5;
-  graphics.fillColor = new Color(244, 235, 201, 226);
-  graphics.strokeColor = new Color(72, 67, 55, 180);
-  graphics.rect(-72, -41, 144, 82);
-  graphics.fill();
-  graphics.stroke();
-
-  graphics.lineWidth = 1.25;
-  graphics.strokeColor = new Color(72, 67, 55, 150);
-  graphics.moveTo(-60, 24);
-  graphics.lineTo(-48, 30);
-  graphics.lineTo(-38, 20);
-  graphics.lineTo(-50, 14);
-  graphics.close();
-  graphics.stroke();
-
-  drawNoteArrow(graphics, -28, 20, 2, 20);
-  drawNoteLightBulb(graphics, 22, 20, false);
-  drawNoteArrow(graphics, 42, 4, 42, -16);
-  drawNoteLightBulb(graphics, 22, -24, true);
-
-  graphics.lineWidth = 1;
-  graphics.strokeColor = new Color(72, 67, 55, 96);
-  graphics.moveTo(-60, -26);
-  graphics.lineTo(-36, -30);
-  graphics.moveTo(-58, -14);
-  graphics.lineTo(-42, -10);
-}
-
-function drawNoteArrow(
-  graphics: Graphics,
-  fromX: number,
-  fromY: number,
-  toX: number,
-  toY: number
-): void {
-  graphics.lineWidth = 1.25;
-  graphics.strokeColor = new Color(72, 67, 55, 150);
-  graphics.moveTo(fromX, fromY);
-  graphics.lineTo(toX, toY);
-  graphics.lineTo(toX - 7, toY + 4);
-  graphics.moveTo(toX, toY);
-  graphics.lineTo(toX - 7, toY - 4);
-  graphics.stroke();
-}
-
-function drawNoteLightBulb(graphics: Graphics, x: number, y: number, lit: boolean): void {
-  graphics.lineWidth = lit ? 2 : 1.25;
-  graphics.fillColor = lit ? new Color(221, 181, 91, 94) : new Color(171, 164, 142, 48);
-  graphics.strokeColor = lit ? new Color(164, 124, 48, 174) : new Color(72, 67, 55, 128);
-  graphics.circle(x, y, lit ? 17 : 12);
-  graphics.fill();
-  graphics.stroke();
-  if (!lit) {
-    return;
-  }
-
-  graphics.lineWidth = 1.25;
-  graphics.strokeColor = new Color(164, 124, 48, 132);
-  for (let i = 0; i < 8; i += 1) {
-    const angle = (Math.PI * 2 * i) / 8;
-    graphics.moveTo(x + Math.cos(angle) * 21, y + Math.sin(angle) * 21);
-    graphics.lineTo(x + Math.cos(angle) * 29, y + Math.sin(angle) * 29);
-  }
-  graphics.stroke();
 }
 
 function colorForBottomLightFill(state: M01BottomLightState): Color {

@@ -78,7 +78,7 @@ const clampStageX = (x: number): number =>
 
 // Shallow wide tray basket suspended beneath the flashlight beam anchor (360, 110).
 const BASKET_DISPLAY = M01_INTRO_BASKET_DISPLAY_SIZE;
-const BASKET_X = 300; // 2026-06 右移 160→300: 拉开与左侧平台的距离(原 160 离平台太近)。钉/绳 pivot 与 BASKET_MOUTH_X 跟着自动走
+export const BASKET_X = 300; // 2026-06 右移 160→300: 拉开与左侧平台的距离(原 160 离平台太近)。钉/绳 pivot 与 BASKET_MOUTH_X 跟着自动走; 提示按钮 x 也引用它(M01GreyboxBootstrap)
 // Anchor the basket SPRITE bottom here (≈ the bowl bottom). Enlarging the basket
 // (M01_INTRO_BASKET_SCALE) then grows it UPWARD from this line, keeping Lemmy's
 // reach-to-the-bowl-bottom intact. (At scale 1.0 this is the old hand-tuned -61.)
