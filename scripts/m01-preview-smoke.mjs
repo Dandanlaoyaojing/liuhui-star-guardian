@@ -1753,11 +1753,15 @@ async function main() {
   }
 }
 
-main()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error(error.message);
-    process.exit(1);
-  });
+// 仅在被当作 CLI 直接运行时跑 main; 被测试 import(取 buildWrongCandidate 等)时不跑 ——
+// 否则顶层 main() 在无 Chrome 的 CI 上 reject→process.exit(1), 把整个 vitest run 拖红(本地有 Chrome 不触发)。
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error(error.message);
+      process.exit(1);
+    });
+}
