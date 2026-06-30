@@ -325,7 +325,6 @@ export class M01GreyboxBootstrap extends Component {
   private introSequence: M01IntroSequence | null = null;
   private pendingPhysicsFragments: { node: Node; shape: M01PhysicsShape; size: number }[] = [];
   private toolCardRoot: Node | null = null;
-  private targetReferenceZoomRoot: Node | null = null;
   private hintButtonRoot: Node | null = null;
   private feedbackLabel: Label | null = null;
   private activeDragNode: Node | null = null;
@@ -399,7 +398,6 @@ export class M01GreyboxBootstrap extends Component {
       this.session = M01GreyboxSession.fromConfig(m01Config, { text: this.text });
       this.layout = buildM01GreyboxLayout(m01Config, { text: this.text });
       this.toolCardRoot = null;
-      this.targetReferenceZoomRoot = null;
       this.hintButtonRoot = null;
       this.feedbackLabel = null;
       this.manualTargetBlendGraphics = null;
@@ -1293,9 +1291,6 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private bindGreyboxInput(node: Node, token: M01GreyboxTokenNode): void {
-    if (token.kind === "reference_pattern") {
-      node.on("touch-end", () => this.toggleTargetReferenceZoom(), this);
-    }
 
     if (token.kind === "slot") {
       node.on("touch-end", () => this.placeSelectedFragment(token.controllerId), this);
@@ -1322,92 +1317,6 @@ export class M01GreyboxBootstrap extends Component {
         this
       );
       node.on("mouse-leave" as any, () => this.setCanvasCursor("default"), this);
-    }
-  }
-
-  private toggleTargetReferenceZoom(): void {
-    if (this.targetReferenceZoomRoot) {
-      this.targetReferenceZoomRoot.active = false;
-      this.targetReferenceZoomRoot = null;
-      return;
-    }
-
-    if (!this.greyboxRoot || !this.layout?.referencePattern) {
-      return;
-    }
-
-    const zoomRoot = new Node("M01TargetReferenceZoom");
-    this.greyboxRoot.addChild(zoomRoot);
-    this.targetReferenceZoomRoot = zoomRoot;
-
-    const rootTransform = zoomRoot.addComponent(UITransform);
-    rootTransform.setContentSize(this.layout.canvas.width, this.layout.canvas.height);
-    zoomRoot.on("touch-end", () => this.toggleTargetReferenceZoom(), this);
-
-    const backdrop = zoomRoot.addComponent(Graphics);
-    backdrop.fillColor = new Color(36, 32, 26, 112);
-    backdrop.rect(-this.layout.canvas.width / 2, -this.layout.canvas.height / 2, this.layout.canvas.width, this.layout.canvas.height);
-    backdrop.fill();
-
-    const cardNode = new Node("M01TargetReferenceZoomCard");
-    zoomRoot.addChild(cardNode);
-    const cardTransform = cardNode.addComponent(UITransform);
-    cardTransform.setContentSize(360, 360);
-
-    const circleFrame = cardNode.addComponent(Graphics);
-    circleFrame.lineWidth = 4;
-    circleFrame.strokeColor = new Color(44, 43, 38, 230);
-    circleFrame.fillColor = new Color(247, 240, 220, 232);
-    circleFrame.circle(0, 0, 180);
-    circleFrame.fill();
-    circleFrame.stroke();
-
-    // 放大卡 = 代码重画盘面重叠证据(同一几何 + 同一 colorForTargetOverlapEvidence 显色), 不再贴烤死 PNG ——
-    // 调显色时卡自动同步。按 bbox 半对角线缩放到圆内(INNER_RADIUS<圆半径 180, 任意角点都不出圆)。
-    const overlaps = buildM01GreyboxTargetOverlapEvidencePlan(this.layout).overlaps.filter(
-      (overlap) => overlap.outline.length >= 3
-    );
-    if (overlaps.length > 0) {
-      let minX = Number.POSITIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
-      for (const overlap of overlaps) {
-        for (const point of overlap.outline) {
-          const ax = overlap.position.x + point.x;
-          const ay = overlap.position.y + point.y;
-          minX = Math.min(minX, ax);
-          minY = Math.min(minY, ay);
-          maxX = Math.max(maxX, ax);
-          maxY = Math.max(maxY, ay);
-        }
-      }
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const INNER_RADIUS = 150;
-      const halfDiagonal = Math.hypot(maxX - minX, maxY - minY) / 2;
-      const scale = halfDiagonal > 0 ? INNER_RADIUS / halfDiagonal : 1;
-
-      for (const overlap of overlaps) {
-        const overlapNode = new Node(`M01TargetReferenceZoomOverlap_${overlap.evidenceId}`);
-        cardNode.addChild(overlapNode);
-        overlapNode.setPosition(
-          (overlap.position.x - centerX) * scale,
-          (overlap.position.y - centerY) * scale,
-          0
-        );
-        overlapNode.addComponent(UITransform);
-        const overlapGraphics = overlapNode.addComponent(Graphics);
-        overlapGraphics.lineWidth = 2.5;
-        overlapGraphics.fillColor = colorForTargetOverlapEvidence(overlap.colorToken);
-        overlapGraphics.strokeColor = new Color(44, 43, 38, 205);
-        drawPolygon(
-          overlapGraphics,
-          overlap.outline.map((point) => ({ x: point.x * scale, y: point.y * scale }))
-        );
-        overlapGraphics.fill();
-        overlapGraphics.stroke();
-      }
     }
   }
 
@@ -3325,8 +3234,8 @@ function colorForManualTargetBlendOverlay(colorToken: string): Color {
   return new Color(r, g, b, 232);
 }
 
-// 线索证据(盘面重叠 + 放大参考卡)与"拼片被照亮的显色"同色: 共用 OBSERVED_FRAGMENT_TINT_COLORS。
-// 以后调显色(OBSERVED_TINT_SATURATION / 各调色板), 线索自动同步, 不必再单独改卡。
+// 盘面目标证据图与"拼片被照亮的显色"同色: 共用 OBSERVED_FRAGMENT_TINT_COLORS。
+// 以后调显色(OBSERVED_TINT_SATURATION / 各调色板), 目标证据自动同步。
 function colorForTargetOverlapEvidence(colorToken: string): Color {
   const [r, g, b] = OBSERVED_FRAGMENT_TINT_COLORS[colorToken as M01BlendColor] ?? [150, 132, 118];
 

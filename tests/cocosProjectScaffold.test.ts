@@ -479,16 +479,12 @@ describe("Cocos Creator project scaffold", () => {
     expect(persistence).toContain("M01_MANUAL_TARGET_STORAGE_KEY");
   });
 
-  it("lets the left target reference thumbnail expand without showing the ToolCard early", () => {
+  it("has no click-to-zoom reference card feature (removed: dead hot-zone, never hit-tested)", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("toggleTargetReferenceZoom");
-    expect(bootstrap).toContain("M01TargetReferenceZoom");
-    expect(bootstrap).toContain("M01TargetReferenceZoomCard");
-    // 放大卡用代码重画盘面重叠证据(同色同几何), 不再贴 PNG。
-    expect(bootstrap).toContain("M01TargetReferenceZoomOverlap_");
-    expect(bootstrap).toContain("buildM01GreyboxTargetOverlapEvidencePlan(this.layout)");
-    expect(bootstrap).toContain('token.kind === "reference_pattern"');
+    expect(bootstrap).not.toContain("toggleTargetReferenceZoom");
+    expect(bootstrap).not.toContain("M01TargetReferenceZoom");
+    expect(bootstrap).not.toContain("targetReferenceZoomRoot");
     expect(bootstrap).not.toContain("M01ToolCardPreviewTitleBeforeCompletion");
   });
 

@@ -879,8 +879,8 @@ export function getM01GreyboxToolCardFrameResource():
   );
 }
 
-// ⚠️ 自 2026-06 起 runtime 不再加载这张卡: 放大参考卡改由 M01GreyboxBootstrap 代码重画盘面重叠证据
-// (toggleTargetReferenceZoom)。此 getter + m01-target-reference-card.png 仅留作设计参考/测试夹具, 非僵尸面。
+// ⚠️ 自 2026-06 起 runtime 不再加载这张卡(点击放大参考卡功能已整体移除: 死热区从不命中)。
+// 此 getter + m01-target-reference-card.png 仅留作设计参考/测试夹具, 非僵尸面。
 export function getM01GreyboxTargetReferenceCardResource():
   | M01GreyboxRuntimeSpriteResource
   | undefined {
