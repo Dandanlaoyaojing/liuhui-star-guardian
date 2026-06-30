@@ -1,0 +1,21 @@
+# 最小质量门禁: 只跑仓库真实存在且本地已验证通过的脚本(typecheck + test)。
+# smoke:m01-preview* 需要运行中的 Cocos 编辑器预览服务器, CI 无编辑器 → 不纳入。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
