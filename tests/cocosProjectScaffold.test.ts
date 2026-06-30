@@ -246,7 +246,7 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain(
       'const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";'
     );
-    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 24.5, height: 30 };");
+    expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 62, height: 62 };");
     expect(hintButtonBlock).toContain("this.addHintIcon(buttonNode);");
     expect(hintButtonBlock).not.toContain('this.addButtonLabel(buttonNode, this.formatText("hintButton"))');
     expect(bootstrap).toContain('const iconNode = new Node("M01HintButtonIcon");');
@@ -874,13 +874,14 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("pointerId: this.pointerIdForActiveDragEvent(event)");
   });
 
-  it("renders M01 validation bottom light and sketch hint note without the legacy beam stack", () => {
+  it("renders M01 validation bottom light without the legacy beam stack", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
     expect(bootstrap).toContain("M01BottomLight");
-    expect(bootstrap).toContain("M01BottomLightNote");
+    // 旧 dev 底光提示便签(M01BottomLightNote)已随 e115afa 移除, 提示改走灯泡按钮。
+    expect(bootstrap).not.toContain("M01BottomLightNote");
     expect(bootstrap).toContain("drawBottomLight");
-    expect(bootstrap).toContain("drawBottomLightHintNote");
+    expect(bootstrap).not.toContain("drawBottomLightHintNote");
     expect(bootstrap).toContain("colorForBottomLightFill");
     expect(bootstrap).toContain('bottomLight === "steady_on"');
     expect(bootstrap).toContain('bottomLight === "flash_then_off"');
