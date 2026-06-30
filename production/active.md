@@ -1,10 +1,25 @@
 # Active Work State
 
-Last updated: 2026-06-19
+Last updated: 2026-06-30
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
-## 当前活跃线:M01 弱磁吸一致性修复(2026-06-19)
+## 已收口:M01 显色/线索同步 + 死功能清理 + CI 门禁(2026-06-30, 全部已 push origin/main d73e78c)
+
+用户需求链(逐步): 拼片被手电照射的反应色更鲜艳 → 线索/目标预览也换成同一显色且代码同步生成(别用烤死 PNG) → 发现点击放大参考卡功能其实点不开 → 整体移除该功能 → 修 main 上 pre-existing 红测试 → 加最小 CI 门禁。
+
+**已落地(全部 commit 且 push)**:
+1. **反应色提饱和**(`75d1884`): `OBSERVED_FRAGMENT_TINT_COLORS` 套 `saturateRgb(k=1.4)` 绕 luma 拉(色相不变); smoke 同步复刻同一公式。
+2. **线索↔显色同源**(`618064c`+`2bbd858`): `colorForTargetOverlapEvidence` 改读 `OBSERVED_FRAGMENT_TINT_COLORS` → 盘面目标证据/预览与拼片显色**共用同一调色板**, 以后调 `OBSERVED_TINT_SATURATION`/调色板三处自动同步。放大参考卡一度从 PNG 改为代码画多边形(bbox 半对角线缩放进圆)。
+3. **移除点击放大参考卡功能**(`550c028`): headless 网格暴力点击整画布 0 命中证明该热区(reference_pattern 节点 touch-end)真实点击从不命中=死功能, 用户决定整体删(toggle 方法+字段+绑定+代码画卡)。盘面目标证据上色保留。
+4. **修 pre-existing 红测试**(`6e5e841`): `e115afa`(篮子重贴图+新灯泡)有意改了 hint 图标 24.5×30→62、移除底光便签 `M01BottomLightNote`, 但 scaffold 断言没跟 → main 一直红 2 个; 对齐断言, 纯测试无代码改。
+5. **最小 CI 门禁**(`574167e`+`d73e78c`): `.github/workflows/ci.yml` = `npm ci + typecheck + test`(push main/PR 触发); smoke:* 需 Cocos 预览服务器, CI 无编辑器故排除。首跑红抓到真问题→`tests/m01PreviewSmokeHelpers.test.ts` import smoke 脚本触发顶层 main()→CI 无 Chrome process.exit(1) 拖红(本地有 Chrome 不触发); 加 `import.meta.url===argv[1]` 直跑守卫修掉, 现 CI 绿。
+
+**验证**: 每步 codex 零框架 + 独立 code-review 消费完(仅几条注释/陈旧断言, 已修); typecheck ✅ + 377 测试 ✅ + **CI 绿**。放大卡视觉用 headless playwright 真实点击实拍确认过。
+
+**保留/留意**: `m01-target-reference-card.png` + getter 仅作设计参考/测试夹具(已注释标注), runtime 不再加载。用户机 Safari/Chrome 看旧画面是浏览器强缓存 import-map(弱ETag无Cache-Control), 非代码; 解法见记忆 [[project_cocos_preview_stale_is_browser_importmap_cache]]。方案 B(参考卡也用水彩底图×染色连质感一致)未做, 用户暂取方案 A(平涂)。
+
+## 历史活跃线:M01 弱磁吸一致性修复(2026-06-19)
 
 用户反馈: 拼片吸到平台按形状判断,但同形状有的能吸附有的不能。
 根因: `resolveTargetPieceSlotDrop` 的锁定目标槽位先按 `expectedFragmentId` 过滤,导致同为 `shape:circle` 的 `fragment_circle_blue_1` 不能吸到圆形目标槽;圆形无旋转问题,这里是 ID 锁死而不是形状判定。
