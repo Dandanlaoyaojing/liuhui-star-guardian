@@ -239,6 +239,9 @@ function getRadialGlowSpriteFrame(): SpriteFrame {
     format: Texture2D.PixelFormat.RGBA8888
   });
   cachedGlowSpriteFrame = SpriteFrame.createWithImage(image);
+  // 原始 _data 纹理不是合法 TexImageSource, 动态图集 texSubImage2D 打包它会每帧崩(洪水报错)。
+  // 排除出动态图集。
+  cachedGlowSpriteFrame.packable = false;
   return cachedGlowSpriteFrame;
 }
 
@@ -275,6 +278,7 @@ function getConeGlowSpriteFrame(): SpriteFrame {
     format: Texture2D.PixelFormat.RGBA8888
   });
   cachedConeSpriteFrame = SpriteFrame.createWithImage(image);
+  cachedConeSpriteFrame.packable = false; // 同 radial: 运行时纹理排除出动态图集, 否则手电亮起时同样洪水崩
   return cachedConeSpriteFrame;
 }
 
@@ -326,6 +330,9 @@ export class M01GreyboxBootstrap extends Component {
   private pendingPhysicsFragments: { node: Node; shape: M01PhysicsShape; size: number }[] = [];
   private toolCardRoot: Node | null = null;
   private hintButtonRoot: Node | null = null;
+  private hintGlowSprite: Sprite | null = null; // 提示灯泡后的暖光晕(点按一闪); 静息 alpha=0
+  private hintButtonIconNode: Node | null = null; // 灯泡图标节点(点按缩放回弹)
+  private hintFlashTweens: ReturnType<typeof tween>[] = []; // 存 handle, 连点先停旧防叠加
   private feedbackLabel: Label | null = null;
   private activeDragNode: Node | null = null;
   private activeDragToken: M01GreyboxTokenNode | null = null;
@@ -399,6 +406,12 @@ export class M01GreyboxBootstrap extends Component {
       this.layout = buildM01GreyboxLayout(m01Config, { text: this.text });
       this.toolCardRoot = null;
       this.hintButtonRoot = null;
+      for (const t of this.hintFlashTweens) {
+        t.stop();
+      }
+      this.hintFlashTweens.length = 0;
+      this.hintGlowSprite = null;
+      this.hintButtonIconNode = null;
       this.feedbackLabel = null;
       this.manualTargetBlendGraphics = null;
       this.weakSnappedFragmentsByEvidence.clear();
@@ -974,9 +987,55 @@ export class M01GreyboxBootstrap extends Component {
     const transform = buttonNode.addComponent(UITransform);
     transform.setContentSize(70, 70);
 
-    this.addHintIcon(buttonNode);
-    buttonNode.on("touch-end", () => this.requestHint(), this);
+    this.addHintGlow(buttonNode); // 先加 → 渲染在灯泡后面(halo)
+    this.hintButtonIconNode = this.addHintIcon(buttonNode).node;
+    buttonNode.on(
+      "touch-end",
+      () => {
+        this.playHintFlash();
+        this.requestHint();
+      },
+      this
+    );
     return buttonNode;
+  }
+
+  /** 灯泡后面的暖色径向光晕, 复用手电的渐变纹理; 静息 alpha=0(不亮), 点按时由 playHintFlash 闪起。 */
+  private addHintGlow(parent: Node): void {
+    const sprite = this.addGlowSprite(parent, getRadialGlowSpriteFrame(), 0.5, 0.5);
+    sprite.node.setPosition(0, 0, 0);
+    sprite.node.setScale(1.15, 1.15, 1); // 光晕比 70px 按钮略大, 溢出成 halo
+    sprite.color = new Color(255, 216, 150, 0); // 暖白琥珀, alpha=0 静息
+    this.hintGlowSprite = sprite;
+  }
+
+  /** 点按提示灯泡的"点亮"反馈: 暖光晕一闪(alpha 0→亮→0) + 灯泡轻微放大回弹。 */
+  private playHintFlash(): void {
+    for (const t of this.hintFlashTweens) {
+      t.stop();
+    }
+    this.hintFlashTweens.length = 0;
+
+    if (this.hintGlowSprite) {
+      const glow = this.hintGlowSprite;
+      glow.color = new Color(255, 216, 150, 0);
+      this.hintFlashTweens.push(
+        tween(glow)
+          .to(0.09, { color: new Color(255, 216, 150, 210) })
+          .to(0.42, { color: new Color(255, 216, 150, 0) })
+          .start()
+      );
+    }
+    if (this.hintButtonIconNode) {
+      const icon = this.hintButtonIconNode;
+      icon.setScale(1, 1, 1);
+      this.hintFlashTweens.push(
+        tween(icon)
+          .to(0.09, { scale: new Vec3(1.16, 1.16, 1) })
+          .to(0.22, { scale: new Vec3(1, 1, 1) })
+          .start()
+      );
+    }
   }
 
   private addHintIcon(parent: Node): Sprite {
@@ -2122,6 +2181,12 @@ export class M01GreyboxBootstrap extends Component {
       this.releaseFragmentBodyToPhysics(node);
       this.tokenPositions.set(action.fragmentId, freePosition);
       this.redrawAndPersistManualTargetDraft();
+      if (action.rotationHint) {
+        // 形状+落点对上了、只差旋转 → 明确提示"再转一下", 而非静默自由落下(否则玩家以为磁吸坏了)。
+        const hint = this.formatText("rotateToFitHint");
+        this.setStatus(hint);
+        this.setFeedback(hint);
+      }
       return;
     }
 
