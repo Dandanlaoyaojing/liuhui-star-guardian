@@ -1,8 +1,30 @@
 # Active Work State
 
-Last updated: 2026-06-30
+Last updated: 2026-07-02
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
+
+## 当前活跃线:M01 画风统一调色 + 吸附旋转规则修复(2026-07-02, 未提交)
+
+**分支 `feat/m01-lemmy-celebrate`。两组未提交改动, 测试全绿(typecheck ✅ + 390 ✅), 待用户 live 验收后一起 commit。**
+
+### A. 调色(6 张 PNG, 纯像素改动, alpha/尺寸未动)
+用户反馈篮子和平台画风不和谐 → 诊断=篮子太饱和太"实" vs 平台低饱和水彩速写。
+- 篮子 4 张(hanging/empty/tipped/front-occluder): 原↔B 中间档 S×0.775+V 抬 0.05 (S 0.32-0.37→0.25-0.29)。**前挡片渲染在最前, 漏调它会看着"没变"**。
+- 绳子 rope-segment: muted 档 S 0.259→0.195(用户选的, 比篮子略灰一档)。
+- 提示灯泡 icon-hint: 暖玻璃橘调加强 S 0.264→0.451(色相蒙版只吃 H18-62 暖玻璃, 灰灯丝/灯座 S0.081 未动)。**灯泡是可交互按钮, 抢眼是有意的**(codex 审后用户确认)。
+- codex 独立看图审过(exec --image): 前三协调 ✓; 载片篮内部碎片明度对比略变弱(整图统一降饱和的代价, 暂接受)。
+- 原图备份 `/tmp/basket-orig-backup/`。**坑**: refresh_assets 可能不重导单张改动贴图(library 停旧值) → 必须 reimport_asset + 读 library 均值验证, 见记忆 project_cocos_refresh_vs_reimport_library_stale。
+
+### B. 吸附旋转规则(M01GreyboxDrag.ts + 测试)
+用户实测: 角度不对的三角片也被吸住。规则=圆任意角, 三角/六边形须角度匹配(按对称周期: 三角 120°/六边 60°, 容差 1°)。
+- 对称周期判定本轮之前已落(shapeRotationSymmetryDegrees), codex 复核真理值表一致(玩家 90° 步进 → 三角 4 个可达角命中 1 个, 六边命中 2 个, 自洽)。
+- **本轮修 codex 逮到的两个真 bug**:
+  1. 诱饵片(无预期槽)在证据弱磁吸路径整体免检、任意角可吸 → 新 `isEvidenceTrialFitRotationCompatible`: 按**该证据生成片**(fragmentSnapPositions 的键=solution.fragmentIds)中同形状者的目标角判, 真解/诱饵同一规则(按身份判会向玩家泄露真解); spec §606/630/633 支持诱饵可试拼。
+  2. 重叠槽(两三角槽矩形交叠 dx18/dy29 vs 56×56)先筛旋转再取最近 → 最近槽角度不对时静默吸去较远槽(位置错→验证永不过→底光永不亮) → 改为**先取最近槽再判它的旋转**, 不对就 rotationHint。
+- 测试: tests/m01SnapRotation.test.ts(9 用例; 证据路径用合成布局——真实 config 里证据中心全被槽矩形盖住, 从公共 API 打不到弱磁吸路径); scaffold 锁串同步更新。
+- **待办**: ① 用户手动重启 Cocos 预览(.ts 改动 MCP 刷不了)live 实测; ② codex 零框架 diff 审在跑(后台任务 bqrz2gu9o), 结果消费完才 commit。
+- 中断的支线: 灯泡按钮"点击变亮"特效(挂点已找好: M01HintButton touch-end→requestHint, 可复用 getRadialGlowSpriteFrame+addGlowSprite+tween), 被吸附 bug 打断未写。
 
 ## 已收口:M01 显色/线索同步 + 死功能清理 + CI 门禁(2026-06-30, 全部已 push origin/main d73e78c)
 

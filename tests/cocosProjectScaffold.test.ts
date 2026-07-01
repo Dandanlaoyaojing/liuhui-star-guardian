@@ -247,7 +247,7 @@ describe("Cocos Creator project scaffold", () => {
       'const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";'
     );
     expect(bootstrap).toContain("const M01_HINT_ICON_DISPLAY_SIZE = { width: 62, height: 62 };");
-    expect(hintButtonBlock).toContain("this.addHintIcon(buttonNode);");
+    expect(hintButtonBlock).toContain("this.hintButtonIconNode = this.addHintIcon(buttonNode).node;");
     expect(hintButtonBlock).not.toContain('this.addButtonLabel(buttonNode, this.formatText("hintButton"))');
     expect(bootstrap).toContain('const iconNode = new Node("M01HintButtonIcon");');
     expect(hintButtonBlock).toContain(
@@ -1483,8 +1483,9 @@ describe("Cocos Creator project scaffold", () => {
     expect(layout).not.toContain('targetPieceSnapZone("target_piece_circle_left"');
     expect(drag).toContain("resolveTargetPieceSlotDrop");
     expect(drag).toContain("snap_fragment_to_target_piece");
-    expect(drag).toContain("slot.expectedFragmentId === token.controllerId");
-    expect(drag).toContain("rotation: bestSlot.rotation");
+    // 2026-07-02 弱磁吸旋转门槛统一: 按证据生成片朝向判(诱饵同规), 不再按 token 身份查自己的槽
+    expect(drag).toContain("isEvidenceTrialFitRotationCompatible");
+    expect(drag).toContain("rotation: nearestSlot.rotation");
     expect(drag).toContain("shape:${slot.shapeToken}");
     expect(config.targetPattern?.locked).toBe(true);
     expect(config.targetPattern?.pieces).toHaveLength(6);

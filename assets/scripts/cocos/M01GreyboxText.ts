@@ -27,6 +27,7 @@ export const m01GreyboxDefaultText = {
   fragmentPickedUp: "已拾起碎片 {fragmentId}。",
   fragmentPlacedFreely: "已把碎片 {fragmentId} 放在工作区。",
   weakSnapHint: "碎片 {fragmentId} 已贴近证据 {evidenceId}。",
+  rotateToFitHint: "形状对上了，但方向没对准——把这片再转一下试试。",
   candidateStructureReady: "候选结构已摆好，等待底光验证。",
   validationLightFlash: "底光闪烁后熄灭，结构还不对。",
   validationLightSteady: "底光保持亮起，结构成立。",

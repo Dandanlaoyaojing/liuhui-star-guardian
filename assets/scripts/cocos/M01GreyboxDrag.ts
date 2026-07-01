@@ -26,6 +26,8 @@ export type M01GreyboxDropAction =
       type: "place_fragment_freely";
       fragmentId: string;
       position?: M01GreyboxPoint;
+      // 形状+落点都命中目标槽、只差旋转没对准 → 自由落下但带此标记, 让 UI 提示"再转一下"而非静默。
+      rotationHint?: boolean;
     }
   | {
       type: "activate_filter";
@@ -87,10 +89,14 @@ function resolveEvidenceFragmentDrop(
 ): M01GreyboxDropAction {
   if (!layout.evidenceSnapEnabled) {
     const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition, options);
-    return pieceSlotHit && pieceSlotHit !== "rotation_mismatch" ? pieceSlotHit : {
+    if (pieceSlotHit && pieceSlotHit !== "rotation_mismatch") {
+      return pieceSlotHit;
+    }
+    return {
       type: "place_fragment_freely",
       fragmentId: token.controllerId,
-      position: dropPosition
+      position: dropPosition,
+      ...(pieceSlotHit === "rotation_mismatch" ? { rotationHint: true } : {})
     };
   }
 
@@ -99,7 +105,12 @@ function resolveEvidenceFragmentDrop(
     return pieceSlotHit;
   }
   if (pieceSlotHit === "rotation_mismatch") {
-    return { type: "place_fragment_freely", fragmentId: token.controllerId, position: dropPosition };
+    return {
+      type: "place_fragment_freely",
+      fragmentId: token.controllerId,
+      position: dropPosition,
+      rotationHint: true
+    };
   }
 
   const hitEvidence = layout.evidence
@@ -111,7 +122,7 @@ function resolveEvidenceFragmentDrop(
   const tokenTags = new Set(token.tags);
   const shapeCompatibleHits = hitEvidence.filter(({ evidence }) =>
     evidenceTagMatchScore(evidence, tokenTags) > 0 &&
-    isExpectedTargetFragmentRotationCompatible(layout, token, options)
+    isEvidenceTrialFitRotationCompatible(layout, evidence, token, options)
   );
 
   if (shapeCompatibleHits.length > 0) {
@@ -150,24 +161,23 @@ function resolveTargetPieceSlotDrop(
     return undefined;
   }
 
-  const rotationCompatibleSlots = compatibleSlots.filter((slot) =>
-    isTargetPieceRotationCompatible(options.rotation, slot.rotation)
-  );
-
-  if (rotationCompatibleSlots.length === 0) {
-    return "rotation_mismatch";
-  }
-
-  const bestSlot = rotationCompatibleSlots
+  // 槽矩形可能互相重叠(当前两个三角槽就有交叠): 先取"玩家瞄准的"最近槽, 再对它判旋转。
+  // 不能先筛旋转再取最近 —— 那样最近槽角度不对时会静默吸到较远的角度兼容槽:
+  // 拼片被放到玩家没瞄准的位置(它自己的验证位姿永远差一步→底光永不亮), 也吞掉了"该转一下"的提示。
+  const nearestSlot = compatibleSlots
     .slice()
     .sort((a, b) => distanceSquared(a.position, dropPosition) - distanceSquared(b.position, dropPosition))[0];
+
+  if (!isTargetPieceRotationCompatible(options.rotation, nearestSlot.rotation, nearestSlot.shapeToken)) {
+    return "rotation_mismatch";
+  }
 
   return {
     type: "snap_fragment_to_target_piece",
     fragmentId: token.controllerId,
-    pieceSlotId: bestSlot.id,
-    position: bestSlot.position,
-    rotation: bestSlot.rotation
+    pieceSlotId: nearestSlot.id,
+    position: nearestSlot.position,
+    rotation: nearestSlot.rotation
   };
 }
 
@@ -268,20 +278,80 @@ function evidenceTagMatchScore(evidence: M01GreyboxTokenNode, tokenTags: Set<str
   return evidence.tags.filter((tag) => tag !== "overlap_evidence" && tokenTags.has(tag)).length;
 }
 
-function isTargetPieceRotationCompatible(rotation: number | undefined, targetRotation: number): boolean {
-  return (
-    rotation === undefined ||
-    rotationDistanceDegrees(rotation, targetRotation) <= TARGET_PIECE_SNAP_ROTATION_TOLERANCE
-  );
+// 形状的旋转对称周期(度): 转过这个角度看起来完全重合。正多边形是多轴对称的 ——
+// 圆=0(任意角都重合); 三角形=120(3轴); 方形=90(4轴); 六边形=60(6轴)。判角度时按周期取模:
+// 玩家转到任一"看起来一样"的朝向都算对齐, 不存在"270°"这种独立目标角。未知形状=无对称, 须精确。
+function shapeRotationSymmetryDegrees(shape: string | undefined): number {
+  switch (shape) {
+    case "circle":
+      return 0;
+    case "triangle":
+      return 120;
+    case "square":
+      return 90;
+    case "hexagon":
+      return 60;
+    default:
+      return 360;
+  }
 }
 
-function isExpectedTargetFragmentRotationCompatible(
+function isTargetPieceRotationCompatible(
+  rotation: number | undefined,
+  targetRotation: number,
+  shape: string | undefined
+): boolean {
+  if (rotation === undefined) {
+    return true;
+  }
+  const period = shapeRotationSymmetryDegrees(shape);
+  if (period === 0) {
+    return true; // 圆: 任意朝向都重合
+  }
+  const raw = rotationDistanceDegrees(rotation, targetRotation) % period;
+  const reduced = Math.min(raw, period - raw); // 到最近对称重合朝向的角距
+  return reduced <= TARGET_PIECE_SNAP_ROTATION_TOLERANCE;
+}
+
+// 弱磁吸的旋转门槛(spec §630 形状决定能不能试拼 / §606 弱磁吸不代表答案正确):
+// - 真解片按**它自己**的生成朝向判(它在证据里的朝向就是自己目标槽的朝向; 若放宽到"任一同
+//   形状生成片的朝向", 双三角证据会接受两片互换朝向的真解片 —— 弱磁吸不矫正旋转、staging
+//   只记 fragment id, 底光会在视觉朝向错误时点亮, codex P2)。
+// - 诱饵片(无预期槽, 从未参与生成)与该证据任一同形状生成片朝向重合即可试拼 —— 之前诱饵
+//   整体免检任意角可吸(玩家实测抓到), 且免检行为本身向玩家泄露"会被角度卡的才是真解片"。
+// 证据生成片 id = fragmentSnapPositions 的键(Layout 构建时按 solution.fragmentIds 写入)。
+function isEvidenceTrialFitRotationCompatible(
   layout: M01GreyboxLayout,
+  evidence: M01GreyboxTokenNode,
   token: M01GreyboxTokenNode,
   options: M01GreyboxDropOptions
 ): boolean {
-  const targetSlot = layout.targetPieceSlots.find((slot) => slot.expectedFragmentId === token.controllerId);
-  return !targetSlot || isTargetPieceRotationCompatible(options.rotation, targetSlot.rotation);
+  const ownSlot = layout.targetPieceSlots.find(
+    (slot) => slot.expectedFragmentId === token.controllerId
+  );
+  if (ownSlot) {
+    return isTargetPieceRotationCompatible(options.rotation, ownSlot.rotation, ownSlot.shapeToken);
+  }
+
+  const generatorIds = Object.keys(evidence.fragmentSnapPositions ?? {});
+  if (generatorIds.length === 0) {
+    return true; // legacy 证据不带生成片信息 → 不加旋转门槛
+  }
+
+  const tokenTags = new Set(token.tags);
+  const sameShapeGeneratorSlots = layout.targetPieceSlots.filter(
+    (slot) =>
+      slot.expectedFragmentId !== undefined &&
+      generatorIds.includes(slot.expectedFragmentId) &&
+      tokenTags.has(`shape:${slot.shapeToken}`)
+  );
+  if (sameShapeGeneratorSlots.length === 0) {
+    return true; // 生成片没有同形状目标槽可查(数据缺口) → 兜底放行, 形状匹配已由 tag 分数把关
+  }
+
+  return sameShapeGeneratorSlots.some((slot) =>
+    isTargetPieceRotationCompatible(options.rotation, slot.rotation, slot.shapeToken)
+  );
 }
 
 function normalizeRotation(rotation: number): number {

@@ -94,7 +94,8 @@ describe("resolveM01GreyboxDrop", () => {
     expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
       type: "place_fragment_freely",
       fragmentId: "fragment_triangle_blue_1",
-      position: targetPosition
+      position: targetPosition,
+      rotationHint: true
     });
   });
 
@@ -123,7 +124,8 @@ describe("resolveM01GreyboxDrop", () => {
     expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position, { rotation: 0 })).toEqual({
       type: "place_fragment_freely",
       fragmentId: "fragment_triangle_blue_1",
-      position: evidence!.position
+      position: evidence!.position,
+      rotationHint: true
     });
   });
 
