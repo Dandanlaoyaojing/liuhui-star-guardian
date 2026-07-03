@@ -314,11 +314,12 @@ function isTargetPieceRotationCompatible(
 }
 
 // 弱磁吸的旋转门槛(spec §630 形状决定能不能试拼 / §606 弱磁吸不代表答案正确):
-// - 真解片按**它自己**的生成朝向判(它在证据里的朝向就是自己目标槽的朝向; 若放宽到"任一同
-//   形状生成片的朝向", 双三角证据会接受两片互换朝向的真解片 —— 弱磁吸不矫正旋转、staging
-//   只记 fragment id, 底光会在视觉朝向错误时点亮, codex P2)。
-// - 诱饵片(无预期槽, 从未参与生成)与该证据任一同形状生成片朝向重合即可试拼 —— 之前诱饵
-//   整体免检任意角可吸(玩家实测抓到), 且免检行为本身向玩家泄露"会被角度卡的才是真解片"。
+// 判定按"该片是不是【当前这个证据】的真解生成片"分流(不是"该片是不是任何地方的真解片"):
+// - 是本证据生成片 → 按它自己的生成朝向判(它在本证据里就该是这个朝向; 放宽到"任一同形状
+//   生成片朝向"会接受两片互换朝向, 弱磁吸不矫正旋转、staging 只记 id → 底光会在视觉朝向错时点亮)。
+// - 不是本证据生成片(诱饵, 或属于**别的**证据的真解片) → 一律按本证据同形状生成片的朝向判。
+//   之前只要该片在某处有目标槽就走自己槽角度: 属于别处证据的真解片被按它别处的角度放行,
+//   规则和诱饵不一致、也向玩家泄露"这片是别处真解"(codex P2); 诱饵曾整体免检任意角可吸(玩家实测)。
 // 证据生成片 id = fragmentSnapPositions 的键(Layout 构建时按 solution.fragmentIds 写入)。
 function isEvidenceTrialFitRotationCompatible(
   layout: M01GreyboxLayout,
@@ -326,16 +327,18 @@ function isEvidenceTrialFitRotationCompatible(
   token: M01GreyboxTokenNode,
   options: M01GreyboxDropOptions
 ): boolean {
-  const ownSlot = layout.targetPieceSlots.find(
-    (slot) => slot.expectedFragmentId === token.controllerId
-  );
-  if (ownSlot) {
-    return isTargetPieceRotationCompatible(options.rotation, ownSlot.rotation, ownSlot.shapeToken);
-  }
-
   const generatorIds = Object.keys(evidence.fragmentSnapPositions ?? {});
   if (generatorIds.length === 0) {
     return true; // legacy 证据不带生成片信息 → 不加旋转门槛
+  }
+
+  if (generatorIds.includes(token.controllerId)) {
+    const ownSlot = layout.targetPieceSlots.find(
+      (slot) => slot.expectedFragmentId === token.controllerId
+    );
+    if (ownSlot) {
+      return isTargetPieceRotationCompatible(options.rotation, ownSlot.rotation, ownSlot.shapeToken);
+    }
   }
 
   const tokenTags = new Set(token.tags);

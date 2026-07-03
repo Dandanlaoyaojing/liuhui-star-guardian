@@ -91,7 +91,9 @@ describe("M01 evidence weak-snap rotation gate (uniform for real pieces and deco
     const l = {
       evidenceSnapEnabled: true,
       evidence: [evidence],
-      targetPieceSlots: [slot("real_tri_a", 90), slot("real_tri_b", 180)],
+      // real_tri_a / real_tri_b = 本证据生成片; other_tri_elsewhere = 属于别的证据的真解片(有自己的槽, 角0),
+      // 但不在本证据 fragmentSnapPositions → 对本证据应按诱饵规则(本证据生成角)判, 不走它自己的角。
+      targetPieceSlots: [slot("real_tri_a", 90), slot("real_tri_b", 180), slot("other_tri_elsewhere", 0)],
       slots: [],
       fragments: []
     } as never;
@@ -124,6 +126,17 @@ describe("M01 evidence weak-snap rotation gate (uniform for real pieces and deco
     // 0° 谁都不重合 → 不吸
     const blocked = resolveM01GreyboxDrop(l, token("real_tri_a") as never, { x: 0, y: 0 }, { rotation: 0 });
     expect(blocked.type).toBe("place_fragment_freely");
+  });
+
+  it("treats a real piece from ANOTHER evidence like a decoy here, not by its own slot angle (codex P2)", () => {
+    const { l, token } = syntheticLayout();
+    // other_tri_elsewhere 自己的槽角是 0, 但它不是本证据生成片 → 按本证据生成角(90/180)判。
+    // 0° 是它自己的角但非本证据生成角 → 必须拒(旧代码只要它在某处有槽就按 0° 放行, 泄露它是别处真解)。
+    const ownAngle = resolveM01GreyboxDrop(l, token("other_tri_elsewhere") as never, { x: 0, y: 0 }, { rotation: 0 });
+    expect(ownAngle.type).toBe("place_fragment_freely");
+    // 90° 是本证据生成角 → 和诱饵一样可试拼。
+    const genAngle = resolveM01GreyboxDrop(l, token("other_tri_elsewhere") as never, { x: 0, y: 0 }, { rotation: 90 });
+    expect(genAngle.type).toBe("weak_snap_fragment");
   });
 });
 

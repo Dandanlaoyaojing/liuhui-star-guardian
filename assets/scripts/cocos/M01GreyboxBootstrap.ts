@@ -2292,14 +2292,18 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   /** 槽位姿上现在坐着哪片(任意身份)。槽吸附写死位姿(容差 1px/1°), 两槽中心距 ≫ 容差, 无双重占位。
-   *  必须读实时节点位姿而非 tokenPositions/tokenRotations 缓存: 失败验证掉落
-   *  (releaseFragmentBodyToPhysics)不回写缓存, 读缓存会把已掉地的片当成仍占着槽、
-   *  下一次验证按幽灵占位重新 stage(codex P1); 被拖着的片实时位姿已离槽, 也自然不算占位。 */
+   *  只认 Kinematic 刚体(= parkFragmentBodyAtSnap 落定在槽的片)。释放/掉落的片是 Dynamic:
+   *  releaseFragmentBodyToPhysics 只改类型、同一调用栈里 node 还停在原槽坐标没被物理挪走,
+   *  单看位姿会把"刚被替换掉/刚验证失败掉落"的旧片当成仍占槽 → 按幽灵占位重新 stage(codex P1)。
+   *  位姿仍读实时 node(Kinematic 片不动, 稳定), 不读 tokenPositions 缓存。 */
   private fragmentIdOccupyingSlotPose(
     targetSlot: { position: M01GreyboxPoint; rotation: number }
   ): string | undefined {
     for (const [fragmentId, entry] of this.greyboxNodes) {
       if (entry.token.kind !== "fragment") {
+        continue;
+      }
+      if (entry.node.getComponent(RigidBody2D)?.type !== ERigidBody2DType.Kinematic) {
         continue;
       }
       const nodePosition = entry.node.position;
