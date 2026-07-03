@@ -2144,6 +2144,19 @@ export class M01GreyboxBootstrap extends Component {
       }
 
       this.removeWeakSnappedFragment(action.fragmentId);
+      // spec §634 可替换: 新片直接盖到已占槽位 → 旧占位片解除记账并释放落地。
+      // 否则两片隐形叠在同一槽位, 占位判定按 config 顺序取第一片, 替换后仍按旧片 stage(codex P2)。
+      const previousOccupant = this.fragmentIdOccupyingSlotPose({
+        position: action.position,
+        rotation: action.rotation
+      });
+      if (previousOccupant && previousOccupant !== action.fragmentId) {
+        this.removeWeakSnappedFragment(previousOccupant);
+        const occupantEntry = this.greyboxNodes.get(previousOccupant);
+        if (occupantEntry) {
+          this.releaseFragmentBodyToPhysics(occupantEntry.node);
+        }
+      }
       const placed = this.session.placeHeldFragment(action.position);
       this.setStatus(placed.status);
       this.clearHintTargets();
@@ -2255,39 +2268,56 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    // spec §619: "每个交叠处形成候选拼接关系"即触发整体验证 —— 候选关系按【槽位被占】成立,
+    // 不看占位片身份(颜色)。之前按真解 fragment id 查位姿: 错色满拼永远 stage 不满 →
+    // areAllEvidenceStaged 恒假 → 底光该闪 2 秒的失败验证从不触发(玩家实测抓到)。
+    // 颜色对错交给 validateCandidateStructure 判(§631 颜色决定拼得对不对)。
     for (const evidence of this.config.evidence) {
       const fragmentIds = evidence.solution.fragmentIds;
       if (fragmentIds.length !== 2) {
         continue;
       }
-      const [firstFragmentId, secondFragmentId] = fragmentIds;
-      if (
-        this.isFragmentAtTargetPatternPose(firstFragmentId, targetSlotByFragmentId) &&
-        this.isFragmentAtTargetPatternPose(secondFragmentId, targetSlotByFragmentId)
-      ) {
-        this.session.submitEvidencePair(evidence.id, [firstFragmentId, secondFragmentId]);
+      const firstSlot = targetSlotByFragmentId.get(fragmentIds[0]);
+      const secondSlot = targetSlotByFragmentId.get(fragmentIds[1]);
+      if (!firstSlot || !secondSlot) {
+        continue;
       }
+      const firstOccupant = this.fragmentIdOccupyingSlotPose(firstSlot);
+      const secondOccupant = this.fragmentIdOccupyingSlotPose(secondSlot);
+      if (!firstOccupant || !secondOccupant || firstOccupant === secondOccupant) {
+        continue;
+      }
+      this.session.submitEvidencePair(evidence.id, [firstOccupant, secondOccupant]);
     }
   }
 
-  private isFragmentAtTargetPatternPose(
-    fragmentId: string,
-    targetSlotByFragmentId: Map<string, { position: M01GreyboxPoint; rotation: number }>
-  ): boolean {
-    const targetSlot = targetSlotByFragmentId.get(fragmentId);
-    const actualPosition = this.tokenPositions.get(fragmentId);
-    if (!targetSlot || !actualPosition) {
-      return false;
+  /** 槽位姿上现在坐着哪片(任意身份)。槽吸附写死位姿(容差 1px/1°), 两槽中心距 ≫ 容差, 无双重占位。
+   *  必须读实时节点位姿而非 tokenPositions/tokenRotations 缓存: 失败验证掉落
+   *  (releaseFragmentBodyToPhysics)不回写缓存, 读缓存会把已掉地的片当成仍占着槽、
+   *  下一次验证按幽灵占位重新 stage(codex P1); 被拖着的片实时位姿已离槽, 也自然不算占位。 */
+  private fragmentIdOccupyingSlotPose(
+    targetSlot: { position: M01GreyboxPoint; rotation: number }
+  ): string | undefined {
+    for (const [fragmentId, entry] of this.greyboxNodes) {
+      if (entry.token.kind !== "fragment") {
+        continue;
+      }
+      const nodePosition = entry.node.position;
+      const positionMatches =
+        Math.hypot(nodePosition.x - targetSlot.position.x, nodePosition.y - targetSlot.position.y) <=
+        TARGET_PATTERN_POSITION_TOLERANCE;
+      if (!positionMatches) {
+        continue;
+      }
+      if (
+        rotationDistanceDegrees(entry.node.eulerAngles.z, targetSlot.rotation) >
+        TARGET_PATTERN_ROTATION_TOLERANCE
+      ) {
+        continue;
+      }
+      return fragmentId;
     }
-
-    const actualRotation = this.tokenRotations.get(fragmentId) ?? 0;
-    const positionMatches =
-      Math.hypot(actualPosition.x - targetSlot.position.x, actualPosition.y - targetSlot.position.y) <=
-      TARGET_PATTERN_POSITION_TOLERANCE;
-    const rotationMatches =
-      rotationDistanceDegrees(actualRotation, targetSlot.rotation) <= TARGET_PATTERN_ROTATION_TOLERANCE;
-
-    return positionMatches && rotationMatches;
+    return undefined;
   }
 
   private tryValidateCompleteEvidenceCandidate(): void {
