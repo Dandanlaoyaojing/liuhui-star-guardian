@@ -703,10 +703,10 @@ describe("Cocos Creator project scaffold", () => {
     // 输入锁(codex P2): 动画窗内 拖拼片/点手电循环/重复验证 全部封住, 防玩家和喷出 tween 打架。
     const repairLockHits = bootstrap.split("this.repairSequencePlaying").length - 1;
     expect(repairLockHits).toBeGreaterThanOrEqual(6); // 字段+置位/复位+三处输入闸
-    expect(bootstrap).toMatch(/!\(this\.physicsSettled && this\.flashlightAcquired\) \|\| this\.repairSequencePlaying/);
+    expect(bootstrap).toMatch(/!this\.physicsSettled \|\| this\.repairSequencePlaying/);
   });
 
-  it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, double gating", () => {
+  it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, physics-settle gate", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const intro = readText("assets/scripts/cocos/M01IntroSequence.ts");
     const config = readJson("assets/resources/configs/stage1/m01-memory-gear.json") as {
@@ -720,13 +720,13 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.lemmyAnchorNode = lemmyNode;");
     expect(bootstrap).toContain("this.lemmyFlashlightNode = flashlightNode;");
     expect(bootstrap).toContain("onHeldFlashlightTap: () => this.handleHeldFlashlightTap()");
-    // 拾片放宽(只需 physicsSettled)后, 玩家可在捡手电前就拼好完整结构; 验证仍双门控 → 手电到手时
-    // 必须补一次验证, 否则预拼好的结构要等下次挪片才触发底光(codex P2 复核发现)。
+    // 验证不再挂手电(只需 physicsSettled): 玩家捡手电【前】拼完也立刻触发底光 → 手电交接里
+    // 不再补验证。这里断言那条 catch-up 已移除(防回归重新挂上手电门)。
     const acquireBlock = bootstrap.slice(
       bootstrap.indexOf("onFlashlightAcquired: ({ lemmyNode, flashlightNode }) => {"),
       bootstrap.indexOf("onHeldFlashlightTap: () => this.handleHeldFlashlightTap()")
     );
-    expect(acquireBlock).toContain("this.tryValidateCompleteEvidenceCandidate();");
+    expect(acquireBlock).not.toContain("this.tryValidateCompleteEvidenceCandidate();");
 
     // ② 点手电循环 红/黄/蓝/灭(cycleLight): 颜色映射 Session.selectFlashlight(flashlight_<color>),
     //    "灭"走 Session.clearFlashlight()。
@@ -778,7 +778,9 @@ describe("Cocos Creator project scaffold", () => {
       bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),
       bootstrap.indexOf("private scheduleValidationLightReset")
     );
-    expect(validateBlock).toContain("!(this.physicsSettled && this.flashlightAcquired)");
+    // 验证只挂 physicsSettled(不挂手电): 捡手电前拼错也出错误反应(用户定)。
+    expect(validateBlock).toContain("!this.physicsSettled || this.repairSequencePlaying");
+    expect(validateBlock).not.toContain("this.flashlightAcquired");
 
     // ⑥ 灭灯绑定到【真正抓到拼片】: beginTokenDrag(per-node 命中拼片节点)里 suspendFlashlightObservation,
     //    不再由全局 beginActivePointerPress 的 64px 近邻命中误灭(玩家点地走位、附近恰好有片时会误灭)。

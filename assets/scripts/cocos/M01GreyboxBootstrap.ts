@@ -513,10 +513,7 @@ export class M01GreyboxBootstrap extends Component {
             this.lemmyFlashlightNode = flashlightNode;
             this.ensureCoverageBeamNode();
             this.applyHeldFlashlightTint();
-            // 拾片放宽后(只需 physicsSettled)玩家可在捡手电【前】就拼出完整候选结构,
-            // 但底光验证仍双门控、此前每次 drop 都 early-return。手电到手=验证门刚开 →
-            // 这里补一次验证, 否则预拼好的完整结构要等下次挪片才会触发底光(codex P2)。
-            this.tryValidateCompleteEvidenceCandidate();
+            // (验证不再挂手电 → 不需在此补验证; 结构完整时落片当帧已由 physicsSettled 门触发。)
           },
           // acquired 后点莱米手里的手电 → 循环 红/黄/蓝/灭(intro 只转发, 路由与显色在 puzzle 侧)。
           onHeldFlashlightTap: () => this.handleHeldFlashlightTap()
@@ -2333,9 +2330,10 @@ export class M01GreyboxBootstrap extends Component {
     if (!this.session || !this.layout || this.layout.evidence.length === 0) {
       return;
     }
-    // 双门控(与 beginTokenDrag 同一对闩): 底光整体验证属正式拼接判定, 落堆稳定且手电到手才触发。
-    // 修复动画窗内也不再触发(codex P2 输入锁: 防动画期间重复验证)。
-    if (!(this.physicsSettled && this.flashlightAcquired) || this.repairSequencePlaying) {
+    // 底光整体验证只看"候选结构完整"(spec §619), 不挂手电: 玩家在捡手电【前】就先拼一次,
+    // 拼错也要立刻出错误显色+掉片(用户明确要求)。手电只是观察隐藏色的工具, 不是验证前提。
+    // 仍需 physicsSettled(落堆稳定=谜题阶段, 排除 intro 掉落期); 修复动画窗内不触发(codex P2 输入锁)。
+    if (!this.physicsSettled || this.repairSequencePlaying) {
       return;
     }
 
