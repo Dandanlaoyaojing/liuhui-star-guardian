@@ -437,7 +437,8 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("drawManualTargetBlendOverlays");
     expect(bootstrap).toContain("collectManualTargetBlendPieces");
     expect(bootstrap).toContain("colorForManualTargetBlendOverlay");
-    expect(bootstrap).toContain("this.drawManualTargetBlendOverlays();");
+    // 交叠混合色底光验证亮起才画(evidenceSnap 布局): 调用带 revealActive 实参。
+    expect(bootstrap).toContain("this.drawManualTargetBlendOverlays(blendRevealActive)");
   });
 
   it("keeps generated target evidence off the large repair platform", () => {

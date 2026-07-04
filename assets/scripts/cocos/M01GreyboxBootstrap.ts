@@ -715,12 +715,10 @@ export class M01GreyboxBootstrap extends Component {
     return lightNode;
   }
 
-  private addManualTargetBlendOverlayNode(parent: Node, layout: M01GreyboxLayout): Node | null {
-    if (layout.evidenceSnapEnabled) {
-      this.manualTargetBlendGraphics = null;
-      return null;
-    }
-
+  private addManualTargetBlendOverlayNode(parent: Node, layout: M01GreyboxLayout): Node {
+    // 两种布局都建这层, 且建在拼片【之后】= 盖在拼片上。evidenceSnap 布局: 平时不画,
+    // 只在底光验证亮起时画交叠混合色(见 drawManualTargetBlendOverlays 的 revealActive 门);
+    // 手动布局: 一直画(旧行为)。
     const overlayNode = new Node("M01ManualTargetBlendOverlay");
     parent.addChild(overlayNode);
 
@@ -728,18 +726,20 @@ export class M01GreyboxBootstrap extends Component {
     transform.setContentSize(layout.canvas.width, layout.canvas.height);
 
     this.manualTargetBlendGraphics = overlayNode.addComponent(Graphics);
-    this.drawManualTargetBlendOverlays();
+    this.drawManualTargetBlendOverlays(false);
     return overlayNode;
   }
 
-  private drawManualTargetBlendOverlays(): void {
+  // 交叠混合色: 两片base色拼片几何交叠的区域填【混合反应色】(红+黄=橘…), 像手电照亮拼好结构。
+  // evidenceSnap 布局仅 revealActive(底光亮起)时画 —— 拼接期灰白(spec §620), 验证亮起才显交叠色。
+  private drawManualTargetBlendOverlays(revealActive: boolean): void {
     const graphics = this.manualTargetBlendGraphics;
     if (!graphics) {
       return;
     }
 
     graphics.clear();
-    if (!this.layout || this.layout.evidenceSnapEnabled) {
+    if (!this.layout || (this.layout.evidenceSnapEnabled && !revealActive)) {
       return;
     }
 
@@ -859,7 +859,7 @@ export class M01GreyboxBootstrap extends Component {
       restored = true;
     }
 
-    this.drawManualTargetBlendOverlays();
+    this.drawManualTargetBlendOverlays(false);
     this.syncManualTargetDebugExport();
     return restored;
   }
@@ -874,7 +874,7 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private redrawAndPersistManualTargetDraft(): void {
-    this.drawManualTargetBlendOverlays();
+    this.drawManualTargetBlendOverlays(false);
     this.persistManualTargetDraft();
   }
 
@@ -2779,7 +2779,11 @@ export class M01GreyboxBootstrap extends Component {
       }
     }
     this.drawBottomLight(bottomLight);
-    this.drawManualTargetBlendOverlays();
+    // 底光亮起=验证亮相: 全对(steady_on)稳定显交叠混合色; 错(flash_then_off)随闪灯脉冲。
+    const blendRevealActive =
+      bottomLight === "steady_on" ||
+      (bottomLight === "flash_then_off" && this.validationFlashVisible);
+    this.drawManualTargetBlendOverlays(blendRevealActive);
   }
 
   private shouldUseTextureBackedFragmentReveal(
