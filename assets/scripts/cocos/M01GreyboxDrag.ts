@@ -8,6 +8,8 @@ import type {
 
 const EVIDENCE_MAGNET_CONTOUR_TOLERANCE = 2;
 const TARGET_PIECE_SNAP_ROTATION_TOLERANCE = 1;
+// 目标槽判定框比拼片本体每边多放宽的总量(px): 落点略偏也能吸/贴, 减少"差几px没吸、片落走"。
+const TARGET_PIECE_DROP_ZONE_MARGIN = 20;
 
 export type M01GreyboxDropAction =
   | {
@@ -30,6 +32,14 @@ export type M01GreyboxDropAction =
       rotationHint?: boolean;
     }
   | {
+      // 形状+落点命中目标槽但旋转没对准 → 【贴在槽位不掉】(Kinematic 保持玩家当前朝向),
+      // 提示原地转一下; 转对了再由旋转结算走 snap_fragment_to_target_piece 落定验证。
+      // 取代旧的"旋转不对就自由落下"—— 那会让玩家以为放上了、其实片悄悄落走(再拼永远差几片)。
+      type: "stick_fragment_to_slot";
+      fragmentId: string;
+      position: M01GreyboxPoint;
+    }
+  | {
       type: "activate_filter";
       filterId: string;
     }
@@ -47,7 +57,7 @@ export interface M01GreyboxDropOptions {
   rotation?: number;
 }
 
-type M01TargetPieceSlotDropResult = M01GreyboxDropAction | "rotation_mismatch" | undefined;
+type M01TargetPieceSlotDropResult = M01GreyboxDropAction | undefined;
 
 export function resolveM01GreyboxDrop(
   layout: M01GreyboxLayout,
@@ -89,28 +99,19 @@ function resolveEvidenceFragmentDrop(
 ): M01GreyboxDropAction {
   if (!layout.evidenceSnapEnabled) {
     const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition, options);
-    if (pieceSlotHit && pieceSlotHit !== "rotation_mismatch") {
-      return pieceSlotHit;
+    if (pieceSlotHit) {
+      return pieceSlotHit; // snap_fragment_to_target_piece 或 stick_fragment_to_slot(角度没对贴槽不掉)
     }
     return {
       type: "place_fragment_freely",
       fragmentId: token.controllerId,
-      position: dropPosition,
-      ...(pieceSlotHit === "rotation_mismatch" ? { rotationHint: true } : {})
+      position: dropPosition
     };
   }
 
   const pieceSlotHit = resolveTargetPieceSlotDrop(layout, token, dropPosition, options);
-  if (pieceSlotHit && pieceSlotHit !== "rotation_mismatch") {
-    return pieceSlotHit;
-  }
-  if (pieceSlotHit === "rotation_mismatch") {
-    return {
-      type: "place_fragment_freely",
-      fragmentId: token.controllerId,
-      position: dropPosition,
-      rotationHint: true
-    };
+  if (pieceSlotHit) {
+    return pieceSlotHit; // snap_fragment_to_target_piece 或 stick_fragment_to_slot
   }
 
   const hitEvidence = layout.evidence
@@ -169,7 +170,12 @@ function resolveTargetPieceSlotDrop(
     .sort((a, b) => distanceSquared(a.position, dropPosition) - distanceSquared(b.position, dropPosition))[0];
 
   if (!isTargetPieceRotationCompatible(options.rotation, nearestSlot.rotation, nearestSlot.shapeToken)) {
-    return "rotation_mismatch";
+    // 落点命中槽但角度没对 → 贴在槽位不掉(保持玩家朝向), 原地转对了再落定。不再自由落下(片会悄悄掉走)。
+    return {
+      type: "stick_fragment_to_slot",
+      fragmentId: token.controllerId,
+      position: nearestSlot.position
+    };
   }
 
   return {
@@ -212,10 +218,12 @@ function buildTargetPieceDropZone(slot: M01GreyboxPieceSnapZone): SnapZone {
     id: slot.id,
     criteria: { all: ["fragment", `shape:${slot.shapeToken}`] },
     bounds: {
+      // 判定框比拼片本体略放宽(每边 +TARGET_PIECE_DROP_ZONE_MARGIN/2): 落点稍偏也能吸/贴住,
+      // 少一点"看着放上了其实差几px没吸、片悄悄落走"。仍取最近槽, 重叠槽不会误吸远处。
       x: slot.position.x,
       y: slot.position.y,
-      width: slot.size.width,
-      height: slot.size.height
+      width: slot.size.width + TARGET_PIECE_DROP_ZONE_MARGIN,
+      height: slot.size.height + TARGET_PIECE_DROP_ZONE_MARGIN
     },
     snapPosition: slot.position
   };

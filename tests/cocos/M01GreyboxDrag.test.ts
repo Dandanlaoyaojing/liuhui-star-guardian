@@ -86,16 +86,16 @@ describe("resolveM01GreyboxDrop", () => {
     });
   });
 
-  it("does not snap an expected fragment to a locked target slot when its rotation is wrong", () => {
+  it("does not snap (stages) an expected fragment at a locked target slot when rotation is wrong; sticks to slot instead of falling", () => {
     const fragment = layout.fragments.find((item) => item.controllerId === "fragment_triangle_blue_1");
     const targetPosition = { x: -102, y: -40.5 };
 
     expect(fragment).toBeDefined();
+    // 角度不对 → 贴在槽位不掉(stick), 不落定验证; 玩家原地转对了再 snap。不再自由落下。
     expect(resolveM01GreyboxDrop(layout, fragment!, targetPosition, { rotation: 0 })).toEqual({
-      type: "place_fragment_freely",
+      type: "stick_fragment_to_slot",
       fragmentId: "fragment_triangle_blue_1",
-      position: targetPosition,
-      rotationHint: true
+      position: targetPosition
     });
   });
 
@@ -121,12 +121,9 @@ describe("resolveM01GreyboxDrop", () => {
 
     expect(fragment).toBeDefined();
     expect(evidence).toBeDefined();
-    expect(resolveM01GreyboxDrop(layout, fragment!, evidence!.position, { rotation: 0 })).toEqual({
-      type: "place_fragment_freely",
-      fragmentId: "fragment_triangle_blue_1",
-      position: evidence!.position,
-      rotationHint: true
-    });
+    // 证据中心被目标槽矩形盖住 → 命中目标槽路径。角度不对 → 贴在槽位(stick), 不是弱磁吸、不自由落下。
+    const action = resolveM01GreyboxDrop(layout, fragment!, evidence!.position, { rotation: 0 });
+    expect(action.type).toBe("stick_fragment_to_slot");
   });
 
   it("lets every circle fragment geometry-snap to circle-compatible evidence", () => {

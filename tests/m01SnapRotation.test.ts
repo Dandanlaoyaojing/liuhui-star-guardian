@@ -32,10 +32,12 @@ describe("M01 target-piece shape-fit snap: circle any-angle, others exact", () =
     );
   });
 
-  it("gives a rotate hint (not silent free-drop) when shape matches but rotation is wrong", () => {
+  it("sticks the piece to the slot (does not free-drop/fall) when shape matches but rotation is wrong", () => {
+    // 落点命中槽、只差旋转 → 贴在槽位不掉(stick), 而非自由落下。玩家原地转对了再落定。
     const action = dropOnSlot("fragment_triangle_blue_1", 0);
-    expect(action.type).toBe("place_fragment_freely");
-    expect(action.type === "place_fragment_freely" && action.rotationHint).toBe(true);
+    expect(action.type).toBe("stick_fragment_to_slot");
+    const slot = slotFor("fragment_triangle_blue_1");
+    expect(action.type === "stick_fragment_to_slot" && action.position).toEqual(slot.position);
   });
 
   it("treats a circle as orientation-free: snaps at any rotation", () => {
@@ -48,14 +50,14 @@ describe("M01 target-piece shape-fit snap: circle any-angle, others exact", () =
     expect(dropOnSlot("fragment_hexagon_red_2", 90).type).toBe("snap_fragment_to_target_piece");
     // 270 = 90 + 180, and 180 is a multiple of 60 -> visually identical -> snaps
     expect(dropOnSlot("fragment_hexagon_red_2", 270).type).toBe("snap_fragment_to_target_piece");
-    // 0 is 90deg off (not a 60-multiple) -> visibly rotated -> must NOT snap
-    expect(dropOnSlot("fragment_hexagon_red_2", 0).type).toBe("place_fragment_freely");
+    // 0 is 90deg off (not a 60-multiple) -> visibly rotated -> must NOT snap; sticks to slot instead of falling
+    expect(dropOnSlot("fragment_hexagon_red_2", 0).type).toBe("stick_fragment_to_slot");
   });
 
-  it("treats a triangle as 3-fold symmetric: 120deg-coincident snaps, 90deg off does not", () => {
+  it("treats a triangle as 3-fold symmetric: 120deg-coincident snaps, 90deg off sticks (not snap)", () => {
     const target = slotFor("fragment_triangle_blue_1").rotation;
     expect(dropOnSlot("fragment_triangle_blue_1", target + 120).type).toBe("snap_fragment_to_target_piece");
-    expect(dropOnSlot("fragment_triangle_blue_1", target + 90).type).toBe("place_fragment_freely");
+    expect(dropOnSlot("fragment_triangle_blue_1", target + 90).type).toBe("stick_fragment_to_slot");
   });
 });
 
@@ -162,11 +164,13 @@ describe("M01 overlapping target slots: nearest slot decides, mismatch hints ins
     const distB = Math.hypot(probe.x - b.position.x, probe.y - b.position.y);
     expect(distA).toBeLessThan(distB);
 
-    // 拼片转到"较远槽 b"的角度(与最近槽 a 不重合), 落在 probe: 旧逻辑吸去 b, 新逻辑该提示旋转。
+    // 拼片转到"较远槽 b"的角度(与最近槽 a 不重合), 落在 probe: 旧逻辑吸去 b。
+    // 新逻辑: 认最近槽 a, a 角度不合 → 贴在 a 槽位不掉(stick), 不会静默吸去较远的 b。
     const token = l.fragments.find((f) => f.controllerId === a.expectedFragmentId)!;
     const action = resolveM01GreyboxDrop(l, token, probe, { rotation: b.rotation });
-    if (action.type === "place_fragment_freely") {
-      expect(action.rotationHint).toBe(true);
+    if (action.type === "stick_fragment_to_slot") {
+      // 贴在最近槽 a 的位置(不是较远的 b)。
+      expect(action.position).toEqual(a.position);
     } else {
       // a/b 目标角恰好对称重合时(如未来配成 90/210), 吸附到最近槽 a 也是对的。
       expect(action.type).toBe("snap_fragment_to_target_piece");

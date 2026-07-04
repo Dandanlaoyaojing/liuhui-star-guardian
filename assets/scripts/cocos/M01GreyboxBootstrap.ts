@@ -2203,6 +2203,36 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    if (action.type === "stick_fragment_to_slot") {
+      // 落点命中槽、只差旋转 → 【贴在槽位不掉】(Kinematic), 保持玩家当前朝向, 提示原地转一下。
+      // 原地轻点转 90°→pin 计时器到点重跑 handleTokenDrop: 转对了走 snap 落定验证, 没对就再贴住。
+      // 修复"放上去角度没对就悄悄自由落下、玩家以为放好了、再拼永远差几片不触发"。
+      const picked = this.session.pickFragment(action.fragmentId);
+      if (!picked.accepted) {
+        this.setStatus(picked.status);
+        this.syncFeedbackFromSession();
+        this.syncVisualState();
+        this.resetTokenNode(node, token);
+        return;
+      }
+      this.removeWeakSnappedFragment(action.fragmentId);
+      const placed = this.session.placeHeldFragment(action.position);
+      this.setStatus(placed.status);
+      this.clearHintTargets();
+      this.syncFeedbackFromSession();
+      this.syncVisualState();
+      const playerRotation = this.tokenRotations.get(action.fragmentId) ?? 0;
+      node.setPosition(action.position.x, action.position.y, 0);
+      node.setRotationFromEuler(0, 0, playerRotation); // 保持玩家朝向(不自动转正), 清掉物理翻滚的脏角度
+      this.parkFragmentBodyAtSnap(node); // Kinematic: 贴住不掉, 可被再点(转)/再抓(拖)
+      this.tokenPositions.set(action.fragmentId, action.position);
+      this.redrawAndPersistManualTargetDraft();
+      const hint = this.formatText("rotateToFitHint");
+      this.setStatus(hint);
+      this.setFeedback(hint);
+      return;
+    }
+
     this.resetTokenNode(node, token);
   }
 
