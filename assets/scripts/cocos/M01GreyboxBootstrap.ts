@@ -112,7 +112,6 @@ const ROTATE_PIN_HOLD_MS = 2000;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
 const TARGET_PATTERN_POSITION_TOLERANCE = 1;
 const TARGET_PATTERN_ROTATION_TOLERANCE = 1;
-const VALIDATION_FAILURE_FLASH_COUNT = 2;
 const M01_HINT_ICON_RESOURCE_PATH = "art/icons/icon-hint/spriteFrame";
 const M01_HINT_ICON_DISPLAY_SIZE = { width: 62, height: 62 };
 const OBSERVED_FRAGMENT_TINT_ALPHA = 255;
@@ -341,7 +340,6 @@ export class M01GreyboxBootstrap extends Component {
   private validationFlashVisible = true;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private validationFailureReturnTimeout: ReturnType<typeof setTimeout> | undefined;
-  private readonly validationFailureFlashTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   // 修复动画(spec §5.2: 齿轮转动→碎片漩涡喷出→化星光; 时序由 config repair.steps 经 M01RepairSequence 编排)。
   private readonly repairSequenceTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private repairSequencePlaying = false;
@@ -2505,18 +2503,10 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    // 稳定保持(不闪烁): 亮起后显色/交叠混合色/底光一直亮到窗口结束, 让玩家看清错色再掉片(用户定)。
+    // 立即渲染一次(去掉逐次 toggle 后, 首帧不再靠 toggle 触发; bottomLight 此刻已是 flash_then_off)。
+    this.syncVisualState();
     const delayMs = Math.max(0, validationLightSeconds * 1000);
-    const flashToggleCount = VALIDATION_FAILURE_FLASH_COUNT * 2 - 1;
-    const flashIntervalMs = delayMs / (flashToggleCount + 1);
-    for (let index = 1; index <= flashToggleCount; index += 1) {
-      this.validationFailureFlashTimeouts.push(
-        setTimeout(() => {
-          this.validationFlashVisible = !this.validationFlashVisible;
-          this.syncVisualState();
-        }, flashIntervalMs * index)
-      );
-    }
-
     this.validationFailureReturnTimeout = setTimeout(() => {
       this.validationFailureReturnTimeout = undefined;
       this.validationFlashVisible = true;
@@ -2525,11 +2515,6 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   private clearFailedCandidateReturn(): void {
-    for (const timeout of this.validationFailureFlashTimeouts) {
-      clearTimeout(timeout);
-    }
-    this.validationFailureFlashTimeouts.length = 0;
-
     if (this.validationFailureReturnTimeout !== undefined) {
       clearTimeout(this.validationFailureReturnTimeout);
       this.validationFailureReturnTimeout = undefined;

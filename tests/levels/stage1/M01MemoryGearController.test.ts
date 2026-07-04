@@ -169,7 +169,7 @@ describe("M01MemoryGearController", () => {
     expect(realM01Config.evidence.length).toBeGreaterThanOrEqual(4);
     expect(realM01Config.evidence.length).toBeLessThanOrEqual(6);
     expect(realM01Config.goal.params.requiredFragments).toBe("solution_defined");
-    expect(realM01Config.goal.params.validationLightSeconds).toBe(3.5);
+    expect(realM01Config.goal.params.validationLightSeconds).toBe(3);
   });
 
   it("derives used fragments from the configured evidence solution graph", () => {
@@ -315,7 +315,7 @@ describe("M01MemoryGearController", () => {
       accepted: false,
       reason: "wrong_blend_color",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
     expect(controller.getCompletionState()).toMatchObject({
@@ -350,7 +350,7 @@ describe("M01MemoryGearController", () => {
       accepted: false,
       reason: "incomplete_candidate",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });
@@ -366,7 +366,7 @@ describe("M01MemoryGearController", () => {
 
     expect(controller.getCompletionState().bottomLight).toBe("flash_then_off");
 
-    now += 3_499;
+    now += 2_999;
     expect(controller.getCompletionState().bottomLight).toBe("flash_then_off");
 
     now += 1;
@@ -400,7 +400,7 @@ describe("M01MemoryGearController", () => {
       accepted: false,
       reason: "wrong_fragment_set",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });
@@ -436,7 +436,7 @@ describe("M01MemoryGearController", () => {
       accepted: false,
       reason: "wrong_fragment_set",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });
@@ -475,7 +475,7 @@ describe("M01MemoryGearController", () => {
       accepted: false,
       reason: "incomplete_candidate",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });

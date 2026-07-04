@@ -29,7 +29,7 @@
         6
       ],
       "maxLayersPerEvidence": 2,
-      "validationLightSeconds": 3.5,
+      "validationLightSeconds": 3,
       "baseColors": [
         "red",
         "yellow",
@@ -867,7 +867,7 @@
           6
         ],
         "maxLayersPerEvidence": 2,
-        "validationLightSeconds": 3.5,
+        "validationLightSeconds": 3,
         "baseColors": [
           "red",
           "yellow",

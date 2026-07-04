@@ -495,7 +495,7 @@ describe("M01GreyboxSession", () => {
       accepted: false,
       reason: "wrong_blend_color",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });
@@ -518,7 +518,7 @@ describe("M01GreyboxSession", () => {
       accepted: false,
       reason: "incomplete_candidate",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });
@@ -562,7 +562,7 @@ describe("M01GreyboxSession", () => {
       accepted: false,
       reason: "wrong_blend_color",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
     expect(session.getFragmentView("fragment_circle_red_2")).toMatchObject({
@@ -623,7 +623,7 @@ describe("M01GreyboxSession", () => {
       accepted: false,
       reason: "wrong_fragment_set",
       bottomLight: "flash_then_off",
-      validationLightSeconds: 3.5,
+      validationLightSeconds: 3,
       completed: false
     });
   });

@@ -1532,10 +1532,12 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).not.toContain("addTargetReferenceCircleFrame(layerNode, layer.size)");
   });
 
-  it("flashes failed M01 candidates twice in true fragment colors before returning pieces", () => {
+  it("holds the failed M01 candidate reveal steady (no blink) before returning pieces", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 
-    expect(bootstrap).toContain("VALIDATION_FAILURE_FLASH_COUNT = 2");
+    // 稳定保持: 不再逐次 toggle 闪烁(旧 VALIDATION_FAILURE_FLASH_COUNT 循环已删)。
+    expect(bootstrap).not.toContain("VALIDATION_FAILURE_FLASH_COUNT");
+    expect(bootstrap).not.toContain("this.validationFlashVisible = !this.validationFlashVisible");
     expect(bootstrap).toContain("validationFlashVisible");
     expect(bootstrap).toContain("scheduleFailedCandidateReturn");
     expect(bootstrap).toContain("resetWeakSnappedCandidate");
