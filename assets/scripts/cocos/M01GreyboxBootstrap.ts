@@ -2230,6 +2230,9 @@ export class M01GreyboxBootstrap extends Component {
       const hint = this.formatText("rotateToFitHint");
       this.setStatus(hint);
       this.setFeedback(hint);
+      // 贴住的片虽因角度没对不入账, 但它填满了这个槽的位置 → 若 6 槽位置都满了, 触发验证(角度错走 incomplete 失败反应)。
+      this.trySubmitTargetPatternEvidencePairs();
+      this.tryValidateCompleteEvidenceCandidate();
       return;
     }
 
@@ -2354,6 +2357,36 @@ export class M01GreyboxBootstrap extends Component {
     return undefined;
   }
 
+  /** 6 个目标槽是否都被填上(只看位置, 不看角度)。用于验证触发门: 位置齐就触发, 角度错交给验证判失败。 */
+  private allTargetSlotsPositionOccupied(): boolean {
+    if (!this.layout || this.layout.targetPieceSlots.length === 0) {
+      return false;
+    }
+    return this.layout.targetPieceSlots.every(
+      (slot) => this.fragmentIdOccupyingSlotPositionOnly(slot.position) !== undefined
+    );
+  }
+
+  /** 槽位置上(只看位置+Kinematic, 不看角度)坐着哪片。角度没对的片经 stick_fragment_to_slot 贴在精确槽位, 也算占位。 */
+  private fragmentIdOccupyingSlotPositionOnly(slotPosition: M01GreyboxPoint): string | undefined {
+    for (const [fragmentId, entry] of this.greyboxNodes) {
+      if (entry.token.kind !== "fragment") {
+        continue;
+      }
+      if (entry.node.getComponent(RigidBody2D)?.type !== ERigidBody2DType.Kinematic) {
+        continue;
+      }
+      const nodePosition = entry.node.position;
+      if (
+        Math.hypot(nodePosition.x - slotPosition.x, nodePosition.y - slotPosition.y) <=
+        TARGET_PATTERN_POSITION_TOLERANCE
+      ) {
+        return fragmentId;
+      }
+    }
+    return undefined;
+  }
+
   private tryValidateCompleteEvidenceCandidate(): void {
     if (!this.session || !this.layout || this.layout.evidence.length === 0) {
       return;
@@ -2365,8 +2398,11 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    const allEvidenceStaged = this.session.areAllEvidenceStaged();
-    if (!allEvidenceStaged) {
+    // 触发门 = 6 个目标槽都被填上(不管角度), 不再要求"全 staged"(=角度全对)。角度对不对交给验证判:
+    // 角度都对 → session 全 staged → validateCandidateStructure 走颜色验证(赢 or 颜色错闪);
+    // 有片角度没对 → 未全 staged → validateCandidateStructure 返回 incomplete → 失败显色闪+掉片。
+    // 修"6 片都填上了却因某片角度差 180° 死活没反应"—— 玩家分不清灰三角/看不到隐藏提示。
+    if (!this.allTargetSlotsPositionOccupied()) {
       return;
     }
 
