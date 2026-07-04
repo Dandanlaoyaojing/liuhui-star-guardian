@@ -922,10 +922,12 @@ export class M01GreyboxBootstrap extends Component {
 
     const graphics = this.bottomLightGraphics;
     graphics.clear();
+    // 验证失败闪灯期(flash_then_off)随 validationFlashVisible 脉冲: 亮相帧整体提亮/放大, 暗帧回落 —— 让"底光在闪"一眼可见(spec §620)。
+    const flashPulse = state === "flash_then_off" && this.validationFlashVisible;
     graphics.lineWidth = state === "off" ? 1.5 : 3;
-    graphics.fillColor = colorForBottomLightFill(state);
-    graphics.strokeColor = colorForBottomLightStroke(state);
-    graphics.circle(0, 0, state === "off" ? 152 : 170);
+    graphics.fillColor = pulseBottomLightColor(colorForBottomLightFill(state), flashPulse);
+    graphics.strokeColor = pulseBottomLightColor(colorForBottomLightStroke(state), flashPulse);
+    graphics.circle(0, 0, state === "off" ? 152 : flashPulse ? 182 : 170);
     graphics.fill();
     graphics.stroke();
 
@@ -933,8 +935,8 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
-    graphics.lineWidth = state === "flash_then_off" ? 2 : 2.5;
-    graphics.strokeColor = colorForBottomLightRay(state);
+    graphics.lineWidth = state === "flash_then_off" ? (flashPulse ? 3 : 2) : 2.5;
+    graphics.strokeColor = pulseBottomLightColor(colorForBottomLightRay(state), flashPulse);
     for (let i = 0; i < 12; i += 1) {
       const angle = (Math.PI * 2 * i) / 12;
       const inner = state === "flash_then_off" ? 112 : 98;
@@ -1192,9 +1194,12 @@ export class M01GreyboxBootstrap extends Component {
     token: M01GreyboxTokenNode,
     presentation: M01GreyboxPresentation,
     lineWidth: number,
-    colorTokenOverride?: string
+    colorTokenOverride?: string,
+    boostReveal?: boolean
   ): void {
-    const color = colorForToken(colorTokenOverride ?? token.colorToken, token.kind, presentation);
+    const color = boostReveal
+      ? boostRevealColor(colorForToken(colorTokenOverride ?? token.colorToken, token.kind, presentation))
+      : colorForToken(colorTokenOverride ?? token.colorToken, token.kind, presentation);
     const forceFallbackUnderlay =
       this.artPreviewFallbackUnderlayIds.has(token.controllerId) ||
       (Boolean(colorTokenOverride) && token.kind !== "evidence" && token.kind !== "fragment");
@@ -2719,12 +2724,15 @@ export class M01GreyboxBootstrap extends Component {
             ? "normal"
             : view.presentation;
         entry.node.active = !view.placed;
+        // 验证失败闪灯亮相帧(validationFlashVisible 且有 validationColor): 拼片显色加强, 一眼看清错色。
+        const boostFragmentReveal = this.validationFlashVisible && Boolean(validationColor);
         this.applyTokenGraphicsState(
           entry.graphics,
           entry.token,
           textureBackedFragmentReveal ? "normal" : presentation,
           view.selected ? 5 : view.hinted ? 4 : view.interactive ? 3 : 1,
-          textureBackedFragmentReveal ? undefined : fragmentColorOverride
+          textureBackedFragmentReveal ? undefined : fragmentColorOverride,
+          boostFragmentReveal && !textureBackedFragmentReveal
         );
         this.syncArtSpriteState(
           entry.artSprite,
@@ -3282,6 +3290,21 @@ function colorForBottomLightRay(state: M01BottomLightState): Color {
   return state === "flash_then_off"
     ? new Color(216, 105, 70, 112)
     : new Color(194, 168, 76, 122);
+}
+
+// 验证失败闪灯亮相帧: 底光各元素不透明度整体拉高(alpha ×2.4, 上限 255), 让脉冲一眼可见。暗帧原样。
+function pulseBottomLightColor(base: Color, pulse: boolean): Color {
+  if (!pulse) {
+    return base;
+  }
+  return new Color(base.r, base.g, base.b, Math.min(255, Math.round(base.a * 2.4)));
+}
+
+// 验证失败闪灯亮相帧的拼片显色加强: 平时观察显色克制(低饱和贴画风), 但验证这一下要一眼看清错色 →
+// 离灰更远(往极值拉 55% 提饱和)+ 不透明度拉满, 6 片重叠也不洗白。仅验证闪灯帧用, 不动常态观察显色。
+function boostRevealColor(base: Color): Color {
+  const boost = (c: number) => Math.round(c < 128 ? c * 0.45 : c + (255 - c) * 0.45);
+  return new Color(boost(base.r), boost(base.g), boost(base.b), 255);
 }
 
 function colorForToken(
