@@ -22,7 +22,7 @@ const EDGE_COLOR = new Color(110, 116, 138, 150);
 
 @ccclass("M02StarWebView")
 export class M02StarWebView extends Component {
-  @property()
+  @property(String)
   configPath = "configs/stage1/m02-starweb-warmth";
 
   private session: StarWebSession | null = null;
@@ -32,9 +32,9 @@ export class M02StarWebView extends Component {
   private disposed = false;
 
   onLoad(): void {
-    if (!this.node.getComponent(UITransform)) {
-      this.node.addComponent(UITransform);
-    }
+    const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
+    // 触摸区覆盖整片棋盘(星跨 ±~230px), 否则默认 100x100 收不到大部分点击
+    transform.setContentSize(1000, 720);
     const edgeNode = new Node("M02Edges");
     edgeNode.parent = this.node;
     this.edgeGraphics = edgeNode.addComponent(Graphics);
