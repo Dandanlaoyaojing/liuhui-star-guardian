@@ -4,6 +4,18 @@ Last updated: 2026-07-05
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
+## 当前活跃线:M02 Phase 3A 会话/工具卡/进度数据已完成(2026-07-05, 分支 `feat/m02-phase3`)
+
+按 `docs/plans/2026-07-05-m02-phase3.md` 先执行 Phase 3A 三个可无头验证任务，均 TDD 红→绿并逐 Task 提交：
+
+1. `310533b` `feat(M02): add level completion state` — `StarWebSession` 记录已 won 的 board id，新增 `isLevelComplete()`，不信任 `nextBoard()` 顺序。
+2. `30ff2ea` `feat(M02): add tool card config` — M02 `toolCard` 文案入 `m02-starweb-warmth.json`，`StarWebConfig` 类型/校验接 `ToolCardDraft`。
+3. `66c46cb` `feat(M02): grant completion progress` — 新增 `M02CompletionController.grantM02Completion(store, toolCardData, now)`，写入完成进度并解锁工具卡，二次调用保持原时间戳。
+
+验证：`npm test` ✅(39 files / 428 tests)，`npm run typecheck` ✅。计划文档已把 3A 勾掉并写入 checkpoint。
+
+下一步：Phase 3B 从 T4 开始做 cc 视图反馈/输入修正(R2/R3/R4)，需要编辑器 Preview 手动重启后验证；当前工作区仍有一处既有未提交编辑器浮窗配置 `profiles/v2/packages/scene.json`，本轮未触碰。
+
 ## 已收口:M01 交叠显色"旧色"排查 = 缓存假象(2026-07-05, 已 push origin/main e9cfe33)
 
 用户报"齿轮中心目标交叠色偏旧、和通关时不一样"。逐段验证(无头空缓存渲染 + 节点 fillColor dump + 服务端 chunk grep)证明:**齿轮中心风车(M01TargetOverlapEvidence)显色代码一直是新 OBSERVED 色板(橘222,150,94/绿129,171,132/紫173,136,172), 用户所见"旧色"纯是浏览器缓存旧 import-map 的假象, 非代码问题**。主玩法显色无 bug。
