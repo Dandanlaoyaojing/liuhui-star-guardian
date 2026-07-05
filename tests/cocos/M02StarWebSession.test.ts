@@ -92,6 +92,24 @@ describe("StarWebSession 三板推进", () => {
   });
 });
 
+describe("StarWebSession 整关完成", () => {
+  it("三板全 won 后关卡完成", () => {
+    const s = new StarWebSession(loadConfig());
+    const cfg = loadConfig();
+    for (const board of cfg.boards) {
+      for (const id of board.solution.referenceTaps) s.tapNode(id);
+      expect(s.view.status, board.id).toBe("won");
+      if (s.view.boardId !== "trefoil") s.nextBoard();
+    }
+    expect(s.isLevelComplete()).toBe(true);
+  });
+
+  it("中途未通关不算关卡完成", () => {
+    const s = new StarWebSession(loadConfig());
+    expect(s.isLevelComplete()).toBe(false);
+  });
+});
+
 describe("StarWebSession 呈现态", () => {
   it("点一颗后: 该星冻结/衰减态出现, 其余仍暗", () => {
     const s = new StarWebSession(loadConfig());

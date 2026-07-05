@@ -42,6 +42,7 @@ export class StarWebSession {
   private model: StarNetworkModel;
   private chargesUsed = 0;
   private status: BoardStatus = "playing";
+  private readonly wonBoardIds = new Set<string>();
 
   constructor(config: StarWebConfig) {
     if (config.boards.length === 0) {
@@ -59,10 +60,16 @@ export class StarWebSession {
     this.chargesUsed += 1;
     if (this.model.isWon()) {
       this.status = "won";
+      this.wonBoardIds.add(this.board.id);
     } else if (this.chargesUsed >= this.board.charges) {
       this.status = "exhausted";
     }
     return { accepted: true };
+  }
+
+  /** 三板都曾被打通才算整关完成；不信任 nextBoard() 调用顺序。 */
+  isLevelComplete(): boolean {
+    return this.boards.every((board) => this.wonBoardIds.has(board.id));
   }
 
   /** 重来本板(电量、状态、星网清零) */
@@ -70,6 +77,7 @@ export class StarWebSession {
     this.model.reset();
     this.chargesUsed = 0;
     this.status = "playing";
+    this.wonBoardIds.delete(this.board.id);
   }
 
   /** 进入下一板; 已是最后一板返回 false */
