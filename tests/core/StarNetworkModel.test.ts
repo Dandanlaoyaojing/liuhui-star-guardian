@@ -77,3 +77,26 @@ describe("StarNetworkModel.step / isWon / reset", () => {
     expect(m.lifeOf("A")).toBe(0);
   });
 });
+
+describe("StarNetworkModel 图构造健壮性", () => {
+  it("镜像/重复边不把邻居算两次", () => {
+    const dup: BoardGraph = { nodes: ["P", "Q"], edges: [["P", "Q"], ["Q", "P"], ["P", "Q"]] };
+    const m = new StarNetworkModel(dup, RULES);
+    m.tap("P"); // 亮 P,Q
+    expect(m.litNeighborCount("P")).toBe(1); // Q 只算一次
+  });
+
+  it("忽略自环", () => {
+    const loop: BoardGraph = { nodes: ["P", "Q"], edges: [["P", "P"], ["P", "Q"]] };
+    const m = new StarNetworkModel(loop, RULES);
+    m.tap("P");
+    expect(m.litNeighborCount("P")).toBe(1); // 自己不算邻居
+  });
+
+  it("忽略指向未知节点的边", () => {
+    const stray: BoardGraph = { nodes: ["P", "Q"], edges: [["P", "Q"], ["P", "ZZZ"]] };
+    const m = new StarNetworkModel(stray, RULES);
+    m.tap("P");
+    expect(m.litNeighborCount("P")).toBe(1);
+  });
+});

@@ -23,11 +23,16 @@ export class StarNetworkModel {
   constructor(graph: BoardGraph, rules: StarNetworkRules) {
     this.rules = rules;
     this.nodes = [...graph.nodes];
-    this.neighbors = new Map(this.nodes.map((n) => [n, [] as string[]]));
+    // 用 Set 去重邻接: 镜像边 [A,B]+[B,A] 或重复边不得把邻居算两次(否则虚高的
+    // litNeighborCount 会造成假冻结/假通关); 同时忽略自环与指向未知节点的边.
+    const adjacency = new Map<string, Set<string>>(this.nodes.map((n) => [n, new Set<string>()]));
     for (const [a, b] of graph.edges) {
-      this.neighbors.get(a)?.push(b);
-      this.neighbors.get(b)?.push(a);
+      if (a !== b && adjacency.has(a) && adjacency.has(b)) {
+        adjacency.get(a)?.add(b);
+        adjacency.get(b)?.add(a);
+      }
     }
+    this.neighbors = new Map([...adjacency].map(([n, set]) => [n, [...set]]));
     this.life = new Map(this.nodes.map((n) => [n, 0]));
   }
 

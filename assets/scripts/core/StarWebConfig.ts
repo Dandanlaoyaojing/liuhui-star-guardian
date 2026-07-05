@@ -81,11 +81,16 @@ function validateMechanic(value: unknown, errors: string[]): void {
   }
   requirePositiveInteger(value, "lifeMax", errors, "mechanic.lifeMax");
   requirePositiveInteger(value, "freezeThreshold", errors, "mechanic.freezeThreshold");
-  if (typeof value.tapLightsNeighbors !== "boolean") {
-    errors.push("mechanic.tapLightsNeighbors must be a boolean");
+  // 这三个 flag 描述 StarNetworkModel 当前唯一实现的语义。校验器强制它们等于受支持的
+  // 值，避免"配置声明一套、模型做另一套"的静默分歧(model 并不读取它们)。
+  if (value.beatModel !== "turn") {
+    errors.push('mechanic.beatModel must be "turn" (仅支持回合制)');
   }
-  if (typeof value.winRequiresAllFrozen !== "boolean") {
-    errors.push("mechanic.winRequiresAllFrozen must be a boolean");
+  if (value.tapLightsNeighbors !== true) {
+    errors.push("mechanic.tapLightsNeighbors must be true (model 恒点亮邻居)");
+  }
+  if (value.winRequiresAllFrozen !== true) {
+    errors.push("mechanic.winRequiresAllFrozen must be true (model 胜利判定=整网自锁)");
   }
 }
 
