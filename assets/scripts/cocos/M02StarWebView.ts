@@ -3,7 +3,7 @@
 // greybox: 星=填色圆(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 折线。
 // 交互: 根节点单一 touch-end + 最近星命中; 胜/竭后再点=进下一板/重来本板。
 
-import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Node, resources, UITransform, Vec3 } from "cc";
+import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Layers, Node, resources, UITransform, Vec3 } from "cc";
 import { validateStarWebConfig } from "../core/StarWebConfig.ts";
 import { StarWebSession, type StarNodeStatus } from "./M02StarWebSession.ts";
 
@@ -32,15 +32,16 @@ export class M02StarWebView extends Component {
   private disposed = false;
 
   onLoad(): void {
+    this.node.layer = Layers.Enum.UI_2D; // 确保整棵子树在 UI_2D 层(否则运行时新建节点默认 DEFAULT 层, 相机看不见)
     const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
     // 触摸区覆盖整片棋盘(星跨 ±~230px), 否则默认 100x100 收不到大部分点击
     transform.setContentSize(1000, 720);
-    const edgeNode = new Node("M02Edges");
+    const edgeNode = this.makeUINode("M02Edges");
     edgeNode.parent = this.node;
     edgeNode.addComponent(UITransform); // Graphics 是 UI 渲染件, 运行时须显式补 UITransform 否则不出图
     this.edgeGraphics = edgeNode.addComponent(Graphics);
 
-    this.starLayer = new Node("M02Stars");
+    this.starLayer = this.makeUINode("M02Stars");
     this.starLayer.parent = this.node;
 
     this.node.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
@@ -135,13 +136,20 @@ export class M02StarWebView extends Component {
     edges.stroke();
 
     for (const node of view.nodes) {
-      const starNode = new Node(`M02Star_${node.id}`);
+      const starNode = this.makeUINode(`M02Star_${node.id}`);
       starNode.parent = this.starLayer;
       starNode.addComponent(UITransform); // 同上: Graphics 需要 UITransform 才渲染
       starNode.setPosition(node.x, node.y, 0);
       this.starGraphics.set(node.id, starNode.addComponent(Graphics));
     }
     this.renderStars();
+  }
+
+  /** 建一个 UI_2D 层的节点(运行时新建节点默认落 DEFAULT 层, UI 相机看不见) */
+  private makeUINode(name: string): Node {
+    const node = new Node(name);
+    node.layer = Layers.Enum.UI_2D;
+    return node;
   }
 
   /** 按当前 view 的呈现态给每颗星着色 */

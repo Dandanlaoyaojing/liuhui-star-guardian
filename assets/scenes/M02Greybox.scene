@@ -134,7 +134,7 @@
       "__type__": "cc.Vec3",
       "x": 0,
       "y": 0,
-      "z": 500
+      "z": 1000
     },
     "_lrot": {
       "__type__": "cc.Quat",
@@ -219,7 +219,7 @@
     "_shutter": 7,
     "_iso": 0,
     "_screenScale": 1,
-    "_visibility": 41943040,
+    "_visibility": 1115684864,
     "_targetTexture": null,
     "_postProcess": null,
     "_usePostProcess": false,

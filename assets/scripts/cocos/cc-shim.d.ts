@@ -6,6 +6,10 @@ declare module "cc" {
 
   export const CCBoolean: BooleanConstructor;
 
+  export const Layers: {
+    Enum: { UI_2D: number; DEFAULT: number; [key: string]: number };
+  };
+
   export class Component {
     node: Node;
     enabled: boolean;
@@ -16,6 +20,7 @@ declare module "cc" {
     name: string;
     children: Node[];
     active: boolean;
+    layer: number;
     parent: Node | null;
     position: { x: number; y: number; z?: number };
     worldPosition: Vec3;
