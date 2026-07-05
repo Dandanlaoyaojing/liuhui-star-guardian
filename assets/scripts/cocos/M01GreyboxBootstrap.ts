@@ -2054,8 +2054,23 @@ export class M01GreyboxBootstrap extends Component {
     const q = node.rotation;
     const effectiveDeg = (Math.atan2(q.z, q.w) * 360) / Math.PI;
     const snapped = normalizeM01Rotation(Math.round(effectiveDeg / 90) * 90);
+    // 摆正前后保持碰撞体【最低角世界 Y 不变】(同 rotateFragmentClockwise): 翻滚三角摆正会改变最低伸出量,
+    // 不补偿则片探到地平线下(用户报"点转时三角又沉到地面下一点", 是这次重基线漏了补偿的回归)。
+    const polygon = node.getComponent(PolygonCollider2D);
+    const uiTransform = node.getComponent(UITransform);
+    const beforeLowestWorldY =
+      polygon && uiTransform ? this.lowestColliderWorldY(uiTransform, polygon) : null;
     this.tokenRotations.set(fragmentId, snapped);
     node.setRotationFromEuler(0, 0, snapped);
+    if (polygon && uiTransform && beforeLowestWorldY !== null) {
+      const afterLowestWorldY = this.lowestColliderWorldY(uiTransform, polygon);
+      const shiftY = beforeLowestWorldY - afterLowestWorldY;
+      if (shiftY !== 0) {
+        const reseatedY = node.position.y + shiftY;
+        node.setPosition(node.position.x, reseatedY, 0);
+        this.tokenPositions.set(fragmentId, { x: node.position.x, y: reseatedY });
+      }
+    }
   }
 
   private rotateFragmentClockwise(fragmentId: string): void {
