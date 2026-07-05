@@ -1587,7 +1587,9 @@ describe("Cocos Creator project scaffold", () => {
     );
     expect(helperBody).toContain("Math.atan2(q.z, q.w)");
     expect(helperBody).toContain("Math.round(effectiveDeg / 90) * 90");
-    expect(helperBody).toContain("node.setRotationFromEuler(0, 0, snapped)");
+    expect(helperBody).toContain("this.tokenRotations.set(fragmentId, snapped)");
+    // 只重基线账本, 【不摆正视觉】: 抓起(长按拖动)不该跳角, 只有轻点转向才变角度(用户要求)。
+    expect(helperBody).not.toContain("setRotationFromEuler");
   });
 
   it("restores art preview underlays as a fallback when required art fails to load", () => {

@@ -2046,31 +2046,18 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   /** 原地把拼片顺时针转 90°(累加, 连点连转); 角度写入 tokenRotations 供后续落定吸附判定。 */
-  /** 物理翻滚过的片抓起时: 旋转账本(tokenRotations)重基线到当前视觉角就近的 90° 倍数, 并把片摆正到该角。
+  /** 物理翻滚过的片抓起时: 只把旋转账本(tokenRotations)重基线到当前视觉角就近的 90° 倍数, 【不动视觉朝向】。
    *  账本只被轻点转向/吸附回写, 掉落翻滚不回写 —— 不重基线的话, 验证失败掉落后玩家按屏幕朝向再转 90° 步进,
    *  实际叠在上一轮旧账上(转180 = 旧180+180 = 0), 片贴槽永不入账(第二轮拼错不触发的真根因)。
-   *  角度从四元数直读(θ = 2·atan2(z,w)): 翻滚体的 eulerAngles 有 (180,180,θ) 分解歧义, 不可靠。 */
+   *  角度从四元数直读(θ = 2·atan2(z,w)): 翻滚体的 eulerAngles 有 (180,180,θ) 分解歧义, 不可靠。
+   *  【不在此摆正视觉】: 抓起(长按拖动)时不该跳角, 只有轻点转向才变角度(用户要求)。视觉摆正交给
+   *  rotateFragmentClockwise(轻点: 设 snapped+90 一步到位, 带最低点 Y 补偿)或落定吸附/贴槽处理 ——
+   *  也顺带修了"抓起摆正漏补偿→三角沉地平线下"的回归(不摆正就无沉)。 */
   private rebaselineFragmentRotationFromNode(node: Node, fragmentId: string): void {
     const q = node.rotation;
     const effectiveDeg = (Math.atan2(q.z, q.w) * 360) / Math.PI;
     const snapped = normalizeM01Rotation(Math.round(effectiveDeg / 90) * 90);
-    // 摆正前后保持碰撞体【最低角世界 Y 不变】(同 rotateFragmentClockwise): 翻滚三角摆正会改变最低伸出量,
-    // 不补偿则片探到地平线下(用户报"点转时三角又沉到地面下一点", 是这次重基线漏了补偿的回归)。
-    const polygon = node.getComponent(PolygonCollider2D);
-    const uiTransform = node.getComponent(UITransform);
-    const beforeLowestWorldY =
-      polygon && uiTransform ? this.lowestColliderWorldY(uiTransform, polygon) : null;
     this.tokenRotations.set(fragmentId, snapped);
-    node.setRotationFromEuler(0, 0, snapped);
-    if (polygon && uiTransform && beforeLowestWorldY !== null) {
-      const afterLowestWorldY = this.lowestColliderWorldY(uiTransform, polygon);
-      const shiftY = beforeLowestWorldY - afterLowestWorldY;
-      if (shiftY !== 0) {
-        const reseatedY = node.position.y + shiftY;
-        node.setPosition(node.position.x, reseatedY, 0);
-        this.tokenPositions.set(fragmentId, { x: node.position.x, y: reseatedY });
-      }
-    }
   }
 
   private rotateFragmentClockwise(fragmentId: string): void {
