@@ -2,7 +2,8 @@
 // 规则(spec §5.3): 点一颗星=该星+全部直连邻居满命(lifeMax); 每拍全体同时衰减:
 //   亮邻居数 >= freezeThreshold 则冻结(不掉命), 否则 -1, 归0熄灭.
 //   胜利 = 所有星都亮 且 每颗亮邻居 >= freezeThreshold (整网自稳锁死).
-// 语义与 scripts/m02-starweb-verify.mjs 的求解器逐位对齐(衰减用结算前快照).
+// 语义由 tests/core 单测钉死(衰减用结算前快照; 见 StarNetworkModel.test.ts / StarWebConfig.test.ts:
+//   后者含 BFS 最少点亮数断言, 守住"每板紧配额").
 
 export interface StarNetworkRules {
   lifeMax: number;         // 拍；星被点亮后的满命

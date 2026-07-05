@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript(strict), Cocos Creator 3.8, Vitest, 现有 `assets/scripts/core` 纯模块约定。
 
-**Source of truth:** 设计见 `docs/design/game-design-spec.md` §5.3；数值/星网/参考解见 `assets/resources/configs/stage1/m02-starweb-warmth.json`；机制参考实现见 `scripts/m02-starweb-verify.mjs`（本计划把它的保证折进单测）。
+**Source of truth:** 设计见 `docs/design/game-design-spec.md` §5.3；数值/星网/参考解见 `assets/resources/configs/stage1/m02-starweb-warmth.json`；机制的可执行规格 = `assets/scripts/core/StarNetworkModel.ts` + 其单测（tightness/参考解全锁已折进 `tests/core/`，挂 CI）。
 
 **已知约束（来自项目记忆）:**
 - 并发会话共用主 worktree：**频繁提交**保护未提交改动不被别的会话 checkout 冲掉。

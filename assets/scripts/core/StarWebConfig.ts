@@ -149,8 +149,8 @@ function validateLayout(value: unknown, path: string, errors: string[]): Set<str
   if (!Array.isArray(value.edges)) {
     errors.push(`${path}.edges must be an array`);
   } else {
-    // 拒绝自环与重复/镜像边: StarNetworkModel 会去重, 但独立的 verify 脚本按无向计数,
-    // 放行这类数据会让"模型语义"与"参考脚本语义"分歧。堵在门口最稳。
+    // 拒绝自环与重复/镜像边: 让"一条无向边 = 一次邻接"成为配置层的硬保证, 任何消费方
+    // (模型 / 未来的视图 / 工具) 都不会因重复计数而误判冻结。堵在门口最稳。
     const seenEdges = new Set<string>();
     value.edges.forEach((edge, i) => {
       const edgePath = `${path}.edges[${i}]`;
