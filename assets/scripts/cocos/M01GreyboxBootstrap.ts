@@ -1088,6 +1088,11 @@ export class M01GreyboxBootstrap extends Component {
     if (!card) {
       return;
     }
+    // 屏幕文字全关时(HIDE_SCREEN_TEXT)不出这张卡: 卡的内容全是文字(副题/标题/结晶/用法), 文字被隐藏后
+    // 只剩一个空方框+框内美术, 通关时浮在右下角像多余的框(用户报"那个方框去掉")。文字开启时才是完整奖励卡。
+    if (HIDE_SCREEN_TEXT) {
+      return;
+    }
 
     const preview = buildToolCardPreview(card, {
       text: {
