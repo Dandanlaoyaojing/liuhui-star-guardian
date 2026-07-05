@@ -12,6 +12,8 @@ const { ccclass, property } = _decorator;
 const NODE_RADIUS = 22;   // 星视觉半径(px)
 const TAP_RADIUS = 44;    // 命中半径(px), 比视觉大好点
 const EDGE_WIDTH = 4;
+const CHARGE_PIP_RADIUS = 8;
+const CHARGE_PIP_GAP = 24;
 
 const COLOR: Record<StarNodeStatus, Color> = {
   dark: new Color(92, 98, 116, 255),
@@ -19,6 +21,8 @@ const COLOR: Record<StarNodeStatus, Color> = {
   frozen: new Color(248, 214, 150, 255)
 };
 const EDGE_COLOR = new Color(110, 116, 138, 150);
+const CHARGE_COLOR = new Color(248, 214, 150, 255);
+const CHARGE_EMPTY_COLOR = new Color(92, 98, 116, 120);
 
 @ccclass("M02StarWebView")
 export class M02StarWebView extends Component {
@@ -28,6 +32,7 @@ export class M02StarWebView extends Component {
   private session: StarWebSession | null = null;
   private edgeGraphics: Graphics | null = null;
   private starLayer: Node | null = null;
+  private chargeLayer: Node | null = null;
   private readonly starGraphics = new Map<string, Graphics>();
   private activeTouchId: number | null = null;
   private disposed = false;
@@ -41,6 +46,9 @@ export class M02StarWebView extends Component {
 
     this.starLayer = this.makeUINode("M02Stars");
     this.starLayer.parent = this.node;
+    this.chargeLayer = this.makeUINode("M02ChargeMeter");
+    this.chargeLayer.parent = this.node;
+    this.chargeLayer.setPosition(-430, 300, 0);
 
     this.node.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
     this.node.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
@@ -181,6 +189,23 @@ export class M02StarWebView extends Component {
       graphics.fillColor = COLOR[node.status];
       graphics.circle(0, 0, NODE_RADIUS);
       graphics.fill();
+    }
+    this.renderChargeMeter();
+  }
+
+  private renderChargeMeter(): void {
+    if (!this.session || !this.chargeLayer) return;
+    for (const child of [...this.chargeLayer.children]) {
+      child.destroy();
+    }
+
+    const { chargesLeft, chargesTotal } = this.session.view;
+    for (let i = 0; i < chargesTotal; i++) {
+      const pip = this.makeGraphicsNode(`M02ChargePip_${i}`, this.chargeLayer);
+      pip.node.setPosition(i * CHARGE_PIP_GAP, 0, 0);
+      pip.fillColor = i < chargesLeft ? CHARGE_COLOR : CHARGE_EMPTY_COLOR;
+      pip.circle(0, 0, CHARGE_PIP_RADIUS);
+      pip.fill();
     }
   }
 }

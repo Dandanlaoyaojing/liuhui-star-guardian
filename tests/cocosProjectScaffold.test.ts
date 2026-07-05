@@ -1689,4 +1689,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(view).toContain("this.starGraphics.set(node.id, starGraphics);");
     expect(view).not.toContain("starNode.addComponent(UITransform); // 同上");
   });
+
+  it("renders M02 remaining charges as a board-synced pip meter", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+
+    expect(view).toContain("private chargeLayer: Node | null = null;");
+    expect(view).toContain('this.chargeLayer = this.makeUINode("M02ChargeMeter");');
+    expect(view).toContain("private renderChargeMeter(): void");
+    expect(view).toContain("const { chargesLeft, chargesTotal } = this.session.view;");
+    expect(view).toContain("for (let i = 0; i < chargesTotal; i++)");
+    expect(view).toContain("this.makeGraphicsNode(`M02ChargePip_${i}`, this.chargeLayer);");
+    expect(view).toContain("pip.fillColor = i < chargesLeft ? CHARGE_COLOR : CHARGE_EMPTY_COLOR;");
+    expect(view).toContain("this.renderChargeMeter();");
+  });
 });
