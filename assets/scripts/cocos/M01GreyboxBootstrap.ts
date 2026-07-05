@@ -3171,15 +3171,17 @@ const STANDARD_REFERENCE_TARGET_PIECES: ReferencePiece[] = [
   { id: "hexagon_lower", shape: "hexagon", center: { x: 30, y: -18 } },
   { id: "circle_lower", shape: "circle", center: { x: -4, y: -18 } }
 ];
+// ponytail: 参考卡交叠色不再自带常量, 改 colorToken 派生自共享显色板
+// (colorForTargetOverlapEvidence → OBSERVED_FRAGMENT_TINT_COLORS), 与拼片显色/盘面证据同源。
 const STANDARD_REFERENCE_OVERLAPS: Array<{
   firstId: string;
   secondId: string;
-  color: Color;
+  colorToken: M01BlendColor;
 }> = [
-  { firstId: "circle_left", secondId: "triangle_left", color: new Color(139, 105, 156, 210) },
-  { firstId: "triangle_right", secondId: "hexagon_top", color: new Color(92, 145, 112, 210) },
-  { firstId: "hexagon_top", secondId: "hexagon_lower", color: new Color(199, 126, 75, 218) },
-  { firstId: "hexagon_lower", secondId: "circle_lower", color: new Color(139, 105, 156, 210) }
+  { firstId: "circle_left", secondId: "triangle_left", colorToken: "purple" },
+  { firstId: "triangle_right", secondId: "hexagon_top", colorToken: "green" },
+  { firstId: "hexagon_top", secondId: "hexagon_lower", colorToken: "orange" },
+  { firstId: "hexagon_lower", secondId: "circle_lower", colorToken: "purple" }
 ];
 
 function drawStandardReferencePattern(graphics: Graphics, width: number, height: number): void {
@@ -3215,7 +3217,7 @@ function drawStandardReferencePattern(graphics: Graphics, width: number, height:
     }
 
     graphics.lineWidth = 1.4;
-    graphics.fillColor = overlap.color;
+    graphics.fillColor = colorForTargetOverlapEvidence(overlap.colorToken);
     graphics.strokeColor = new Color(44, 43, 38, 190);
     drawPolygon(graphics, intersection);
     graphics.fill();
