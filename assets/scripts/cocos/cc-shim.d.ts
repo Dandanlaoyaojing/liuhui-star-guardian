@@ -27,6 +27,7 @@ declare module "cc" {
     destroy(): void;
     getChildByName(name: string): Node | null;
     on(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
+    off(type: string, callback: (event: EventTouch) => void, target?: unknown): void;
     setPosition(x: number, y: number, z?: number): void;
     setWorldPosition(pos: Vec3): void;
     setRotationFromEuler(x: number, y: number, z: number): void;
@@ -187,6 +188,8 @@ declare module "cc" {
     setAnchorPoint(x: number, y: number): void;
     /** 节点局部点 → 世界坐标(含父链缩放/旋转); 与 2D sprite 顶点世界空间一致。 */
     convertToWorldSpaceAR(nodePoint: Vec3, out?: Vec3): Vec3;
+    /** 世界坐标 → 该节点局部点(convertToWorldSpaceAR 的逆); UI 命中测试把 getUILocation 当世界点传入。 */
+    convertToNodeSpaceAR(worldPoint: Vec3, out?: Vec3): Vec3;
     readonly contentSize: { width: number; height: number };
     width: number;
     height: number;
