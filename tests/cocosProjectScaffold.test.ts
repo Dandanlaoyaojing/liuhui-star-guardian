@@ -1544,6 +1544,52 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.session.resetCandidateStructure()");
   });
 
+  it("drops every piece parked on a target slot when validation fails, not just staged ones", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    // 掉片名单来源 = 失败触发时的快照(位置占槽 ∪ 弱磁吸登记), 收集器扫描角度错贴槽的片也算。
+    const collectBody = bootstrap.slice(
+      bootstrap.indexOf("private collectFailedCandidateFragmentIds"),
+      bootstrap.indexOf("private resetWeakSnappedCandidate")
+    );
+    expect(collectBody).toContain("this.weakSnappedFragmentsByEvidence.values()");
+    expect(collectBody).toContain("this.fragmentIdOccupyingSlotPositionOnly(slot.position)");
+    // 快照在失败触发那一刻拍下(不到点实时扫), 避免误掉 3 秒窗口内玩家新放的片。
+    expect(bootstrap).toContain(
+      "this.failedCandidateDropSnapshot = this.collectFailedCandidateFragmentIds()"
+    );
+    // reset 到点只消费快照 ∪ session staged, 不再实时扫槽。
+    const resetBody = bootstrap.slice(
+      bootstrap.indexOf("private resetWeakSnappedCandidate"),
+      bootstrap.indexOf("private renderCompletionToolCardIfAvailable")
+    );
+    expect(resetBody).toContain("new Set(this.session.resetCandidateStructure())");
+    expect(resetBody).toContain("for (const fragmentId of this.failedCandidateDropSnapshot)");
+    expect(resetBody).not.toContain("this.fragmentIdOccupyingSlotPositionOnly(slot.position)");
+  });
+
+  it("re-baselines the rotation ledger when grabbing a physics-tumbled fragment", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+
+    // 账本重基线: 掉落翻滚不回写 tokenRotations, 抓起 Dynamic 片时必须以当前视觉角(就近 90°)重建,
+    // 否则玩家第二轮按屏幕朝向转 90° 步进会叠在旧账上(转180=旧180+180=0, 片贴槽永不入账)。
+    expect(bootstrap).toContain("private rebaselineFragmentRotationFromNode");
+    const grabBody = bootstrap.slice(
+      bootstrap.indexOf("private beginTokenDrag"),
+      bootstrap.indexOf("private moveActivePointerDrag")
+    );
+    expect(grabBody).toContain("body.type === ERigidBody2DType.Dynamic");
+    expect(grabBody).toContain("this.rebaselineFragmentRotationFromNode(node, token.controllerId)");
+    // 角度从四元数直读(2·atan2(z,w)), 不读有分解歧义的 eulerAngles。
+    const helperBody = bootstrap.slice(
+      bootstrap.indexOf("private rebaselineFragmentRotationFromNode"),
+      bootstrap.indexOf("private rotateFragmentClockwise")
+    );
+    expect(helperBody).toContain("Math.atan2(q.z, q.w)");
+    expect(helperBody).toContain("Math.round(effectiveDeg / 90) * 90");
+    expect(helperBody).toContain("node.setRotationFromEuler(0, 0, snapped)");
+  });
+
   it("restores art preview underlays as a fallback when required art fails to load", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
 

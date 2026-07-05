@@ -340,6 +340,9 @@ export class M01GreyboxBootstrap extends Component {
   private validationFlashVisible = true;
   private validationLightResetTimeout: ReturnType<typeof setTimeout> | undefined;
   private validationFailureReturnTimeout: ReturnType<typeof setTimeout> | undefined;
+  // 验证失败【触发那一刻】要掉的拼片快照。掉片在 3 秒失败灯窗口后才执行, 期间玩家仍能操作 ——
+  // 到点再实时扫槽会误掉玩家新放的片 / 漏掉已移走的失败片(codex P1)。故失败时立即拍下, 到点只掉快照。
+  private failedCandidateDropSnapshot: string[] = [];
   // 修复动画(spec §5.2: 齿轮转动→碎片漩涡喷出→化星光; 时序由 config repair.steps 经 M01RepairSequence 编排)。
   private readonly repairSequenceTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private repairSequencePlaying = false;
@@ -1459,6 +1462,11 @@ export class M01GreyboxBootstrap extends Component {
       };
       const body = node.getComponent(RigidBody2D);
       if (body) {
+        if (body.type === ERigidBody2DType.Dynamic) {
+          // 物理翻滚过的片: 抓起时把旋转账本重基线到当前视觉角、并摆正(见 helper)。
+          // 只对 Dynamic 做 —— Kinematic 片(吸附/贴槽/钉住)的视觉角本就等于账本, 且槽位角可能非 90° 倍数, 不能圆整。
+          this.rebaselineFragmentRotationFromNode(node, token.controllerId);
+        }
         body.type = ERigidBody2DType.Kinematic;
         body.linearVelocity = new Vec2(0, 0);
         body.angularVelocity = 0;
@@ -2031,6 +2039,18 @@ export class M01GreyboxBootstrap extends Component {
   }
 
   /** 原地把拼片顺时针转 90°(累加, 连点连转); 角度写入 tokenRotations 供后续落定吸附判定。 */
+  /** 物理翻滚过的片抓起时: 旋转账本(tokenRotations)重基线到当前视觉角就近的 90° 倍数, 并把片摆正到该角。
+   *  账本只被轻点转向/吸附回写, 掉落翻滚不回写 —— 不重基线的话, 验证失败掉落后玩家按屏幕朝向再转 90° 步进,
+   *  实际叠在上一轮旧账上(转180 = 旧180+180 = 0), 片贴槽永不入账(第二轮拼错不触发的真根因)。
+   *  角度从四元数直读(θ = 2·atan2(z,w)): 翻滚体的 eulerAngles 有 (180,180,θ) 分解歧义, 不可靠。 */
+  private rebaselineFragmentRotationFromNode(node: Node, fragmentId: string): void {
+    const q = node.rotation;
+    const effectiveDeg = (Math.atan2(q.z, q.w) * 360) / Math.PI;
+    const snapped = normalizeM01Rotation(Math.round(effectiveDeg / 90) * 90);
+    this.tokenRotations.set(fragmentId, snapped);
+    node.setRotationFromEuler(0, 0, snapped);
+  }
+
   private rotateFragmentClockwise(fragmentId: string): void {
     const entry = this.greyboxNodes.get(fragmentId);
     if (!entry) {
@@ -2216,6 +2236,16 @@ export class M01GreyboxBootstrap extends Component {
         return;
       }
       this.removeWeakSnappedFragment(action.fragmentId);
+      // 同 snap 分支(§634 可替换): 贴到已占槽位前先释放旧占位片, 否则两片 Kinematic 叠同一槽 →
+      // fragmentIdOccupyingSlotPositionOnly 命中即返回只认到一片 → 失败掉片漏掉另一片(codex P1)。
+      const stickPreviousOccupant = this.fragmentIdOccupyingSlotPositionOnly(action.position);
+      if (stickPreviousOccupant && stickPreviousOccupant !== action.fragmentId) {
+        this.removeWeakSnappedFragment(stickPreviousOccupant);
+        const occupantEntry = this.greyboxNodes.get(stickPreviousOccupant);
+        if (occupantEntry) {
+          this.releaseFragmentBodyToPhysics(occupantEntry.node);
+        }
+      }
       const placed = this.session.placeHeldFragment(action.position);
       this.setStatus(placed.status);
       this.clearHintTargets();
@@ -2569,6 +2599,8 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    // 失败【触发这一刻】拍下要掉的片(位置占槽 ∪ 弱磁吸登记); 3 秒后只掉这批, 不再实时扫(codex P1)。
+    this.failedCandidateDropSnapshot = this.collectFailedCandidateFragmentIds();
     // 稳定保持(不闪烁): 亮起后显色/交叠混合色/底光一直亮到窗口结束, 让玩家看清错色再掉片(用户定)。
     // 立即渲染一次(去掉逐次 toggle 后, 首帧不再靠 toggle 触发; bottomLight 此刻已是 flash_then_off)。
     this.syncVisualState();
@@ -2578,6 +2610,23 @@ export class M01GreyboxBootstrap extends Component {
       this.validationFlashVisible = true;
       this.resetWeakSnappedCandidate();
     }, delayMs);
+  }
+
+  /** 验证失败那一刻在台上的候选片 = 弱磁吸登记 ∪ 所有目标槽位置占用(Kinematic)片。角度错经 stick 贴槽的也算。 */
+  private collectFailedCandidateFragmentIds(): string[] {
+    const ids = new Set<string>();
+    for (const fragmentIds of this.weakSnappedFragmentsByEvidence.values()) {
+      for (const fragmentId of fragmentIds) {
+        ids.add(fragmentId);
+      }
+    }
+    for (const slot of this.layout?.targetPieceSlots ?? []) {
+      const occupant = this.fragmentIdOccupyingSlotPositionOnly(slot.position);
+      if (occupant) {
+        ids.add(occupant);
+      }
+    }
+    return [...ids];
   }
 
   private clearFailedCandidateReturn(): void {
@@ -2593,9 +2642,15 @@ export class M01GreyboxBootstrap extends Component {
     }
 
     this.cancelAllRotatePins(); // 失败重置前清掉"转向钉住"的迟到释放, 否则计时器会在刚被重置的片上再跑 handleTokenDrop(codex P2)
-    const fragmentIds = this.session.resetCandidateStructure();
+    // 掉片名单 = 失败触发时的快照(位置占槽 ∪ 弱磁吸) ∪ session 记的 staged 片。快照在失败那一刻拍下 →
+    // 只掉当时台上的片, 不误掉玩家在 3 秒窗口内新放的、也不漏已移走的(codex P1)。staged 通常已含于快照, 并集兜底。
+    const dropFragmentIds = new Set(this.session.resetCandidateStructure());
+    for (const fragmentId of this.failedCandidateDropSnapshot) {
+      dropFragmentIds.add(fragmentId);
+    }
+    this.failedCandidateDropSnapshot = [];
     this.weakSnappedFragmentsByEvidence.clear();
-    for (const fragmentId of fragmentIds) {
+    for (const fragmentId of dropFragmentIds) {
       const entry = this.greyboxNodes.get(fragmentId);
       if (entry) {
         this.resetTokenNode(entry.node, entry.token);

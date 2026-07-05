@@ -20,6 +20,7 @@ declare module "cc" {
     position: { x: number; y: number; z?: number };
     worldPosition: Vec3;
     eulerAngles: Vec3;
+    readonly rotation: { x: number; y: number; z: number; w: number };
     addChild(child: Node): void;
     addComponent<T>(component: new (...args: never[]) => T): T;
     getComponent<T>(component: new (...args: never[]) => T): T | null;
