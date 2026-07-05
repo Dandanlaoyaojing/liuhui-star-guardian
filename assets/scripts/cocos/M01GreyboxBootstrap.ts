@@ -744,6 +744,13 @@ export class M01GreyboxBootstrap extends Component {
       return;
     }
 
+    // 交叠混合色必须盖在拼片【视觉】之上。拼片交互节点(带 art sprite 显色)是后建的、sibling 更高,
+    // 而本层建于早期 sibling 更低 → 不顶起来会被拼片盖死(玩家报"上面色盖下面、没混合反应色")。绘制时顶到最上。
+    const overlayParent = graphics.node.parent;
+    if (overlayParent) {
+      graphics.node.setSiblingIndex(overlayParent.children.length - 1);
+    }
+
     const overlays = resolveM01StandardPieceBlendOverlays(
       this.collectManualTargetBlendPieces()
     );
