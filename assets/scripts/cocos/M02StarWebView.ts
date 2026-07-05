@@ -37,6 +37,7 @@ export class M02StarWebView extends Component {
     transform.setContentSize(1000, 720);
     const edgeNode = new Node("M02Edges");
     edgeNode.parent = this.node;
+    edgeNode.addComponent(UITransform); // Graphics 是 UI 渲染件, 运行时须显式补 UITransform 否则不出图
     this.edgeGraphics = edgeNode.addComponent(Graphics);
 
     this.starLayer = new Node("M02Stars");
@@ -136,6 +137,7 @@ export class M02StarWebView extends Component {
     for (const node of view.nodes) {
       const starNode = new Node(`M02Star_${node.id}`);
       starNode.parent = this.starLayer;
+      starNode.addComponent(UITransform); // 同上: Graphics 需要 UITransform 才渲染
       starNode.setPosition(node.x, node.y, 0);
       this.starGraphics.set(node.id, starNode.addComponent(Graphics));
     }
