@@ -1702,4 +1702,39 @@ describe("Cocos Creator project scaffold", () => {
     expect(view).toContain("pip.fillColor = i < chargesLeft ? CHARGE_COLOR : CHARGE_EMPTY_COLOR;");
     expect(view).toContain("this.renderChargeMeter();");
   });
+
+  it("renders M02 life-based star glows for decay feedback", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+
+    expect(view).toContain("STAR_GLOW_EXTRA");
+    expect(view).toContain("private lifeMax = 1;");
+    expect(view).toContain("this.lifeMax = result.value.mechanic.lifeMax;");
+    expect(view).toContain("private renderStarGlow(graphics: Graphics, node: StarNodeView): void");
+    expect(view).toContain("if (!node.lit) return;");
+    expect(view).toContain("const lifeRatio = node.status === \"frozen\" ? 1 : node.life / Math.max(1, this.lifeMax);");
+    expect(view).toContain("const glowRadius = NODE_RADIUS + STAR_GLOW_EXTRA * lifeRatio;");
+    expect(view).toContain('graphics.strokeColor = node.status === "frozen" ? FROZEN_GLOW_COLOR : DECAYING_GLOW_COLOR;');
+    expect(view).toContain("this.renderStarGlow(graphics, node);");
+  });
+
+  it("renders and clears the M02 exhausted failure overlay", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+    const endBody = view.slice(
+      view.indexOf("private onTouchEnd"),
+      view.indexOf("private onTouchCancel")
+    );
+
+    expect(view).toContain("FAILURE_OVERLAY_COLOR");
+    expect(view).toContain("private failureLayer: Node | null = null;");
+    expect(view).toContain('this.failureLayer = this.makeUINode("M02FailureOverlay");');
+    expect(view).toContain("private renderFailureOverlay(): void");
+    expect(view).toContain("for (const child of [...this.failureLayer.children])");
+    expect(view).toContain('if (this.session.view.status !== "exhausted") return;');
+    expect(view).toContain('const overlay = this.makeGraphicsNode("M02FailureLeak", this.failureLayer);');
+    expect(view).toContain("overlay.fillColor = FAILURE_OVERLAY_COLOR;");
+    expect(view).toContain("this.renderFailureOverlay();");
+    expect(endBody).toContain('if (status === "exhausted")');
+    expect(endBody).toContain("this.session.resetBoard();");
+    expect(endBody).toContain("this.renderStars();");
+  });
 });

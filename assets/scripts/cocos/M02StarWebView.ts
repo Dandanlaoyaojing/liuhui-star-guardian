@@ -5,7 +5,7 @@
 
 import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Layers, Node, resources, UITransform, Vec3 } from "cc";
 import { validateStarWebConfig } from "../core/StarWebConfig.ts";
-import { StarWebSession, type StarNodeStatus, type StarWebView as StarWebViewState } from "./M02StarWebSession.ts";
+import { StarWebSession, type StarNodeStatus, type StarNodeView, type StarWebView as StarWebViewState } from "./M02StarWebSession.ts";
 
 const { ccclass, property } = _decorator;
 
@@ -14,6 +14,9 @@ const TAP_RADIUS = 44;    // 命中半径(px), 比视觉大好点
 const EDGE_WIDTH = 4;
 const CHARGE_PIP_RADIUS = 8;
 const CHARGE_PIP_GAP = 24;
+const STAR_GLOW_EXTRA = 18;
+const FAILURE_OVERLAY_WIDTH = 1000;
+const FAILURE_OVERLAY_HEIGHT = 720;
 
 const COLOR: Record<StarNodeStatus, Color> = {
   dark: new Color(92, 98, 116, 255),
@@ -23,6 +26,10 @@ const COLOR: Record<StarNodeStatus, Color> = {
 const EDGE_COLOR = new Color(110, 116, 138, 150);
 const CHARGE_COLOR = new Color(248, 214, 150, 255);
 const CHARGE_EMPTY_COLOR = new Color(92, 98, 116, 120);
+const DECAYING_GLOW_COLOR = new Color(214, 170, 104, 95);
+const FROZEN_GLOW_COLOR = new Color(248, 214, 150, 135);
+const FAILURE_OVERLAY_COLOR = new Color(24, 26, 34, 118);
+const FAILURE_LEAK_COLOR = new Color(214, 170, 104, 125);
 
 @ccclass("M02StarWebView")
 export class M02StarWebView extends Component {
@@ -33,7 +40,9 @@ export class M02StarWebView extends Component {
   private edgeGraphics: Graphics | null = null;
   private starLayer: Node | null = null;
   private chargeLayer: Node | null = null;
+  private failureLayer: Node | null = null;
   private readonly starGraphics = new Map<string, Graphics>();
+  private lifeMax = 1;
   private activeTouchId: number | null = null;
   private disposed = false;
 
@@ -49,6 +58,8 @@ export class M02StarWebView extends Component {
     this.chargeLayer = this.makeUINode("M02ChargeMeter");
     this.chargeLayer.parent = this.node;
     this.chargeLayer.setPosition(-430, 300, 0);
+    this.failureLayer = this.makeUINode("M02FailureOverlay");
+    this.failureLayer.parent = this.node;
 
     this.node.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
     this.node.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
@@ -109,6 +120,7 @@ export class M02StarWebView extends Component {
         console.error("[M02] 配置非法", result.errors);
         return;
       }
+      this.lifeMax = result.value.mechanic.lifeMax;
       this.session = new StarWebSession(result.value);
       this.buildBoard();
     });
@@ -186,11 +198,23 @@ export class M02StarWebView extends Component {
       const graphics = this.starGraphics.get(node.id);
       if (!graphics) continue;
       graphics.clear();
+      this.renderStarGlow(graphics, node);
       graphics.fillColor = COLOR[node.status];
       graphics.circle(0, 0, NODE_RADIUS);
       graphics.fill();
     }
     this.renderChargeMeter();
+    this.renderFailureOverlay();
+  }
+
+  private renderStarGlow(graphics: Graphics, node: StarNodeView): void {
+    if (!node.lit) return;
+    const lifeRatio = node.status === "frozen" ? 1 : node.life / Math.max(1, this.lifeMax);
+    const glowRadius = NODE_RADIUS + STAR_GLOW_EXTRA * lifeRatio;
+    graphics.lineWidth = node.status === "frozen" ? 3 : 2;
+    graphics.strokeColor = node.status === "frozen" ? FROZEN_GLOW_COLOR : DECAYING_GLOW_COLOR;
+    graphics.circle(0, 0, glowRadius);
+    graphics.stroke();
   }
 
   private renderChargeMeter(): void {
@@ -207,5 +231,23 @@ export class M02StarWebView extends Component {
       pip.circle(0, 0, CHARGE_PIP_RADIUS);
       pip.fill();
     }
+  }
+
+  private renderFailureOverlay(): void {
+    if (!this.session || !this.failureLayer) return;
+    for (const child of [...this.failureLayer.children]) {
+      child.destroy();
+    }
+    if (this.session.view.status !== "exhausted") return;
+
+    const overlay = this.makeGraphicsNode("M02FailureLeak", this.failureLayer);
+    overlay.fillColor = FAILURE_OVERLAY_COLOR;
+    overlay.rect(-FAILURE_OVERLAY_WIDTH / 2, -FAILURE_OVERLAY_HEIGHT / 2, FAILURE_OVERLAY_WIDTH, FAILURE_OVERLAY_HEIGHT);
+    overlay.fill();
+    overlay.fillColor = FAILURE_LEAK_COLOR;
+    for (const [x, y, radius] of [[-74, 24, 18], [0, -16, 24], [82, 18, 14]]) {
+      overlay.circle(x, y, radius);
+    }
+    overlay.fill();
   }
 }
