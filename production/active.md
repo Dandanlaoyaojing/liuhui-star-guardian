@@ -1,10 +1,19 @@
 # Active Work State
 
-Last updated: 2026-07-02
+Last updated: 2026-07-05
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
-## 当前活跃线:M01 画风统一调色 + 吸附旋转规则修复(2026-07-02, 未提交)
+## 已收口:M01 交叠显色"旧色"排查 = 缓存假象(2026-07-05, 已 push origin/main e9cfe33)
+
+用户报"齿轮中心目标交叠色偏旧、和通关时不一样"。逐段验证(无头空缓存渲染 + 节点 fillColor dump + 服务端 chunk grep)证明:**齿轮中心风车(M01TargetOverlapEvidence)显色代码一直是新 OBSERVED 色板(橘222,150,94/绿129,171,132/紫173,136,172), 用户所见"旧色"纯是浏览器缓存旧 import-map 的假象, 非代码问题**。主玩法显色无 bug。
+
+**真改的只有一处**(`ca37ee7`): 左侧参考卡 `drawStandardReferencePattern` 的 `STANDARD_REFERENCE_OVERLAPS` 仍挂旧暗色硬编码(199,126,75/92,145,112/139,105,156)→ 改为 colorToken 派生 `colorForTargetOverlapEvidence`→OBSERVED, 与风车/盘面证据/拼片显色同源。另加常驻预览窗口脚本 `scripts/preview-watch.sh`(`e9cfe33`, 持久 profile+DevTools Disable cache 根治缓存旧码)。typecheck+393 全绿, 已 push。
+教训入库: [[feedback_verify_stale_visual_headless_first]] / [[project_cocos_preview_stale_is_browser_importmap_cache]](已补 SW 排除+watch 脚本)。
+
+**⚠️ 并发会话注意**: 本会话期间检测到多个 claude 进程共用主仓 worktree, 一个 ultracode M02 会话中途把共享树切到 `feat/m02-starweb`(8f4f148 "点亮你温暖我"重设计, 本地未推)又切回 main。我的 M01 提交走**独立 worktree 挂 main** 隔离做, 没碰 M02 那条线。处置法入库 [[project_parallel_session_hijacked_worktree_commit]]。M02 现有两条并行草稿: `feat/m02-starweb`(星网/协同, 主仓分支) 与 `claude/m02-compass-logic-fix`(罗盘校准, m02-fix worktree) —— 待用户定夺哪条。
+
+## 已收口:M01 画风统一调色 + 吸附旋转规则修复(2026-07-02, 已并入 main)
 
 **分支 `feat/m01-lemmy-celebrate`。两组未提交改动, 测试全绿(typecheck ✅ + 390 ✅), 待用户 live 验收后一起 commit。**
 
