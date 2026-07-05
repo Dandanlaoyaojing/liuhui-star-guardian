@@ -1630,4 +1630,51 @@ describe("Cocos Creator project scaffold", () => {
     expect(rootNode?._components).toHaveLength(1);
     expect(bootstrapComponent?.statusLabel).toBeNull();
   });
+
+  it("guards M02 input with a single active touch and clears it on cancel", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+
+    expect(view).toContain("private activeTouchId: number | null = null;");
+    expect(view).toContain("this.node.on(Node.EventType.TOUCH_START, this.onTouchStart, this);");
+    expect(view).toContain("this.node.on(Node.EventType.TOUCH_CANCEL, this.onTouchCancel, this);");
+    expect(view).toContain("this.node.off(Node.EventType.TOUCH_START, this.onTouchStart, this);");
+    expect(view).toContain("this.node.off(Node.EventType.TOUCH_CANCEL, this.onTouchCancel, this);");
+
+    const startBody = view.slice(
+      view.indexOf("private onTouchStart"),
+      view.indexOf("private onTouchEnd")
+    );
+    expect(startBody).toContain("if (this.activeTouchId !== null) return;");
+    expect(startBody).toContain("this.activeTouchId = event.getID();");
+
+    const endBody = view.slice(
+      view.indexOf("private onTouchEnd"),
+      view.indexOf("private onTouchCancel")
+    );
+    expect(endBody).toContain("if (this.activeTouchId !== event.getID()) return;");
+    expect(endBody).toContain("this.activeTouchId = null;");
+
+    const cancelBody = view.slice(
+      view.indexOf("private onTouchCancel"),
+      view.indexOf("private loadConfig")
+    );
+    expect(cancelBody).toContain("if (this.activeTouchId === event.getID()) this.activeTouchId = null;");
+  });
+
+  it("uses one pre-tap M02 view snapshot for hit testing and status handling", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+    const endBody = view.slice(
+      view.indexOf("private onTouchEnd"),
+      view.indexOf("private onTouchCancel")
+    );
+
+    expect(endBody).toContain("const view = this.session.view;");
+    expect(endBody).toContain("const hit = this.nearestNodeId(event, view);");
+    expect(view).toContain("private nearestNodeId(event: EventTouch, view:");
+    const nearestBody = view.slice(
+      view.indexOf("private nearestNodeId"),
+      view.indexOf("/** 换板/首次")
+    );
+    expect(nearestBody).not.toContain("this.session.view.nodes");
+  });
 });

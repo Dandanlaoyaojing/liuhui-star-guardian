@@ -5,7 +5,7 @@
 
 import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Layers, Node, resources, UITransform, Vec3 } from "cc";
 import { validateStarWebConfig } from "../core/StarWebConfig.ts";
-import { StarWebSession, type StarNodeStatus } from "./M02StarWebSession.ts";
+import { StarWebSession, type StarNodeStatus, type StarWebView as StarWebViewState } from "./M02StarWebSession.ts";
 
 const { ccclass, property } = _decorator;
 
@@ -29,6 +29,7 @@ export class M02StarWebView extends Component {
   private edgeGraphics: Graphics | null = null;
   private starLayer: Node | null = null;
   private readonly starGraphics = new Map<string, Graphics>();
+  private activeTouchId: number | null = null;
   private disposed = false;
 
   onLoad(): void {
@@ -44,13 +45,51 @@ export class M02StarWebView extends Component {
     this.starLayer = this.makeUINode("M02Stars");
     this.starLayer.parent = this.node;
 
+    this.node.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
     this.node.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
+    this.node.on(Node.EventType.TOUCH_CANCEL, this.onTouchCancel, this);
     this.loadConfig();
   }
 
   onDestroy(): void {
     this.disposed = true;
+    this.activeTouchId = null;
+    this.node.off(Node.EventType.TOUCH_START, this.onTouchStart, this);
     this.node.off(Node.EventType.TOUCH_END, this.onTouchEnd, this);
+    this.node.off(Node.EventType.TOUCH_CANCEL, this.onTouchCancel, this);
+  }
+
+  private onTouchStart(event: EventTouch): void {
+    if (this.activeTouchId !== null) return;
+    this.activeTouchId = event.getID();
+  }
+
+  private onTouchEnd(event: EventTouch): void {
+    if (this.activeTouchId !== event.getID()) return;
+    this.activeTouchId = null;
+    if (!this.session) return;
+    const view = this.session.view;
+    const status = view.status;
+
+    if (status === "won") {
+      if (this.session.nextBoard()) this.buildBoard();
+      return;
+    }
+    if (status === "exhausted") {
+      this.session.resetBoard();
+      this.renderStars();
+      return;
+    }
+
+    // playing: 命中最近的星
+    const hit = this.nearestNodeId(event, view);
+    if (hit === null) return;
+    this.session.tapNode(hit);
+    this.renderStars();
+  }
+
+  private onTouchCancel(event: EventTouch): void {
+    if (this.activeTouchId === event.getID()) this.activeTouchId = null;
   }
 
   private loadConfig(): void {
@@ -70,36 +109,14 @@ export class M02StarWebView extends Component {
     });
   }
 
-  private onTouchEnd(event: EventTouch): void {
-    if (!this.session) return;
-    const status = this.session.view.status;
-
-    if (status === "won") {
-      if (this.session.nextBoard()) this.buildBoard();
-      return;
-    }
-    if (status === "exhausted") {
-      this.session.resetBoard();
-      this.renderStars();
-      return;
-    }
-
-    // playing: 命中最近的星
-    const hit = this.nearestNodeId(event);
-    if (hit === null) return;
-    this.session.tapNode(hit);
-    this.renderStars();
-  }
-
-  private nearestNodeId(event: EventTouch): string | null {
-    if (!this.session) return null;
+  private nearestNodeId(event: EventTouch, view: StarWebViewState): string | null {
     const transform = this.node.getComponent(UITransform);
     if (!transform) return null;
     const ui = event.getUILocation();
     const local = transform.convertToNodeSpaceAR(new Vec3(ui.x, ui.y, 0));
     let bestId: string | null = null;
     let bestDist = TAP_RADIUS * TAP_RADIUS;
-    for (const node of this.session.view.nodes) {
+    for (const node of view.nodes) {
       const dx = node.x - local.x;
       const dy = node.y - local.y;
       const dist = dx * dx + dy * dy;
