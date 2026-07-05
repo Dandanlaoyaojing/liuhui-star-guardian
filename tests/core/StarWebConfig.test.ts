@@ -80,6 +80,26 @@ describe("validateStarWebConfig", () => {
     expect(card.back.whenToUse.length).toBeGreaterThan(0);
     expect(card.back.realLifeExamples.length).toBeGreaterThan(0);
   });
+
+  it("拒绝与父级配置身份不一致的工具卡", () => {
+    const cases = [
+      (config: typeof starWeb) => {
+        config.toolCard.puzzleId = "m99";
+      },
+      (config: typeof starWeb) => {
+        config.toolCard.stage = 2;
+      },
+      (config: typeof starWeb) => {
+        config.toolCard.front.wisdomCrystal = "不同的智慧水晶";
+      }
+    ];
+
+    for (const mutate of cases) {
+      const broken = structuredClone(starWeb);
+      mutate(broken);
+      expect(validateStarWebConfig(broken).ok).toBe(false);
+    }
+  });
 });
 
 describe("配置 × 模型 集成 (verify 折进测试套件)", () => {

@@ -12,7 +12,9 @@ Last updated: 2026-07-05
 2. `30ff2ea` `feat(M02): add tool card config` — M02 `toolCard` 文案入 `m02-starweb-warmth.json`，`StarWebConfig` 类型/校验接 `ToolCardDraft`。
 3. `66c46cb` `feat(M02): grant completion progress` — 新增 `M02CompletionController.grantM02Completion(store, toolCardData, now)`，写入完成进度并解锁工具卡，二次调用保持原时间戳。
 
-验证：`npm test` ✅(39 files / 428 tests)，`npm run typecheck` ✅。计划文档已把 3A 勾掉并写入 checkpoint。
+审阅修复：Phase 3A 自审发现 `toolCard` 只校验自身形状，未校验它是否属于当前 M02 配置。已补 `StarWebConfig` 交叉校验，拒绝 `toolCard.puzzleId/stage/front.wisdomCrystal` 与父级 `id/stage/wisdomCrystal` 不一致，避免完成奖励把 M02 完成态和错误工具卡解锁混写。
+
+验证：`npm test` ✅(39 files / 429 tests)，`npm run typecheck` ✅。计划文档已把 3A 勾掉并写入 checkpoint。
 
 下一步：Phase 3B 从 T4 开始做 cc 视图反馈/输入修正(R2/R3/R4)，需要编辑器 Preview 手动重启后验证；当前工作区仍有一处既有未提交编辑器浮窗配置 `profiles/v2/packages/scene.json`，本轮未触碰。
 

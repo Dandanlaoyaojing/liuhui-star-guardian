@@ -69,6 +69,7 @@ export function validateStarWebConfig(value: unknown): ValidationResult<StarWebC
   requireOptionalString(value, "description", errors);
 
   validateToolCardDraft(value.toolCard, errors);
+  validateToolCardMatchesConfig(value, errors);
   validateMechanic(value.mechanic, errors);
   validateBoards(value.boards, errors);
 
@@ -89,6 +90,22 @@ function validateToolCardDraft(value: unknown, errors: string[]): void {
     if (!result.ok) errors.push(...result.errors.map((error) => `toolCard.${error}`));
   } catch {
     errors.push("toolCard must be a valid tool card draft");
+  }
+}
+
+function validateToolCardMatchesConfig(config: Record<string, unknown>, errors: string[]): void {
+  if (!isRecord(config.toolCard)) return;
+  const toolCard = config.toolCard;
+
+  if (isNonEmptyString(config.id) && isNonEmptyString(toolCard.puzzleId) && toolCard.puzzleId !== config.id) {
+    errors.push("toolCard.puzzleId must match id");
+  }
+  if (isPositiveInteger(config.stage) && isPositiveInteger(toolCard.stage) && toolCard.stage !== config.stage) {
+    errors.push("toolCard.stage must match stage");
+  }
+  if (!isRecord(toolCard.front) || !isNonEmptyString(config.wisdomCrystal)) return;
+  if (isNonEmptyString(toolCard.front.wisdomCrystal) && toolCard.front.wisdomCrystal !== config.wisdomCrystal) {
+    errors.push("toolCard.front.wisdomCrystal must match wisdomCrystal");
   }
 }
 
@@ -233,6 +250,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1;
 }
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
