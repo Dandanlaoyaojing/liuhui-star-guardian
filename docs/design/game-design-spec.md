@@ -617,7 +617,7 @@ class LocalStorageSync implements ICloudSync {
 5. 将候选碎片拖到中央拼接盘上试拼；固定形状组合形成的交叠面积 / 轮廓接近目标证据时产生弱磁吸，帮助对齐但不直接判定正确
 6. 拼接过程中，拼接盘底光保持熄灭，碎片在盘上不显色；玩家不能靠逐片拖上去实时试色，只能靠观察区的手电筒结果和自己的推断
 7. 当玩家为目标交叠证据图上的每个交叠处都形成候选拼接关系时，拼接盘底光自动闪亮进行整体验证
-8. 若候选结构不是全对，底光只闪亮约 2 秒，让玩家短暂看到当前组合的显色结果，然后熄灭；碎片恢复灰白并保持在原位，玩家可直接点击任意碎片拾起、移走、替换或重新分类
+8. 若候选结构不是全对，底光稳定亮起约 3 秒（不闪烁），两片交叠处显示两两混合反应色让玩家看清错在哪，然后熄灭；随后候选碎片掉落回场（当前实现按玩家选择"全掉"，非原地保持），玩家重新拾放拼接。触发条件放宽为"6 个目标槽位置都填满"即验证（角度/颜色对错交给验证判），不再要求每片角度精确对准才触发
 9. 若全部交叠证据的局部形状、相对位置和隐藏本色混合色都匹配，底光保持亮起，对应交叠区点亮，记忆齿轮进入修复动画
 
 **显色规则**：采用童话颜料逻辑，而非真实光学：
@@ -629,7 +629,7 @@ class LocalStorageSync implements ICloudSync {
 **核心判定原则**：
 - 形状决定能不能试拼：圆 / 三角 / 六边形的组合及相对位置必须能形成目标交叠区域的大致面积 / 轮廓，才触发弱磁吸
 - 颜色决定拼得对不对：每个目标交叠区绑定系统生成时使用的两片碎片；这两片碎片的隐藏本色必须混合为目标证据色，交叠区才可能在底光验证时点亮
-- 底光是整体验证，不是实时检测：错误候选只短暂亮 2 秒后熄灭，正确候选才保持点亮并触发修复
+- 底光是整体验证，不是实时检测：错误候选稳定亮约 3 秒后熄灭，正确候选才保持点亮并触发修复
 - 多余碎片是干扰项：候选池不需要全部使用，最终使用数量由所有目标交叠证据的 solution 碎片并集派生；整体结构可由多片组成，但每个证据交叠处只允许两片参与，不做三重交叠
 - 错误假设可自然替换：弱磁吸不是锁死，失败验证后玩家可点击已吸附碎片把它拿下，放到任意位置，或用新碎片替换同一交叠处的候选关系
 - 目标图只能提供交叠证据，不能泄露完整轮廓答案
@@ -637,7 +637,7 @@ class LocalStorageSync implements ICloudSync {
 **使用的组件**：`DragHandler`, `SnapZone`, `FilterSystem`（扩展为三色手电 / 显色探测）
 **使用的 Shader**：`star-glow`, `fx_color-filter`, `particle-flow`
 
-**胜利条件**：`{ type: "overlap_evidence_reconstructed", params: { candidateFragments: "config_defined", recommendedCandidateRange: [12, 16], requiredFragments: "solution_defined", evidenceCount: [4, 6], maxLayersPerEvidence: 2, validationLightSeconds: 2, baseColors: ["red", "yellow", "blue"], blendColors: ["orange", "green", "purple"] } }` — 目标交叠证据图上的全部证据均被正确复原才判成功。每个证据必须同时满足：固定形状组合能形成该目标交叠区域、相对位置匹配、提交的两片碎片正是该证据的 `solution.fragmentIds`、两片隐藏本色混合后等于目标融合色；不要求使用所有候选碎片，实际使用数量由配置中所有 `solution.fragmentIds` 的并集派生。未全对的候选结构只触发约 2 秒底光闪亮并随后熄灭；全对时底光保持亮起并进入修复。
+**胜利条件**：`{ type: "overlap_evidence_reconstructed", params: { candidateFragments: "config_defined", recommendedCandidateRange: [12, 16], requiredFragments: "solution_defined", evidenceCount: [4, 6], maxLayersPerEvidence: 2, validationLightSeconds: 3, baseColors: ["red", "yellow", "blue"], blendColors: ["orange", "green", "purple"] } }` — 目标交叠证据图上的全部证据均被正确复原才判成功。每个证据必须同时满足：固定形状组合能形成该目标交叠区域、相对位置匹配、提交的两片碎片正是该证据的 `solution.fragmentIds`、两片隐藏本色混合后等于目标融合色；不要求使用所有候选碎片，实际使用数量由配置中所有 `solution.fragmentIds` 的并集派生。未全对的候选结构触发约 3 秒底光稳定亮起(显交叠混合色)并随后熄灭掉片；全对时底光保持亮起并进入修复。
 
 **修复动画**：齿轮转动 → 碎片以漩涡状喷出 → 化为持续星光 → 镜头拉远展示修复后的星星
 

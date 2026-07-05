@@ -2173,19 +2173,9 @@ export class M01GreyboxBootstrap extends Component {
       }
 
       this.removeWeakSnappedFragment(action.fragmentId);
-      // spec §634 可替换: 新片直接盖到已占槽位 → 旧占位片解除记账并释放落地。
-      // 否则两片隐形叠在同一槽位, 占位判定按 config 顺序取第一片, 替换后仍按旧片 stage(codex P2)。
-      const previousOccupant = this.fragmentIdOccupyingSlotPose({
-        position: action.position,
-        rotation: action.rotation
-      });
-      if (previousOccupant && previousOccupant !== action.fragmentId) {
-        this.removeWeakSnappedFragment(previousOccupant);
-        const occupantEntry = this.greyboxNodes.get(previousOccupant);
-        if (occupantEntry) {
-          this.releaseFragmentBodyToPhysics(occupantEntry.node);
-        }
-      }
+      // spec §634 可替换: 新片盖到已占槽位 → 释放旧【错位】占位片腾位(按位置命中, 免漏掉角度不对的 stick 片
+      // → 两片叠槽污染占位/失败快照/点击命中, 审 P1)。已拼对的片不顶(审 [9])。
+      this.releaseReplaceableSlotOccupant(action.position, action.fragmentId);
       const placed = this.session.placeHeldFragment(action.position);
       this.setStatus(placed.status);
       this.clearHintTargets();
@@ -2223,12 +2213,7 @@ export class M01GreyboxBootstrap extends Component {
       this.releaseFragmentBodyToPhysics(node);
       this.tokenPositions.set(action.fragmentId, freePosition);
       this.redrawAndPersistManualTargetDraft();
-      if (action.rotationHint) {
-        // 形状+落点对上了、只差旋转 → 明确提示"再转一下", 而非静默自由落下(否则玩家以为磁吸坏了)。
-        const hint = this.formatText("rotateToFitHint");
-        this.setStatus(hint);
-        this.setFeedback(hint);
-      }
+      // (旋转没对的落点现在走 stick_fragment_to_slot 贴槽+提示, 不再经这条自由落下路径, 故此处无需 rotationHint。)
       return;
     }
 
@@ -2245,16 +2230,8 @@ export class M01GreyboxBootstrap extends Component {
         return;
       }
       this.removeWeakSnappedFragment(action.fragmentId);
-      // 同 snap 分支(§634 可替换): 贴到已占槽位前先释放旧占位片, 否则两片 Kinematic 叠同一槽 →
-      // fragmentIdOccupyingSlotPositionOnly 命中即返回只认到一片 → 失败掉片漏掉另一片(codex P1)。
-      const stickPreviousOccupant = this.fragmentIdOccupyingSlotPositionOnly(action.position);
-      if (stickPreviousOccupant && stickPreviousOccupant !== action.fragmentId) {
-        this.removeWeakSnappedFragment(stickPreviousOccupant);
-        const occupantEntry = this.greyboxNodes.get(stickPreviousOccupant);
-        if (occupantEntry) {
-          this.releaseFragmentBodyToPhysics(occupantEntry.node);
-        }
-      }
+      // 同 snap 分支(§634 可替换): 贴到已占槽位前释放旧【错位】占位片, 免两片叠同一槽; 已拼对的片不顶(审 [9])。
+      this.releaseReplaceableSlotOccupant(action.position, action.fragmentId);
       const placed = this.session.placeHeldFragment(action.position);
       this.setStatus(placed.status);
       this.clearHintTargets();
@@ -2396,6 +2373,29 @@ export class M01GreyboxBootstrap extends Component {
     return undefined;
   }
 
+  /** 落定/贴槽前, 释放该槽位【已占的错位片】给替换腾位(spec §634 可替换)。用 position-only 命中:
+   *  错角贴槽(stick)片角度不匹配, fragmentIdOccupyingSlotPose 会漏掉 → 两片叠同一槽(审 P1)。
+   *  但【不顶掉已按该槽正确角度落定的片】: 玩家失手把错角同形片丢到已拼对的槽上, 不该把对的片顶走(审 [9])。 */
+  private releaseReplaceableSlotOccupant(slotPosition: M01GreyboxPoint, incomingFragmentId: string): void {
+    const occupant = this.fragmentIdOccupyingSlotPositionOnly(slotPosition);
+    if (!occupant || occupant === incomingFragmentId) {
+      return;
+    }
+    const slot = this.layout?.targetPieceSlots.find(
+      (s) =>
+        Math.hypot(s.position.x - slotPosition.x, s.position.y - slotPosition.y) <=
+        TARGET_PATTERN_POSITION_TOLERANCE
+    );
+    if (slot && this.fragmentIdOccupyingSlotPose(slot) === occupant) {
+      return; // 占位片位姿(位置+角度)全对 = 已拼对, 保留不顶
+    }
+    this.removeWeakSnappedFragment(occupant);
+    const occupantEntry = this.greyboxNodes.get(occupant);
+    if (occupantEntry) {
+      this.releaseFragmentBodyToPhysics(occupantEntry.node);
+    }
+  }
+
   /** 6 个目标槽是否都被填上(只看位置, 不看角度)。用于验证触发门: 位置齐就触发, 角度错交给验证判失败。 */
   private allTargetSlotsPositionOccupied(): boolean {
     if (!this.layout || this.layout.targetPieceSlots.length === 0) {
@@ -2433,15 +2433,21 @@ export class M01GreyboxBootstrap extends Component {
     // 底光整体验证只看"候选结构完整"(spec §619), 不挂手电: 玩家在捡手电【前】就先拼一次,
     // 拼错也要立刻出错误显色+掉片(用户明确要求)。手电只是观察隐藏色的工具, 不是验证前提。
     // 仍需 physicsSettled(落堆稳定=谜题阶段, 排除 intro 掉落期); 修复动画窗内不触发(codex P2 输入锁)。
-    if (!this.physicsSettled || this.repairSequencePlaying) {
+    // 失败显色 3 秒窗口内也不重入验证(审 [7]): 否则窗口内轻点转向的 pin 计时器(2s)到点重跑
+    // handleTokenDrop → 又验证又清+重置 3s 计时器和掉片快照, 玩家窗口内摆弄会无限推迟掉片。
+    if (
+      !this.physicsSettled ||
+      this.repairSequencePlaying ||
+      this.validationFailureReturnTimeout !== undefined
+    ) {
       return;
     }
 
-    // 触发门 = 6 个目标槽都被填上(不管角度), 不再要求"全 staged"(=角度全对)。角度对不对交给验证判:
-    // 角度都对 → session 全 staged → validateCandidateStructure 走颜色验证(赢 or 颜色错闪);
-    // 有片角度没对 → 未全 staged → validateCandidateStructure 返回 incomplete → 失败显色闪+掉片。
-    // 修"6 片都填上了却因某片角度差 180° 死活没反应"—— 玩家分不清灰三角/看不到隐藏提示。
-    if (!this.allTargetSlotsPositionOccupied()) {
+    // 触发门 = 6 个目标槽都被填上(不管角度) 或 session 已全 staged(弱磁吸布局无目标槽也能完成, 审 [8])。
+    // 不再只要求"全 staged"(=角度全对)。角度对不对交给验证判: 角度都对→颜色验证(赢 or 颜色错闪);
+    // 有片角度没对→未全 staged→validateCandidateStructure 返回 incomplete→失败显色闪+掉片。
+    // 修"6 片都填上了却因某片角度差 180° 死活没反应"(玩家分不清灰三角/看不到隐藏提示)。
+    if (!this.allTargetSlotsPositionOccupied() && !this.session.areAllEvidenceStaged()) {
       return;
     }
 

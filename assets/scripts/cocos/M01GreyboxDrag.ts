@@ -28,8 +28,6 @@ export type M01GreyboxDropAction =
       type: "place_fragment_freely";
       fragmentId: string;
       position?: M01GreyboxPoint;
-      // 形状+落点都命中目标槽、只差旋转没对准 → 自由落下但带此标记, 让 UI 提示"再转一下"而非静默。
-      rotationHint?: boolean;
     }
   | {
       // 形状+落点命中目标槽但旋转没对准 → 【贴在槽位不掉】(Kinematic 保持玩家当前朝向),

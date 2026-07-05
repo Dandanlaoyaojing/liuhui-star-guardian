@@ -704,7 +704,9 @@ describe("Cocos Creator project scaffold", () => {
     // 输入锁(codex P2): 动画窗内 拖拼片/点手电循环/重复验证 全部封住, 防玩家和喷出 tween 打架。
     const repairLockHits = bootstrap.split("this.repairSequencePlaying").length - 1;
     expect(repairLockHits).toBeGreaterThanOrEqual(6); // 字段+置位/复位+三处输入闸
-    expect(bootstrap).toMatch(/!this\.physicsSettled \|\| this\.repairSequencePlaying/);
+    // 验证门: physicsSettled + 非修复动画窗 + 非失败显色窗(validationFailureReturnTimeout, 防再入, 审[7])。
+    expect(bootstrap).toMatch(/!this\.physicsSettled\b/);
+    expect(bootstrap).toContain("this.validationFailureReturnTimeout !== undefined");
   });
 
   it("wires the v4 held-flashlight runtime: Lemmy-anchored coverage, light cycling, physics-settle gate", () => {
@@ -779,8 +781,10 @@ describe("Cocos Creator project scaffold", () => {
       bootstrap.indexOf("private tryValidateCompleteEvidenceCandidate"),
       bootstrap.indexOf("private scheduleValidationLightReset")
     );
-    // 验证只挂 physicsSettled(不挂手电): 捡手电前拼错也出错误反应(用户定)。
-    expect(validateBlock).toContain("!this.physicsSettled || this.repairSequencePlaying");
+    // 验证只挂 physicsSettled(不挂手电): 捡手电前拼错也出错误反应(用户定)。触发门=6槽位置满 或 全 staged。
+    expect(validateBlock).toContain("!this.physicsSettled");
+    expect(validateBlock).toContain("this.repairSequencePlaying");
+    expect(validateBlock).toContain("this.allTargetSlotsPositionOccupied()");
     expect(validateBlock).not.toContain("this.flashlightAcquired");
 
     // ⑥ 灭灯绑定到【真正抓到拼片】: beginTokenDrag(per-node 命中拼片节点)里 suspendFlashlightObservation,
