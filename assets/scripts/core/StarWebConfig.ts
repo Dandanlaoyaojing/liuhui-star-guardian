@@ -2,6 +2,7 @@
 // 校验风格仿 PuzzleConfig.ts; 忽略 *_comment 说明字段. boardGraph() 把一板拍平成 StarNetworkModel 可吃的图.
 import type { ValidationResult } from "./PuzzleConfig.ts";
 import type { BoardGraph, StarNetworkRules } from "./StarNetworkModel.ts";
+import { createToolCard, validateToolCard, type ToolCardDraft } from "./ToolCard.ts";
 
 export interface StarWebMechanic extends StarNetworkRules {
   beatModel: string;
@@ -40,6 +41,7 @@ export interface StarWebConfig {
   cognitiveSkill: string;
   wisdomCrystal: string;
   description?: string;
+  toolCard: ToolCardDraft;
   mechanic: StarWebMechanic;
   boards: StarBoard[];
 }
@@ -66,6 +68,7 @@ export function validateStarWebConfig(value: unknown): ValidationResult<StarWebC
   requireNonEmptyString(value, "wisdomCrystal", errors);
   requireOptionalString(value, "description", errors);
 
+  validateToolCardDraft(value.toolCard, errors);
   validateMechanic(value.mechanic, errors);
   validateBoards(value.boards, errors);
 
@@ -73,6 +76,20 @@ export function validateStarWebConfig(value: unknown): ValidationResult<StarWebC
     return { ok: false, errors };
   }
   return { ok: true, value: value as unknown as StarWebConfig };
+}
+
+function validateToolCardDraft(value: unknown, errors: string[]): void {
+  if (!isRecord(value)) {
+    errors.push("toolCard must be an object");
+    return;
+  }
+
+  try {
+    const result = validateToolCard(createToolCard(value as unknown as ToolCardDraft, 0));
+    if (!result.ok) errors.push(...result.errors.map((error) => `toolCard.${error}`));
+  } catch {
+    errors.push("toolCard must be a valid tool card draft");
+  }
 }
 
 function validateMechanic(value: unknown, errors: string[]): void {

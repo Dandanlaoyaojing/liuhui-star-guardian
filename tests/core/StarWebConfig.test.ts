@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { StarNetworkModel } from "../../assets/scripts/core/StarNetworkModel.ts";
 import { boardGraph, validateStarWebConfig } from "../../assets/scripts/core/StarWebConfig.ts";
+import { createToolCard, validateToolCard } from "../../assets/scripts/core/ToolCard.ts";
 import type { BoardGraph, StarNetworkRules } from "../../assets/scripts/core/StarNetworkModel.ts";
 import starWeb from "../../assets/resources/configs/stage1/m02-starweb-warmth.json" with { type: "json" };
 
@@ -64,6 +65,20 @@ describe("validateStarWebConfig", () => {
     const broken = structuredClone(starWeb) as unknown as Record<string, unknown>;
     broken.description = 123;
     expect(validateStarWebConfig(broken).ok).toBe(false);
+  });
+
+  it("真实配置包含可生成合法工具卡的文案", () => {
+    const result = validateStarWebConfig(starWeb);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const card = createToolCard(result.value.toolCard, 1000);
+    const validation = validateToolCard(card);
+    expect(validation.ok).toBe(true);
+    expect(card.front.toolName).toBe("协同与临界质量");
+    expect(card.front.wisdomCrystal).toContain("挨在一起");
+    expect(card.back.whenToUse.length).toBeGreaterThan(0);
+    expect(card.back.realLifeExamples.length).toBeGreaterThan(0);
   });
 });
 
