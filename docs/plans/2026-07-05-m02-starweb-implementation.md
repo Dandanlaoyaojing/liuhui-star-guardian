@@ -165,12 +165,22 @@ it("每板参考解在配额内全锁", () => {
 
 ---
 
+> **Phase 2 状态(2026-07-05)**：greybox 已实现并**编辑器/无头预览验证通过**——渲染(六边独环6星+连线)+ 点击(点A→A金冻结/邻居琥珀衰减/其余暗)全链路真机跑通。实现为 `M02StarWebSession`(纯,8单测) + `M02StarWebView`(cc胶水) + `M02Greybox.scene`,已合入 main。T6/T7 合进了 M02StarWebView(未拆 M02StarNode/Layout)。
+
 ## Phase 3 — 反馈与收尾（Phase 2 通后细化）
 
 - [ ] **T10** 剩余电量 UI + 衰减倒数光晕 + 失败(漏光)可视化。
 - [ ] **T11** 胜利→修复动画(沿环流光)→智慧结晶→ToolCard(复用 `ui/ToolCardView.ts`+`core/ToolCard.ts`)。
 - [ ] **T12** 三板推进(tutorial→twin→trefoil) + 进度存储(复用 `core/ProgressStore.ts`)。
-- [ ] **合并前**：跑 codex + code-review 消费完，再 ff 合并进 main。
+
+### Phase 2 评审遗留 → Phase 3 处理（codex + code-review 2026-07-05，均 LOW，已明确推迟）
+
+- [ ] **R1（并入 T11）** 末板(trefoil)通关后终局态死锁：`View.onTouchEnd` won 分支在 `nextBoard()` 返 false 时静默 return，无"全部通关"反馈/出口。Phase 3 完成流(修复动画/ToolCard/关卡结束)时补终局分支。相关 codex 提的 `StarWebSession.nextBoard()` 无条件推进(机制),完成流定了再决定是否把"必须通关才进下一板"下沉进 session。
+- [ ] **R2（并入 T10）** 多点触控：`TOUCH_END` 每指各派发、`onTouchEnd` 无 `event.getID()` 去重 → 双指一次点烧 2 电/重复翻板。Phase 3 重做输入/UI 时用 TOUCH_START 记 activeTouchId、TOUCH_END 比对，强制单触点。
+- [ ] **R3（并入 T10/重做 View 时）** `session.view` getter 无缓存、一次 tap 连读 3 次全量重算；重做 View 时在 `onTouchEnd` 顶部 `const view = this.session.view` 快照(pre-tap 复用),tapNode 后再取一次给 render。
+- [ ] **R4（清理，低价值）** buildBoard 建节点样板可抽小工具;`starGraphics` Map 与 `starLayer` 子节点双真相源;`view` 直接返回 `board.layout.edges` 引用(消费方须只读,勿改)。
+
+- [ ] **合并前**：跑 codex + code-review 消费完，再 ff 合并进 main。（Phase 2 已执行:见上 R1-R4,全推迟。）
 
 ---
 
