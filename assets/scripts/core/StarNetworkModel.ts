@@ -82,10 +82,13 @@ export class StarNetworkModel {
     return true;
   }
 
-  /** 胜利: 全亮且每颗亮邻居 >= freezeThreshold */
+  /** 胜利: 全亮且每颗亮邻居 >= freezeThreshold (空图不算胜利) */
   isWon(): boolean {
-    return this.nodes.every(
-      (id) => this.isLit(id) && this.litNeighborCount(id) >= this.rules.freezeThreshold
+    return (
+      this.nodes.length > 0 &&
+      this.nodes.every(
+        (id) => this.isLit(id) && this.litNeighborCount(id) >= this.rules.freezeThreshold
+      )
     );
   }
 

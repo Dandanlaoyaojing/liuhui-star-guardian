@@ -108,4 +108,9 @@ describe("StarNetworkModel 图构造健壮性", () => {
     expect(m.lifeOf("X")).toBe(3); // 没白耗一拍
     expect(m.lifeOf("Y")).toBe(3);
   });
+
+  it("空图不算胜利", () => {
+    const m = new StarNetworkModel({ nodes: [], edges: [] }, RULES);
+    expect(m.isWon()).toBe(false);
+  });
 });
