@@ -50,8 +50,16 @@ declare module "cc" {
 
   export function tween<T>(target: T): TweenAction<T>;
   export interface TweenAction<T> {
-    to(duration: number, props: object, options?: { easing?: string }): TweenAction<T>;
-    by(duration: number, props: object, options?: { easing?: string }): TweenAction<T>;
+    to(
+      duration: number,
+      props: object,
+      options?: { easing?: string; onUpdate?: (target: T, ratio: number) => void }
+    ): TweenAction<T>;
+    by(
+      duration: number,
+      props: object,
+      options?: { easing?: string; onUpdate?: (target: T, ratio: number) => void }
+    ): TweenAction<T>;
     call(cb: () => void): TweenAction<T>;
     delay(seconds: number): TweenAction<T>;
     start(): TweenAction<T>;

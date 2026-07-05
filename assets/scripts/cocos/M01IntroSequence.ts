@@ -1139,13 +1139,32 @@ export class M01IntroSequence extends Component {
   private beginFlashlightDrop(): void {
     if (!this.flashlightNode || !this.lemmyActor) return;
     this.advance("fragmentsSettled"); // spillingFragments → bonking
-    const lemmyX = this.lemmyActor.node.position.x;
-    const headPos = new Vec3(lemmyX, LEMMY_Y + FLASHLIGHT_HEAD_DY, 0);
+    // 落点【每帧实时跟莱米 X】而非落下开始时捕一次的固定 X: 420ms 下落期内莱米若因残余动画/位相
+    // 遷移/位置微调移动了, 固定点会砸空(偶尔砸不到头的漏洞)。跟实时位置则任何时序差都砸中头顶。
+    const startX = BASKET_MOUTH_X;
+    const startY = BASKET_MOUTH_Y;
+    const headY = LEMMY_Y + FLASHLIGHT_HEAD_DY;
     this.flashlightNode.active = true;
-    this.flashlightNode.setPosition(BASKET_MOUTH_X, BASKET_MOUTH_Y, 0);
+    this.flashlightNode.setPosition(startX, startY, 0);
     this.flashlightNode.setRotationFromEuler(0, 0, 0);
-    tween(this.flashlightNode)
-      .to(FLASHLIGHT_BONK_FALL_MS / 1000, { position: headPos }, { easing: "quadIn" }) // 弧线落到头顶
+    const fallProgress = { r: 0 };
+    tween(fallProgress)
+      .to(
+        FLASHLIGHT_BONK_FALL_MS / 1000,
+        { r: 1 },
+        {
+          easing: "quadIn",
+          onUpdate: () => {
+            if (!this.flashlightNode || !this.lemmyActor) return;
+            const liveX = this.lemmyActor.node.position.x; // 实时跟莱米头, 弧线落到当前头顶
+            this.flashlightNode.setPosition(
+              startX + (liveX - startX) * fallProgress.r,
+              startY + (headY - startY) * fallProgress.r,
+              0
+            );
+          }
+        }
+      )
       .call(() => {
         // 手电砸头: 收耳状态播 startleback(全程收耳), 立耳状态播 startle; 播完按位置校正残留耳态。
         const startleAction = this.earsFolded ? "startleback" : "startle";
