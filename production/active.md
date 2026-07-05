@@ -4,7 +4,21 @@ Last updated: 2026-07-05
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
-## 当前活跃线:M02 Phase 3A 会话/工具卡/进度数据已完成(2026-07-05, 分支 `feat/m02-phase3`)
+## 当前活跃线:M02 Phase 3B 视图反馈 batch 1 已完成(2026-07-05, 分支 `codex/m02-phase3b`)
+
+承接 `main` 上已合并的 Phase 3A，按 `docs/plans/2026-07-05-m02-phase3.md` 开始 3B。为避开主仓未提交的 Cocos 编辑器状态文件，工作在隔离 worktree：`/Users/danmac/.config/superpowers/worktrees/liuhui-star-guardian/m02-phase3b`。
+
+本批完成 T4-T6，均有红灯 scaffold 测试 → 实现 → 目标测试/typecheck：
+
+1. `eb654c3` `feat(M02): guard star web touch input` — `M02StarWebView` 增加 `activeTouchId`，绑定 `TOUCH_START/TOUCH_END/TOUCH_CANCEL`，只处理匹配的单触点；`onTouchEnd` 开头拍 `session.view` 快照并传给 `nearestNodeId`。
+2. `c6683e6` `refactor(M02): centralize star web graphics nodes` — 新增 `makeGraphicsNode(name,parent)` 统一 UI_2D + UITransform + Graphics 样板；`StarWebView.edges` 改为 `ReadonlyArray<readonly [string,string]>`。
+3. `d657361` `feat(M02): render star wand charges` — 代码内生成 `M02ChargeMeter`，按 `chargesTotal/chargesLeft` 画棒尖光点，点后随 `renderStars()` 同步刷新。
+
+验证：`npm test` ✅(39 files / 433 tests)，`npm run typecheck` ✅。
+
+未完成：T7 衰减倒数光晕、T8 失败可视化、3B Preview checkpoint。`.ts` 改动需要在 Cocos 编辑器手动重启 Preview 后才能肉眼/截图验证；本批尚未做编辑器预览验证。
+
+## 已完成:M02 Phase 3A 会话/工具卡/进度数据(2026-07-05, 已合并 main)
 
 按 `docs/plans/2026-07-05-m02-phase3.md` 先执行 Phase 3A 三个可无头验证任务，均 TDD 红→绿并逐 Task 提交：
 
@@ -16,7 +30,7 @@ Last updated: 2026-07-05
 
 验证：`npm test` ✅(39 files / 429 tests)，`npm run typecheck` ✅。计划文档已把 3A 勾掉并写入 checkpoint。
 
-下一步：Phase 3B 从 T4 开始做 cc 视图反馈/输入修正(R2/R3/R4)，需要编辑器 Preview 手动重启后验证；当前工作区仍有一处既有未提交编辑器浮窗配置 `profiles/v2/packages/scene.json`，本轮未触碰。
+下一步：Phase 3B 继续 T7/T8，随后手动重启 Preview 做 3B checkpoint；主仓仍有一处既有未提交编辑器浮窗配置 `profiles/v2/packages/scene.json`，本轮未触碰。
 
 ## 已收口:M01 交叠显色"旧色"排查 = 缓存假象(2026-07-05, 已 push origin/main e9cfe33)
 
