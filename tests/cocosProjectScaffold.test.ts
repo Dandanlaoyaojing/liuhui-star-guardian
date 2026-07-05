@@ -1677,4 +1677,16 @@ describe("Cocos Creator project scaffold", () => {
     );
     expect(nearestBody).not.toContain("this.session.view.nodes");
   });
+
+  it("keeps M02 view edges readonly and centralizes graphics-node setup", () => {
+    const session = readText("assets/scripts/cocos/M02StarWebSession.ts");
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+
+    expect(session).toContain("edges: ReadonlyArray<readonly [string, string]>;");
+    expect(view).toContain("private makeGraphicsNode(name: string, parent: Node): Graphics");
+    expect(view).toContain('this.edgeGraphics = this.makeGraphicsNode("M02Edges", this.node);');
+    expect(view).toContain("const starGraphics = this.makeGraphicsNode(`M02Star_${node.id}`, this.starLayer);");
+    expect(view).toContain("this.starGraphics.set(node.id, starGraphics);");
+    expect(view).not.toContain("starNode.addComponent(UITransform); // 同上");
+  });
 });

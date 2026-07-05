@@ -24,7 +24,7 @@ export interface StarWebView {
   boardIndex: number;
   boardCount: number;
   nodes: StarNodeView[];
-  edges: [string, string][];
+  edges: ReadonlyArray<readonly [string, string]>;
   chargesTotal: number;
   chargesLeft: number;
   status: BoardStatus;

@@ -37,10 +37,7 @@ export class M02StarWebView extends Component {
     const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
     // 触摸区覆盖整片棋盘(星跨 ±~230px), 否则默认 100x100 收不到大部分点击
     transform.setContentSize(1000, 720);
-    const edgeNode = this.makeUINode("M02Edges");
-    edgeNode.parent = this.node;
-    edgeNode.addComponent(UITransform); // Graphics 是 UI 渲染件, 运行时须显式补 UITransform 否则不出图
-    this.edgeGraphics = edgeNode.addComponent(Graphics);
+    this.edgeGraphics = this.makeGraphicsNode("M02Edges", this.node);
 
     this.starLayer = this.makeUINode("M02Stars");
     this.starLayer.parent = this.node;
@@ -153,11 +150,9 @@ export class M02StarWebView extends Component {
     edges.stroke();
 
     for (const node of view.nodes) {
-      const starNode = this.makeUINode(`M02Star_${node.id}`);
-      starNode.parent = this.starLayer;
-      starNode.addComponent(UITransform); // 同上: Graphics 需要 UITransform 才渲染
-      starNode.setPosition(node.x, node.y, 0);
-      this.starGraphics.set(node.id, starNode.addComponent(Graphics));
+      const starGraphics = this.makeGraphicsNode(`M02Star_${node.id}`, this.starLayer);
+      starGraphics.node.setPosition(node.x, node.y, 0);
+      this.starGraphics.set(node.id, starGraphics);
     }
     this.renderStars();
   }
@@ -167,6 +162,13 @@ export class M02StarWebView extends Component {
     const node = new Node(name);
     node.layer = Layers.Enum.UI_2D;
     return node;
+  }
+
+  private makeGraphicsNode(name: string, parent: Node): Graphics {
+    const node = this.makeUINode(name);
+    node.parent = parent;
+    node.addComponent(UITransform); // Graphics 是 UI 渲染件, 运行时须显式补 UITransform 否则不出图
+    return node.addComponent(Graphics);
   }
 
   /** 按当前 view 的呈现态给每颗星着色 */
