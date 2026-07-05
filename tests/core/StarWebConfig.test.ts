@@ -46,6 +46,25 @@ describe("validateStarWebConfig", () => {
     broken.mechanic.tapLightsNeighbors = false;
     expect(validateStarWebConfig(broken).ok).toBe(false);
   });
+
+  it("拒绝自环边", () => {
+    const broken = structuredClone(starWeb) as unknown as { boards: Array<{ layout: { edges: string[][] } }> };
+    broken.boards[0].layout.edges.push(["A", "A"]);
+    expect(validateStarWebConfig(broken).ok).toBe(false);
+  });
+
+  it("拒绝重复/镜像边", () => {
+    const broken = structuredClone(starWeb) as unknown as { boards: Array<{ layout: { edges: string[][] } }> };
+    const first = broken.boards[0].layout.edges[0]; // 已有的一条
+    broken.boards[0].layout.edges.push([first[1], first[0]]); // 反向重复
+    expect(validateStarWebConfig(broken).ok).toBe(false);
+  });
+
+  it("拒绝非字符串的可选字段 (description)", () => {
+    const broken = structuredClone(starWeb) as unknown as Record<string, unknown>;
+    broken.description = 123;
+    expect(validateStarWebConfig(broken).ok).toBe(false);
+  });
 });
 
 describe("配置 × 模型 集成 (verify 折进测试套件)", () => {

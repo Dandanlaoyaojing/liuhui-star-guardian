@@ -74,10 +74,12 @@ export class StarNetworkModel {
     }
   }
 
-  /** 一拍 = 点亮 + 衰减 */
-  step(id: string): void {
+  /** 一拍 = 点亮 + 衰减。未知星不构成一次点亮 → 不推进衰减(不白耗一拍)，返回是否真发生了点亮 */
+  step(id: string): boolean {
+    if (!this.life.has(id)) return false;
     this.tap(id);
     this.tick();
+    return true;
   }
 
   /** 胜利: 全亮且每颗亮邻居 >= freezeThreshold */

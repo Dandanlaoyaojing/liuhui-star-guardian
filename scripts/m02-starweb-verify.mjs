@@ -16,9 +16,14 @@ const CONFIG = join(dirname(fileURLToPath(import.meta.url)),
   '../assets/resources/configs/stage1/m02-starweb-warmth.json');
 
 function adjacencyOf(board) {
+  // 去重邻接, 与 StarNetworkModel 语义一致(镜像/重复边不重复计数, 忽略自环/未知端点)
+  const sets = {};
+  for (const n of board.layout.nodes) sets[n.id] = new Set();
+  for (const [a, b] of board.layout.edges) {
+    if (a !== b && sets[a] && sets[b]) { sets[a].add(b); sets[b].add(a); }
+  }
   const adj = {};
-  for (const n of board.layout.nodes) adj[n.id] = [];
-  for (const [a, b] of board.layout.edges) { adj[a].push(b); adj[b].push(a); }
+  for (const k of Object.keys(sets)) adj[k] = [...sets[k]];
   return adj;
 }
 

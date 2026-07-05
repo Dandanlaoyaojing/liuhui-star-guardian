@@ -99,4 +99,13 @@ describe("StarNetworkModel 图构造健壮性", () => {
     m.tap("P");
     expect(m.litNeighborCount("P")).toBe(1);
   });
+
+  it("step 未知星: 不推进衰减, 返回 false", () => {
+    const m = new StarNetworkModel(line, RULES);
+    m.tap("X"); // X,Y 满命
+    const did = m.step("ZZZ");
+    expect(did).toBe(false);
+    expect(m.lifeOf("X")).toBe(3); // 没白耗一拍
+    expect(m.lifeOf("Y")).toBe(3);
+  });
 });
