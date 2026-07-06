@@ -42,6 +42,17 @@ describe("validateStarWebConfig", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("拒绝同一板内重复 node id", () => {
+    const broken = structuredClone(starWeb) as unknown as {
+      boards: Array<{ layout: { nodes: Array<{ id: string }> } }>;
+    };
+    broken.boards[0].layout.nodes[1].id = broken.boards[0].layout.nodes[0].id;
+    const result = validateStarWebConfig(broken);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join("\n")).toContain("is duplicated");
+  });
+
   it("拒绝不受支持的 mechanic flag (tapLightsNeighbors=false)", () => {
     const broken = structuredClone(starWeb) as unknown as { mechanic: Record<string, unknown> };
     broken.mechanic.tapLightsNeighbors = false;
