@@ -4,18 +4,24 @@ Last updated: 2026-07-06
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
-## 当前活跃线:M02 Phase 3B 视图反馈 + stargaze 星形移植(2026-07-06, 分支 `codex/m02-phase3b`)
+## 当前活跃线:M02 Phase 3B/3C 视图反馈 + 胜利收尾(2026-07-06, 分支 `codex/m02-phase3b`)
 
-承接 `main` 上已合并的 Phase 3A，按 `docs/plans/2026-07-05-m02-phase3.md` 开始 3B。为避开主仓未提交的 Cocos 编辑器状态文件，工作在隔离 worktree：`/Users/danmac/.config/superpowers/worktrees/liuhui-star-guardian/m02-phase3b`。
+承接 `main` 上已合并的 Phase 3A，按 `docs/plans/2026-07-05-m02-phase3.md` 完成 3B/3C 的自动验证部分。为避开主仓未提交的 Cocos 编辑器状态文件，工作在隔离 worktree：`/Users/danmac/.config/superpowers/worktrees/liuhui-star-guardian/m02-phase3b`。
 
-本轮补完 T7/T8，均有红灯 scaffold 测试 → 实现 → 目标测试/typecheck：
+3B 已补完 T7/T8，均有红灯 scaffold 测试 → 实现 → 目标测试/typecheck：
 
 1. T7 — `M02StarWebView` 用配置 `mechanic.lifeMax` 计算 `life/lifeMax`，每颗亮星先画倒数光晕；`frozen` 用稳定色/固定满圈。
 2. T8 — 新增 `M02FailureOverlay`，`status==="exhausted"` 时铺半透明暗场和漏光点；原有点击任意处 `resetBoard()` 后 `renderStars()` 会清空覆盖层。
 3. Stargaze 星形移植 — 从隔壁 `/Users/danmac/bunnies-stargaze/src/utils/starRenderer.ts` 搬 `generateStarVertices` 的五点星几何与 `[0,2,4,1,3,0]` pentagram 画序，翻译成 Cocos `Graphics` 直画；保留 M02 原状态色、倒数光晕和点击命中半径。
 4. 自审修复 — 光晕/星体、失败暗场/漏光点分别拆成独立 `Graphics` 节点，避免同一 `Graphics` path 在连续 `stroke()` / `fill()` 间串形，导致亮星被光晕圆重新填成圆点或失败暗场被漏光色覆盖。
 
-验证：`npm test` ✅(39 files / 437 tests)，`npm run typecheck` ✅，`git diff --check` ✅。
+3C 已补完 T9-T11，均有红灯 scaffold 测试 → 实现 → 目标测试/typecheck：
+
+1. T9 — 单板 `won` 后不再直接切板，改走 `beginBoardWinFlow()`；用 tween 逐星放大光晕节点形成修复流，动画期间锁输入，并在 tween 回调里检查 `disposed`，销毁时统一 `stopRepairTweens()`。
+2. T10 — 末板 `isLevelComplete()` 后调用 `grantM02Completion(this.progressStore, this.config.toolCard, Date.now())` 写进度并拿完整 `ToolCard`；再用 `buildToolCardPreview(card)` 格式化，场景内生成 `M02CompletionPanel` / `M02ToolCardPreview` 灰盒卡面。
+3. T11 — 非末板修复流结束后自动 `nextBoard()` + `buildBoard()`；末板进入完成奖励分支；完成态再次点击会 `pulseCompletionPanel()`，不再静默无响应。
+
+验证：`npm test` ✅(39 files / 440 tests)，`npm run typecheck` ✅，`git diff --check` ✅。
 
 已提交的 batch 1 完成 T4-T6：
 
@@ -23,7 +29,7 @@ Last updated: 2026-07-06
 2. `c6683e6` `refactor(M02): centralize star web graphics nodes` — 新增 `makeGraphicsNode(name,parent)` 统一 UI_2D + UITransform + Graphics 样板；`StarWebView.edges` 改为 `ReadonlyArray<readonly [string,string]>`。
 3. `d657361` `feat(M02): render star wand charges` — 代码内生成 `M02ChargeMeter`，按 `chargesTotal/chargesLeft` 画棒尖光点，点后随 `renderStars()` 同步刷新。
 
-未完成：3B Preview checkpoint、Phase 3C。`.ts` 改动需要在 Cocos 编辑器手动重启 Preview 后才能肉眼/截图验证；本轮尚未做编辑器预览验证。
+未完成：3B/3C Preview checkpoint。`.ts` 改动需要在 Cocos 编辑器手动重启 Preview 后才能肉眼/截图验证；本轮尚未做编辑器预览验证。
 
 ## 已完成:M02 Phase 3A 会话/工具卡/进度数据(2026-07-05, 已合并 main)
 

@@ -3,8 +3,11 @@
 // greybox: 星=手绘五角星(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 折线。
 // 交互: 根节点单一 touch-end + 最近星命中; 胜/竭后再点=进下一板/重来本板。
 
-import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Layers, Node, resources, UITransform, Vec3 } from "cc";
-import { validateStarWebConfig } from "../core/StarWebConfig.ts";
+import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Label, Layers, Node, resources, tween, UITransform, Vec3 } from "cc";
+import { createProgressStore } from "../core/ProgressStore.ts";
+import { validateStarWebConfig, type StarWebConfig } from "../core/StarWebConfig.ts";
+import { buildToolCardPreview } from "../ui/ToolCardView.ts";
+import { grantM02Completion } from "./M02CompletionController.ts";
 import { StarWebSession, type StarNodeStatus, type StarNodeView, type StarWebView as StarWebViewState } from "./M02StarWebSession.ts";
 
 const { ccclass, property } = _decorator;
@@ -19,6 +22,11 @@ const STARGAZE_STAR_WOBBLE = 0.35;
 const STARGAZE_STAR_DRAW_ORDER = [0, 2, 4, 1, 3, 0] as const;
 const FAILURE_OVERLAY_WIDTH = 1000;
 const FAILURE_OVERLAY_HEIGHT = 720;
+const REPAIR_FLOW_SECONDS = 0.72;
+const COMPLETION_PANEL_WIDTH = 390;
+const COMPLETION_PANEL_HEIGHT = 188;
+const COMPLETION_CARD_WIDTH = 360;
+const COMPLETION_CARD_HEIGHT = 128;
 
 const COLOR: Record<StarNodeStatus, Color> = {
   dark: new Color(92, 98, 116, 255),
@@ -34,6 +42,12 @@ const STAR_STROKE_COLOR = new Color(255, 244, 202, 180);
 const DARK_STAR_STROKE_COLOR = new Color(126, 132, 150, 150);
 const FAILURE_OVERLAY_COLOR = new Color(24, 26, 34, 118);
 const FAILURE_LEAK_COLOR = new Color(214, 170, 104, 125);
+const COMPLETION_PANEL_FILL = new Color(250, 244, 222, 242);
+const COMPLETION_PANEL_STROKE = new Color(82, 72, 54, 255);
+const COMPLETION_CARD_FILL = new Color(255, 250, 235, 246);
+const COMPLETION_CARD_STROKE = new Color(132, 112, 74, 255);
+const COMPLETION_TEXT_COLOR = new Color(45, 42, 36, 255);
+const COMPLETION_ACCENT_COLOR = new Color(248, 214, 150, 255);
 
 interface StargazeStarPoint {
   x: number;
@@ -45,15 +59,21 @@ export class M02StarWebView extends Component {
   @property(String)
   configPath = "configs/stage1/m02-starweb-warmth";
 
+  private config: StarWebConfig | null = null;
   private session: StarWebSession | null = null;
   private edgeGraphics: Graphics | null = null;
   private starLayer: Node | null = null;
   private chargeLayer: Node | null = null;
   private failureLayer: Node | null = null;
+  private completionRoot: Node | null = null;
   private readonly starGlowGraphics = new Map<string, Graphics>();
   private readonly starGraphics = new Map<string, Graphics>();
+  private readonly repairTweens: ReturnType<typeof tween>[] = [];
+  private readonly progressStore = createProgressStore();
   private lifeMax = 1;
   private activeTouchId: number | null = null;
+  private repairSequencePlaying = false;
+  private completionShown = false;
   private disposed = false;
 
   onLoad(): void {
@@ -80,12 +100,14 @@ export class M02StarWebView extends Component {
   onDestroy(): void {
     this.disposed = true;
     this.activeTouchId = null;
+    this.stopRepairTweens();
     this.node.off(Node.EventType.TOUCH_START, this.onTouchStart, this);
     this.node.off(Node.EventType.TOUCH_END, this.onTouchEnd, this);
     this.node.off(Node.EventType.TOUCH_CANCEL, this.onTouchCancel, this);
   }
 
   private onTouchStart(event: EventTouch): void {
+    if (this.repairSequencePlaying) return;
     if (this.activeTouchId !== null) return;
     this.activeTouchId = event.getID();
   }
@@ -94,11 +116,16 @@ export class M02StarWebView extends Component {
     if (this.activeTouchId !== event.getID()) return;
     this.activeTouchId = null;
     if (!this.session) return;
+    if (this.repairSequencePlaying) return;
+    if (this.completionShown) {
+      this.pulseCompletionPanel();
+      return;
+    }
     const view = this.session.view;
     const status = view.status;
 
     if (status === "won") {
-      if (this.session.nextBoard()) this.buildBoard();
+      this.beginBoardWinFlow();
       return;
     }
     if (status === "exhausted") {
@@ -112,6 +139,7 @@ export class M02StarWebView extends Component {
     if (hit === null) return;
     this.session.tapNode(hit);
     this.renderStars();
+    if (this.session.view.status === "won") this.beginBoardWinFlow();
   }
 
   private onTouchCancel(event: EventTouch): void {
@@ -130,6 +158,7 @@ export class M02StarWebView extends Component {
         console.error("[M02] 配置非法", result.errors);
         return;
       }
+      this.config = result.value;
       this.lifeMax = result.value.mechanic.lifeMax;
       this.session = new StarWebSession(result.value);
       this.buildBoard();
@@ -160,6 +189,9 @@ export class M02StarWebView extends Component {
     if (!this.session || !this.starLayer || !this.edgeGraphics) return;
     const view = this.session.view;
 
+    this.completionRoot?.destroy();
+    this.completionRoot = null;
+    this.completionShown = false;
     for (const child of [...this.starLayer.children]) {
       child.destroy();
     }
@@ -190,6 +222,187 @@ export class M02StarWebView extends Component {
       this.starGraphics.set(node.id, starGraphics);
     }
     this.renderStars();
+  }
+
+  private beginBoardWinFlow(): void {
+    if (!this.session || this.repairSequencePlaying || this.completionShown) return;
+    this.repairSequencePlaying = true;
+    this.playRepairFlow(() => {
+      if (this.disposed || !this.session) return;
+      this.repairSequencePlaying = false;
+      if (this.session.isLevelComplete()) {
+        this.renderCompletionReward();
+        return;
+      }
+      if (this.session.nextBoard()) this.buildBoard();
+    });
+  }
+
+  private playRepairFlow(onComplete: () => void): void {
+    this.stopRepairTweens();
+    const orderedGlows = this.session?.view.nodes
+      .map((node) => this.starGlowGraphics.get(node.id))
+      .filter((graphics): graphics is Graphics => graphics !== undefined) ?? [];
+    const flow = { progress: 0 };
+    const flowTween = tween(flow)
+      .to(REPAIR_FLOW_SECONDS, { progress: 1 }, {
+        easing: "quadInOut",
+        onUpdate: () => {
+          if (this.disposed) return;
+          const activeIndex = Math.floor(flow.progress * Math.max(0, orderedGlows.length - 1));
+          for (let i = 0; i < orderedGlows.length; i++) {
+            const scale = i <= activeIndex ? 1.16 : 1;
+            orderedGlows[i].node.setScale(scale, scale, 1);
+          }
+        }
+      })
+      .call(() => {
+        if (this.disposed) return;
+        for (const glow of orderedGlows) {
+          glow.node.setScale(1, 1, 1);
+        }
+        onComplete();
+      })
+      .start();
+    this.repairTweens.push(flowTween);
+  }
+
+  private stopRepairTweens(): void {
+    for (const repairTween of this.repairTweens) {
+      repairTween.stop();
+    }
+    this.repairTweens.length = 0;
+  }
+
+  private renderCompletionReward(): void {
+    if (!this.config || this.completionShown) return;
+    const card = grantM02Completion(this.progressStore, this.config.toolCard, Date.now());
+    const preview = buildToolCardPreview(card, {
+      text: {
+        unlockedSubtitle: "认知工具卡已解锁",
+        whenToUsePrefix: "何时使用：{value}"
+      }
+    });
+
+    this.completionRoot?.destroy();
+    const panel = new Node("M02CompletionPanel");
+    panel.layer = Layers.Enum.UI_2D;
+    panel.setPosition(0, -238, 0);
+    this.node.addChild(panel);
+    this.completionRoot = panel;
+
+    const panelTransform = panel.addComponent(UITransform);
+    panelTransform.setContentSize(COMPLETION_PANEL_WIDTH, COMPLETION_PANEL_HEIGHT);
+    const panelGraphics = panel.addComponent(Graphics);
+    panelGraphics.lineWidth = 2;
+    panelGraphics.fillColor = COMPLETION_PANEL_FILL;
+    panelGraphics.strokeColor = COMPLETION_PANEL_STROKE;
+    panelGraphics.rect(
+      -COMPLETION_PANEL_WIDTH / 2,
+      -COMPLETION_PANEL_HEIGHT / 2,
+      COMPLETION_PANEL_WIDTH,
+      COMPLETION_PANEL_HEIGHT
+    );
+    panelGraphics.fill();
+    panelGraphics.stroke();
+    this.drawCompletionCrystal(panel);
+
+    this.addCardLabel(panel, "M02WisdomCrystal", this.config.wisdomCrystal, 0, 72, 13, 350, 28);
+
+    const cardRoot = new Node("M02ToolCardPreview");
+    cardRoot.layer = Layers.Enum.UI_2D;
+    cardRoot.setPosition(0, -28, 0);
+    panel.addChild(cardRoot);
+    const cardTransform = cardRoot.addComponent(UITransform);
+    cardTransform.setContentSize(COMPLETION_CARD_WIDTH, COMPLETION_CARD_HEIGHT);
+    const cardGraphics = cardRoot.addComponent(Graphics);
+    cardGraphics.lineWidth = 2;
+    cardGraphics.fillColor = COMPLETION_CARD_FILL;
+    cardGraphics.strokeColor = COMPLETION_CARD_STROKE;
+    cardGraphics.rect(
+      -COMPLETION_CARD_WIDTH / 2,
+      -COMPLETION_CARD_HEIGHT / 2,
+      COMPLETION_CARD_WIDTH,
+      COMPLETION_CARD_HEIGHT
+    );
+    cardGraphics.fill();
+    cardGraphics.stroke();
+
+    this.addCardLabel(cardRoot, "M02ToolCardSubtitle", preview.subtitle, 0, 42, 12, 320, 20);
+    this.addCardLabel(cardRoot, "M02ToolCardTitle", preview.title, 0, 22, 20, 320, 24);
+    this.addCardLabel(cardRoot, "M02ToolCardCrystal", preview.lines[0] ?? "", 0, -4, 12, 330, 22);
+    this.addCardLabel(cardRoot, "M02ToolCardAction", this.wrapCardText(preview.lines[1] ?? "", 24), 0, -30, 11, 330, 36);
+    this.addCardLabel(cardRoot, "M02ToolCardUse", this.wrapCardText(preview.lines[2] ?? "", 27), 0, -56, 10, 330, 32);
+
+    this.completionShown = true;
+  }
+
+  private drawCompletionCrystal(parent: Node): void {
+    const crystal = this.makeGraphicsNode("M02WisdomCrystalIcon", parent);
+    crystal.node.setPosition(-170, 72, 0);
+    crystal.fillColor = COMPLETION_ACCENT_COLOR;
+    crystal.strokeColor = COMPLETION_CARD_STROKE;
+    crystal.lineWidth = 2;
+    crystal.moveTo(0, 18);
+    crystal.lineTo(14, 0);
+    crystal.lineTo(0, -18);
+    crystal.lineTo(-14, 0);
+    crystal.close();
+    crystal.fill();
+    crystal.stroke();
+  }
+
+  private addCardLabel(
+    parent: Node,
+    name: string,
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number,
+    width = 320,
+    height = 24
+  ): Label {
+    const labelNode = this.makeUINode(name);
+    labelNode.setPosition(x, y, 0);
+    parent.addChild(labelNode);
+
+    const transform = labelNode.addComponent(UITransform);
+    transform.setContentSize(width, height);
+
+    const label = labelNode.addComponent(Label);
+    label.string = text;
+    label.fontSize = fontSize;
+    label.lineHeight = fontSize + 5;
+    label.color = COMPLETION_TEXT_COLOR;
+    label.horizontalAlign = 1;
+    return label;
+  }
+
+  private wrapCardText(text: string, maxChars: number): string {
+    if (text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars)}\n${text.slice(maxChars, maxChars * 2)}`;
+  }
+
+  private pulseCompletionPanel(): void {
+    if (!this.completionRoot) return;
+    this.stopRepairTweens();
+    this.completionRoot.setScale(1, 1, 1);
+    const flow = { scale: 1 };
+    const pulseTween = tween(flow)
+      .to(0.08, { scale: 1.03 }, {
+        onUpdate: () => {
+          if (this.disposed || !this.completionRoot) return;
+          this.completionRoot.setScale(flow.scale, flow.scale, 1);
+        }
+      })
+      .to(0.12, { scale: 1 }, {
+        onUpdate: () => {
+          if (this.disposed || !this.completionRoot) return;
+          this.completionRoot.setScale(flow.scale, flow.scale, 1);
+        }
+      })
+      .start();
+    this.repairTweens.push(pulseTween);
   }
 
   /** 建一个 UI_2D 层的节点(运行时新建节点默认落 DEFAULT 层, UI 相机看不见) */

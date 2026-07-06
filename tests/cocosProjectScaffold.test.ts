@@ -1760,4 +1760,55 @@ describe("Cocos Creator project scaffold", () => {
     expect(endBody).toContain("this.session.resetBoard();");
     expect(endBody).toContain("this.renderStars();");
   });
+
+  it("plays the M02 board-win repair flow with an input lock and destroy guards", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+
+    expect(view).toContain("tween");
+    expect(view).toContain("private repairSequencePlaying = false;");
+    expect(view).toContain("private readonly repairTweens: ReturnType<typeof tween>[] = [];");
+    expect(view).toContain("if (this.repairSequencePlaying) return;");
+    expect(view).toContain("private beginBoardWinFlow(): void");
+    expect(view).toContain("private playRepairFlow(onComplete: () => void): void");
+    expect(view).toContain("const flowTween = tween(flow)");
+    expect(view).toContain("if (this.disposed) return;");
+    expect(view).toContain("this.repairTweens.push(flowTween);");
+    expect(view).toContain("this.stopRepairTweens();");
+  });
+
+  it("renders the M02 wisdom crystal and tool card from the completed ToolCard", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+
+    expect(view).toContain("import { createProgressStore }");
+    expect(view).toContain("import { buildToolCardPreview }");
+    expect(view).toContain("import { grantM02Completion }");
+    expect(view).toContain("private config: StarWebConfig | null = null;");
+    expect(view).toContain("private readonly progressStore = createProgressStore();");
+    expect(view).toContain("private renderCompletionReward(): void");
+    expect(view).toContain("const card = grantM02Completion(this.progressStore, this.config.toolCard, Date.now());");
+    expect(view).toContain("const preview = buildToolCardPreview(card");
+    expect(view).toContain('new Node("M02CompletionPanel")');
+    expect(view).toContain('new Node("M02ToolCardPreview")');
+    expect(view).toContain('this.addCardLabel(cardRoot, "M02ToolCardTitle", preview.title');
+    expect(view).toContain("this.completionShown = true;");
+  });
+
+  it("advances M02 boards after the repair flow and handles final completion explicitly", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+    const endBody = view.slice(
+      view.indexOf("private onTouchEnd"),
+      view.indexOf("private onTouchCancel")
+    );
+    const flowBody = view.slice(
+      view.indexOf("private beginBoardWinFlow"),
+      view.indexOf("private playRepairFlow")
+    );
+
+    expect(endBody).toContain("if (this.completionShown)");
+    expect(endBody).toContain("this.pulseCompletionPanel();");
+    expect(endBody).toContain('if (this.session.view.status === "won") this.beginBoardWinFlow();');
+    expect(flowBody).toContain("if (this.session.isLevelComplete())");
+    expect(flowBody).toContain("this.renderCompletionReward();");
+    expect(flowBody).toContain("if (this.session.nextBoard()) this.buildBoard();");
+  });
 });
