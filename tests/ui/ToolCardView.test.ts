@@ -22,6 +22,10 @@ describe("buildToolCardPreview", () => {
       "从局部证据中找出能彼此成立的关系，再把相关碎片归成结构。",
       "何时使用：面对一堆线索却不知道哪些真正相关时"
     ]);
+    // 具名字段: 锁的是"哪个语义", 不依赖 lines 顺序
+    expect(preview.crystal).toContain("秩序");
+    expect(preview.coreAction).toContain("局部证据");
+    expect(preview.whenToUse).toContain("何时使用");
   });
 
   it("allows visible ToolCard preview copy to be replaced for localization", () => {
@@ -34,5 +38,6 @@ describe("buildToolCardPreview", () => {
 
     expect(preview.subtitle).toBe("UNLOCKED");
     expect(preview.lines[2]).toBe("USE: 面对一堆线索却不知道哪些真正相关时");
+    expect(preview.whenToUse).toBe("USE: 面对一堆线索却不知道哪些真正相关时");
   });
 });

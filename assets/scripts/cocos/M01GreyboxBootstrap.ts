@@ -1119,9 +1119,9 @@ export class M01GreyboxBootstrap extends Component {
 
     this.addCardLabel(cardRoot, "M01ToolCardSubtitle", preview.subtitle, 0, 48, 13);
     this.addCardLabel(cardRoot, "M01ToolCardTitle", preview.title, 0, 24, 22);
-    this.addCardLabel(cardRoot, "M01ToolCardCrystal", preview.lines[0] ?? "", 0, -8, 15);
-    this.addCardLabel(cardRoot, "M01ToolCardAction", preview.lines[1] ?? "", 0, -34, 13);
-    this.addCardLabel(cardRoot, "M01ToolCardUse", preview.lines[2] ?? "", 0, -56, 12);
+    this.addCardLabel(cardRoot, "M01ToolCardCrystal", preview.crystal, 0, -8, 15);
+    this.addCardLabel(cardRoot, "M01ToolCardAction", preview.coreAction, 0, -34, 13);
+    this.addCardLabel(cardRoot, "M01ToolCardUse", preview.whenToUse, 0, -56, 12);
   }
 
   private renderToolCardArtFrame(parent: Node): void {
