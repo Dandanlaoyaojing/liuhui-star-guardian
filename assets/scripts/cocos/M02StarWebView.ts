@@ -1,6 +1,6 @@
 // M02《点亮你温暖我》Cocos 胶水层(greybox) —— 只做"渲染 view() + 把点击转给 session"。
 // 规则全在 StarNetworkModel/StarWebSession(纯逻辑, 已单测); 本文件不算任何规则。
-// greybox: 星=填色圆(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 折线。
+// greybox: 星=手绘五角星(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 折线。
 // 交互: 根节点单一 touch-end + 最近星命中; 胜/竭后再点=进下一板/重来本板。
 
 import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Layers, Node, resources, UITransform, Vec3 } from "cc";
@@ -15,6 +15,8 @@ const EDGE_WIDTH = 4;
 const CHARGE_PIP_RADIUS = 8;
 const CHARGE_PIP_GAP = 24;
 const STAR_GLOW_EXTRA = 18;
+const STARGAZE_STAR_WOBBLE = 0.35;
+const STARGAZE_STAR_DRAW_ORDER = [0, 2, 4, 1, 3, 0] as const;
 const FAILURE_OVERLAY_WIDTH = 1000;
 const FAILURE_OVERLAY_HEIGHT = 720;
 
@@ -28,8 +30,15 @@ const CHARGE_COLOR = new Color(248, 214, 150, 255);
 const CHARGE_EMPTY_COLOR = new Color(92, 98, 116, 120);
 const DECAYING_GLOW_COLOR = new Color(214, 170, 104, 95);
 const FROZEN_GLOW_COLOR = new Color(248, 214, 150, 135);
+const STAR_STROKE_COLOR = new Color(255, 244, 202, 180);
+const DARK_STAR_STROKE_COLOR = new Color(126, 132, 150, 150);
 const FAILURE_OVERLAY_COLOR = new Color(24, 26, 34, 118);
 const FAILURE_LEAK_COLOR = new Color(214, 170, 104, 125);
+
+interface StargazeStarPoint {
+  x: number;
+  y: number;
+}
 
 @ccclass("M02StarWebView")
 export class M02StarWebView extends Component {
@@ -199,12 +208,76 @@ export class M02StarWebView extends Component {
       if (!graphics) continue;
       graphics.clear();
       this.renderStarGlow(graphics, node);
-      graphics.fillColor = COLOR[node.status];
-      graphics.circle(0, 0, NODE_RADIUS);
-      graphics.fill();
+      this.renderStargazeStar(graphics, node);
     }
     this.renderChargeMeter();
     this.renderFailureOverlay();
+  }
+
+  private renderStargazeStar(graphics: Graphics, node: StarNodeView): void {
+    const rng = this.rngFromStarId(node.id);
+    const vertices = this.generateStargazeStarVertices(NODE_RADIUS, STARGAZE_STAR_WOBBLE, rng);
+    graphics.fillColor = COLOR[node.status];
+    this.drawStargazeStarPath(graphics, vertices);
+    graphics.fill();
+
+    const strokeColor = node.status === "dark" ? DARK_STAR_STROKE_COLOR : STAR_STROKE_COLOR;
+    for (let pass = 0; pass < 3; pass++) {
+      const drift = NODE_RADIUS * (0.07 + pass * 0.05);
+      const drifted = vertices.map((v) => ({
+        x: v.x + (rng() - 0.5) * drift,
+        y: v.y + (rng() - 0.5) * drift
+      }));
+      graphics.strokeColor = strokeColor;
+      graphics.lineWidth = Math.max(1.2, NODE_RADIUS * (0.08 + pass * 0.02));
+      this.drawStargazeStarPath(graphics, drifted);
+      graphics.stroke();
+    }
+  }
+
+  private generateStargazeStarVertices(
+    size: number,
+    wobble: number,
+    rng: () => number
+  ): StargazeStarPoint[] {
+    const vertices: StargazeStarPoint[] = [];
+    const startAngle = -Math.PI / 2 + (rng() - 0.5) * 0.4;
+    for (let i = 0; i < 5; i++) {
+      const angle = startAngle + (i * Math.PI * 2) / 5;
+      const r = size * (1 + (rng() - 0.5) * wobble);
+      const angleShift = (rng() - 0.5) * wobble * 0.5;
+      vertices.push({
+        x: Math.cos(angle + angleShift) * r,
+        y: Math.sin(angle + angleShift) * r
+      });
+    }
+    return vertices;
+  }
+
+  private drawStargazeStarPath(graphics: Graphics, vertices: StargazeStarPoint[]): void {
+    const first = vertices[STARGAZE_STAR_DRAW_ORDER[0]];
+    if (!first) return;
+    graphics.moveTo(first.x, first.y);
+    for (let i = 1; i < STARGAZE_STAR_DRAW_ORDER.length; i++) {
+      const point = vertices[STARGAZE_STAR_DRAW_ORDER[i]];
+      if (point) graphics.lineTo(point.x, point.y);
+    }
+    graphics.close();
+  }
+
+  private rngFromStarId(id: string): () => number {
+    let seed = 2166136261;
+    for (let i = 0; i < id.length; i++) {
+      seed ^= id.charCodeAt(i);
+      seed = Math.imul(seed, 16777619);
+    }
+    return () => {
+      seed += 0x6D2B79F5;
+      let t = seed;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
   private renderStarGlow(graphics: Graphics, node: StarNodeView): void {

@@ -1717,6 +1717,24 @@ describe("Cocos Creator project scaffold", () => {
     expect(view).toContain("this.renderStarGlow(graphics, node);");
   });
 
+  it("renders M02 stars with the stargaze hand-drawn pentagram shape", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+    const renderBody = view.slice(
+      view.indexOf("private renderStars"),
+      view.indexOf("private renderStarGlow")
+    );
+
+    expect(view).toContain("STARGAZE_STAR_DRAW_ORDER = [0, 2, 4, 1, 3, 0] as const;");
+    expect(view).toContain("private generateStargazeStarVertices(");
+    expect(view).toContain("const startAngle = -Math.PI / 2 + (rng() - 0.5) * 0.4;");
+    expect(view).toContain("const r = size * (1 + (rng() - 0.5) * wobble);");
+    expect(view).toContain("private renderStargazeStar(graphics: Graphics, node: StarNodeView): void");
+    expect(view).toContain("const rng = this.rngFromStarId(node.id);");
+    expect(view).toContain("this.drawStargazeStarPath(graphics, vertices);");
+    expect(renderBody).toContain("this.renderStargazeStar(graphics, node);");
+    expect(renderBody).not.toContain("graphics.circle(0, 0, NODE_RADIUS);");
+  });
+
   it("renders and clears the M02 exhausted failure overlay", () => {
     const view = readText("assets/scripts/cocos/M02StarWebView.ts");
     const endBody = view.slice(
