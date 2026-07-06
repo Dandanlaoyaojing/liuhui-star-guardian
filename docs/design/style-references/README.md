@@ -166,6 +166,20 @@ These are hard constraints for future image generation and review:
 - Hand-drawn line quality must not be simulated through dotted fragmentation, short broken mini-strokes, or scan-like edge noise.
 - Watercolor character must come from broad overlapping washes, tonal pooling, and soft transitions inside large shapes, not from white grain or broken texture.
 
+### Reusable Image Prompt
+
+Use this prompt skeleton for simple puzzle devices, doors, hatches, platform inserts, and other low-detail mechanical props. Replace only the target object sentence.
+
+```text
+Create a simpler, rougher hand-painted watercolor version of [TARGET_OBJECT]. Keep the structure: [TARGET_STRUCTURE]. Match this style: children's 2D watercolor game platform, warm muted olive-bronze and parchment colors, uneven pencil/ink outline, visible paper texture, soft watercolor stains and blotches, imperfect hand-drawn edges. Make it much less detailed and less polished than a mechanical illustration: no ornate gears, no crisp 3D metal, no glossy highlights, no tiny precision parts. Only a few rough guide lines and maybe two or four very simple rivet dots. It should look like it belongs inside a rough hand-drawn watercolor gear platform, simple and asset-friendly. Plain off-white background, centered, full object visible, no text, no UI, no character, no perspective.
+```
+
+Accepted M01 center-door instance:
+
+```text
+Create a simpler, rougher hand-painted watercolor version of the same closed circular sliding door concept. Keep the structure: a flat round center hatch seen from directly above, two left-right sliding panels closed together with one vertical seam in the middle. Match this style: children's 2D watercolor game platform, warm muted olive-bronze and parchment colors, uneven pencil/ink outline, visible paper texture, soft watercolor stains and blotches, imperfect hand-drawn edges. Make it much less detailed and less polished than a mechanical illustration: no ornate gears, no crisp 3D metal, no glossy highlights, no tiny precision parts. Only a few rough curved guide lines and maybe two or four very simple rivet dots. It should look like it belongs inside a rough hand-drawn watercolor gear platform, simple and asset-friendly. Plain off-white background, centered, full object visible, no text, no UI, no character, no perspective, no door opening.
+```
+
 ### White Speckle Cleanup Method
 
 When an otherwise useful reference or runtime candidate has salt-like white flecks inside painted objects, do not smooth or regenerate the whole image. Use a localized same-hue fill:
