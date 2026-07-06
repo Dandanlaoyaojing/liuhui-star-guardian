@@ -380,7 +380,7 @@ export class M02StarWebView extends Component {
 
   private wrapCardText(text: string, maxChars: number): string {
     if (text.length <= maxChars) return text;
-    return `${text.slice(0, maxChars)}\n${text.slice(maxChars, maxChars * 2)}`;
+    return text.match(new RegExp(`.{1,${maxChars}}`, "g"))?.join("\n") ?? "";
   }
 
   private pulseCompletionPanel(): void {

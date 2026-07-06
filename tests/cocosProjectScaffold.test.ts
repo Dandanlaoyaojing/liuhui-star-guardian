@@ -1793,6 +1793,17 @@ describe("Cocos Creator project scaffold", () => {
     expect(view).toContain("this.completionShown = true;");
   });
 
+  it("wraps M02 completion card copy without dropping later text", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+    const wrapBody = view.slice(
+      view.indexOf("private wrapCardText"),
+      view.indexOf("private pulseCompletionPanel")
+    );
+
+    expect(wrapBody).not.toContain("maxChars * 2");
+    expect(wrapBody).toContain('?.join("\\n")');
+  });
+
   it("advances M02 boards after the repair flow and handles final completion explicitly", () => {
     const view = readText("assets/scripts/cocos/M02StarWebView.ts");
     const endBody = view.slice(
