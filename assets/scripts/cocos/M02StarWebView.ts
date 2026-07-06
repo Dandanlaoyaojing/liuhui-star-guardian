@@ -50,6 +50,7 @@ export class M02StarWebView extends Component {
   private starLayer: Node | null = null;
   private chargeLayer: Node | null = null;
   private failureLayer: Node | null = null;
+  private readonly starGlowGraphics = new Map<string, Graphics>();
   private readonly starGraphics = new Map<string, Graphics>();
   private lifeMax = 1;
   private activeTouchId: number | null = null;
@@ -162,6 +163,7 @@ export class M02StarWebView extends Component {
     for (const child of [...this.starLayer.children]) {
       child.destroy();
     }
+    this.starGlowGraphics.clear();
     this.starGraphics.clear();
 
     const posById = new Map(view.nodes.map((n) => [n.id, n]));
@@ -179,6 +181,10 @@ export class M02StarWebView extends Component {
     edges.stroke();
 
     for (const node of view.nodes) {
+      const glowGraphics = this.makeGraphicsNode(`M02StarGlow_${node.id}`, this.starLayer);
+      glowGraphics.node.setPosition(node.x, node.y, 0);
+      this.starGlowGraphics.set(node.id, glowGraphics);
+
       const starGraphics = this.makeGraphicsNode(`M02Star_${node.id}`, this.starLayer);
       starGraphics.node.setPosition(node.x, node.y, 0);
       this.starGraphics.set(node.id, starGraphics);
@@ -204,10 +210,14 @@ export class M02StarWebView extends Component {
   private renderStars(): void {
     if (!this.session) return;
     for (const node of this.session.view.nodes) {
+      const glowGraphics = this.starGlowGraphics.get(node.id);
       const graphics = this.starGraphics.get(node.id);
       if (!graphics) continue;
+      if (glowGraphics) {
+        glowGraphics.clear();
+        this.renderStarGlow(glowGraphics, node);
+      }
       graphics.clear();
-      this.renderStarGlow(graphics, node);
       this.renderStargazeStar(graphics, node);
     }
     this.renderChargeMeter();
@@ -313,14 +323,16 @@ export class M02StarWebView extends Component {
     }
     if (this.session.view.status !== "exhausted") return;
 
-    const overlay = this.makeGraphicsNode("M02FailureLeak", this.failureLayer);
+    const overlay = this.makeGraphicsNode("M02FailureDark", this.failureLayer);
     overlay.fillColor = FAILURE_OVERLAY_COLOR;
     overlay.rect(-FAILURE_OVERLAY_WIDTH / 2, -FAILURE_OVERLAY_HEIGHT / 2, FAILURE_OVERLAY_WIDTH, FAILURE_OVERLAY_HEIGHT);
     overlay.fill();
-    overlay.fillColor = FAILURE_LEAK_COLOR;
+
+    const leaks = this.makeGraphicsNode("M02FailureLeakPoints", this.failureLayer);
+    leaks.fillColor = FAILURE_LEAK_COLOR;
     for (const [x, y, radius] of [[-74, 24, 18], [0, -16, 24], [82, 18, 14]]) {
-      overlay.circle(x, y, radius);
+      leaks.circle(x, y, radius);
     }
-    overlay.fill();
+    leaks.fill();
   }
 }

@@ -1708,13 +1708,16 @@ describe("Cocos Creator project scaffold", () => {
 
     expect(view).toContain("STAR_GLOW_EXTRA");
     expect(view).toContain("private lifeMax = 1;");
+    expect(view).toContain("private readonly starGlowGraphics = new Map<string, Graphics>();");
     expect(view).toContain("this.lifeMax = result.value.mechanic.lifeMax;");
     expect(view).toContain("private renderStarGlow(graphics: Graphics, node: StarNodeView): void");
     expect(view).toContain("if (!node.lit) return;");
     expect(view).toContain("const lifeRatio = node.status === \"frozen\" ? 1 : node.life / Math.max(1, this.lifeMax);");
     expect(view).toContain("const glowRadius = NODE_RADIUS + STAR_GLOW_EXTRA * lifeRatio;");
     expect(view).toContain('graphics.strokeColor = node.status === "frozen" ? FROZEN_GLOW_COLOR : DECAYING_GLOW_COLOR;');
-    expect(view).toContain("this.renderStarGlow(graphics, node);");
+    expect(view).toContain("const glowGraphics = this.makeGraphicsNode(`M02StarGlow_${node.id}`, this.starLayer);");
+    expect(view).toContain("this.starGlowGraphics.set(node.id, glowGraphics);");
+    expect(view).toContain("this.renderStarGlow(glowGraphics, node);");
   });
 
   it("renders M02 stars with the stargaze hand-drawn pentagram shape", () => {
@@ -1748,8 +1751,10 @@ describe("Cocos Creator project scaffold", () => {
     expect(view).toContain("private renderFailureOverlay(): void");
     expect(view).toContain("for (const child of [...this.failureLayer.children])");
     expect(view).toContain('if (this.session.view.status !== "exhausted") return;');
-    expect(view).toContain('const overlay = this.makeGraphicsNode("M02FailureLeak", this.failureLayer);');
+    expect(view).toContain('const overlay = this.makeGraphicsNode("M02FailureDark", this.failureLayer);');
+    expect(view).toContain('const leaks = this.makeGraphicsNode("M02FailureLeakPoints", this.failureLayer);');
     expect(view).toContain("overlay.fillColor = FAILURE_OVERLAY_COLOR;");
+    expect(view).toContain("leaks.fillColor = FAILURE_LEAK_COLOR;");
     expect(view).toContain("this.renderFailureOverlay();");
     expect(endBody).toContain('if (status === "exhausted")');
     expect(endBody).toContain("this.session.resetBoard();");

@@ -13,8 +13,9 @@ Last updated: 2026-07-06
 1. T7 — `M02StarWebView` 用配置 `mechanic.lifeMax` 计算 `life/lifeMax`，每颗亮星先画倒数光晕；`frozen` 用稳定色/固定满圈。
 2. T8 — 新增 `M02FailureOverlay`，`status==="exhausted"` 时铺半透明暗场和漏光点；原有点击任意处 `resetBoard()` 后 `renderStars()` 会清空覆盖层。
 3. Stargaze 星形移植 — 从隔壁 `/Users/danmac/bunnies-stargaze/src/utils/starRenderer.ts` 搬 `generateStarVertices` 的五点星几何与 `[0,2,4,1,3,0]` pentagram 画序，翻译成 Cocos `Graphics` 直画；保留 M02 原状态色、倒数光晕和点击命中半径。
+4. 自审修复 — 光晕/星体、失败暗场/漏光点分别拆成独立 `Graphics` 节点，避免同一 `Graphics` path 在连续 `stroke()` / `fill()` 间串形，导致亮星被光晕圆重新填成圆点或失败暗场被漏光色覆盖。
 
-验证：`npm test` ✅(39 files / 436 tests)，`npm run typecheck` ✅，`git diff --check` ✅。
+验证：`npm test` ✅(39 files / 437 tests)，`npm run typecheck` ✅，`git diff --check` ✅。
 
 已提交的 batch 1 完成 T4-T6：
 
