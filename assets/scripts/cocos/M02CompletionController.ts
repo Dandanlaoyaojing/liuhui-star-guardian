@@ -8,6 +8,10 @@ export function grantM02Completion(
   toolCardData: ToolCardDraft,
   now: number
 ): ToolCard {
+  if (toolCardData.puzzleId !== M02_PUZZLE_ID) {
+    throw new Error(`toolCardData.puzzleId must be ${M02_PUZZLE_ID}`);
+  }
+
   const progress = store.getProgress();
   const completedAt = progress.completedPuzzles[M02_PUZZLE_ID]?.completedAt;
   const unlockedAt = progress.unlockedToolCards[M02_PUZZLE_ID]?.unlockedAt;

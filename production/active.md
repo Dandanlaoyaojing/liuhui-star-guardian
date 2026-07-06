@@ -20,8 +20,9 @@ Last updated: 2026-07-06
 1. T9 — 单板 `won` 后不再直接切板，改走 `beginBoardWinFlow()`；用 tween 逐星放大光晕节点形成修复流，动画期间锁输入，并在 tween 回调里检查 `disposed`，销毁时统一 `stopRepairTweens()`。
 2. T10 — 末板 `isLevelComplete()` 后调用 `grantM02Completion(this.progressStore, this.config.toolCard, Date.now())` 写进度并拿完整 `ToolCard`；再用 `buildToolCardPreview(card)` 格式化，场景内生成 `M02CompletionPanel` / `M02ToolCardPreview` 灰盒卡面。
 3. T11 — 非末板修复流结束后自动 `nextBoard()` + `buildBoard()`；末板进入完成奖励分支；完成态再次点击会 `pulseCompletionPanel()`，不再静默无响应。
+4. 合并前自审修复 — 配置层拒绝重复 `board.id`；`grantM02Completion` 拒绝非 `m02` 工具卡，避免完成态和工具卡解锁写到不同 puzzleId。
 
-验证：`npm test` ✅(39 files / 440 tests)，`npm run typecheck` ✅，`git diff --check` ✅。
+验证：`npm test` ✅(39 files / 443 tests)，`npm run typecheck` ✅，`git diff --check` ✅。
 
 已提交的 batch 1 完成 T4-T6：
 
@@ -43,7 +44,7 @@ Last updated: 2026-07-06
 
 验证：`npm test` ✅(39 files / 429 tests)，`npm run typecheck` ✅。计划文档已把 3A 勾掉并写入 checkpoint。
 
-下一步：Phase 3B 继续 T7/T8，随后手动重启 Preview 做 3B checkpoint；主仓仍有一处既有未提交编辑器浮窗配置 `profiles/v2/packages/scene.json`，本轮未触碰。
+后续状态：Phase 3B/3C 已在上方当前活跃线继续完成；主仓仍有一处既有未提交编辑器浮窗配置 `profiles/v2/packages/scene.json`，本轮未触碰。
 
 ## 已收口:M01 交叠显色"旧色"排查 = 缓存假象(2026-07-05, 已 push origin/main e9cfe33)
 

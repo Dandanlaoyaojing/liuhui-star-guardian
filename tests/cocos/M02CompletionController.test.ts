@@ -27,4 +27,14 @@ describe("grantM02Completion", () => {
     expect(progress.completedPuzzles.m02.completedAt).toBe(1000);
     expect(progress.unlockedToolCards.m02.unlockedAt).toBe(1000);
   });
+
+  it("rejects tool cards from another puzzle before writing progress", () => {
+    const store = createProgressStore({ storage: createMemoryStorage() });
+    const cfg = loadConfig();
+    const wrongCard = structuredClone(cfg.toolCard);
+    wrongCard.puzzleId = "m99";
+
+    expect(() => grantM02Completion(store, wrongCard, 1000)).toThrow("toolCardData.puzzleId must be m02");
+    expect(store.getProgress()).toEqual({ completedPuzzles: {}, unlockedToolCards: {} });
+  });
 });

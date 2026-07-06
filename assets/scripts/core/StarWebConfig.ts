@@ -134,7 +134,16 @@ function validateBoards(value: unknown, errors: string[]): void {
     errors.push("boards must be a non-empty array");
     return;
   }
-  value.forEach((board, index) => validateBoard(board, index, errors));
+  const ids = new Set<string>();
+  value.forEach((board, index) => {
+    validateBoard(board, index, errors);
+    if (!isRecord(board) || !isNonEmptyString(board.id)) return;
+    if (ids.has(board.id)) {
+      errors.push(`boards[${index}].id "${board.id}" is duplicated`);
+    } else {
+      ids.add(board.id);
+    }
+  });
 }
 
 function validateBoard(value: unknown, index: number, errors: string[]): void {

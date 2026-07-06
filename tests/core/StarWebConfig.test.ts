@@ -53,6 +53,15 @@ describe("validateStarWebConfig", () => {
     if (!result.ok) expect(result.errors.join("\n")).toContain("is duplicated");
   });
 
+  it("拒绝重复 board id", () => {
+    const broken = structuredClone(starWeb) as unknown as { boards: Array<{ id: string }> };
+    broken.boards[1].id = broken.boards[0].id;
+    const result = validateStarWebConfig(broken);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join("\n")).toContain('boards[1].id "tutorial" is duplicated');
+  });
+
   it("拒绝不受支持的 mechanic flag (tapLightsNeighbors=false)", () => {
     const broken = structuredClone(starWeb) as unknown as { mechanic: Record<string, unknown> };
     broken.mechanic.tapLightsNeighbors = false;
