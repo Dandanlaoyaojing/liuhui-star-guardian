@@ -1,6 +1,6 @@
 // M02《点亮你温暖我》Cocos 胶水层(greybox) —— 只做"渲染 view() + 把点击转给 session"。
 // 规则全在 StarNetworkModel/StarWebSession(纯逻辑, 已单测); 本文件不算任何规则。
-// greybox: 星=手绘五角星(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 折线。
+// greybox: 星=手绘五角星(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 弧线。
 // 交互: 根节点单一 touch-end + 最近星命中; 胜/竭后再点=进下一板/重来本板。
 
 import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Label, Layers, Node, resources, tween, UITransform, Vec3 } from "cc";
@@ -15,6 +15,8 @@ const { ccclass, property } = _decorator;
 const NODE_RADIUS = 22;   // 星视觉半径(px)
 const TAP_RADIUS = 44;    // 命中半径(px), 比视觉大好点
 const EDGE_WIDTH = 4;
+const EDGE_ARC_BEND = 34;
+const EDGE_ARC_REFERENCE_DISTANCE = 150;
 const CHARGE_PIP_RADIUS = 8;
 const CHARGE_PIP_GAP = 24;
 const STAR_GLOW_EXTRA = 18;
@@ -207,8 +209,7 @@ export class M02StarWebView extends Component {
       const na = posById.get(a);
       const nb = posById.get(b);
       if (!na || !nb) continue;
-      edges.moveTo(na.x, na.y);
-      edges.lineTo(nb.x, nb.y);
+      this.drawEdgeArc(edges, na, nb);
     }
     edges.stroke();
 
@@ -222,6 +223,28 @@ export class M02StarWebView extends Component {
       this.starGraphics.set(node.id, starGraphics);
     }
     this.renderStars();
+  }
+
+  private drawEdgeArc(graphics: Graphics, from: StarNodeView, to: StarNodeView): void {
+    const control = this.edgeArcControlPoint(from, to);
+    graphics.moveTo(from.x, from.y);
+    graphics.quadraticCurveTo(control.x, control.y, to.x, to.y);
+  }
+
+  private edgeArcControlPoint(from: StarNodeView, to: StarNodeView): { x: number; y: number } {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const midX = (from.x + to.x) / 2;
+    const midY = (from.y + to.y) / 2;
+    const normalX = -dy / distance;
+    const normalY = dx / distance;
+    const outward = midX * normalX + midY * normalY >= 0 ? 1 : -1;
+    const bend = Math.min(62, EDGE_ARC_BEND * (distance / EDGE_ARC_REFERENCE_DISTANCE));
+    return {
+      x: midX + normalX * outward * bend,
+      y: midY + normalY * outward * bend
+    };
   }
 
   private beginBoardWinFlow(): void {

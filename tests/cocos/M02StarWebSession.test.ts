@@ -11,26 +11,27 @@ function loadConfig(): StarWebConfig {
 }
 
 describe("StarWebSession 初始视图", () => {
-  it("首板=独环: 6 星全暗, 电量 2, 进行中", () => {
+  it("首板=双环共枢纽: 9 星全暗, 电量 3, 进行中", () => {
     const s = new StarWebSession(loadConfig());
     const v = s.view;
-    expect(v.boardId).toBe("tutorial");
+    expect(v.boardId).toBe("twin");
     expect(v.boardIndex).toBe(0);
     expect(v.boardCount).toBe(3);
-    expect(v.nodes).toHaveLength(6);
+    expect(v.nodes).toHaveLength(9);
     expect(v.nodes.every((n) => n.status === "dark")).toBe(true);
-    expect(v.chargesTotal).toBe(2);
-    expect(v.chargesLeft).toBe(2);
+    expect(v.chargesTotal).toBe(3);
+    expect(v.chargesLeft).toBe(3);
     expect(v.status).toBe("playing");
   });
 });
 
 describe("StarWebSession 点亮与胜负", () => {
-  it("参考解 [A,D] 恰用满电量并胜利, 所有星冻结", () => {
+  it("参考解 [A,C,G] 恰用满电量并胜利, 所有星冻结", () => {
     const s = new StarWebSession(loadConfig());
     expect(s.tapNode("A").accepted).toBe(true);
-    expect(s.view.chargesLeft).toBe(1);
-    expect(s.tapNode("D").accepted).toBe(true);
+    expect(s.view.chargesLeft).toBe(2);
+    expect(s.tapNode("C").accepted).toBe(true);
+    expect(s.tapNode("G").accepted).toBe(true);
     const v = s.view;
     expect(v.status).toBe("won");
     expect(v.chargesLeft).toBe(0);
@@ -42,13 +43,14 @@ describe("StarWebSession 点亮与胜负", () => {
     const r = s.tapNode("ZZZ");
     expect(r.accepted).toBe(false);
     expect(r.reason).toBe("unknown_node");
-    expect(s.view.chargesLeft).toBe(2);
+    expect(s.view.chargesLeft).toBe(3);
   });
 
   it("电量耗尽未胜 → exhausted, 之后 tap 被拒", () => {
     const s = new StarWebSession(loadConfig());
     s.tapNode("A"); // 亮一段弧, 未合环
-    s.tapNode("A"); // 白耗第二点, 仍未全锁
+    s.tapNode("A");
+    s.tapNode("A"); // 白耗完三点, 仍未全锁
     const v = s.view;
     expect(v.status).toBe("exhausted");
     expect(v.chargesLeft).toBe(0);
@@ -63,22 +65,24 @@ describe("StarWebSession 点亮与胜负", () => {
     s.resetBoard();
     const v = s.view;
     expect(v.status).toBe("playing");
-    expect(v.chargesLeft).toBe(2);
+    expect(v.chargesLeft).toBe(3);
     expect(v.nodes.every((n) => n.status === "dark")).toBe(true);
   });
 });
 
 describe("StarWebSession 三板推进", () => {
-  it("nextBoard 依次到 twin/trefoil, 末板返回 false", () => {
+  it("nextBoard 依次到 orbital_gate/corona_gate, 末板返回 false", () => {
     const s = new StarWebSession(loadConfig());
-    expect(s.nextBoard()).toBe(true);
     expect(s.view.boardId).toBe("twin");
     expect(s.view.chargesTotal).toBe(3);
     expect(s.nextBoard()).toBe(true);
-    expect(s.view.boardId).toBe("trefoil");
-    expect(s.view.chargesTotal).toBe(4);
+    expect(s.view.boardId).toBe("orbital_gate");
+    expect(s.view.chargesTotal).toBe(6);
+    expect(s.nextBoard()).toBe(true);
+    expect(s.view.boardId).toBe("corona_gate");
+    expect(s.view.chargesTotal).toBe(7);
     expect(s.nextBoard()).toBe(false); // 已是最后一板
-    expect(s.view.boardId).toBe("trefoil");
+    expect(s.view.boardId).toBe("corona_gate");
   });
 
   it("每一板参考解都能在本会话内打通", () => {
@@ -99,7 +103,7 @@ describe("StarWebSession 整关完成", () => {
     for (const board of cfg.boards) {
       for (const id of board.solution.referenceTaps) s.tapNode(id);
       expect(s.view.status, board.id).toBe("won");
-      if (s.view.boardId !== "trefoil") s.nextBoard();
+      if (s.view.boardIndex < s.view.boardCount - 1) s.nextBoard();
     }
     expect(s.isLevelComplete()).toBe(true);
   });
@@ -113,7 +117,7 @@ describe("StarWebSession 整关完成", () => {
 describe("StarWebSession 呈现态", () => {
   it("点一颗后: 该星冻结/衰减态出现, 其余仍暗", () => {
     const s = new StarWebSession(loadConfig());
-    s.tapNode("A"); // 独环: A 有 2 亮邻居(B,F) → frozen; B/F 各 1 亮邻居 → decaying
+    s.tapNode("A"); // 双环: A 有 4 个亮邻居 → frozen; 环端点各 1 个亮邻居 → decaying
     const byId = new Map(s.view.nodes.map((n) => [n.id, n]));
     expect(byId.get("A")?.status).toBe("frozen");
     expect(byId.get("B")?.status).toBe("decaying");
