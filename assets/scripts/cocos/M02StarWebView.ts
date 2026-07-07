@@ -330,9 +330,9 @@ export class M02StarWebView extends Component {
 
     this.addCardLabel(cardRoot, "M02ToolCardSubtitle", preview.subtitle, 0, 42, 12, 320, 20);
     this.addCardLabel(cardRoot, "M02ToolCardTitle", preview.title, 0, 22, 20, 320, 24);
-    this.addCardLabel(cardRoot, "M02ToolCardCrystal", preview.lines[0] ?? "", 0, -4, 12, 330, 22);
-    this.addCardLabel(cardRoot, "M02ToolCardAction", this.wrapCardText(preview.lines[1] ?? "", 24), 0, -30, 11, 330, 36);
-    this.addCardLabel(cardRoot, "M02ToolCardUse", this.wrapCardText(preview.lines[2] ?? "", 27), 0, -56, 10, 330, 32);
+    this.addCardLabel(cardRoot, "M02ToolCardCrystal", preview.crystal, 0, -4, 12, 330, 22);
+    this.addCardLabel(cardRoot, "M02ToolCardAction", this.wrapCardText(preview.coreAction, 24), 0, -30, 11, 330, 36);
+    this.addCardLabel(cardRoot, "M02ToolCardUse", this.wrapCardText(preview.whenToUse, 27), 0, -56, 10, 330, 32);
 
     this.completionShown = true;
   }

@@ -4,6 +4,12 @@ Last updated: 2026-07-06
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
+## 当前活跃线:ToolCardPreview 具名字段化清理(2026-07-06, 分支 `refactor/toolcard-preview-named-fields`, 接 `codex/m02-phase3b`)
+
+审阅 M02 3B/3C 时发现:M01(`M01GreyboxBootstrap`)和 M02(`M02StarWebView`)两个 View 都硬编码 `preview.lines[0/1/2]` 取"智慧结晶/核心动作/何时使用",顺序绑死——一旦 `buildToolCardPreview` 调整 lines 顺序/数量,View 会静默显示错内容不报错。
+修复:给 `ToolCardPreview` 加具名字段 `crystal/coreAction/whenToUse`(由构造保证非空,顺带去掉消费方的 `?? ""` 死代码),`lines` 数组保留(向后兼容,既有测试不破)。M01+M02 各改 3 行下标访问为具名字段。
+验证:`npm run typecheck` ✅;`npm test` ✅(全绿,新增具名字段断言)。范围外不动(卡面布局/原生持久化/节点复用优化)。
+
 ## 当前活跃线:M02 Phase 3B/3C 视图反馈 + 胜利收尾(2026-07-06, 分支 `codex/m02-phase3b`)
 
 承接 `main` 上已合并的 Phase 3A，按 `docs/plans/2026-07-05-m02-phase3.md` 完成 3B/3C 的自动验证部分。为避开主仓未提交的 Cocos 编辑器状态文件，工作在隔离 worktree：`/Users/danmac/.config/superpowers/worktrees/liuhui-star-guardian/m02-phase3b`。
