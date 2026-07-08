@@ -3,33 +3,40 @@ import { describe, expect, it } from "vitest";
 import { StarNetworkModel } from "../../assets/scripts/core/StarNetworkModel.ts";
 import { boardGraph, validateStarWebConfig } from "../../assets/scripts/core/StarWebConfig.ts";
 import { createToolCard, validateToolCard } from "../../assets/scripts/core/ToolCard.ts";
-import type { BoardGraph, StarNetworkRules } from "../../assets/scripts/core/StarNetworkModel.ts";
+import type { BoardGraph } from "../../assets/scripts/core/StarNetworkModel.ts";
 import starWeb from "../../assets/resources/configs/stage1/m02-starweb-warmth.json" with { type: "json" };
 
-// 穷举最少点亮数(探到 maxLen 为止): 每条长度序列用全新 model 回放, 判是否全锁.
-// 返回首个能全锁的序列长度; 探不到返回 Infinity. 用于断言"紧配额"(少一次无解)。
-function minTapsToWin(graph: BoardGraph, rules: StarNetworkRules, maxLen: number): number {
-  const wins = (seq: string[]): boolean => {
-    const model = new StarNetworkModel(graph, rules);
-    for (const id of seq) model.step(id);
-    return model.isWon();
-  };
-  let seqs: string[][] = [[]];
-  for (let len = 1; len <= maxLen; len++) {
-    seqs = seqs.flatMap((s) => graph.nodes.map((n) => [...s, n]));
-    for (const seq of seqs) {
-      if (wins(seq)) return len;
-    }
+// 覆盖下界: 若 maxTaps 次连"点亮过所有节点"都做不到, 就必然不可能全锁胜利。
+function canLightEveryNodeWithinTaps(graph: BoardGraph, maxTaps: number): boolean {
+  const nodeIndex = new Map(graph.nodes.map((node, index) => [node, index]));
+  const coverageMasks = graph.nodes.map((_, index) => 1n << BigInt(index));
+  for (const [a, b] of graph.edges) {
+    const ai = nodeIndex.get(a);
+    const bi = nodeIndex.get(b);
+    if (ai === undefined || bi === undefined || ai === bi) continue;
+    coverageMasks[ai] |= 1n << BigInt(bi);
+    coverageMasks[bi] |= 1n << BigInt(ai);
   }
-  return Number.POSITIVE_INFINITY;
+  const allLitMask = (1n << BigInt(graph.nodes.length)) - 1n;
+
+  const search = (start: number, remaining: number, litMask: bigint): boolean => {
+    if (litMask === allLitMask) return true;
+    if (remaining === 0) return false;
+    for (let i = start; i <= coverageMasks.length - remaining; i++) {
+      if (search(i + 1, remaining - 1, litMask | coverageMasks[i])) return true;
+    }
+    return false;
+  };
+
+  return search(0, maxTaps, 0n);
 }
 
 describe("validateStarWebConfig", () => {
-  it("真实配置合法且三板顺序正确", () => {
+  it("真实配置合法且只保留双环/双轨/花冠三板", () => {
     const result = validateStarWebConfig(starWeb);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.boards.map((b) => b.id)).toEqual(["tutorial", "twin", "trefoil"]);
+      expect(result.value.boards.map((b) => b.id)).toEqual(["twin", "orbital_gate", "corona_gate"]);
       expect(result.value.mechanic.lifeMax).toBe(3);
       expect(result.value.mechanic.freezeThreshold).toBe(2);
     }
@@ -59,7 +66,7 @@ describe("validateStarWebConfig", () => {
     const result = validateStarWebConfig(broken);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.join("\n")).toContain('boards[1].id "tutorial" is duplicated');
+    if (!result.ok) expect(result.errors.join("\n")).toContain('boards[1].id "twin" is duplicated');
   });
 
   it("拒绝不受支持的 mechanic flag (tapLightsNeighbors=false)", () => {
@@ -136,15 +143,84 @@ describe("配置 × 模型 集成 (verify 折进测试套件)", () => {
     }
   });
 
-  it("三瓣花: 先点枢纽 A 必崩 (顺序也要命)", () => {
+  it("双轨星门: 24 星 6 电, 参考解保留上一版", () => {
     const result = validateStarWebConfig(starWeb);
     if (!result.ok) throw new Error("config invalid");
-    const trefoil = result.value.boards.find((b) => b.id === "trefoil");
-    expect(trefoil).toBeDefined();
-    if (!trefoil) return;
-    const model = new StarNetworkModel(boardGraph(trefoil), result.value.mechanic);
-    for (const id of ["A", "C", "G", "K"]) model.step(id); // 先枢纽
-    expect(model.isWon()).toBe(false);
+    const gate = result.value.boards.find((b) => b.id === "orbital_gate");
+    expect(gate).toBeDefined();
+    if (!gate) return;
+    expect(gate.name).toBe("双轨星门");
+    expect(gate.layout.nodes).toHaveLength(24);
+    expect(gate.charges).toBe(6);
+    expect(gate.solution.referenceTaps).toEqual(["A", "M", "I", "U", "E", "Q"]);
+  });
+
+  it("双轨星门: 直觉陷阱路线会失败", () => {
+    const result = validateStarWebConfig(starWeb);
+    if (!result.ok) throw new Error("config invalid");
+    const gate = result.value.boards.find((b) => b.id === "orbital_gate");
+    if (!gate) throw new Error("no orbital_gate");
+    const trapSequences = [
+      ["A", "E", "I", "M", "Q", "U"],
+      ["A", "I", "Q", "M", "U", "E"],
+      ["M", "U", "E", "A", "I", "Q"],
+      ["A", "Q", "E", "M", "I", "U"]
+    ];
+
+    for (const sequence of trapSequences) {
+      const model = new StarNetworkModel(boardGraph(gate), result.value.mechanic);
+      for (const id of sequence) model.step(id);
+      expect(model.isWon(), `${sequence.join(",")} 应失败`).toBe(false);
+    }
+  });
+
+  it("花冠星门: 31 星 7 电, 花冠中心必须参与", () => {
+    const result = validateStarWebConfig(starWeb);
+    if (!result.ok) throw new Error("config invalid");
+    const gate = result.value.boards.find((b) => b.id === "corona_gate");
+    expect(gate).toBeDefined();
+    if (!gate) return;
+    expect(gate.name).toBe("花冠星门");
+    expect(gate.layout.nodes).toHaveLength(31);
+    expect(gate.charges).toBe(7);
+    expect(gate.solution.referenceTaps).toEqual(["A", "M", "I", "U", "E", "Q", "Y"]);
+  });
+
+  it("花冠星门: 直觉陷阱路线会失败", () => {
+    const result = validateStarWebConfig(starWeb);
+    if (!result.ok) throw new Error("config invalid");
+    const gate = result.value.boards.find((b) => b.id === "corona_gate");
+    if (!gate) throw new Error("no corona_gate");
+    const trapSequences = [
+      ["A", "E", "I", "M", "Q", "U", "Y"], // 顺着轨道扫
+      ["Y", "A", "M", "I", "U", "E", "Q"], // 先点中心
+      ["A", "I", "Q", "M", "U", "E", "Y"], // 先清上轨
+      ["M", "U", "E", "A", "I", "Q", "Y"], // 先清下轨
+      ["A", "Q", "E", "M", "I", "U", "Y"], // 先点两端
+      ["A", "M", "I", "U", "E", "Q"]       // 漏掉花冠中心
+    ];
+
+    for (const sequence of trapSequences) {
+      const model = new StarNetworkModel(boardGraph(gate), result.value.mechanic);
+      for (const id of sequence) model.step(id);
+      expect(model.isWon(), `${sequence.join(",")} 应失败`).toBe(false);
+    }
+  });
+
+  it("花冠星门: 双轨外环加中心花冠连续成网", () => {
+    const result = validateStarWebConfig(starWeb);
+    if (!result.ok) throw new Error("config invalid");
+    const gate = result.value.boards.find((b) => b.id === "corona_gate");
+    if (!gate) throw new Error("no corona_gate");
+    const edgeKey = (a: string, b: string): string => [a, b].sort().join("-");
+    const edges = new Set(gate.layout.edges.map(([a, b]) => edgeKey(a, b)));
+
+    for (const edge of ["C-J", "K-R", "O-V", "F-W"]) {
+      expect(edges.has(edge), `${edge} 应连成连续双轨`).toBe(true);
+    }
+    for (const [a, b] of [["Y", "Z"], ["Y", "AA"], ["Y", "AB"], ["Y", "AC"], ["Y", "AD"], ["Y", "AE"]]) {
+      expect(edges.has(edgeKey(a, b)), `${a}-${b} 应连成中心花冠`).toBe(true);
+    }
   });
 
   it("双环: 漏掉一个环的锚 (A,B,D) 无法全锁", () => {
@@ -157,13 +233,13 @@ describe("配置 × 模型 集成 (verify 折进测试套件)", () => {
     expect(model.isWon()).toBe(false);
   });
 
-  it("每板配额是紧的: 最少点亮数 === charges (少一次无解)", () => {
+  it("每板配额是紧的: 少一次无解", () => {
     const result = validateStarWebConfig(starWeb);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     for (const board of result.value.boards) {
-      const min = minTapsToWin(boardGraph(board), result.value.mechanic, board.charges);
-      expect(min, `${board.id} 应恰好 ${board.charges} 点可解`).toBe(board.charges);
+      const canCover = canLightEveryNodeWithinTaps(boardGraph(board), board.charges - 1);
+      expect(canCover, `${board.id} 应少于 ${board.charges} 点无解`).toBe(false);
     }
   });
 });

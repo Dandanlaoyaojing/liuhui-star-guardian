@@ -1,6 +1,6 @@
 # Active Work State
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
 
@@ -9,6 +9,14 @@ Last updated: 2026-07-06
 审阅 M02 3B/3C 时发现:M01(`M01GreyboxBootstrap`)和 M02(`M02StarWebView`)两个 View 都硬编码 `preview.lines[0/1/2]` 取"智慧结晶/核心动作/何时使用",顺序绑死——一旦 `buildToolCardPreview` 调整 lines 顺序/数量,View 会静默显示错内容不报错。
 修复:给 `ToolCardPreview` 加具名字段 `crystal/coreAction/whenToUse`(由构造保证非空,顺带去掉消费方的 `?? ""` 死代码),`lines` 数组保留(向后兼容,既有测试不破)。M01+M02 各改 3 行下标访问为具名字段。
 验证:`npm run typecheck` ✅;`npm test` ✅(全绿,新增具名字段断言)。范围外不动(卡面布局/原生持久化/节点复用优化)。
+
+## 当前活跃线:M02 终板难度调整(2026-07-06, 分支 `codex/m02-harder-final-board`)
+
+用户最终决定保留第 2/5/6 版作为 M02 当前三板序列：`双环共枢纽` (`twin`, 9 星 / 3 电) → `双轨星门` (`orbital_gate`, 24 星 / 6 电) → `花冠星门` (`corona_gate`, 31 星 / 7 电)。`双轨星门` 保留顺轨扫、先清上轨/下轨、先点两端都会失败的跨轨配对陷阱；`花冠星门` 在双轨网上方加花冠，参考解 `A,M,I,U,E,Q,Y`，顺轨扫、先点中心、先清上/下轨、先点两端、漏掉花冠都会失败。
+
+已更新 `assets/resources/configs/stage1/m02-starweb-warmth.json`、`docs/design/game-design-spec.md`、`docs/plans/2026-07-05-m02-phase3.md` 与对应 M02 配置/会话测试。验证：`npm test` ✅(39 files / 448 tests)，`npm run typecheck` ✅，`git diff --check` ✅；`双轨星门` / `花冠星门` 弧线采样均无非共享边交叉。已同步主工程并打开 fresh Cocos Preview。
+
+已按用户提供的 M02 水彩星图参考生成首批非背景美术素材：`assets/resources/art/stage1-m02/m02-star-sprite-atlas.png`，以及配置引用路径 `assets/resources/stage1/m02/toolcards/starweb-thumbnail.png`。M02 背景图已在其他线程定稿，本线程不再提交背景资产。
 
 ## 当前活跃线:M02 Phase 3B/3C 视图反馈 + 胜利收尾(2026-07-06, 分支 `codex/m02-phase3b`)
 

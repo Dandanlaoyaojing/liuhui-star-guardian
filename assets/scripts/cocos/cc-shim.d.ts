@@ -183,6 +183,7 @@ declare module "cc" {
     rect(x: number, y: number, width: number, height: number): void;
     moveTo(x: number, y: number): void;
     lineTo(x: number, y: number): void;
+    quadraticCurveTo(cx: number, cy: number, x: number, y: number): void;
     close(): void;
     fill(): void;
     stroke(): void;

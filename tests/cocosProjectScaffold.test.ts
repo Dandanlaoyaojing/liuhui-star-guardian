@@ -1690,6 +1690,22 @@ describe("Cocos Creator project scaffold", () => {
     expect(view).not.toContain("starNode.addComponent(UITransform); // 同上");
   });
 
+  it("renders M02 web edges as curved arcs", () => {
+    const view = readText("assets/scripts/cocos/M02StarWebView.ts");
+    const shim = readText("assets/scripts/cocos/cc-shim.d.ts");
+    const buildBody = view.slice(
+      view.indexOf("private buildBoard"),
+      view.indexOf("private beginBoardWinFlow")
+    );
+
+    expect(shim).toContain("quadraticCurveTo(cx: number, cy: number, x: number, y: number): void;");
+    expect(view).toContain("EDGE_ARC_BEND");
+    expect(view).toContain("private drawEdgeArc(");
+    expect(view).toContain("private edgeArcControlPoint(");
+    expect(buildBody).toContain("this.drawEdgeArc(edges, na, nb);");
+    expect(buildBody).not.toContain("edges.lineTo(nb.x, nb.y);");
+  });
+
   it("renders M02 remaining charges as a board-synced pip meter", () => {
     const view = readText("assets/scripts/cocos/M02StarWebView.ts");
 
