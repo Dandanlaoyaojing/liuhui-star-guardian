@@ -26,7 +26,7 @@ codex 零框架对抗审(第 1 轮)发现 P1 已修:点火簇中心的点击被�
 
 修后 `npm test` ✅(40 files / 472 tests) / `npm run typecheck` ✅。
 
-未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补)。注意:主仓 main 工作树有另一线未提交的 `M02StarWebView.ts` 水彩背景 WIP,合并本分支时 import 行和 onLoad 附近会有小冲突,需手工并。
+已合并 main(ea617bc, 前置提交 a49558e 先按现状收编了水彩背景 WIP;背景的 backup/clean 变体与 toolcards 素材仍未定稿未收编)。未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补);调色板/最近命中去重两项缓办(见上)。
 
 ## 当前活跃线:ToolCardPreview 具名字段化清理(2026-07-06, 分支 `refactor/toolcard-preview-named-fields`, 接 `codex/m02-phase3b`)
 
