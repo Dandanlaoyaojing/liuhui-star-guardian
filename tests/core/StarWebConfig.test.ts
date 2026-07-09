@@ -94,6 +94,57 @@ describe("validateStarWebConfig", () => {
     expect(validateStarWebConfig(broken).ok).toBe(false);
   });
 
+  it("真实配置携带合法序章: 三颗余烬、命数错开", () => {
+    const result = validateStarWebConfig(starWeb);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.prologue?.embers.map((e) => e.id)).toEqual(["e1", "e2", "e3"]);
+    expect(new Set(result.value.prologue?.embers.map((e) => e.initialLife)).size).toBe(3);
+  });
+
+  it("prologue 可选: 删掉整段仍合法(向后兼容)", () => {
+    const noPrologue = structuredClone(starWeb) as unknown as Record<string, unknown>;
+    delete noPrologue.prologue;
+    expect(validateStarWebConfig(noPrologue).ok).toBe(true);
+  });
+
+  it("拒绝开局预成簇的余烬(两颗初始距离 <= adjacencyRadius)", () => {
+    const broken = structuredClone(starWeb) as unknown as {
+      prologue: { embers: Array<{ x: number; y: number }> };
+    };
+    broken.prologue.embers[1].x = broken.prologue.embers[0].x + 10;
+    broken.prologue.embers[1].y = broken.prologue.embers[0].y;
+    const result = validateStarWebConfig(broken);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join("\n")).toContain("预成簇");
+  });
+
+  it("拒绝余烬数不足 freezeThreshold+1 (序章软锁)", () => {
+    const broken = structuredClone(starWeb) as unknown as { prologue: { embers: unknown[] } };
+    broken.prologue.embers = broken.prologue.embers.slice(0, 2);
+    const result = validateStarWebConfig(broken);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join("\n")).toContain("freezeThreshold+1");
+  });
+
+  it("拒绝 initialLife 超过 mechanic.lifeMax 的余烬", () => {
+    const broken = structuredClone(starWeb) as unknown as {
+      prologue: { embers: Array<{ initialLife: number }> };
+    };
+    broken.prologue.embers[0].initialLife = 99;
+    expect(validateStarWebConfig(broken).ok).toBe(false);
+  });
+
+  it("拒绝缺 wand 或非正数 beatSeconds 的序章", () => {
+    const noWand = structuredClone(starWeb) as unknown as { prologue: Record<string, unknown> };
+    delete noWand.prologue.wand;
+    expect(validateStarWebConfig(noWand).ok).toBe(false);
+
+    const badBeat = structuredClone(starWeb) as unknown as { prologue: Record<string, unknown> };
+    badBeat.prologue.beatSeconds = 0;
+    expect(validateStarWebConfig(badBeat).ok).toBe(false);
+  });
+
   it("真实配置包含可生成合法工具卡的文案", () => {
     const result = validateStarWebConfig(starWeb);
     expect(result.ok).toBe(true);

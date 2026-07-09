@@ -76,6 +76,7 @@ declare module "cc" {
     getID(): number;
     getUILocation(): { x: number; y: number };
     getScrollY?(): number;
+    propagationStopped: boolean; // 继承自引擎 Event; 置 true 阻止事件冒泡到祖先节点
   }
 
   export const Input: {

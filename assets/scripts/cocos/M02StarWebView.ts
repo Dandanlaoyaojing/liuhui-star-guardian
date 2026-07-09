@@ -5,9 +5,11 @@
 
 import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Label, Layers, Node, resources, Sprite, SpriteFrame, tween, UITransform, Vec3 } from "cc";
 import { createProgressStore } from "../core/ProgressStore.ts";
-import { validateStarWebConfig, type StarWebConfig } from "../core/StarWebConfig.ts";
+import { validateStarWebConfig, type StarWebConfig, type StarWebPrologue } from "../core/StarWebConfig.ts";
+import type { StarNetworkRules } from "../core/StarNetworkModel.ts";
 import { buildToolCardPreview } from "../ui/ToolCardView.ts";
 import { grantM02Completion } from "./M02CompletionController.ts";
+import { M02PrologueView } from "./M02PrologueView.ts";
 import { StarWebSession, type StarNodeStatus, type StarNodeView, type StarWebView as StarWebViewState } from "./M02StarWebSession.ts";
 
 const { ccclass, property } = _decorator;
@@ -113,6 +115,7 @@ export class M02StarWebView extends Component {
   }
 
   private onTouchStart(event: EventTouch): void {
+    if (!this.session) return; // 序章期间/配置未载入时不锁触点, 免得配对 TOUCH_END 丢失后吞掉开板首击
     if (this.repairSequencePlaying) return;
     if (this.activeTouchId !== null) return;
     this.activeTouchId = event.getID();
@@ -166,8 +169,14 @@ export class M02StarWebView extends Component {
       }
       this.config = result.value;
       this.lifeMax = result.value.mechanic.lifeMax;
-      this.session = new StarWebSession(result.value);
-      this.buildBoard();
+      // 序章(前置小谜题「三颗余烬点棒」, spec §5.3): 整关通关前每次进关都会重放(教学短、无进度损失);
+      // 已通关(isPuzzleCompleted)重进直接开板。序章自身不写独立 seen 标记。
+      const prologue = result.value.prologue;
+      if (prologue && !this.progressStore.isPuzzleCompleted(result.value.id)) {
+        this.startPrologue(prologue, result.value.mechanic);
+      } else {
+        this.startBoards();
+      }
     });
   }
 
@@ -183,6 +192,22 @@ export class M02StarWebView extends Component {
       if (this.disposed || error || !frame) return;
       sprite.spriteFrame = frame;
     });
+  }
+
+  private startPrologue(prologue: StarWebPrologue, rules: StarNetworkRules): void {
+    const prologueNode = this.makeUINode("M02Prologue");
+    this.node.addChild(prologueNode);
+    prologueNode.addComponent(M02PrologueView).init(prologue, rules, () => {
+      if (this.disposed) return;
+      prologueNode.destroy();
+      this.startBoards();
+    });
+  }
+
+  private startBoards(): void {
+    if (!this.config) return;
+    this.session = new StarWebSession(this.config);
+    this.buildBoard();
   }
 
   private nearestNodeId(event: EventTouch, view: StarWebViewState): string | null {
