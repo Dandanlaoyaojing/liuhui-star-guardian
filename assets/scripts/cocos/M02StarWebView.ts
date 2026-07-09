@@ -3,7 +3,7 @@
 // greybox: 星=手绘五角星(每颗一个子节点各自 Graphics 以便独立着色), 边=一条共享 Graphics 弧线。
 // 交互: 根节点单一 touch-end + 最近星命中; 胜/竭后再点=进下一板/重来本板。
 
-import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Label, Layers, Node, resources, tween, UITransform, Vec3 } from "cc";
+import { _decorator, Color, Component, EventTouch, Graphics, JsonAsset, Label, Layers, Node, resources, Sprite, SpriteFrame, tween, UITransform, Vec3 } from "cc";
 import { createProgressStore } from "../core/ProgressStore.ts";
 import { validateStarWebConfig, type StarWebConfig } from "../core/StarWebConfig.ts";
 import { buildToolCardPreview } from "../ui/ToolCardView.ts";
@@ -17,6 +17,9 @@ const TAP_RADIUS = 44;    // 命中半径(px), 比视觉大好点
 const EDGE_WIDTH = 4;
 const EDGE_ARC_BEND = 34;
 const EDGE_ARC_REFERENCE_DISTANCE = 150;
+const BACKGROUND_RESOURCE_PATH = "art/stage1-m02/bg-star-map-watercolor/spriteFrame";
+const BACKGROUND_WIDTH = 1280;
+const BACKGROUND_HEIGHT = 720;
 const CHARGE_PIP_RADIUS = 8;
 const CHARGE_PIP_GAP = 24;
 const STAR_GLOW_EXTRA = 18;
@@ -83,6 +86,7 @@ export class M02StarWebView extends Component {
     const transform = this.node.getComponent(UITransform) ?? this.node.addComponent(UITransform);
     // 触摸区覆盖整片棋盘(星跨 ±~230px), 否则默认 100x100 收不到大部分点击
     transform.setContentSize(1000, 720);
+    this.createBackground();
     this.edgeGraphics = this.makeGraphicsNode("M02Edges", this.node);
 
     this.starLayer = this.makeUINode("M02Stars");
@@ -164,6 +168,20 @@ export class M02StarWebView extends Component {
       this.lifeMax = result.value.mechanic.lifeMax;
       this.session = new StarWebSession(result.value);
       this.buildBoard();
+    });
+  }
+
+  private createBackground(): void {
+    const background = this.makeUINode("M02WatercolorBackground");
+    background.parent = this.node;
+    background.setSiblingIndex(0);
+    const transform = background.addComponent(UITransform);
+    transform.setContentSize(BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
+    const sprite = background.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    resources.load(BACKGROUND_RESOURCE_PATH, SpriteFrame, (error, frame) => {
+      if (this.disposed || error || !frame) return;
+      sprite.spriteFrame = frame;
     });
   }
 
