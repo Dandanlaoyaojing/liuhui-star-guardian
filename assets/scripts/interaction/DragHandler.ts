@@ -1,5 +1,8 @@
 export type PointerId = string | number;
 
+/** px; totalDelta 长度不超过此值的按压按轻点处理, 超过按拖拽 —— 全游戏统一的点/拖手感边界 */
+export const CLICK_DRAG_THRESHOLD = 6;
+
 export interface Point2 {
   readonly x: number;
   readonly y: number;

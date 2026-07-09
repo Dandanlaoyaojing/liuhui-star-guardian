@@ -111,6 +111,7 @@ export class M02StarWebView extends Component {
   }
 
   private onTouchStart(event: EventTouch): void {
+    if (!this.session) return; // 序章期间/配置未载入时不锁触点, 免得配对 TOUCH_END 丢失后吞掉开板首击
     if (this.repairSequencePlaying) return;
     if (this.activeTouchId !== null) return;
     this.activeTouchId = event.getID();
@@ -164,7 +165,8 @@ export class M02StarWebView extends Component {
       }
       this.config = result.value;
       this.lifeMax = result.value.mechanic.lifeMax;
-      // 序章(前置小谜题「三颗余烬点棒」, spec §5.3): 首次进关先玩; 已通关重进直接开板
+      // 序章(前置小谜题「三颗余烬点棒」, spec §5.3): 整关通关前每次进关都会重放(教学短、无进度损失);
+      // 已通关(isPuzzleCompleted)重进直接开板。序章自身不写独立 seen 标记。
       const prologue = result.value.prologue;
       if (prologue && !this.progressStore.isPuzzleCompleted(result.value.id)) {
         this.startPrologue(prologue, result.value.mechanic);

@@ -7,9 +7,10 @@
 
 import type { StarNetworkRules } from "../core/StarNetworkModel.ts";
 import type { StarWebPrologue } from "../core/StarWebConfig.ts";
+import type { StarNodeStatus } from "./M02StarWebSession.ts";
 
-/** 与主谜题 StarNodeStatus 同形: 暗 / 衰减中 / 冻结(亮且亮邻居达标) */
-export type EmberStatus = "dark" | "decaying" | "frozen";
+/** 复用主谜题的呈现态词汇(暗/衰减中/冻结), 保证两边永远同一套状态语言 */
+export type EmberStatus = StarNodeStatus;
 /** 星光棒: 插在地上 / 已拔在手(未亮) / 已点燃(序章完成) */
 export type WandState = "planted" | "held" | "lit";
 
@@ -42,10 +43,19 @@ interface EmberState {
   rekindleIn: number; // 暗烬还差几拍复燃; 亮时无意义
 }
 
+/** 结算/邻居计数共用的轻量快照行 */
+interface EmberSnapshot {
+  x: number;
+  y: number;
+  lit: boolean;
+}
+
 export class M02PrologueSession {
   private readonly embers: EmberState[];
   private wandState: WandState = "planted";
   private beatAccumulator = 0;
+  /** 每次可见状态变更 +1; 视图层据此跳过静止帧的重绘 */
+  private revisionCount = 0;
 
   constructor(
     private readonly prologue: StarWebPrologue,
@@ -78,6 +88,7 @@ export class M02PrologueSession {
     if (!ember) return false;
     ember.x = x;
     ember.y = y;
+    this.revisionCount += 1;
     return true;
   }
 
@@ -85,6 +96,7 @@ export class M02PrologueSession {
   pullWand(): boolean {
     if (this.wandState !== "planted") return false;
     this.wandState = "held";
+    this.revisionCount += 1;
     return true;
   }
 
@@ -93,30 +105,43 @@ export class M02PrologueSession {
     if (this.wandState === "lit") return { accepted: false, reason: "done" };
     if (this.wandState !== "held") return { accepted: false, reason: "wand_not_held" };
     const radius = this.prologue.wandDipRadius;
+    const snapshot = this.snapshotEmbers();
     const hit = this.embers.some(
-      (e) => this.isFrozen(e) && Math.hypot(e.x - x, e.y - y) <= radius
+      (e, index) => this.isFrozen(snapshot, index) && Math.hypot(e.x - x, e.y - y) <= radius
     );
     if (!hit) return { accepted: false, reason: "no_frozen_ember" };
     this.wandState = "lit";
+    this.revisionCount += 1;
     return { accepted: true };
   }
 
+  /** 序章是否完成(廉价读, 不构造 view) */
+  get done(): boolean {
+    return this.wandState === "lit";
+  }
+
+  /** 可见状态版本号: 变了才需要重绘 */
+  get revision(): number {
+    return this.revisionCount;
+  }
+
   get view(): PrologueViewState {
+    const snapshot = this.snapshotEmbers();
     return {
-      embers: this.embers.map((e) => {
+      embers: this.embers.map((e, index) => {
         const lit = e.life > 0;
-        const status: EmberStatus = !lit ? "dark" : this.isFrozen(e) ? "frozen" : "decaying";
+        const status: EmberStatus = !lit ? "dark" : this.isFrozen(snapshot, index) ? "frozen" : "decaying";
         return { id: e.id, x: e.x, y: e.y, life: e.life, lit, status };
       }),
       wand: { x: this.prologue.wand.x, y: this.prologue.wand.y },
       wandState: this.wandState,
-      done: this.wandState === "lit"
+      done: this.done
     };
   }
 
   /** 一拍全体同时结算: 亮烬按结算前快照判冻结/衰减(同 StarNetworkModel.tick), 暗烬倒数复燃 */
   private tickBeat(): void {
-    const snapshot = this.embers.map((e) => ({ x: e.x, y: e.y, lit: e.life > 0 }));
+    const snapshot = this.snapshotEmbers();
     this.embers.forEach((ember, index) => {
       if (snapshot[index].lit) {
         if (this.countLitNeighbors(snapshot, index) < this.rules.freezeThreshold) {
@@ -128,19 +153,20 @@ export class M02PrologueSession {
         if (ember.rekindleIn <= 0) ember.life = this.rules.lifeMax;
       }
     });
+    this.revisionCount += 1;
+  }
+
+  private snapshotEmbers(): EmberSnapshot[] {
+    return this.embers.map((e) => ({ x: e.x, y: e.y, lit: e.life > 0 }));
   }
 
   /** 冻结是派生态(实时按当前位置算, 不等拍): 亮 且 亮邻居 >= freezeThreshold */
-  private isFrozen(ember: EmberState): boolean {
-    if (ember.life <= 0) return false;
-    const snapshot = this.embers.map((e) => ({ x: e.x, y: e.y, lit: e.life > 0 }));
-    return this.countLitNeighbors(snapshot, this.embers.indexOf(ember)) >= this.rules.freezeThreshold;
+  private isFrozen(snapshot: EmberSnapshot[], index: number): boolean {
+    if (!snapshot[index].lit) return false;
+    return this.countLitNeighbors(snapshot, index) >= this.rules.freezeThreshold;
   }
 
-  private countLitNeighbors(
-    snapshot: { x: number; y: number; lit: boolean }[],
-    index: number
-  ): number {
+  private countLitNeighbors(snapshot: EmberSnapshot[], index: number): number {
     const self = snapshot[index];
     let count = 0;
     for (let i = 0; i < snapshot.length; i += 1) {

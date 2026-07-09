@@ -4,8 +4,8 @@
 import { describe, expect, it } from "vitest";
 
 import { M02PrologueSession } from "../../assets/scripts/cocos/M02PrologueSession.ts";
-import type { StarNetworkRules } from "../../assets/scripts/core/StarNetworkModel.ts";
-import type { StarWebPrologue } from "../../assets/scripts/core/StarWebConfig.ts";
+import { StarNetworkModel, type StarNetworkRules } from "../../assets/scripts/core/StarNetworkModel.ts";
+import type { PrologueEmber, StarWebPrologue } from "../../assets/scripts/core/StarWebConfig.ts";
 
 const RULES: StarNetworkRules = { lifeMax: 3, freezeThreshold: 2 };
 
@@ -185,6 +185,21 @@ describe("M02PrologueSession 拔棒与点棒", () => {
     expect(session.view.wandState).toBe("held");
   });
 
+  it("revision: 静止 update 不变, 走拍/拖动/拔棒/点棒各 +1(重绘门控依据)", () => {
+    const session = makeSession();
+    const base = session.revision;
+    session.update(0.5); // 不足一拍
+    expect(session.revision).toBe(base);
+    beat(session);
+    expect(session.revision).toBe(base + 1);
+    session.moveEmber("e1", 5, 5);
+    expect(session.revision).toBe(base + 2);
+    session.moveEmber("nope", 0, 0); // 未知 id 无变更
+    expect(session.revision).toBe(base + 2);
+    session.pullWand();
+    expect(session.revision).toBe(base + 3);
+  });
+
   it("点中冻结火簇 → 棒亮、序章完成、场景冻结", () => {
     const session = makeSession();
     session.pullWand();
@@ -200,5 +215,50 @@ describe("M02PrologueSession 拔棒与点棒", () => {
     // 完成后再点/再拔均拒绝
     expect(session.dipWand(25, 15)).toEqual({ accepted: false, reason: "done" });
     expect(session.pullWand()).toBe(false);
+  });
+});
+
+// 跨模型契约: 序章(距离邻接/实时拍)与主谜题 StarNetworkModel(固定边表/回合拍)必须执行同一条衰减律。
+// 若任何一边的规则内核被单独改动, 这组镜像对比会当场变红 —— 序章的教学价值全押在"同律"上。
+describe("序章与主谜题同律(跨模型契约)", () => {
+  function makeCustomSession(embers: PrologueEmber[]): M02PrologueSession {
+    return new M02PrologueSession({ ...PROLOGUE, embers }, RULES);
+  }
+
+  it("三角簇 vs 三角图: 逐拍命数完全一致(双方都冻结)", () => {
+    const session = makeCustomSession([
+      { id: "a", x: 0, y: 0, initialLife: 3 },
+      { id: "b", x: 50, y: 0, initialLife: 3 },
+      { id: "c", x: 25, y: 40, initialLife: 3 }
+    ]);
+    const model = new StarNetworkModel(
+      { nodes: ["a", "b", "c"], edges: [["a", "b"], ["b", "c"], ["c", "a"]] },
+      RULES
+    );
+    model.tap("a"); // a + 邻居 b,c 全满命, 与序章初始等价
+
+    for (let k = 0; k < 6; k += 1) {
+      expect(session.view.embers.map((e) => e.life)).toEqual(["a", "b", "c"].map((id) => model.lifeOf(id)));
+      beat(session);
+      model.tick();
+    }
+  });
+
+  it("双星线 vs 一条边: 两端各 1 亮邻居, 同步漏光到全灭(只比到复燃前)", () => {
+    const session = makeCustomSession([
+      { id: "a", x: 0, y: 0, initialLife: 3 },
+      { id: "b", x: 60, y: 0, initialLife: 3 }
+    ]);
+    const model = new StarNetworkModel({ nodes: ["a", "b"], edges: [["a", "b"]] }, RULES);
+    model.tap("a");
+
+    // lifeMax=3 → 第 3 拍双方归零; 序章的复燃是刻意的额外机制, 不在同律范围, 故只比衰减段
+    for (let k = 0; k < 3; k += 1) {
+      expect(session.view.embers.map((e) => e.life)).toEqual(["a", "b"].map((id) => model.lifeOf(id)));
+      beat(session);
+      model.tick();
+    }
+    expect(session.view.embers.every((e) => e.status === "dark")).toBe(true);
+    expect(["a", "b"].every((id) => !model.isLit(id))).toBe(true);
   });
 });

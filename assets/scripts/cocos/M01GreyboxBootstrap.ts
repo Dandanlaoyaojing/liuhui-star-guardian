@@ -31,6 +31,7 @@ import {
 import {
   beginDragSession,
   cancelDragSession,
+  CLICK_DRAG_THRESHOLD,
   endDragSession,
   moveDragSession,
   type DragState
@@ -105,8 +106,7 @@ import type { M01PhysicsShape } from "./M01PhysicsRotation.ts";
 const { ccclass, property } = _decorator;
 // ponytail: hide all on-screen greybox text (status/feedback/buttons/tool-card). Flip to true to bring labels back.
 const HIDE_SCREEN_TEXT = true;
-// 区分"原地轻点"与"按住拖动": 松手时总位移 ≤ 此像素 = 轻点(转 90°), 否则 = 拖动(按落点结算)。
-const CLICK_DRAG_THRESHOLD = 6;
+// 区分"原地轻点"与"按住拖动"的阈值改从 DragHandler 统一导入(全游戏同一手感边界)。
 // 轻点转向后把拼片钉在原地(Kinematic 不掉)的保持时长, 给玩家抓起的窗口; 超时无人抓才释放回物理。
 const ROTATE_PIN_HOLD_MS = 2000;
 const FRAGMENT_INPUT_HIT_SIZE = 64;
