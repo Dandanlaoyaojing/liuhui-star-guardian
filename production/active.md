@@ -1,8 +1,16 @@
 # Active Work State
 
-Last updated: 2026-07-07
+Last updated: 2026-07-09
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
+
+## 当前活跃线:M02 开场序章「三颗余烬点棒」(2026-07-09, 分支 `feat/m02-prologue`, 隔离 worktree)
+
+用户拍板给 M02 加前置小谜题(对标 M01 顶篮取电筒的配方:道具有来历+逐个教动词+预演本关道理)。设计:三颗流星余烬散落,单颗必灭、两颗仍灭、三颗成簇冻结长明→用火簇点燃星光棒→电量 UI diegetic 出场→进正式星网。规则与主谜题同律(复用 mechanic.lifeMax/freezeThreshold),差异只有实时拍制(beatSeconds)与距离邻接(adjacencyRadius);熄灭余烬隔 rekindleBeats 拍复燃(无死锁)。只教规则不泄答案(紧配额落点规划序章不涉及)。
+
+已完成(TDD 红→绿):spec §5.3 新增「开场序章」小节;`m02-starweb-warmth.json` 新增 `prologue` 段;`StarWebConfig` 校验(含"开局不得预成簇"/"余烬数>=freezeThreshold+1 防软锁"/"initialLife<=lifeMax"交叉校验);纯逻辑 `M02PrologueSession`(实时拍累积含浮点 epsilon、快照结算、复燃、拔棒/点棒);greybox 胶水 `M02PrologueView`(拖余烬/点棒/点火簇,光晕随命数收缩与主谜题同语言);`M02StarWebView` 挂接(有 prologue 且未通关→先序章,`isPuzzleCompleted("m02")` 则跳过);cc-shim 补 `EventTouch.propagationStopped`。验证:`npm test` ✅(40 files / 469 tests),`npm run typecheck` ✅。
+
+未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补);合并前 codex 对抗审。注意:主仓 main 工作树有另一线未提交的 `M02StarWebView.ts` 水彩背景 WIP,合并本分支时 import 行和 onLoad 附近会有小冲突,需手工并。
 
 ## 当前活跃线:ToolCardPreview 具名字段化清理(2026-07-06, 分支 `refactor/toolcard-preview-named-fields`, 接 `codex/m02-phase3b`)
 

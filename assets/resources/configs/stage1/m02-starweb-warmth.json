@@ -41,6 +41,43 @@
     "winRequiresAllFrozen": true,
     "winRequiresAllFrozen_comment": "胜利=所有星都亮 且 每颗亮邻居 >= freezeThreshold（整网自稳锁死）"
   },
+  "prologue": {
+    "prologue_comment": "开场序章「三颗余烬点棒」：规则与主谜题同律(复用 mechanic.lifeMax/freezeThreshold)，实时节拍制，余烬邻接=圆心距阈值。见 spec §5.3 开场序章",
+    "beatSeconds": 1.4,
+    "beatSeconds_comment": "秒；序章一拍时长（实时制，主谜题是回合制）",
+    "adjacencyRadius": 90,
+    "adjacencyRadius_comment": "px；两颗亮余烬圆心距 <= 此值算互撑邻居",
+    "rekindleBeats": 2,
+    "rekindleBeats_comment": "拍；余烬熄灭后隔几拍原地复燃（序章无死锁保证）",
+    "wand": {
+      "x": 320,
+      "y": -180
+    },
+    "wand_comment": "星光棒插在地上的位置（px，棋盘局部坐标）",
+    "wandDipRadius": 120,
+    "wandDipRadius_comment": "px；手持星光棒时，点击处此半径内存在冻结余烬即点棒成功",
+    "embers": [
+      {
+        "id": "e1",
+        "x": -300,
+        "y": -80,
+        "initialLife": 3
+      },
+      {
+        "id": "e2",
+        "x": -60,
+        "y": -170,
+        "initialLife": 2
+      },
+      {
+        "id": "e3",
+        "x": 150,
+        "y": -60,
+        "initialLife": 1
+      }
+    ],
+    "embers_comment": "initialLife 单位拍、开局命数错开让玩家看到先后熄灭；开局两两圆心距必须 > adjacencyRadius（校验器强制，避免开场就预成簇）"
+  },
   "boards": [
     {
       "id": "twin",

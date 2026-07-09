@@ -34,6 +34,23 @@ export interface StarBoard {
   solution: StarBoardSolution;
 }
 
+export interface PrologueEmber {
+  id: string;
+  x: number;
+  y: number;
+  initialLife: number;
+}
+
+/** 开场序章「三颗余烬点棒」配置(spec §5.3)。规则复用 mechanic 的 lifeMax/freezeThreshold。 */
+export interface StarWebPrologue {
+  beatSeconds: number;
+  adjacencyRadius: number;
+  rekindleBeats: number;
+  wand: { x: number; y: number };
+  wandDipRadius: number;
+  embers: PrologueEmber[];
+}
+
 export interface StarWebConfig {
   id: string;
   name: string;
@@ -43,6 +60,7 @@ export interface StarWebConfig {
   description?: string;
   toolCard: ToolCardDraft;
   mechanic: StarWebMechanic;
+  prologue?: StarWebPrologue;
   boards: StarBoard[];
 }
 
@@ -71,6 +89,7 @@ export function validateStarWebConfig(value: unknown): ValidationResult<StarWebC
   validateToolCardDraft(value.toolCard, errors);
   validateToolCardMatchesConfig(value, errors);
   validateMechanic(value.mechanic, errors);
+  validatePrologue(value.prologue, value.mechanic, errors);
   validateBoards(value.boards, errors);
 
   if (errors.length > 0) {
@@ -126,6 +145,70 @@ function validateMechanic(value: unknown, errors: string[]): void {
   }
   if (value.winRequiresAllFrozen !== true) {
     errors.push("mechanic.winRequiresAllFrozen must be true (model 胜利判定=整网自锁)");
+  }
+}
+
+/** 序章可选; 存在则整段校验。数值边界之外还锁两条设计不变量: 开局不得预成簇、余烬数必须够冻结。 */
+function validatePrologue(value: unknown, mechanic: unknown, errors: string[]): void {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    errors.push("prologue must be an object");
+    return;
+  }
+  requirePositiveNumber(value, "beatSeconds", errors, "prologue.beatSeconds");
+  requirePositiveNumber(value, "adjacencyRadius", errors, "prologue.adjacencyRadius");
+  requirePositiveNumber(value, "wandDipRadius", errors, "prologue.wandDipRadius");
+  requirePositiveInteger(value, "rekindleBeats", errors, "prologue.rekindleBeats");
+
+  if (!isRecord(value.wand) || !isFiniteNumber(value.wand.x) || !isFiniteNumber(value.wand.y)) {
+    errors.push("prologue.wand must be an object with finite x/y");
+  }
+
+  const lifeMax = isRecord(mechanic) && isPositiveInteger(mechanic.lifeMax) ? mechanic.lifeMax : null;
+  const freezeThreshold =
+    isRecord(mechanic) && isPositiveInteger(mechanic.freezeThreshold) ? mechanic.freezeThreshold : null;
+
+  if (!Array.isArray(value.embers) || value.embers.length === 0) {
+    errors.push("prologue.embers must be a non-empty array");
+    return;
+  }
+  const ids = new Set<string>();
+  const positions: { x: number; y: number }[] = [];
+  value.embers.forEach((ember, i) => {
+    const path = `prologue.embers[${i}]`;
+    if (!isRecord(ember)) {
+      errors.push(`${path} must be an object`);
+      return;
+    }
+    if (!isNonEmptyString(ember.id)) {
+      errors.push(`${path}.id must be a non-empty string`);
+    } else if (ids.has(ember.id)) {
+      errors.push(`${path}.id "${ember.id}" is duplicated`);
+    } else {
+      ids.add(ember.id);
+    }
+    if (!isFiniteNumber(ember.x)) errors.push(`${path}.x must be a finite number`);
+    if (!isFiniteNumber(ember.y)) errors.push(`${path}.y must be a finite number`);
+    requirePositiveInteger(ember, "initialLife", errors, `${path}.initialLife`);
+    if (lifeMax !== null && isPositiveInteger(ember.initialLife) && ember.initialLife > lifeMax) {
+      errors.push(`${path}.initialLife must be <= mechanic.lifeMax (${lifeMax})`);
+    }
+    if (isFiniteNumber(ember.x) && isFiniteNumber(ember.y)) positions.push({ x: ember.x, y: ember.y });
+  });
+
+  // 余烬数不够 freezeThreshold+1 时序章永远冻结不了 = 软锁; 开局预成簇则"三颗成簇长明"的顿悟被白送。
+  if (freezeThreshold !== null && value.embers.length < freezeThreshold + 1) {
+    errors.push(`prologue.embers must have at least freezeThreshold+1 (${freezeThreshold + 1}) embers`);
+  }
+  if (isFiniteNumber(value.adjacencyRadius) && positions.length === value.embers.length) {
+    for (let i = 0; i < positions.length; i += 1) {
+      for (let j = i + 1; j < positions.length; j += 1) {
+        const distance = Math.hypot(positions[i].x - positions[j].x, positions[i].y - positions[j].y);
+        if (distance <= value.adjacencyRadius) {
+          errors.push(`prologue.embers[${i}] and prologue.embers[${j}] start within adjacencyRadius (开局不得预成簇)`);
+        }
+      }
+    }
   }
 }
 
@@ -251,6 +334,12 @@ function requireOptionalString(record: Record<string, unknown>, key: string, err
 function requirePositiveInteger(record: Record<string, unknown>, key: string, errors: string[], path = key): void {
   if (!Number.isInteger(record[key]) || (record[key] as number) < 1) {
     errors.push(`${path} must be a positive integer`);
+  }
+}
+
+function requirePositiveNumber(record: Record<string, unknown>, key: string, errors: string[], path = key): void {
+  if (!isFiniteNumber(record[key]) || (record[key] as number) <= 0) {
+    errors.push(`${path} must be a positive number`);
   }
 }
 
