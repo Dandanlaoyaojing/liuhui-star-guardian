@@ -13,6 +13,7 @@ const { ccclass } = _decorator;
 const EMBER_CORE_RADIUS = 10;
 const EMBER_GLOW_EXTRA = 22;    // 光晕最大外扩(px), 随命数比例收缩
 const EMBER_DRAG_RADIUS = 48;   // 拾取命中半径(px), 比视觉大好点
+const DRAG_ACTIVATE_PX = 12;    // 位移超过此值才升级为拖拽; 否则按点击处理(点火簇的点击不能被拖拽分支吞掉)
 const WAND_TAP_RADIUS = 70;     // 点棒命中半径(px)
 const WAND_LENGTH = 84;
 const WAND_TIP_RADIUS = 9;
@@ -39,7 +40,10 @@ export class M02PrologueView extends Component {
   private readonly emberCore = new Map<string, Graphics>();
   private wandGraphics: Graphics | null = null;
   private lifeMax = 1;
-  private draggingId: string | null = null;
+  private pressedEmberId: string | null = null; // 按下时命中的余烬(拖拽候选)
+  private dragActivated = false;                // 位移超阈值后才为真; 为假时抬手按点击处理
+  private pressX = 0;
+  private pressY = 0;
   private activeTouchId: number | null = null;
   private doneCountdown = -1;
   private disposed = false;
@@ -106,14 +110,22 @@ export class M02PrologueView extends Component {
     if (this.activeTouchId !== null || !this.session) return;
     this.activeTouchId = event.getID();
     const local = this.toLocal(event);
-    this.draggingId = this.nearestEmberId(local.x, local.y);
+    this.pressX = local.x;
+    this.pressY = local.y;
+    this.pressedEmberId = this.nearestEmberId(local.x, local.y);
+    this.dragActivated = false;
   }
 
   private onTouchMove(event: EventTouch): void {
     event.propagationStopped = true;
-    if (event.getID() !== this.activeTouchId || !this.session || !this.draggingId) return;
+    if (event.getID() !== this.activeTouchId || !this.session || !this.pressedEmberId) return;
     const local = this.toLocal(event);
-    this.session.moveEmber(this.draggingId, local.x, local.y);
+    // 按下命中余烬 != 拖拽; 位移超阈值才升级, 否则抬手仍按点击处理(修 codex 审出的"点火簇被拖拽分支吞掉")
+    if (!this.dragActivated && Math.hypot(local.x - this.pressX, local.y - this.pressY) < DRAG_ACTIVATE_PX) {
+      return;
+    }
+    this.dragActivated = true;
+    this.session.moveEmber(this.pressedEmberId, local.x, local.y);
     this.render();
   }
 
@@ -121,11 +133,12 @@ export class M02PrologueView extends Component {
     event.propagationStopped = true;
     if (event.getID() !== this.activeTouchId) return;
     this.activeTouchId = null;
+    const wasDrag = this.dragActivated;
+    this.pressedEmberId = null;
+    this.dragActivated = false;
     if (!this.session) return;
-    if (this.draggingId) {
-      this.draggingId = null; // 落下: 位置已在 TOUCH_MOVE 里更新
-      return;
-    }
+    if (wasDrag) return; // 拖拽落下: 位置已在 TOUCH_MOVE 里更新
+
     const local = this.toLocal(event);
     const view = this.session.view;
     const wandDistance = Math.hypot(view.wand.x - local.x, view.wand.y - local.y);
@@ -141,7 +154,8 @@ export class M02PrologueView extends Component {
     event.propagationStopped = true;
     if (event.getID() === this.activeTouchId) {
       this.activeTouchId = null;
-      this.draggingId = null;
+      this.pressedEmberId = null;
+      this.dragActivated = false;
     }
   }
 

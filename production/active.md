@@ -10,7 +10,9 @@ Last updated: 2026-07-09
 
 已完成(TDD 红→绿):spec §5.3 新增「开场序章」小节;`m02-starweb-warmth.json` 新增 `prologue` 段;`StarWebConfig` 校验(含"开局不得预成簇"/"余烬数>=freezeThreshold+1 防软锁"/"initialLife<=lifeMax"交叉校验);纯逻辑 `M02PrologueSession`(实时拍累积含浮点 epsilon、快照结算、复燃、拔棒/点棒);greybox 胶水 `M02PrologueView`(拖余烬/点棒/点火簇,光晕随命数收缩与主谜题同语言);`M02StarWebView` 挂接(有 prologue 且未通关→先序章,`isPuzzleCompleted("m02")` 则跳过);cc-shim 补 `EventTouch.propagationStopped`。验证:`npm test` ✅(40 files / 469 tests),`npm run typecheck` ✅。
 
-未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补);合并前 codex 对抗审。注意:主仓 main 工作树有另一线未提交的 `M02StarWebView.ts` 水彩背景 WIP,合并本分支时 import 行和 onLoad 附近会有小冲突,需手工并。
+codex 零框架对抗审(第 1 轮)发现 P1 已修:点火簇中心的点击被拖拽分支吞掉(onTouchStart 命中余烬 48px 即标记拖拽,onTouchEnd 见标记直接 return,永远走不到 dipWand;只有 48-120px 空白环带能点棒)。修法:按下只记"拖拽候选",位移超 DRAG_ACTIVATE_PX(12px)才升级为拖拽,未升级的抬手按点击处理。修后 `npm test` ✅ / `npm run typecheck` ✅。
+
+未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补)。注意:主仓 main 工作树有另一线未提交的 `M02StarWebView.ts` 水彩背景 WIP,合并本分支时 import 行和 onLoad 附近会有小冲突,需手工并。
 
 ## 当前活跃线:ToolCardPreview 具名字段化清理(2026-07-06, 分支 `refactor/toolcard-preview-named-fields`, 接 `codex/m02-phase3b`)
 
