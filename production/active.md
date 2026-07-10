@@ -8,7 +8,7 @@ Last updated: 2026-07-09
 
 用户拍板给 M02 加前置小谜题(对标 M01 顶篮取电筒的配方:道具有来历+逐个教动词+预演本关道理)。设计:三颗流星余烬散落,单颗必灭、两颗仍灭、三颗成簇冻结长明→用火簇点燃星光棒→电量 UI diegetic 出场→进正式星网。规则与主谜题同律(复用 mechanic.lifeMax/freezeThreshold),差异只有实时拍制(beatSeconds)与距离邻接(adjacencyRadius);熄灭余烬隔 rekindleBeats 拍复燃(无死锁)。只教规则不泄答案(紧配额落点规划序章不涉及)。
 
-已完成(TDD 红→绿):spec §5.3 新增「开场序章」小节;`m02-starweb-warmth.json` 新增 `prologue` 段;`StarWebConfig` 校验(含"开局不得预成簇"/"余烬数>=freezeThreshold+1 防软锁"/"initialLife<=lifeMax"交叉校验);纯逻辑 `M02PrologueSession`(实时拍累积含浮点 epsilon、快照结算、复燃、拔棒/点棒);greybox 胶水 `M02PrologueView`(拖余烬/点棒/点火簇,光晕随命数收缩与主谜题同语言);`M02StarWebView` 挂接(有 prologue 且未通关→先序章,`isPuzzleCompleted("m02")` 则跳过);cc-shim 补 `EventTouch.propagationStopped`。验证:`npm test` ✅(40 files / 469 tests),`npm run typecheck` ✅。
+已完成(TDD 红→绿):spec §5.3 新增「开场序章」小节;`m02-starweb-warmth.json` 新增 `prologue` 段;`StarWebConfig` 校验(含"开局不得预成簇"/"余烬数>=freezeThreshold+1 防软锁"/"initialLife<=lifeMax"交叉校验);纯逻辑 `M02PrologueSession`(实时拍累积含浮点 epsilon、快照结算、复燃、拔棒/点棒);greybox 胶水 `M02PrologueView`(拖余烬/点棒/点火簇,光晕随命数收缩与主谜题同语言);`M02StarWebView` 挂接(有 prologue → 先序章再开板);cc-shim 补 `EventTouch.propagationStopped`。验证:`npm test` ✅(40 files / 469 tests),`npm run typecheck` ✅。
 
 codex 零框架对抗审(第 1 轮)发现 P1 已修:点火簇中心的点击被拖拽分支吞掉(onTouchStart 命中余烬 48px 即标记拖拽,onTouchEnd 见标记直接 return,永远走不到 dipWand;只有 48-120px 空白环带能点棒)。修法:按下只记"拖拽候选",位移超阈值才升级为拖拽,未升级的抬手按点击处理。codex 复核确认修复有效且无新问题。
 
@@ -18,7 +18,7 @@ codex 零框架对抗审(第 1 轮)发现 P1 已修:点火簇中心的点击被�
 3. 修 — session view/isFrozen/tickBeat 共用一次构建的 EmberSnapshot,消掉每次调用的快照重建+indexOf 反查。
 4. 修 — EmberStatus 改为 StarNodeStatus 别名(呈现态词汇单一真源);renderWand 参数用导出的 WandState 类型。
 5. 修 — 主视图 onTouchStart 加 !session 守卫(序章期间不锁触点,防配对 TOUCH_END 丢失后吞掉开板首击)。
-6. 修 — 序章门禁注释纠偏:通关前每次进关重放(非"首次进关"),已通关跳过;序章不写独立 seen 标记(与 spec 一致)。
+6. 修 — 序章门禁注释纠偏(后被第 3 轮推翻,见下)。
 7. 修(测试) — 新增跨模型契约测试:序章余烬(距离邻接)与 StarNetworkModel(固定边表)在三角簇/双星线上逐拍命数镜像对比,防两份衰减实现发散("同律"承诺被钉死)。
 8. 缓 — 余烬三态调色板按值复制自 M02StarWebView(模块私有无法 import):待水彩背景 WIP 落地后抽共享调色板模块(现在动主视图常量区必撞冲突)。
 9. 缓 — nearestEmberId 与 nearestNodeId 的最近命中算法重复:低优先,与调色板抽取一并处理。
@@ -26,7 +26,11 @@ codex 零框架对抗审(第 1 轮)发现 P1 已修:点火簇中心的点击被�
 
 修后 `npm test` ✅(40 files / 472 tests) / `npm run typecheck` ✅。
 
-已合并 main(ea617bc, 前置提交 a49558e 先按现状收编了水彩背景 WIP;背景的 backup/clean 变体与 toolcards 素材仍未定稿未收编)。未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补);调色板/最近命中去重两项缓办(见上)。
+已合并 main(ea617bc, 前置提交 a49558e 先按现状收编了水彩背景 WIP;背景的 backup/clean 变体与 toolcards 素材仍未定稿未收编)。
+
+第 3 轮(2026-07-10, 分支 `fix/m02-prologue-always-replay`):用户重启预览直进星网——探因是其老存档已通关 m02 命中跳过门(headless 空存档探针证序章代码正常)。决定**删除已通关跳过门,序章每次进关都播**(M01 开场从不设完成度门,全库唯一 isPuzzleCompleted 生产调用点是异类);spec §5.3 同步。codex 撞配额(12:48 恢复),由独立全新上下文 agent 代审:功能零问题,唯一发现 active.md 残留旧门描述已改。`isPuzzleCompleted` 现无生产调用点(存档 API 保留)。
+
+未完成:Cocos 编辑器 Preview 肉眼验证(.ts 改动需手动重启预览);莱米走入/发抖/烤爪动画与余烬正式美术(greybox 先行,spec 已注明后补);调色板/最近命中去重两项缓办(见上)。
 
 ## 当前活跃线:ToolCardPreview 具名字段化清理(2026-07-06, 分支 `refactor/toolcard-preview-named-fields`, 接 `codex/m02-phase3b`)
 

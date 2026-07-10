@@ -169,10 +169,9 @@ export class M02StarWebView extends Component {
       }
       this.config = result.value;
       this.lifeMax = result.value.mechanic.lifeMax;
-      // 序章(前置小谜题「三颗余烬点棒」, spec §5.3): 整关通关前每次进关都会重放(教学短、无进度损失);
-      // 已通关(isPuzzleCompleted)重进直接开板。序章自身不写独立 seen 标记。
+      // 序章(前置小谜题「三颗余烬点棒」, spec §5.3): 每次进关都播放, 与 M01 开场一致, 不设已通关跳过门。
       const prologue = result.value.prologue;
-      if (prologue && !this.progressStore.isPuzzleCompleted(result.value.id)) {
+      if (prologue) {
         this.startPrologue(prologue, result.value.mechanic);
       } else {
         this.startBoards();
