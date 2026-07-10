@@ -170,6 +170,43 @@ export interface M01MemoryGearConfig extends PuzzleConfig {
   toolCard: ToolCardDraft;
   entities?: unknown[];
   repairSequence?: unknown;
+  /** 通关成品动画(星屑修复→齿轮平台开门); 存在则运行时以帧序列叠层替代 greybox 修复 tween。 */
+  completionVideo?: M01CompletionVideoDef;
+}
+
+export interface M01CompletionVideoDef {
+  /**
+   * iOS/Android/Web(isCompletionVideoSupported)走这条: resources.load VideoClip 的 mp4 路径
+   * (不含扩展名, 含内嵌音轨)。原生 AVPlayer/DOM video 内存极省、满质量。省略则这些平台也退回帧序列。
+   */
+  videoClipPath?: string;
+  /**
+   * Steam 原生桌面(不编译 VideoPlayer)走这条: resources.loadDir 逐帧 SpriteFrame 目录
+   * (帧按文件名排序 frame_0001..)。桌面内存充足, 可保满质量帧序列。
+   */
+  resourcesPath: string;
+  /** 帧序列路径的独立音轨 resources.load 路径(不含扩展名, 指向 AudioClip); 省略=无声播放。VideoPlayer 路径用 mp4 内嵌音轨。 */
+  audioPath?: string;
+  /** 音轨音量 0..1; 缺省 1。 */
+  audioVolume?: number;
+  /** 帧序列播放帧率; 缺省 24(须与抽帧 fps 一致, 否则时长/音画不同步)。 */
+  fps?: number;
+  /** true(默认)=通关播成品动画替代 greybox 修复 tween; false=不播, 退回 greybox 修复 tween。 */
+  replacesRepairAnimation?: boolean;
+  /** true(默认)=点击画面/背板跳过整段动画。 */
+  skippable?: boolean;
+  /** 叠层/黑底背板宽高(px); 缺省回退场景设计分辨率 960×640。 */
+  overlayWidth?: number;
+  overlayHeight?: number;
+  /** 画面显示框宽高(px); 应匹配帧宽高比避免拉伸(Sprite CUSTOM 缩放到该框)。缺省 640×640(方形帧)。 */
+  videoWidth?: number;
+  videoHeight?: number;
+  /** 加载阶段看门狗超时秒数; 资源加载卡住则到点强制收尾出卡(防卡死)。缺省 20s。 */
+  maxSeconds?: number;
+  /** VideoPlayer 路径的视频时长秒数; 播放开始后看门狗按此 + 余量重置(帧序列路径按帧数/fps 自算)。缺省回退 maxSeconds。 */
+  videoDurationSeconds?: number;
+  /** 播放开始后看门狗在【播放时长 + 本余量】触发(仅作 onComplete/COMPLETED 未触发的兜底)。缺省 5s。 */
+  watchdogMarginSeconds?: number;
 }
 
 export interface M01FragmentState extends M01CandidateFragmentDef {

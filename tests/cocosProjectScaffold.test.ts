@@ -235,6 +235,155 @@ describe("Cocos Creator project scaffold", () => {
     expect(bootstrap).toContain("this.hintButtonRoot.active = false");
   });
 
+  it("plays the M01 celebration before the completion animation, then branches VideoPlayer/frame-seq by platform", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    const beginBlock = bootstrap.slice(
+      bootstrap.indexOf("private beginRepairSequenceThenToolCard"),
+      bootstrap.indexOf("private playGreyboxRepairThenToolCard")
+    );
+    const celebrateBlock = bootstrap.slice(
+      bootstrap.indexOf("private playCelebrationThenCompletionVideo"),
+      bootstrap.indexOf("private startCompletionVideo")
+    );
+    const dispatchBlock = bootstrap.slice(
+      bootstrap.indexOf("private startCompletionVideo"),
+      bootstrap.indexOf("private isCompletionVideoSupported")
+    );
+    const vpBlock = bootstrap.slice(
+      bootstrap.indexOf("private playCompletionViaVideoPlayer"),
+      bootstrap.indexOf("private playCompletionViaFrameSequence")
+    );
+    const frameBlock = bootstrap.slice(
+      bootstrap.indexOf("private playCompletionViaFrameSequence"),
+      bootstrap.indexOf("private readonly onCompletionVideoDone")
+    );
+
+    // 有 completionVideo、未禁用替代 → 走"先庆祝再动画", 否则 greybox tween。
+    expect(beginBlock).toContain("const video = this.config?.completionVideo;");
+    expect(beginBlock).toContain("if (video && video.replacesRepairAnimation !== false) {");
+    expect(beginBlock).toContain("this.playCelebrationThenCompletionVideo(video);");
+    // 庆祝先行: 庆祝帧结束回调里才起动画叠层。
+    expect(celebrateBlock).toContain("this.completionVideoPlaying = true;");
+    expect(celebrateBlock).toContain("const startVideo = (): void => this.startCompletionVideo(cfg);");
+    expect(celebrateBlock).toContain("this.introSequence.playCelebrationThenIdle(startVideo);");
+    // 平台分流: iOS/Web(isCompletionVideoSupported)+有 mp4 → VideoPlayer, 否则(Steam 桌面)→ 帧序列。
+    expect(dispatchBlock).toContain("if (this.isCompletionVideoSupported() && cfg.videoClipPath) {");
+    expect(dispatchBlock).toContain("this.playCompletionViaVideoPlayer(cfg);");
+    expect(dispatchBlock).toContain("this.playCompletionViaFrameSequence(cfg);");
+    // 看门狗覆盖加载阶段(入口即起, 防 pending 卡死)。
+    expect(dispatchBlock).toContain("this.completionVideoWatchdog = setTimeout(this.onCompletionVideoDone");
+    expect(bootstrap).toContain("return sys.os === sys.OS.IOS || sys.os === sys.OS.ANDROID;");
+    // VideoPlayer 路径: load VideoClip → contentNode 上 VideoPlayer, keepAspectRatio=false, node.on COMPLETED,
+    // CLICKED+背板 TOUCH_END 跳过。COMPLETED 从节点发(engine node.emit), 组件无 on。
+    expect(vpBlock).toContain("resources.load(cfg.videoClipPath as string, VideoClip");
+    expect(vpBlock).toContain("player.keepAspectRatio = false;");
+    expect(vpBlock).toContain("contentNode.on(VideoPlayer.EventType.COMPLETED, this.onCompletionVideoDone)");
+    expect(vpBlock).toContain("contentNode.on(VideoPlayer.EventType.CLICKED, this.onCompletionVideoDone)");
+    expect(vpBlock).not.toContain("player.on(");
+    // VideoPlayer 路径必须与帧序列路径对齐三处收尾治理(codex 五审): ERROR 收口、看门狗重置为视频时长、
+    // VideoClip 存起来供 teardown 释放。否则慢加载截断 / 解码失败黑屏卡到超时 / mp4 留缓存。
+    expect(vpBlock).toContain("contentNode.on(VideoPlayer.EventType.ERROR, this.onCompletionVideoDone)");
+    expect(vpBlock).toContain("const playSeconds = (cfg.videoDurationSeconds");
+    expect(vpBlock).toContain("this.completionVideoClip = clip;");
+    // mp4 加载失败退回帧序列(仍放成品动画), 不是直接出卡(codex 六审)。
+    expect(vpBlock).toContain("this.playCompletionViaFrameSequence(cfg);");
+    // 加载完成但已跳过/销毁 → 立刻释放刚加载的资产, 别留缓存(codex 六审 abort 泄漏)。
+    expect(vpBlock).toContain("if (clip) assetManager.releaseAsset(clip);");
+    expect(frameBlock).toContain("if (frames) for (const frame of frames) assetManager.releaseAsset(frame);");
+    expect(frameBlock).toContain("if (clip) assetManager.releaseAsset(clip);");
+    // 帧序列路径: loadDir SpriteFrame → 按名排序 → Sprite CUSTOM → M01CutscenePlayer; 独立音轨同起。
+    expect(frameBlock).toContain("resources.loadDir(cfg.resourcesPath, SpriteFrame");
+    expect(frameBlock).toContain("a.name < b.name ? -1 : a.name > b.name ? 1 : 0");
+    expect(frameBlock).toContain("sprite.sizeMode = Sprite.SizeMode.CUSTOM;");
+    expect(frameBlock).toContain("contentNode.addComponent(M01CutscenePlayer);");
+    expect(frameBlock).toContain("cutscene.configure(sorted, sprite, fps, this.onCompletionVideoDone);");
+    expect(frameBlock).toContain("resources.load(cfg.audioPath, AudioClip");
+    expect(frameBlock).toContain("audio.play();");
+    // 音画同起 + 看门狗重置为播放时长 + 存帧供释放。
+    expect(frameBlock).toContain("const startPlayback = (clip: AudioClip | null): void => {");
+    expect(frameBlock).toContain("const playSeconds = sorted.length / fps");
+    expect(frameBlock).toContain("this.completionVideoFrames = sorted;");
+    // 共用叠层 helper: backdrop UITransform 设满 width×height(否则默认 100×100 点不到)。
+    const overlayBlock = bootstrap.slice(
+      bootstrap.indexOf("private buildCompletionOverlay"),
+      bootstrap.indexOf("private playCompletionViaVideoPlayer")
+    );
+    expect(overlayBlock).toContain("backdropTransform.setContentSize(width, height);");
+    // teardown: 停 VideoPlayer/音源 + 释放帧贴图 + 音轨(291 帧 RGBA 数百 MB 不释放会常驻)。
+    const teardownBlock = bootstrap.slice(
+      bootstrap.indexOf("private teardownCompletionVideo"),
+      bootstrap.indexOf("private clearCompletionVideoWatchdog")
+    );
+    expect(teardownBlock).toContain("this.completionVideoPlayer?.stop();");
+    expect(teardownBlock).toContain("assetManager.releaseAsset(frame);");
+    expect(teardownBlock).toContain("assetManager.releaseAsset(this.completionVideoAudioClip);");
+    expect(teardownBlock).toContain("assetManager.releaseAsset(this.completionVideoClip);");
+    expect(teardownBlock).toContain("this.completionVideoRoot.destroy();");
+    // 收尾(onCompletionVideoDone)幂等只出结晶卡, 不再调 finishCompletionThenToolCard(避免庆祝二次触发)。
+    const doneBlock = bootstrap.slice(
+      bootstrap.indexOf("private readonly onCompletionVideoDone"),
+      bootstrap.indexOf("private teardownCompletionVideo")
+    );
+    expect(doneBlock).toContain("if (!this.completionVideoPlaying) {");
+    expect(doneBlock).toContain("this.renderCompletionToolCardIfAvailable(true);");
+    expect(doneBlock).not.toContain("this.finishCompletionThenToolCard();");
+    // onDestroy 必须拆视频叠层 + 清看门狗, 防销毁后 load 回调 / COMPLETED / 超时碰死节点。
+    const destroyBlock = bootstrap.slice(
+      bootstrap.indexOf("onDestroy(): void {"),
+      bootstrap.indexOf("update(): void {")
+    );
+    expect(destroyBlock).toContain("this.teardownCompletionVideo();");
+  });
+
+  it("locks puzzle input during the M01 completion animation window (repair tween OR video)", () => {
+    const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
+    // completionVideoPlaying 与 repairSequencePlaying 一样, 必须参与全部通关动画窗输入/校验锁,
+    // 否则庆祝+视频期间迟到的 rotate-pin 计时器 / 拖拽 / 灯色循环 / 重入校验会在叠层下发生。
+    const guardPairs = [
+      "this.repairSequencePlaying || this.completionVideoPlaying", // 拖拽起手 + rotate-pin 释放计时器
+      "this.session || this.repairSequencePlaying || this.completionVideoPlaying", // 手电点按
+      "this.completionVideoPlaying ||\n      this.validationFailureReturnTimeout" // 完整候选校验
+    ];
+    for (const guard of guardPairs) {
+      expect(bootstrap).toContain(guard);
+    }
+    // 进视频路径要 cancelAllRotatePins(同 greybox 修复路径), 清掉迟到释放。
+    const celebrateBlock = bootstrap.slice(
+      bootstrap.indexOf("private playCelebrationThenCompletionVideo"),
+      bootstrap.indexOf("private startCompletionVideo")
+    );
+    expect(celebrateBlock).toContain("this.cancelAllRotatePins();");
+  });
+
+  it("ships both M01 completion assets (mp4 for VideoPlayer, frame-seq + audio for Steam) and config", () => {
+    // iOS/Web 路径: mp4 VideoClip 存在。
+    expect(
+      existsSync(join(projectRoot, "assets/resources/art/stage1-m01/m01-completion-door-open.mp4"))
+    ).toBe(true);
+    // Steam 帧序列路径: 帧目录 + 首帧 + 独立音轨存在。
+    const framesDir = "assets/resources/art/stage1-m01/completion-frames";
+    expect(existsSync(join(projectRoot, framesDir, "frame_0001.jpg"))).toBe(true);
+    expect(existsSync(join(projectRoot, framesDir, "frame_0001.jpg.meta"))).toBe(true);
+    expect(existsSync(join(projectRoot, "assets/resources/art/stage1-m01/completion-audio.mp3"))).toBe(
+      true
+    );
+
+    const config = readJson("assets/resources/configs/stage1/m01-memory-gear.json") as {
+      completionVideo?: {
+        videoClipPath?: string;
+        resourcesPath?: string;
+        audioPath?: string;
+        fps?: number;
+        replacesRepairAnimation?: boolean;
+      };
+    };
+    expect(config.completionVideo?.videoClipPath).toBe("art/stage1-m01/m01-completion-door-open");
+    expect(config.completionVideo?.resourcesPath).toBe("art/stage1-m01/completion-frames");
+    expect(config.completionVideo?.audioPath).toBe("art/stage1-m01/completion-audio");
+    expect(config.completionVideo?.fps).toBe(24);
+    expect(config.completionVideo?.replacesRepairAnimation).toBe(true);
+  });
+
   it("renders the M01 hint button with the hand-drawn lightbulb icon instead of text", () => {
     const bootstrap = readText("assets/scripts/cocos/M01GreyboxBootstrap.ts");
     const hintButtonBlock = bootstrap.slice(

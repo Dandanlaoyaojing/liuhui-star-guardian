@@ -292,4 +292,65 @@ declare module "cc" {
     deltaTime: number;
     canvas?: HTMLCanvasElement;
   };
+
+  /** 资产管理器: 通关过场帧序列播完后强制释放贴图内存(291 帧 RGBA 不释放会常驻)。 */
+  export const assetManager: {
+    releaseAsset(asset: unknown): void;
+  };
+
+  /** 音频资源导入后的资产类型(importer: audio-clip); 作 AudioSource.clip。 */
+  export class AudioClip {}
+
+  /** 音频播放组件(engine audio-source.ts, extends Component)。通关过场独立音轨用。 */
+  export class AudioSource extends Component {
+    clip: AudioClip | null;
+    volume: number;
+    loop: boolean;
+    play(): void;
+    stop(): void;
+    playOneShot(clip: AudioClip, volumeScale?: number): void;
+  }
+
+  /** 平台/系统信息。os 取当前系统, 与 OS 枚举比对判 VideoPlayer 能力(原生桌面构建不编译)。 */
+  export const sys: {
+    readonly isNative: boolean;
+    readonly os: string;
+    readonly OS: {
+      readonly IOS: string;
+      readonly ANDROID: string;
+      readonly WINDOWS: string;
+      readonly OSX: string;
+      readonly LINUX: string;
+      readonly UNKNOWN: string;
+    };
+  };
+
+  /** mp4 等视频资源导入后的资产类型(importer: video-clip); 作 VideoPlayer.clip。 */
+  export class VideoClip {}
+
+  /**
+   * 原生视频播放组件(engine video-player.ts, extends Component)。iOS/Android/Web 走原生 AVPlayer/
+   * DOM video, 内存极省; 原生桌面(Steam Win/Mac)不编译(USE_VIDEO off)——故仅 isCompletionVideoSupported
+   * 为真时用。事件从 node 发出(this.node.emit), 组件本身无 on/off。
+   */
+  export class VideoPlayer extends Component {
+    static ResourceType: { LOCAL: number; REMOTE: number };
+    static EventType: {
+      READY_TO_PLAY: string;
+      PLAYING: string;
+      PAUSED: string;
+      STOPPED: string;
+      COMPLETED: string;
+      META_LOADED: string;
+      CLICKED: string;
+      ERROR: string;
+    };
+    resourceType: number;
+    clip: VideoClip | null;
+    /** false=objectFit=fill 铺满节点当前 contentSize; true 会在 metadata 加载时把节点尺寸改写成视频原始宽高。 */
+    keepAspectRatio: boolean;
+    play(): void;
+    stop(): void;
+    pause(): void;
+  }
 }

@@ -449,15 +449,33 @@ export class M01IntroSequence extends Component {
 
   /** 通关/修复完成时的庆祝: 谜题已结束→隐藏手持手电, 正脸蹦跳欢呼播一遍, 落回站立后接 idle。
    *  fire-and-forget; 无 actor(莱米已离场)则静默 no-op。手电隐藏后不再恢复(本关已通)。 */
-  playCelebrationThenIdle(): void {
+  /**
+   * 莱米正脸蹦跳庆祝一遍 → 接 idle。
+   * onCelebrated: 庆祝帧结束时回调(接 idle 之前); 幂等, 且庆祝被取消也会触发 ——
+   * 供"先庆祝再播通关动画"链式起下一步用, 保证通关流程不因庆祝中断而卡死。
+   */
+  playCelebrationThenIdle(onCelebrated?: () => void): void {
     const actor = this.lemmyActor;
-    if (!actor) return;
+    if (!actor) {
+      onCelebrated?.(); // 无 actor 也别吞掉后续(直接进入下一步)
+      return;
+    }
     this.celebrating = true; // 锁掉点地走位: 庆祝期间/通关后不再 roam(handleStageTap 据此早返回)
     if (this.flashlightNode) this.flashlightNode.active = false; // syncHeldFlashlight 只移位不重激活 → 保持隐藏
+    let advanced = false;
+    const advance = (): void => {
+      if (advanced) return;
+      advanced = true;
+      onCelebrated?.();
+    };
     void actor
       .playFrameAction("celebrate")
-      .then(() => actor.playIdle())
+      .then(() => {
+        advance();
+        return actor.playIdle();
+      })
       .catch((error) => {
+        advance(); // 庆祝被取消也推进后续, 别让通关流程卡在庆祝上
         if (!isExpectedLemmyActionCancel(error)) throw error;
       });
   }

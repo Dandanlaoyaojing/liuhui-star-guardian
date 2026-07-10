@@ -31,4 +31,12 @@ ffmpeg -y -i source-repair-swirl-approved.mp4 -i source-door-open-starlight.mp4 
 
 调参入口：溶解时长 `duration=0.7`（offset 需同步改为 4.775−duration）；修复音效拖尾 `afade=t=out:st=4.9:d=1.3`；开门声进入点 `afade=t=in:st=2`。
 
-尚未接入运行时——M01 通关目前走 ToolCard 流程（`M01GreyboxBootstrap.renderCompletionToolCardIfAvailable`），本视频的播放接入是后续工作。
+## 运行时接入（已完成，2026-07-11）
+
+M01 通关后（莱米庆祝 →）播本过场 → ToolCard，由 `m01-memory-gear.json` 的 `completionVideo` 段驱动、`M01GreyboxBootstrap.playCelebrationThenCompletionVideo` 执行。**混合方案**（Cocos VideoPlayer 原生桌面构建不编译，见 `M01CutscenePlayer` 注释）：
+
+- **iOS/Android/Web**：`VideoPlayer` 播 mp4（本目录成片，原生硬解省内存）。运行时资产 = `assets/resources/art/stage1-m01/m01-completion-door-open.mp4`。
+- **Steam 原生桌面**：等价的逐帧 Sprite 序列 + 独立音轨（`assets/resources/art/stage1-m01/completion-frames/` 291 帧 720²JPG@24fps + `completion-audio.mp3`），由本成片 ffmpeg 抽帧/抽音得到（`fps=24,scale=720:720` + `-vn -c:a libmp3lame`）。
+
+本目录三个 `source-*.mp4` 为合成源（存档/可重合成）；成片本身也在此存档。
+

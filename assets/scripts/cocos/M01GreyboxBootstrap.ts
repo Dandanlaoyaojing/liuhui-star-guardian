@@ -26,6 +26,12 @@ import {
   Vec2,
   Vec3,
   Vec4,
+  AudioClip,
+  AudioSource,
+  assetManager,
+  VideoClip,
+  VideoPlayer,
+  sys,
   game
 } from "cc";
 import {
@@ -43,6 +49,7 @@ import {
   type RepairStepConfig
 } from "./M01RepairSequence.ts";
 import { aspectContentSize, spriteFrameSize } from "./M01SpriteAspect.ts";
+import { M01CutscenePlayer } from "./M01CutscenePlayer.ts";
 import {
   buildM01GreyboxLayout,
   resolveM01EvidenceFragmentSnapPosition,
@@ -85,6 +92,7 @@ import type {
   M01BaseColor,
   M01BlendColor,
   M01BottomLightState,
+  M01CompletionVideoDef,
   M01MemoryGearConfig
 } from "../levels/stage1/M01MemoryGearController.ts";
 import { buildToolCardPreview } from "../ui/ToolCardView.ts";
@@ -346,6 +354,15 @@ export class M01GreyboxBootstrap extends Component {
   // 修复动画(spec §5.2: 齿轮转动→碎片漩涡喷出→化星光; 时序由 config repair.steps 经 M01RepairSequence 编排)。
   private readonly repairSequenceTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private repairSequencePlaying = false;
+  // 通关成品动画(星屑修复→齿轮平台开门)叠层; 有 config.completionVideo 时替代 greybox 修复 tween。
+  private completionVideoPlaying = false;
+  private completionVideoRoot: Node | null = null;
+  private completionVideoPlayer: VideoPlayer | null = null; // iOS/Android/Web 路径的原生 VideoPlayer(teardown stop)
+  private completionVideoAudio: AudioSource | null = null; // 帧序列路径的独立音源(teardown stop)
+  private completionVideoFrames: SpriteFrame[] | null = null; // loadDir 结果, 播完 teardown 逐个 releaseAsset 释放贴图内存
+  private completionVideoAudioClip: AudioClip | null = null;
+  private completionVideoClip: VideoClip | null = null; // VideoPlayer 路径的 mp4, teardown releaseAsset 释放
+  private completionVideoWatchdog: ReturnType<typeof setTimeout> | null = null;
   private dragState: DragState = {};
   private activeFragmentDragOffset: M01GreyboxPoint | null = null;
   private globalPointerInputBound = false;
@@ -533,6 +550,8 @@ export class M01GreyboxBootstrap extends Component {
     this.clearValidationLightReset();
     this.clearFailedCandidateReturn();
     this.clearRepairSequenceTimeouts();
+    this.completionVideoPlaying = false;
+    this.teardownCompletionVideo(); // 拆通关动画叠层(帧序列/音源/背板监听), 防销毁后回调碰死节点
     this.cancelAllRotatePins();
     this.unbindGlobalPointerInput();
     this.dragState = {};
@@ -1448,8 +1467,8 @@ export class M01GreyboxBootstrap extends Component {
     ) {
       return;
     }
-    // 修复动画播放窗内锁输入(codex P2): 不许把刚验证的拼片拖走和喷出 tween 打架。
-    if (this.repairSequencePlaying) {
+    // 通关动画窗(修复 tween 或成品视频)内锁输入(codex P2): 不许把刚验证的拼片拖走和动画打架。
+    if (this.repairSequencePlaying || this.completionVideoPlaying) {
       return;
     }
 
@@ -1588,8 +1607,8 @@ export class M01GreyboxBootstrap extends Component {
     this.parkFragmentBodyAtSnap(node); // Kinematic + 复位碰撞体: 停在原地、不掉、可被再抓
     const timer = setTimeout(() => {
       this.rotatePinTimers.delete(fragmentId);
-      // 修复/完成动画窗内不结算: 否则迟到的 handleTokenDrop 会和喷出 tween 打架、并重入校验(codex P2 输入锁同理)。
-      if (this.repairSequencePlaying) {
+      // 修复/成品视频动画窗内不结算: 否则迟到的 handleTokenDrop 会和动画打架、并重入校验(codex P2 输入锁同理)。
+      if (this.repairSequencePlaying || this.completionVideoPlaying) {
         return;
       }
       const entry = this.greyboxNodes.get(fragmentId);
@@ -1650,8 +1669,8 @@ export class M01GreyboxBootstrap extends Component {
    * red/yellow/blue 映射 Session.selectFlashlight(flashlight_<color>), off 走 clearFlashlight()。
    */
   private handleHeldFlashlightTap(): void {
-    if (!this.session || this.repairSequencePlaying) {
-      return; // 修复动画窗内不再循环灯色(codex P2 输入锁)
+    if (!this.session || this.repairSequencePlaying || this.completionVideoPlaying) {
+      return; // 通关动画窗(修复 tween 或成品视频)内不再循环灯色(codex P2 输入锁)
     }
 
     const action = routeTap(
@@ -2443,6 +2462,7 @@ export class M01GreyboxBootstrap extends Component {
     if (
       !this.physicsSettled ||
       this.repairSequencePlaying ||
+      this.completionVideoPlaying ||
       this.validationFailureReturnTimeout !== undefined
     ) {
       return;
@@ -2480,14 +2500,28 @@ export class M01GreyboxBootstrap extends Component {
       this.renderCompletionToolCardIfAvailable(completed);
       return;
     }
-    if (this.repairSequencePlaying) {
+    if (this.repairSequencePlaying || this.completionVideoPlaying) {
       return;
     }
+    // 有通关成品动画且配置为替代修复 tween → 莱米先庆祝, 庆祝完再播成品动画叠层。
+    // 播放方式按平台分流(iOS/Web=VideoPlayer, Steam 桌面=帧序列), 见 startCompletionVideo。
+    const video = this.config?.completionVideo;
+    if (video && video.replacesRepairAnimation !== false) {
+      this.playCelebrationThenCompletionVideo(video);
+      return;
+    }
+    this.playGreyboxRepairThenToolCard();
+  }
+
+  /**
+   * greybox 修复动画(spec §5.2): config repair.steps → buildRepairTimeline 绝对时间窗逐段调度,
+   * 整段播完接庆祝+结晶卡。无 completionVideo 时的默认路径, 也作视频加载失败的回退。
+   */
+  private playGreyboxRepairThenToolCard(): void {
     const steps = (this.config?.repair?.steps ?? []) as RepairStepConfig[];
     if (steps.length === 0) {
       // 无修复配置: 直接收尾(向后兼容)。庆祝仍照播 —— 通关庆祝绑"完成"而非"有修复动画"。
-      this.introSequence?.playCelebrationThenIdle();
-      this.renderCompletionToolCardIfAvailable(true);
+      this.finishCompletionThenToolCard();
       return;
     }
     this.repairSequencePlaying = true;
@@ -2510,10 +2544,262 @@ export class M01GreyboxBootstrap extends Component {
     this.repairSequenceTimeouts.push(
       setTimeout(() => {
         this.repairSequencePlaying = false;
-        this.introSequence?.playCelebrationThenIdle(); // 修复动画完成 → 莱米正脸蹦跳庆祝一遍 → 接 idle
-        this.renderCompletionToolCardIfAvailable(true);
+        this.finishCompletionThenToolCard(); // 修复动画完成 → 莱米蹦跳庆祝 → 出结晶卡
       }, timeline.total * 1000)
     );
+  }
+
+  /** 通关收尾统一出口: 莱米正脸蹦跳庆祝一遍 → 接 idle, 并出智慧结晶卡。 */
+  private finishCompletionThenToolCard(): void {
+    this.introSequence?.playCelebrationThenIdle();
+    this.renderCompletionToolCardIfAvailable(true);
+  }
+
+  /**
+   * 先让莱米庆祝一遍(playCelebrationThenIdle 的庆祝帧), 庆祝结束再起成品动画叠层。
+   * 整段(庆祝→视频)标记 completionVideoPlaying, 既防重入也作异步存活信号(销毁即置 false)。
+   */
+  private playCelebrationThenCompletionVideo(cfg: M01CompletionVideoDef): void {
+    this.completionVideoPlaying = true;
+    this.cancelAllRotatePins(); // 进通关动画窗: 清掉"转向钉住"的迟到释放, 别在庆祝/视频期间重入结算(同 greybox 修复路径)
+    const startVideo = (): void => this.startCompletionVideo(cfg);
+    if (this.introSequence) {
+      this.introSequence.playCelebrationThenIdle(startVideo);
+    } else {
+      startVideo();
+    }
+  }
+
+  /**
+   * 通关成品动画。庆祝已在此之前播完。平台分流(spec §5.2 修复动画成品版, 替代 greybox 修复 tween):
+   * - iOS/Android/Web(isCompletionVideoSupported + 有 videoClipPath): 原生 VideoPlayer 放 mp4
+   *   (AVPlayer/DOM video, 内存极省、满质量、内嵌音轨)。
+   * - Steam 原生桌面(不编译 VideoPlayer): 帧序列 Sprite(桌面内存充足, 保满质量)+ 独立音轨。
+   * 两条路共用叠层/背板/收尾/看门狗/跳过。Cocos 运行时组件, headless 验不了 —— 尺寸/播放/音画需编辑器内确认。
+   */
+  private startCompletionVideo(cfg: M01CompletionVideoDef): void {
+    if (!this.completionVideoPlaying) {
+      return; // 庆祝期间组件被销毁(onDestroy 置 false) → 别再起
+    }
+    if (!this.greyboxRoot) {
+      this.onCompletionVideoDone(); // 无根节点 → 已庆祝, 直接出结晶卡
+      return;
+    }
+    this.suspendFlashlightObservation(); // 通关: 灭灯/收手电, 与 ToolCard 出场同一收口
+    if (this.hintButtonRoot) {
+      this.hintButtonRoot.active = false;
+    }
+    // 看门狗覆盖加载阶段: 资源若一直 pending 回调不进则叠层永不建、completionVideoPlaying 永为 true →
+    // 卡死。故进本方法即起。帧序列路径在播放开始后会把它重置为播放时长(见 playViaFrameSequence)。
+    const maxSeconds = cfg.maxSeconds ?? 20;
+    this.completionVideoWatchdog = setTimeout(this.onCompletionVideoDone, maxSeconds * 1000);
+
+    if (this.isCompletionVideoSupported() && cfg.videoClipPath) {
+      this.playCompletionViaVideoPlayer(cfg);
+    } else {
+      this.playCompletionViaFrameSequence(cfg);
+    }
+  }
+
+  /**
+   * 当前平台是否支持 Cocos VideoPlayer。engine native CMake 在非 Android/iOS/OHOS/OpenHarmony
+   * 平台关闭 USE_VIDEO(不编译 VideoPlayer)→ Steam 原生桌面(Win/Mac)用它会抛。
+   * 浏览器(含编辑器 Preview)走 DOM video 恒可用; 原生仅移动端(iOS/Android)可用。
+   */
+  private isCompletionVideoSupported(): boolean {
+    if (!sys.isNative) {
+      return true;
+    }
+    return sys.os === sys.OS.IOS || sys.os === sys.OS.ANDROID;
+  }
+
+  /**
+   * 造通关叠层: 全屏容器 + 黑底背板(兜留边, 兼点击跳过命中层) + 居中内容节点(装 VideoPlayer 或帧 Sprite)。
+   * 调用前 caller 须已确认 greyboxRoot 存在且 completionVideoRoot 为空。设 completionVideoRoot=叠层。
+   */
+  private buildCompletionOverlay(cfg: M01CompletionVideoDef): { backdrop: Node; contentNode: Node } {
+    const root = this.greyboxRoot as Node;
+    const width = cfg.overlayWidth ?? 960;
+    const height = cfg.overlayHeight ?? 640;
+    const overlay = new Node("M01CompletionVideo");
+    overlay.layer = root.layer;
+    const overlayTransform = overlay.addComponent(UITransform);
+    overlayTransform.setContentSize(width, height);
+    overlayTransform.setAnchorPoint(0.5, 0.5);
+    root.addChild(overlay);
+    overlay.setSiblingIndex(root.children.length - 1); // 压在最上层
+    this.completionVideoRoot = overlay;
+
+    // 黑底背板: UITransform 必须显式设满 width×height(触摸命中用 UITransform 框, 不设则 Graphics
+    // 自动挂的默认 100×100, 点击跳过只在正中一小块生效)。
+    const backdrop = new Node("M01CompletionVideoBackdrop");
+    backdrop.layer = overlay.layer;
+    const backdropTransform = backdrop.addComponent(UITransform);
+    backdropTransform.setContentSize(width, height);
+    backdropTransform.setAnchorPoint(0.5, 0.5);
+    const backdropGfx = backdrop.addComponent(Graphics);
+    backdropGfx.fillColor = new Color(0, 0, 0, 255);
+    backdropGfx.rect(-width / 2, -height / 2, width, height);
+    backdropGfx.fill();
+    overlay.addChild(backdrop);
+
+    // 居中内容节点: 按显示框定尺寸(方形内容用方形框不失真)。VideoPlayer 挂它(keepAspectRatio=false
+    // 免改写外层尺寸); 帧序列的 Sprite 也挂它(CUSTOM 缩放到框)。
+    const contentW = cfg.videoWidth ?? 640;
+    const contentH = cfg.videoHeight ?? 640;
+    const contentNode = new Node("M01CompletionVideoContent");
+    contentNode.layer = overlay.layer;
+    const contentTransform = contentNode.addComponent(UITransform);
+    contentTransform.setContentSize(contentW, contentH);
+    contentTransform.setAnchorPoint(0.5, 0.5);
+    overlay.addChild(contentNode);
+
+    return { backdrop, contentNode };
+  }
+
+  /** iOS/Android/Web: 原生 VideoPlayer 放 mp4(内嵌音轨)。COMPLETED/点击跳过 → 出结晶卡。 */
+  private playCompletionViaVideoPlayer(cfg: M01CompletionVideoDef): void {
+    resources.load(cfg.videoClipPath as string, VideoClip, (error, clip) => {
+      if (!this.completionVideoPlaying || this.completionVideoRoot || !this.greyboxRoot) {
+        if (clip) assetManager.releaseAsset(clip); // 加载完成但已跳过/销毁 → 立刻释放, 别留缓存(codex 六审)
+        return;
+      }
+      if (error || !clip) {
+        // mp4 加载失败: 退回帧序列(仍能放成品动画; 罕见路径才吃帧序列显存)。庆祝已在此前播完。
+        this.playCompletionViaFrameSequence(cfg);
+        return;
+      }
+      this.completionVideoClip = clip; // 存起来 teardown 释放(否则 mp4 asset 留在缓存背进后续关卡)
+      const { backdrop, contentNode } = this.buildCompletionOverlay(cfg);
+      const player = contentNode.addComponent(VideoPlayer);
+      player.resourceType = VideoPlayer.ResourceType.LOCAL;
+      player.clip = clip;
+      player.keepAspectRatio = false; // true 会在 metadata 加载时把节点尺寸改写成视频原始尺寸撑破背板
+      this.completionVideoPlayer = player;
+      // COMPLETED/ERROR 由节点发出(engine: this.node.emit), 组件本身无 on; 监听挂 contentNode(=player.node)。
+      // ERROR(解码/加载失败/autoplay 被拒)也收口, 否则黑叠层要卡到看门狗超时才走。
+      contentNode.on(VideoPlayer.EventType.COMPLETED, this.onCompletionVideoDone);
+      contentNode.on(VideoPlayer.EventType.ERROR, this.onCompletionVideoDone);
+      player.play();
+      // 看门狗重置为【视频时长 + 余量】: 入口那只覆盖加载阶段(可能耗数秒), 播放开始后重置, 免加载耗时
+      // 吃掉播放预算把视频尾段截断(同帧序列路径; codex 五审)。COMPLETED 正常先触发即清掉它。
+      this.clearCompletionVideoWatchdog();
+      const playSeconds = (cfg.videoDurationSeconds ?? cfg.maxSeconds ?? 20) + (cfg.watchdogMarginSeconds ?? 5);
+      this.completionVideoWatchdog = setTimeout(this.onCompletionVideoDone, playSeconds * 1000);
+      if (cfg.skippable !== false) {
+        // 视频本体是原生/DOM widget 盖在 Cocos 层之上: 点它不触发背板 TOUCH_END, 但会发 CLICKED(engine
+        // onClicked→node.emit)。两者都绑, 画面中央 + 黑边都能跳过。
+        backdrop.on(Node.EventType.TOUCH_END, this.onCompletionVideoDone);
+        contentNode.on(VideoPlayer.EventType.CLICKED, this.onCompletionVideoDone);
+      }
+    });
+  }
+
+  /** Steam 原生桌面: 帧序列 Sprite + 独立音轨。M01CutscenePlayer 按 fps 逐帧播, 播完 → 出结晶卡。 */
+  private playCompletionViaFrameSequence(cfg: M01CompletionVideoDef): void {
+    resources.loadDir(cfg.resourcesPath, SpriteFrame, (error, frames) => {
+      if (!this.completionVideoPlaying || this.completionVideoRoot || !this.greyboxRoot) {
+        // 加载完成但已跳过/销毁 → 立刻释放这批帧(数百 MB), 别留缓存(codex 六审)。
+        if (frames) for (const frame of frames) assetManager.releaseAsset(frame);
+        return;
+      }
+      if (error || !frames || frames.length === 0) {
+        this.onCompletionVideoDone(); // 加载失败: 已庆祝过, 直接出结晶卡
+        return;
+      }
+      // 帧按文件名排序(frame_0001..)保证播放顺序(loadDir 不保证返回序)。
+      const sorted = [...frames].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      this.completionVideoFrames = sorted; // 存起来 teardown 释放(否则 291 帧 RGBA 贴图常驻内存)
+
+      const { backdrop, contentNode } = this.buildCompletionOverlay(cfg);
+      const sprite = contentNode.addComponent(Sprite);
+      sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+      const fps = cfg.fps ?? 24;
+
+      if (cfg.skippable !== false) {
+        // 帧序列是普通 Cocos Sprite(非原生层), 点画面/黑边的 TOUCH_END 都能到 → 两处都绑可跳过。
+        backdrop.on(Node.EventType.TOUCH_END, this.onCompletionVideoDone);
+        contentNode.on(Node.EventType.TOUCH_END, this.onCompletionVideoDone);
+      }
+
+      // 帧与音轨【同起】: 先把音轨(小)加载完, 再一起启动逐帧播放 + 音源, 避免音频异步晚于画面(音画不同步)。
+      const startPlayback = (clip: AudioClip | null): void => {
+        if (!this.completionVideoPlaying || !this.completionVideoRoot) {
+          if (clip) assetManager.releaseAsset(clip); // 音轨加载完但已跳过/销毁 → 释放, 别留缓存(codex 六审)
+          return; // 别在死节点上起播
+        }
+        if (clip) {
+          this.completionVideoAudioClip = clip;
+          const audio = contentNode.addComponent(AudioSource); // 游戏首个 AudioSource
+          audio.clip = clip;
+          audio.volume = cfg.audioVolume ?? 1;
+          audio.play();
+          this.completionVideoAudio = audio;
+        }
+        const cutscene = contentNode.addComponent(M01CutscenePlayer);
+        cutscene.configure(sorted, sprite, fps, this.onCompletionVideoDone);
+        // 看门狗重置为【播放时长 + 余量】: 入口那只是覆盖加载阶段的(可能耗数秒), 播放真正开始后重置,
+        // 免加载耗时吃掉播放预算把过场尾段截断(codex 四审)。cutscene 正常在 n/fps 秒自然收尾。
+        this.clearCompletionVideoWatchdog();
+        const playSeconds = sorted.length / fps + (cfg.watchdogMarginSeconds ?? 5);
+        this.completionVideoWatchdog = setTimeout(this.onCompletionVideoDone, playSeconds * 1000);
+      };
+
+      if (cfg.audioPath) {
+        resources.load(cfg.audioPath, AudioClip, (audioError, clip) => {
+          startPlayback(audioError || !clip ? null : clip); // 音轨加载失败也照常起播(静默)
+        });
+      } else {
+        startPlayback(null);
+      }
+    });
+  }
+
+  /** 视频结束 / 点击跳过: 幂等收尾 —— 拆叠层 → 出结晶卡(庆祝已在播视频前完成, 不再重复)。 */
+  private readonly onCompletionVideoDone = (): void => {
+    if (!this.completionVideoPlaying) {
+      return; // COMPLETED 与点击跳过可能双触发, 只认第一次。
+    }
+    this.completionVideoPlaying = false;
+    this.teardownCompletionVideo();
+    this.renderCompletionToolCardIfAvailable(true);
+  };
+
+  private teardownCompletionVideo(): void {
+    this.clearCompletionVideoWatchdog();
+    // 先停播: 点击跳过时立刻停(不等销毁)。VideoPlayer 原生层比节点销毁活得久, 不显式 stop 会残留;
+    // AudioSource 显式 stop 立刻静音。两条路只有一个非空。
+    this.completionVideoPlayer?.stop();
+    this.completionVideoPlayer = null;
+    this.completionVideoAudio?.stop();
+    this.completionVideoAudio = null;
+    if (this.completionVideoRoot) {
+      this.completionVideoRoot.destroy(); // 连带销毁 Sprite/M01CutscenePlayer/AudioSource 子组件
+      this.completionVideoRoot = null;
+    }
+    // 强制释放帧贴图 + 音轨: 否则 291 帧 RGBA 贴图(数百 MB)与音轨会常驻资源缓存, 背进后续关卡。
+    // 节点已销毁(不再引用这些资产)后释放最干净。
+    if (this.completionVideoFrames) {
+      for (const frame of this.completionVideoFrames) {
+        assetManager.releaseAsset(frame);
+      }
+      this.completionVideoFrames = null;
+    }
+    if (this.completionVideoAudioClip) {
+      assetManager.releaseAsset(this.completionVideoAudioClip);
+      this.completionVideoAudioClip = null;
+    }
+    if (this.completionVideoClip) {
+      assetManager.releaseAsset(this.completionVideoClip); // VideoPlayer 路径的 mp4(~8MB)别留缓存
+      this.completionVideoClip = null;
+    }
+  }
+
+  private clearCompletionVideoWatchdog(): void {
+    if (this.completionVideoWatchdog !== null) {
+      clearTimeout(this.completionVideoWatchdog);
+      this.completionVideoWatchdog = null;
+    }
   }
 
   /** 单段修复表现。未知类型静默跳过(config 可扩, 不硬失败)。 */
