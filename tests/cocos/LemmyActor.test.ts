@@ -29,7 +29,7 @@ describe("LemmyActor identity constants", () => {
 });
 
 describe("Lemmy frame actions (frame-based: 5 base + reachmiss + startleback + 耳后贴系列 + celebrate)", () => {
-  it("registers all fourteen; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
+  it("registers all eighteen; idle/walk/idleback/walkback loop, the rest one-shot hold-last", () => {
     expect(Object.keys(LEMMY_FRAME_ACTIONS).sort()).toEqual([
       "celebrate",
       "crouch",
@@ -39,10 +39,14 @@ describe("Lemmy frame actions (frame-based: 5 base + reachmiss + startleback + �
       "headshake",
       "idle",
       "idleback",
+      "nod",
+      "nodside",
+      "puzzled",
       "reach",
       "reachmiss",
       "startle",
       "startleback",
+      "turnface",
       "walk",
       "walkback"
     ]);
