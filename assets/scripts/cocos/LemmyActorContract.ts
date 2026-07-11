@@ -18,6 +18,14 @@ export type LemmyFrameActionId =
   | "reachmiss"
   // headshake(2026-06-16, 即梦生成): 够不着后的"不行"轻轻摇头, 身体静止只头动; 接在 reach 之后。
   | "headshake"
+  // turnface(2026-07-11, 即梦生成): 侧脸→正脸转头过渡, 补 reach(侧)→headshake(正)之间原本的硬切; 身体静止只头颈转。
+  | "turnface"
+  // puzzled(2026-07-11, 即梦生成): 困惑不解反应 — 正脸原地微微歪头→回正, 身体静止只头动; 一次性 hold-last。未接进具体 beat。
+  | "puzzled"
+  // nod(2026-07-11 重做, 即梦生成): 【正面】点头两下 — 正脸低头→回正(头/耳下沉再抬), 身体静止只头动; 一次性 hold-last。未接进具体 beat。
+  | "nod"
+  // nodside(2026-07-11): 【侧面】点头 — 侧3/4脸低头→回正(headshake 首版帧, 单次); 一次性 hold-last。未接进具体 beat。
+  | "nodside"
   // 2026-06-08 耳后贴系列(惊扰→顶篮): 收耳(立→后贴) / 耳后贴 idle / 耳后贴走 / 跳起顶篮 / 展耳(后贴→立)。
   // 渲染缩放见各动作 renderScale(逐帧/ramp 补回源姿势身高差, 脚底锚定, 接缝恒 404)。
   | "startleback"
@@ -224,6 +232,38 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
   headshake: {
     dir: "art/characters/lemmy/headshake",
     fps: 8, // 2026-06-17 摇头放慢(20→12→8; 28帧≈3.5s); 嫌快/慢再调
+    loop: false,
+    holdLast: true
+  },
+  // turnface 侧脸→正脸转头过渡(2026-07-11, 即梦生成): 24帧, 补 reach(侧)→headshake(正)硬切。
+  // 尺寸对齐家族(脚底490/躯干125); 播完不 hold(直接流进 headshake), 接在 reach 与 headshake 之间。
+  turnface: {
+    dir: "art/characters/lemmy/turnface",
+    fps: 30, // 24帧≈0.8s 转头(18→30 加快); 嫌快/慢再调
+    loop: false,
+    holdLast: false
+  },
+  // puzzled 困惑歪头(2026-07-11, 即梦生成): 正脸原地歪头→回正表达"不解", 身体静止只头动。30帧, 一次性 hold-last。
+  // 尺寸对齐家族(脚底490/躯干125)。未接进具体 beat, 需要时 playFrameAction("puzzled") 即可。
+  puzzled: {
+    dir: "art/characters/lemmy/puzzled",
+    fps: 14, // 30帧≈2.1s 歪头(偏慢=困惑感); 嫌快/慢再调
+    loop: false,
+    holdLast: true
+  },
+  // nod 【正面】点头(2026-07-11 重做, 即梦生成): 正脸低头→回正表达"嗯/好", 身体静止只头动。点【两下】结束(44帧, 两下之间在抬头位停顿4帧分开、不显仓促), 一次性 hold-last。
+  // 尺寸对齐家族(脚底490/躯干125); 头点下去身高降是真实竖直点头(躯干不变)。未接进具体 beat, 需要时 playFrameAction("nod")。
+  nod: {
+    dir: "art/characters/lemmy/nod",
+    fps: 16, // 44帧≈2.75s 点两下(20→16 放慢+中间加停顿, 治仓促); 嫌快/慢再调
+    loop: false,
+    holdLast: true
+  },
+  // nodside 【侧面】点头(2026-07-11): headshake 首版意外出成的侧3/4脸点头(单次), 存作侧面点头变体。27帧, hold-last。
+  // 与 nod(正面)对应; 尺寸/脚底同家族(原制时已归一)。未接进具体 beat, 需要时 playFrameAction("nodside")。
+  nodside: {
+    dir: "art/characters/lemmy/nodside",
+    fps: 14, // 27帧≈1.9s 侧面点头; 嫌快/慢再调
     loop: false,
     holdLast: true
   },

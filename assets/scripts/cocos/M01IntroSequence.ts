@@ -325,6 +325,7 @@ export class M01IntroSequence extends Component {
         "startle",
         "crouch",
         "reach",
+        "turnface",
         "headshake",
         "celebrate"
       ] as const) {
@@ -926,6 +927,7 @@ export class M01IntroSequence extends Component {
       });
       // 伸手够篮: 朝篮子(右); 不传 onEvent → reach_contact 落空、篮子零运动(够不着)
       await actor.playFrameAction("reach", { facing: "right" });
+      await actor.playFrameAction("turnface", { facing: "right" }); // 侧脸→正脸转头过渡(补硬切), 身体静止只头颈转
       await actor.playFrameAction("headshake", { facing: "right" }); // 够不着 → 轻轻摇头"不行"(即梦帧, 身体静止只头动)
       actor.playIdle(); // 收手回待机(竖耳)
       // 同步: reachmiss 全程用竖耳帧(walk/reach/headshake/idle), earsFolded 必须归位 false —— 否则若进 reachmiss

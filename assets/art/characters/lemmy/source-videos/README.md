@@ -108,3 +108,24 @@ iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给�
 - **后处理两步(治卡顿, 关键)**: ① 贪心去重 in-place, 相邻(对上一保留帧)平均像素差 **<3.0** 丢弃(即梦源有效帧率低→精确重复帧+顶点微停, 阈值 2.0 漏网了 2.2 的顶点冻结帧, 提到 3.0 才清干净); ② **砍静止长尾**: 找最后一个腾空帧(脚底≤484)其后留 3 帧站定截断(frames2video 强制尾帧=高站立定妆图→落地后又"长高"snap+一长串静止站立帧=回平静时像冻住)。最终 **93 帧**, 相邻差 min 3.18/中位 6.71/max 15.47、0 冻结、头顶 53 不触顶、离地 58px、躯干 131 同屏宽。trimType none meta 按 idle 模板逐帧新 uuid。
 - 产物: `assets/resources/art/characters/lemmy/celebrate/`(93 帧; 未接进运行时; 通关/修复完成播一遍→接 idle)。
 - 备选源 `lemmy-celebrate-3jump-alt-source.mp4`(submit_id `004a5a7d-d9d4-4600-9a38-fe4151b58c63`): 初版三跳、**张嘴**欢呼、耳朵带抖动。被两跳闭嘴版取代, 留作可重抽备选。(中间还有个三跳闭嘴版 submit_id `de1b07c7-ae19-4842-8d2d-77b0f1eadcf9` 也被弃, 要找回用 `dreamina query_result --submit_id=` 重下。)
+
+## turnface(2026-07-11 定稿, 侧脸→正脸转头过渡 — 补 reach(侧)→headshake(正)原本的硬切)
+- `lemmy-turnface-source.mp4`: frames2video 首帧=正脸定妆(`lemmy-rabbit-front-canonical` 白底) / 尾帧=**新侧脸定妆**(`assets/art/style-references/lemmy-rabbit-side-canonical.webp` 白底, 用户 2026-07-11 提供)。正面看镜头→转头变侧面, 身体站立不动。1080p/5s。submit_id `8df19c79-cb0c-4d3e-aeb0-5bf645f65255`。
+- **为什么这次成了(之前放弃过)**: headshake 那节记的"转脸方案已放弃"是因旧 v9 平面正脸 vs 立体侧脸几何不自洽→即梦转头中段生鬼眼。这次用户给的**新侧脸定妆几何自洽**, 中段 3/4 帧眼睛干净无鬼眼, 转头过渡可用。
+- 抽帧: `extract-frames-arc.py <mp4> ref-front.png <out> turn 24 0.10 0.95`(统一缩放+脚底锁) → **反向排列**(侧→正)为 turnface-00..23。再按躯干宽 125/脚底 490 逐帧统一缩放归一(源正面帧比侧面小 ~3% 单调漂移, 平滑缩放曲线 1.003→1.030 校正), 锁恒定身体大小。
+- 产物: `assets/resources/art/characters/lemmy/turnface/`(24 帧)。contract fps 30(≈0.8s); 接在 reach 与 headshake 之间(`M01IntroSequence.beginBasketReachMiss`)。
+
+## puzzled(2026-07-11 定稿, 困惑不解反应 — 正脸原地微微歪头→回正)
+- `lemmy-puzzled-source.mp4`: frames2video 首尾双锁【正脸定妆】(`lemmy-rabbit-front-canonical` 白底), 正面原地微微歪头看向一侧(好奇/不解手势)→摆正回正视。1080p/5s。submit_id `71eb496b-d9a4-452b-aba9-8646e86c0e63`。
+- 抽帧: `extract-frames-arc.py <mp4> ref-front.png <out> puzzled 30 0.08 0.95`(统一缩放+脚底锁) → 再按躯干宽 125/脚底 490 逐帧统一缩放归一(平滑缩放 0.992→1.014)锁恒定身体大小。正脸全程橙, 无鬼眼。
+- 产物: `assets/resources/art/characters/lemmy/puzzled/`(30 帧)。contract fps 14(≈2.1s, hold-last)。**未接进具体 beat**, 需要时 `playFrameAction("puzzled")`。
+
+## nod(2026-07-11 重做, 点头 — 正脸低头→回正; 取代 headshake 首版残留的旧 nod)
+- `lemmy-nod-source.mp4`: frames2video 首尾双锁【正脸定妆】(`lemmy-rabbit-front-canonical` 白底), 正面原地微微低头看向地面→抬脸回正。1080p/5s。submit_id `4ec1d057-ee18-42ea-b99c-1e8cc6a9f369`。
+- 抽帧: `extract-frames-arc.py <mp4> ref-front.png <out> nod 24 0.08 0.95` → 躯干宽 125/脚底 490 逐帧统一缩放归一(躯干全程 123-125 稳, 头点下去身高 429→414→429 是真实竖直点头, 保留)。正脸全程橙, 无鬼眼。
+- 产物: `assets/resources/art/characters/lemmy/nod/`(24 帧, 覆盖旧 27 帧)。contract fps 14(≈1.7s, hold-last)。**未接进具体 beat**。
+- 旧 nod(headshake 首版意外出成点头, v9 正脸源)已被本版替换; 要找回见 git 历史。
+
+## nodside(2026-07-11, 侧面点头 — 旧 nod 存作侧面变体)
+- 无独立源视频: 即是 headshake 第一版意外出成的【侧3/4脸点头】27帧(v9 之前的侧脸源, 见 headshake 节缘由链), 2026-07-11 nod 改为正面点头后把旧帧存作 `nodside`(侧面点头变体)。
+- 产物: `assets/resources/art/characters/lemmy/nodside/`(27 帧, 由旧 `nod/` 迁入)。contract fps 14, hold-last。**未接进具体 beat**。
