@@ -3,7 +3,7 @@ import { cutsceneFrameIndex } from "../../assets/scripts/cocos/M01CutsceneTiming
 
 describe("cutsceneFrameIndex", () => {
   const FPS = 24;
-  const N = 291;
+  const N = 344;
 
   it("starts on frame 0 at t=0", () => {
     expect(cutsceneFrameIndex(0, FPS, N)).toBe(0);

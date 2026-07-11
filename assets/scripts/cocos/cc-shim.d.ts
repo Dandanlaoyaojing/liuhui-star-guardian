@@ -293,7 +293,7 @@ declare module "cc" {
     canvas?: HTMLCanvasElement;
   };
 
-  /** 资产管理器: 通关过场帧序列播完后强制释放贴图内存(291 帧 RGBA 不释放会常驻)。 */
+  /** 资产管理器: 通关过场帧序列播完后强制释放贴图内存(344 帧 RGBA 不释放会常驻)。 */
   export const assetManager: {
     releaseAsset(asset: unknown): void;
   };

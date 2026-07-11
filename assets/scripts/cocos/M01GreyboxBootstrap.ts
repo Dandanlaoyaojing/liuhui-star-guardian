@@ -325,6 +325,14 @@ export class M01GreyboxBootstrap extends Component {
   @property({ type: CCBoolean })
   showArtPreviewDebugUnderlay = false;
 
+  /**
+   * 调试开关(默认关, 提交的 scene 必须 false, 有守护测试): 勾上则进关物理落定后直接触发通关过场,
+   * 免手动解关看过场画面/音画。注: 它绕过解题, session 没有 lastToolCard, 故过场播完【不会出 ToolCard】——
+   * 仅用于验证过场本身, 不验过场→ToolCard 衔接(那个要真解关)。
+   */
+  @property({ type: CCBoolean })
+  debugPlayCompletionOnStart = false;
+
   private session: M01GreyboxSession | null = null;
   private config: M01MemoryGearConfig | null = null;
   private layout: M01GreyboxLayout | null = null;
@@ -536,6 +544,13 @@ export class M01GreyboxBootstrap extends Component {
           // acquired 后点莱米手里的手电 → 循环 红/黄/蓝/灭(intro 只转发, 路由与显色在 puzzle 侧)。
           onHeldFlashlightTap: () => this.handleHeldFlashlightTap()
         });
+      }
+
+      if (this.debugPlayCompletionOnStart) {
+        // 调试: 进关即刻(0.8s 后, 跳过整段 intro)强制走通关过场, 直接看结果。走真实入口
+        // (庆祝→过场→ToolCard); 过场叠层盖住全屏, 底下 intro 有没有跑无所谓。session/layout/
+        // greyboxRoot/introSequence 此时已就绪, 不依赖 physicsSettled(直接调入口绕过校验门)。
+        setTimeout(() => this.beginRepairSequenceThenToolCard(true), 800);
       }
     });
   }
@@ -2709,7 +2724,7 @@ export class M01GreyboxBootstrap extends Component {
       }
       // 帧按文件名排序(frame_0001..)保证播放顺序(loadDir 不保证返回序)。
       const sorted = [...frames].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-      this.completionVideoFrames = sorted; // 存起来 teardown 释放(否则 291 帧 RGBA 贴图常驻内存)
+      this.completionVideoFrames = sorted; // 存起来 teardown 释放(否则 344 帧 RGBA 贴图常驻内存)
 
       const { backdrop, contentNode } = this.buildCompletionOverlay(cfg);
       const sprite = contentNode.addComponent(Sprite);
@@ -2777,7 +2792,7 @@ export class M01GreyboxBootstrap extends Component {
       this.completionVideoRoot.destroy(); // 连带销毁 Sprite/M01CutscenePlayer/AudioSource 子组件
       this.completionVideoRoot = null;
     }
-    // 强制释放帧贴图 + 音轨: 否则 291 帧 RGBA 贴图(数百 MB)与音轨会常驻资源缓存, 背进后续关卡。
+    // 强制释放帧贴图 + 音轨: 否则 344 帧 RGBA 贴图(数百 MB)与音轨会常驻资源缓存, 背进后续关卡。
     // 节点已销毁(不再引用这些资产)后释放最干净。
     if (this.completionVideoFrames) {
       for (const frame of this.completionVideoFrames) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const projectRoot = process.cwd();
@@ -309,7 +309,7 @@ describe("Cocos Creator project scaffold", () => {
       bootstrap.indexOf("private playCompletionViaVideoPlayer")
     );
     expect(overlayBlock).toContain("backdropTransform.setContentSize(width, height);");
-    // teardown: 停 VideoPlayer/音源 + 释放帧贴图 + 音轨(291 帧 RGBA 数百 MB 不释放会常驻)。
+    // teardown: 停 VideoPlayer/音源 + 释放帧贴图 + 音轨(344 帧 RGBA 数百 MB 不释放会常驻)。
     const teardownBlock = bootstrap.slice(
       bootstrap.indexOf("private teardownCompletionVideo"),
       bootstrap.indexOf("private clearCompletionVideoWatchdog")
@@ -355,15 +355,34 @@ describe("Cocos Creator project scaffold", () => {
     expect(celebrateBlock).toContain("this.cancelAllRotatePins();");
   });
 
+  it("keeps the M01 completion debug auto-play toggle OFF in the committed scene (never ship it on)", () => {
+    // debugPlayCompletionOnStart 勾开会进关 0.8s 直接跳过解题走过场, 且 ToolCard 拿不到卡 —— 绝不能 ship 成 true。
+    // 编辑器验证时可临时勾上但别提交。本测试守住"提交的 scene/prefab 一律 false"。
+    const scene = readText("assets/scenes/M01Greybox.scene");
+    expect(scene).toContain('"debugPlayCompletionOnStart": false');
+    expect(scene).not.toContain('"debugPlayCompletionOnStart": true');
+  });
+
   it("ships both M01 completion assets (mp4 for VideoPlayer, frame-seq + audio for Steam) and config", () => {
-    // iOS/Web 路径: mp4 VideoClip 存在。
+    // iOS/Web 路径: 母版 1920×1280 成片 mp4 VideoClip 存在(旧 door-open 方形片已替换)。
+    expect(
+      existsSync(join(projectRoot, "assets/resources/art/stage1-m01/m01-completion-cutscene.mp4"))
+    ).toBe(true);
     expect(
       existsSync(join(projectRoot, "assets/resources/art/stage1-m01/m01-completion-door-open.mp4"))
-    ).toBe(true);
-    // Steam 帧序列路径: 帧目录 + 首帧 + 独立音轨存在。
+    ).toBe(false);
+    // Steam 帧序列路径: 帧目录 + 首末帧(344 帧 960×640) + 独立音轨存在。
     const framesDir = "assets/resources/art/stage1-m01/completion-frames";
     expect(existsSync(join(projectRoot, framesDir, "frame_0001.jpg"))).toBe(true);
-    expect(existsSync(join(projectRoot, framesDir, "frame_0001.jpg.meta"))).toBe(true);
+    expect(existsSync(join(projectRoot, framesDir, "frame_0344.jpg"))).toBe(true);
+    expect(existsSync(join(projectRoot, framesDir, "frame_0344.jpg.meta"))).toBe(true);
+    // 正好 344 帧、连续无缺口(fps 24 × 14.35s); 帧数漂移会让 Steam 路径时长/音画错位。
+    const jpgs = readdirSync(join(projectRoot, framesDir))
+      .filter((f) => f.endsWith(".jpg"))
+      .sort();
+    expect(jpgs.length).toBe(344);
+    expect(jpgs[0]).toBe("frame_0001.jpg");
+    expect(jpgs[jpgs.length - 1]).toBe("frame_0344.jpg");
     expect(existsSync(join(projectRoot, "assets/resources/art/stage1-m01/completion-audio.mp3"))).toBe(
       true
     );
@@ -377,7 +396,7 @@ describe("Cocos Creator project scaffold", () => {
         replacesRepairAnimation?: boolean;
       };
     };
-    expect(config.completionVideo?.videoClipPath).toBe("art/stage1-m01/m01-completion-door-open");
+    expect(config.completionVideo?.videoClipPath).toBe("art/stage1-m01/m01-completion-cutscene");
     expect(config.completionVideo?.resourcesPath).toBe("art/stage1-m01/completion-frames");
     expect(config.completionVideo?.audioPath).toBe("art/stage1-m01/completion-audio");
     expect(config.completionVideo?.fps).toBe(24);

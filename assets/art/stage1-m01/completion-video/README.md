@@ -1,6 +1,6 @@
 # M01 通关动画（星屑修复 → 齿轮平台开门）
 
-`m01-completion-door-open.mp4`（12.2s, 1440×1440@60fps, 带 aac 音轨）是 M01 结尾通关动画的定稿成片，2026-07-10 由下面三个源视频用 ffmpeg 合成。
+`m01-completion-door-open.mp4`（12.2s, 1440×1440@60fps, 带 aac 音轨）是 M01 通关动画 **v1**（门开成片），2026-07-10 由下面三个源视频用 ffmpeg 合成。**已被 v2 取代**（见文末"运行时接入"），本节仅作 v1 存档。
 
 ## 成片结构
 
@@ -31,12 +31,14 @@ ffmpeg -y -i source-repair-swirl-approved.mp4 -i source-door-open-starlight.mp4 
 
 调参入口：溶解时长 `duration=0.7`（offset 需同步改为 4.775−duration）；修复音效拖尾 `afade=t=out:st=4.9:d=1.3`；开门声进入点 `afade=t=in:st=2`。
 
-## 运行时接入（已完成，2026-07-11）
+## 运行时接入（v2 定稿，2026-07-11）
 
-M01 通关后（莱米庆祝 →）播本过场 → ToolCard，由 `m01-memory-gear.json` 的 `completionVideo` 段驱动、`M01GreyboxBootstrap.playCelebrationThenCompletionVideo` 执行。**混合方案**（Cocos VideoPlayer 原生桌面构建不编译，见 `M01CutscenePlayer` 注释）：
+> **注意**：本目录早期的 `m01-completion-door-open.mp4` + 三个 `source-*.mp4` 是 v1 门开成片（方形 1440×1440@60fps，只有齿轮开门）。**v2 定稿**是"静态齿轮就地水彩漩涡 → 门开 → 星光溢出成星光路径云海 → 泛白"的全屏成片（母版 1920×1280，设计分辨率 960×640 的 2x），见 `cutscene-v2-sources/`（`m01-completion-cutscene-master.mp4` + 即梦 finale 源 + 参考图 + `BUILD.md` 合成管线）。
 
-- **iOS/Android/Web**：`VideoPlayer` 播 mp4（本目录成片，原生硬解省内存）。运行时资产 = `assets/resources/art/stage1-m01/m01-completion-door-open.mp4`。
-- **Steam 原生桌面**：等价的逐帧 Sprite 序列 + 独立音轨（`assets/resources/art/stage1-m01/completion-frames/` 291 帧 720²JPG@24fps + `completion-audio.mp3`），由本成片 ffmpeg 抽帧/抽音得到（`fps=24,scale=720:720` + `-vn -c:a libmp3lame`）。
+M01 通关后（莱米庆祝 →）播 v2 过场 → ToolCard，由 `m01-memory-gear.json` 的 `completionVideo` 段驱动、`M01GreyboxBootstrap.playCelebrationThenCompletionVideo` 执行。**混合方案**（Cocos VideoPlayer 原生桌面构建不编译，见 `M01CutscenePlayer` 注释）：
 
-本目录三个 `source-*.mp4` 为合成源（存档/可重合成）；成片本身也在此存档。
+- **iOS/Android/Web**：`VideoPlayer` 播 mp4（原生硬解省内存）。运行时资产 = `assets/resources/art/stage1-m01/m01-completion-cutscene.mp4`（1920×1280 母版，铺满 960×640 叠层，retina 清晰）。
+- **Steam 原生桌面**（当前）：逐帧 Sprite 序列 + 独立音轨（`completion-frames/` 344 帧 960×640 JPG@24fps + `completion-audio.mp3`）。**注**：帧序列内存重(峰值~845MB,用完即释放);已决定后续上 **FFmpeg 原生解码器**流式播同一个 mp4 替换本路径(HD+省内存),见 `docs/design/m01-completion-ffmpeg-decoder-plan.md`。
+
+v1 的 `source-*.mp4` 与门开成片仍在本目录存档（可重合成 v1）；v2 的源/成片/管线在 `cutscene-v2-sources/`。
 

@@ -263,6 +263,7 @@
     "statusLabel": null,
     "enableArtPreview": true,
     "showArtPreviewDebugUnderlay": false,
+    "debugPlayCompletionOnStart": false,
     "_id": "e2ZyEVXiBJFYQYTUuOqtlb"
   },
   {
