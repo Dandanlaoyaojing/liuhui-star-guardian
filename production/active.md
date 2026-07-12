@@ -1,8 +1,124 @@
 # Active Work State
 
-Last updated: 2026-07-10
+Last updated: 2026-07-12
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
+
+## 当前活跃线:迁移到 Unity 引擎(2026-07-12 决策)
+
+用户拍板**从 Cocos Creator 3.8 迁到 Unity**。驱动=**光效工具天花板**(要 URP 2D 光照+Bloom)+ 站主流引擎后续省心。完整执行计划见 `docs/design/unity-migration-plan.md`。
+
+- **诚实留痕**:①"复杂物理"不是有效理由(两家 2D 物理都是 Box2D,Verlet 绳手写引擎无关);②迁移前那次 Cocos glow demo 没渲染是无头预览 RAF 暂停坑,非 Cocos 能力证据。用户知情后仍以"光效+主流引擎"为由决定迁移。
+- **备份(退路焊死)**:origin tag `cocos-engine-final-2026-07-12` + 分支 `archive/cocos-engine`(=`e725ae4`)。
+- **量级**:15,112 行生产 TS + 9,494 行测试 → C# 全重写;物理重调;工具链重搭;老 bug 重验。多月多会话。美术/音视频 802 文件 + 设计文档可复用。
+- **目标环境**:Unity **6.3 LTS `6000.3.19f1`**(锁定,别跳版本)+ **2D URP**(URP 才有 2D 光照+Bloom,别选内置管线);iOS(IL2CPP)+ Steam(Win/Mac Standalone)。**桌面视频洞在 Unity 自动消失**(VideoPlayer 原生支持桌面)。
+- **迁移顺序**:先验 payoff 再搬大头——Phase 1 先用 URP 2D Light+Bloom 重建 M2 一个光效当 **go/no-go 闸门**,人肉确认光质到位再搬 24k 行逻辑。
+- **立即卡点**:本机**未装 Unity**。Phase 0 = 用户装 Unity Hub + 6 LTS + 建 2D URP 工程(需 Unity 账号+许可,我不静默替装)。装好即开 Phase 1 光效切片。
+
+### 进度(2026-07-12)
+- **工具链**:dotnet SDK 10.0.301 ✅ 装好;Unity Hub ✅ 装进 /Applications(编辑器待用户登录后装 6 LTS + 2D URP)。
+- **C# 测试管线**:`unity-tests/Core.Tests`(xUnit,net10.0)直接 glob 编译 `unity/Assets/Scripts/{Core,Interaction}/**/*.cs`(单一真源,不 using UnityEngine)。
+- **桶 A 转写 wave 1 ✅**:6 单元 opus 并行转写(Workflow)—— GoalEvaluator(+PuzzleConfigTypes 最小集)/ProgressStore/M01CutsceneTiming/DragHandler/FilterSystem/SnapZone。`dotnet test` **36/36 绿**(基线 16 → +20)。
+- **fable 对抗审查 ✅ 已消费**:6 单元审语义保真。逮到 2 处真缺陷(测试没覆盖的分支,正是 green≠correct):
+  1. **ProgressStore bug** — 单条超 long 范围时间戳 `(long)` 强转抛 OverflowException 被 catch-all 吞成**整档清空**(TS 是逐条打捞)。修:`TryGetLongMs` 只认在范围内的整数 token、永不抛,浮点也跳过(顺带消 float 静默舍入 risk)。
+  2. **DragHandler risk** — PointerId 装箱后 int 7≠long 7≠7.0,拖拽跨数值类型静默卡死(TS 单一 number 恒相等)。修:SamePointer 数值归一到 double 比较(NaN 自动复刻 TS !==);附带修错挂到 Point2 的 XML 注释。
+  - 补 5 个 C# 转写专属回归桩钉死;`dotnet test` **41/41 绿**。
+  - 其余 nit 全部 defer 有据:GoalEvaluator/FilterSystem/M01CutsceneTiming/SnapZone 的偏离都是 JSON 类型外输入(C# 反而更安全)或未覆盖分支的测试硬化,非 bug。
+- **⚠️ 待办(Unity 阶段)**:ProgressStore 默认存储恒 null → Unity 里无参 CreateProgressStore 不持久;做存储层时补 **PlayerPrefs 适配 IKeyValueStorage** 作默认 + 恢复 storage 三态(显式 null=内存)。
+- **角色分工(用户定)**:fable 出计划 → opus 执行转写 → fable 审阅。审查已按全局 CLAUDE.md 要求消费到底(修/defer 逐条明确)。
+
+- **桶 A wave 2 ✅ 转写完**:①**PuzzleConfig**(收编 wave1 最小 `PuzzleConfigTypes.cs` 并删之 + 定义 `ValidationResult<T>`)。②**StarWebConfig**(因后台 agent 屡被网络/重启掐死, 改**主会话 inline 手写**: 数据模型 + JToken 校验器逐字保 TS 文案 + `ToObject` 建强类型 + mechanic 隐式转 StarNetworkRules + 24 测试含配置×模型集成/位掩码配额下界)。**`dotnet test` 69/69 绿**(45→+24)。③**fable 审已消费**(它实编真 C#+node strip-types 跑真 TS 双侧实证)。**StarWebConfig(我 inline 写)faithful=false, 5 处系统性边界 bug 全修 + 补 5 钉死桩**: (a)`ToObject<ToolCardDraft>` 先转型把 stage=2.5→2/"1"→1/123→"123" 洗成合法放行烂数据→改对原始 JToken 跑严格校验; (b)RequireOptionalString 多排 Null → `description:null` 该拒→删该分支; (c)ValidatePrologue 多吞 null → `prologue:null` 该拒→只跳 undefined; (d)IsPositiveInteger 只认 Integer 拒整值浮点 1.0 → 改 Math.Floor 判整(Number.isInteger 等价); (e)多处裸 (long)/(string) 强转在对象/超大整数上抛→TryGetFiniteNumber+ToObject try/catch, 校验器永不抛。PuzzleConfig faithful=true, 加 ToObject 防抛; **GoalDef.Params 有损投影 defer 到 goal 类型波次**(real m01 overlap goal 只读 Type 不受影响)。**`dotnet test` 74/74 绿**。
+
+**下一步**:StarWebConfig 落地 → dotnet test 验 → 派 fable 审 PuzzleConfig+StarWebConfig → 消费。再往后桶 A 剩余(M01/M02 session、物理数学 Rope/Rotation、layout、TargetPatternGenerator/StandardPieceBlend、IntroFlow)。桶 B/C/D 等 Unity(6000.3.19f1, 用户装中)。
+
+**⚠️ 环境教训(session 重启清后台任务)**:本机网络 ECONNRESET 频发, 多 agent 长 workflow 易中途挂(且 verify 返 null 会连锁崩脚本)。稳妥法 = 转写/审用 subagent(写文件即使掉线也存活), **verify 一律主会话 `dotnet test`**(本地不吃 API 抖动);workflow 脚本务必守 null 返回;后台 shell PATH 被剥, 脚本头 `export PATH`;下载用续传 curl 循环。Unity 编辑器直链: changeset `7689f4515d75`, `download.unity3d.com/download_unity/<cs>/MacEditorInstallerArm64/Unity-6000.3.19f1.pkg`(+iOS/Mac IL2CPP TargetInstaller)。
+
+### Unity 工程 + MCP(Phase 0→1, 2026-07-12)
+- **编辑器已装**: `/Applications/Unity/Unity-6000.3.19f1/Unity.app`(pkg 装法, root 所有), 含 iOSSupport + MacStandaloneSupport 模块。
+- **StarGuardian 2D URP 工程已建**: `<worktree>/StarGuardian/`。**不是让用户 GUI 建的, 我直接解压编辑器自带模板** `com.unity.template.2d-cross-platform-2d-6.1.2.tgz` 的 `ProjectData~` 而成(=Hub 干的事)。含 URP 17.0.3 + `Assets/Settings/{UniversalRP,Renderer2D}.asset`(2D 渲染器就位, Light2D 可用, Bloom 只差开后处理)。已加 Unity `.gitignore`。
+- **Unity MCP 选 CoplayDev/unity-mcp**(vet 干净: 12.4k★/MIT/活跃 v10/无 phone-home/无 key/标准编辑器权限)。已把包 `com.coplaydev.unity-mcp`(git URL `?path=/MCPForUnity#main`)写进 `StarGuardian/Packages/manifest.json`。Python 服务走 `uvx mcpforunityserver`(uv 0.10.5 已装; 系统 py3.9 不碍事, uv 自带 py3.10+)。
+- **待用户 + 重启**: ①用户在 Unity 打开 StarGuardian(首开导入 MCP 包 + 起编辑器桥)→ ②Window → MCP for Unity → Configure(选 Claude Code, 它自动写 MCP 配置)→ ③**重启 Claude Code** MCP 才连上。连上后我用 MCP 直接驱动编辑器搭 **Phase 1 M2 光效切片**(Light2D+Bloom+呼吸)→ 用户肉眼验 go/no-go。
+- 注意: git-url 包首开要 Unity 联网 git fetch, 本机网络 ECONNRESET 频发可能失败 → 失败就改本地 clone + `file:` 引用。
+- **MCP 连上了**(CoplayDev, `mcp__UnityMCP__*`);工程首开 git fetch 成功, 0 编译错。
+
+### Phase 1 光效切片 ✅(2026-07-12, 全程 MCP 驱动编辑器)
+- 场景 `Assets/Scenes/M2GlowProbe.unity` + 脚本 `Assets/GlowProbe/M2GlowProbe.cs`([ExecuteAlways] 程序化搭 M2 星网:3 节点 + 2 光带 + 呼吸)+ 加法 shader `Assets/GlowProbe/GlowAdditive.shader`(URP HLSL, Blend One One, `_Intensity` HDR)。
+- 技法 = **分层加辉(additive)+ Light2D + URP Bloom(Volume)+ 呼吸律动**, 低饱和青/琥珀(Arrog 风)。**这套正是全量 M2 会用的**。
+- 迭代 4 轮(截图自查): ①alpha 混合太闷 → ②加法混合(但低 alpha 仍暗)→ ③shader `_Intensity` HDR 让光晕过 Bloom 阈值 → ④光带 blob 加密(46 步)连成连续光带。结果: 发亮星节点 + 平滑呼吸光带 + 暗底, 意境到位。
+- **待用户 go/no-go 审美判断**(截图已给)。过 → 正式迁移(把 74 测试的 C# 搬进工程 + 按桶 B 拆解重建 M01/M02);不过 → 调参或重议。
+- **关键收获: MCP 能让我截图自查 + 迭代**, 不再"盲写引擎代码"——URP API 一遍编译过, 光效可视迭代。这改变了桶 B/D 的可行性(之前担心盲写 Light2D/Bloom 崩)。
+- **2026-07-12 用户 GO**: "光效比 cocos 强太多", 拍板正式全量迁移, 光效留着后面微调, **先做 M01**。光效切片保留在 `Assets/GlowProbe/` 作全量 M2 的技法样板。
+
+### 地基整合 ✅(2026-07-12): 纯逻辑 C# 进真工程 + Unity 编译通过
+- 10 个已转写 C#(Core+Interaction, 74 测试)从暂存 `unity/Assets/Scripts` **搬进 `StarGuardian/Assets/Scripts`**;`unity-tests/Core.Tests` csproj glob 重指到 StarGuardian;**dotnet 仍 74 绿**。旧 `unity/` 暂存已空。
+- manifest 加 `com.unity.nuget.newtonsoft-json 3.2.1`(纯逻辑用它);Unity 已把 manifest 重排/升级(URP→17.3, 含 `com.unity.modules.video` → 通关过场以后可用 VideoPlayer)。
+- **Unity C#9/netstandard 兼容坑当场修**(console 在环提前暴露, 见记忆): ①`record struct`(C#10)→ 手写 `readonly struct`+值相等; ②`init` → 加 `Assets/Scripts/IsExternalInit.cs` polyfill(放 Scripts/ 根避开 dotnet net10 的 glob 不冲突)。Unity 侧 0 编译错。
+- **后续转写必守 C#9**: 不用 record struct / 文件级 namespace / global using;record 类、init(有 polyfill)、模式匹配 OK。
+
+### M01 全量重建路线(桶 B 顺序, 见 unity-migration-m01-adjustments.md)
+1. 纯逻辑补齐(桶 A 剩余): M01GreyboxSession/Layout/TargetPatternGenerator/StandardPieceBlend → 物理数学 Rope/Rotation/Collider/Random → RepairSequence/PuzzleInputRouter/IntroFlow/IntroLayout/ManualTargetPersistence/ObservedResetScheduler/FlashlightBeam/Observation/MemoryGearController(逐波 transcribe+dotnet 验+fable 审, C#9 兼容)
+2. M01Level + PuzzleBoardView + FragmentView(config→静态盘面)→ "看到关卡"(MCP 驱动 + 截图自验)
+3. DragInputController + EvidenceValidator → "玩核心谜题"(调试开关跳过 intro)
+4. FlashlightRig(Light2D + Shader Graph 显色, 接 Phase 1 光效)
+5. CompletionDirector(VideoPlayer 播母版 mp4)+ ToolCardView + HintButton → 通关闭环
+6. IntroDirector + BasketRig + LemmyController(开场小剧场, 最后搬)
+
+### M01 纯逻辑 wave-1 ✅(2026-07-12): 11 无依赖叶子
+StandardPieceBlend / RepairSequence / PuzzleInputRouter / IntroFlow / IntroLayout / ObservedResetScheduler / FlashlightBeam / FlashlightObservation / PhysicsRotation / PhysicsRandom / RopePhysics → `StarGuardian/Assets/Scripts/M01/`。**dotnet 134 绿(74→+60)+ Unity C#9 编译干净。** fable 审 11 个已消费:9 faithful(只 nit), **2 修真 bug**:
+- **ObservedResetScheduler**: `new Timer(cb,0,..)` 竞态(回调可能在 timer 字段赋值前触发→NRE)→ 先建不启动再 `Change` 启动; 负 delayMs(`-1`=Timeout.Infinite 静默永不触发/其他负值抛)→ `Math.Max(0,delayMs)` 复刻 JS 钳 0。线程安全 risk 记为文档假设(Unity 注入主线程引擎计时器, 不走默认多线程路径)。
+- **M01IntroLayout**: 负索引 `arr[i%len]` C# List 抛 vs TS undefined→非circle → 加 `ShapeAt`(i≥0 取模包裹, i<0 返 null)精确复刻(正模会错误 wrap, 不采纳 reviewer 那条)。
+- **defer 的 nit(记约定)**: ①手写值 struct 的 `Equals` 用 `==` 比 double → NaN 不自反, 应改 `.Equals()`(潜伏面, 坐标无 NaN); ②record 类含 `IReadOnlyList` 字段的合成 `==` 是引用相等(别用 `==` 比这类 record); ③EmptyParams 静态共享 vs TS 每段 fresh {}; ④测试里数值 params 装箱 int(真 JSON 出 double)。均不在可达路径。
+### M01 纯逻辑 wave-2 ✅(2026-07-12): 配置类型 + 层1
+M01MemoryGearConfig(+ Controller 纯函数 M01MemoryGearColors)/ M01GreyboxText / M01PhysicsCollider / M01TargetPatternGenerator / M01ManualTargetPersistence / M01GreyboxLayout → `StarGuardian/Assets/Scripts/M01/`。**dotnet 155 绿(134→+21)+ Unity C#9 编译干净。** 越界: 为 `M01MemoryGearConfig extends PuzzleConfig` 把 Core/PuzzleConfig 从 sealed 解封(grep 确认无依赖 sealed, 语义不变)。复用 Core.Vec2Def/ToolCardDraft。
+fable 审 5 单元消费: **修 1 真 bug** — `JToken.Parse` 默认 DateParseHandling 把日期样字符串静默转 Date→"是字符串"判定失败丢记录(ProgressStore + ManualTargetPersistence 两站点)→ 新增 `Core/JsonUtil.ParseStrict`(DateParseHandling.None)统一。其余对真实数据全 latent(fragmentId 非日期/坐标有限/config 字段齐), 记为 **⚠️ 建 M01 引擎层时消费的 to-do**:
+1. **TargetPatternGenerator 只转了 3 条 vitest 的 1 条**(跳测理由"Layout 不存在"已过时)→ 补转第 3 条(钉 locked=true 从当前 pieces 派生、不用 stale config.evidence 的核心语义)。
+2. **GreyboxLayout**: ①HiddenColor 回退链 `hiddenColor ?? color ?? "hidden"` 被删(real config 都有 hiddenColor 故 latent)→ HiddenColor 改可空 + 复原回退; ②BuildTargetSlots `fragmentIds[0/1]` 无守卫, <2 元素崩 → 加 Count 守卫(TS 产 "undefined" 键); ③FindEntityPosition 分不清"无 position"vs"(0,0)"。
+3. **M01MemoryGearColors** 头注称"xUnit 钉死"但无 C# 测试 → 补 7 条颜色函数 [Fact](或改注释)。
+4. **TargetPatternGenerator ResolveConfigWithCurrentTargetEvidence** 手写逐字段拷贝无守卫 → 加反射守护测试(新增 config 字段漏拷会炸红)。
+5. **GoalDef.Params** 仍 AllSortedGoalParams(丢 overlap goal 键)→ GoalEvaluator 长出 overlap 支持时读 M01MemoryGearConfig.Goal(单数)。
+6. 配置必填字段无 M01 校验器(反序列化默认值)/ JToken 宽松解析(NaN/Infinity/尾随)—— 约定级, latent。
+**Unity 导入教训**: 新增 .cs 要 `refresh scope=all`(assets 导入生成 .meta)才被 Unity 看到; scope=scripts 只重编已导入的、看不到新文件(dotnet 直接 glob 不受影响)。
+
+### M01 纯逻辑收尾波 ✅ 转写(2026-07-12): Session + Drag + Controller 状态机
+M01GreyboxSession(29 测试)+ M01GreyboxDrag(14 测试, 吸附旋转真理值表)+ **agent 合理扩权把有状态 M01MemoryGearController 状态机一并转了**(Session 硬前置; 自造 M01OrderedMap 复刻 JS Map 插入序语义)+ fixture M01LegacySortConfig。**dotnet 198/198 绿(155→+43)+ Unity C#9 编译干净。M01 纯逻辑 100% 搬完。**
+- fable 审消费: **Drag ✅ faithful**(reviewer 用 console harness 实测 22/22; 唯一 risk=根目录 `tests/m01SnapRotation.test.ts` 那套血战语义没迁 C#)→ **已消费: 补迁 M01SnapRotationTests.cs(10 Fact), dotnet 208/208 绿**。**Session+Controller 审 ✅ faithful 零 bug**(reviewer 双侧差分探针 E1-E10 实测; M01OrderedMap 实证复刻 JS Map: 同键覆盖保原位/删除后迭代序/迭代中删除)。3 risk 全在**畸形 config 才可达**角落(hiddenColor 缺失→C# 抛 vs TS 优雅拒/空串穿透 null 判断/validationLightSeconds 缺席→TS NaN 永闪 vs C# 0 即灭), 正式 config+夹具不可达 → 归并进已有 to-do #6(M01 config 载入校验器, 挡畸形 config 是正解)。nit 记档(unlockedAt long 截断/空串 falsy 家族/异常类型映射已声明)。**真消费 = 覆盖债: controller 直测 23 条零转写**(OrderedMap 迭代删除序/ProgressStore 布线/GetToolCardUnlock 零钉子)→ 已派后台 opus 补转 M01MemoryGearControllerTests.cs。
+- 血战语义补钉: M01SnapRotationTests.cs(10 Fact)已落, **dotnet 208/208 绿**。
+
+### M01 盘面探针 ✅(2026-07-12): 真实配置在 Unity 渲出
+`StarGuardian/Assets/GlowProbe/M01BoardProbe.cs` + 场景 `Assets/Scenes/M01BoardProbe.unity`: Resources 加载真实 `m01-memory-gear.json`(已拷 `Assets/Resources/Configs/`)→ JsonConvert → **已迁移的 M01GreyboxLayout.Build** → 世界空间 SpriteRenderer 渲出(纸底/齿轮背板/中心 6 目标槽虚影+6 证据簇/右侧 9 拼片托盘 3×3, 程序化形状贴图 圆/三角/六边 fill+outline, PPU=100 Cocos px→units, Cocos 顺时针角→Unity -Z)。console 打点: fragments=9 slots=6 evidence=6 + 中文状态文案原样。**"纯逻辑层→Unity 渲染"整条链路验通。**
+下一步(桶 B 正式化, 让它可玩): DragInputController(Input System 指针→DragHandler/GreyboxDrag)→ 点击/拖拽/吸附 → FlashlightRig(Light2D 显色)→ EvidenceValidator → CompletionDirector。
+
+### M01 拖拽交互探针 ✅(2026-07-12): 鼠标拖放+吸附在 Unity 跑通
+`M01DragProbe.cs`(挂 M01BoardProbe 同节点, 场景已存): 左键按住拖拼片/拖中 R 键 90° 步进旋转/松手走 **ResolveM01GreyboxDrop** 按 action 处置(snap=落槽染灰绿/stick=贴槽染琥珀提示转角/weak_snap=吸证据淡紫/free=原地灰白)。逻辑层 token.Position 与渲染层 GameObject 同步(layout=单一真源)。注意 ProjectSettings `activeInputHandler=1`(仅新 Input System)→ 必须 `Mouse.current`, 旧 `Input.*` 会抛。
+Play 冒烟(execute_code 程序化拖放+截图): 对角落槽→snap✓(绿三角进盘中心槽, 90°角对)/错角→stick✓(琥珀贴槽)/诱饵任意角→free✓。**输入→吸附判定(迁移逻辑)→渲染同步整链跑通。** 用户可自己 Play 鼠标拖。
+探针级简化(正式 DragInputController 再升级): 距离拾取无 Collider/EventSystem。
+
+### M01 通关闭环 ✅(2026-07-12): session 全链在 Unity 跑通
+`M01BoardProbe` 建 `M01GreyboxSession.FromConfig`; `M01DragProbe` 接完整玩法: 拾起即 UnstageFragment+清记账(**拾起归零旋转账本 = Cocos stale-rotation-ledger 坑的正解**)→ 落下按 action 记账(snap→中央 target 槽 / weak_snap→session.WeakSnapFragmentToEvidence)→ **每证据两真解片齐即 SubmitEvidencePair** → AreAllEvidenceStaged → **ValidateCandidateStructure** → 底光染色(accepted=灰绿/fail=砖红)。加 `DebugDrop(fragmentId,x,y,rotation)` 冒烟入口(与鼠标同路径)。
+Play 冒烟: 6 真解片按槽 pose DebugDrop → 6 配对提交 → allStaged=True → **VALIDATE accepted=True completed=True bottomLight=steady_on, status="底光保持亮起,结构成立。"**, 背板染绿, 托盘剩 3 诱饵。**拾→拖→旋→吸附→配对→验证→通关整链全走真实迁移逻辑。** controller 直测 23 条也已落(231/231 绿)。
+### M01 FlashlightRig 探针 ✅(2026-07-12): Light2D 光池 + 混色显色跑通
+`M01FlashlightProbe.cs`(挂同节点, 场景已存): **F 键循环 红→黄→蓝→灭**(session.SelectFlashlight/ClearFlashlight, 换灯自动清 observed 全恢复底色)+ **Light2D 点光池跟鼠标**(颜色随灯色, 视觉半径=覆盖 70px×1.6)+ 每帧覆盖判定(config radius 70)→ 进=session.RevealFragment→RevealedColor 染色 / 出=恢复 FragmentBaseColors(玩法反馈色账本, DragProbe 落子时同步写)。为 Light2D 可照: BoardProbe 全部 sprite 换 `Sprite-Lit-Default` 材质 + 场景加 Global Light2D(intensity 1 保基础亮度)。
+Play 冒烟: 红灯压 hexagon_blue_1 → 覆盖内 3 片显色 **蓝→purple×2 / 黄→orange**(颜料混色语义原样), 覆盖外灰白, Light2D 光斑同框。**Cocos 里"代码生成 glow 贴图+packable 坑"整套 = Unity 一个 Light2D 组件。**
+### M01 CompletionDirector 探针 ✅(2026-07-12): VideoPlayer 播母版 = FFmpeg 立项正式作废
+`M01CompletionProbe.cs`: validate.Completed → **Unity VideoPlayer 全屏播 iOS 同款母版 mp4**(1920×1280/14.3s, `Assets/Resources/Videos/`, CameraNearPlane+FitInside)→ 点击跳过/播完 → 打出智慧结晶卡(session.GetLastToolCard, 完整卡面 log; 视觉卡面=下一波 UI)。
+**坑(记)**: VideoPlayer `loopPointReached` 实测**不触发**(停 333/343 帧 isPlaying=false 回调不来)→ Update 看门狗兜底(time>0.5 且 !isPlaying 或逼近片尾)——**Cocos VideoPlayer"完成回调不可靠+看门狗"的教训跨引擎复现, 同款解法**。
+Play 全流程冒烟(全自动): DebugDrop 6 片 → 通关 → ▶ 过场(截图=星光路径云海 finale 帧)→ 看门狗收尾 → 🎴 智慧结晶卡 [m01] 分类与归纳。**Steam 桌面视频洞至此闭合: 一个 VideoPlayer 组件 + 看门狗 ≈ 原 FFmpeg 立项的全部验收目标(流式/HD/省内存/跳过/出卡)。**
+**桶 B 剩余**: ToolCard UI 卡面(Canvas)→ 正式化输入(Collider/EventSystem)→ 美术资产导入(拼片/盘面/莱米 802 帧)→ 莱米开场小剧场(最后)。M01 可玩内核(拖/转/照/配对/验证/通关/过场/出卡)**已全部在 Unity 跑通**。
+- 注意: 这波 agent 手写了 .cs.meta(违约定但 Unity 已吃下没报 GUID 冲突, 不动)。
+- **下一步**: 消费审 → MCP 驱动搭 PuzzleBoardView(Unity 里渲出 M01 盘面给用户看)→ 桶 B 逐件(DragInputController/EvidenceValidator/FlashlightRig…)。
+
+## 已搁置(被上面的 Unity 迁移取代):M01 通关过场 Steam FFmpeg 解码器(2026-07-11 立项)
+
+用户拍板走**方案 B(自建 FFmpeg 原生解码器)** 取代 Steam 桌面现走的逐帧 Sprite 序列(344 帧 960×640 → RGBA 峰值 ~845MB)。选 B 而非更懒的「窗口化加载帧序列」,因为要 **HD 1920×1280 + 多段过场**:窗口化的内存跟分辨率死绑(HD 下 <50MB 只剩 ~5 帧窗口、缓冲薄易卡),FFmpeg 流式解码缓冲恒 1~2 帧、与分辨率无关;插件+JSB 的一次性投入被 M02-M10 过场摊薄。Bink(~$8500/平台/作品)/OS 原生媒体/libVLC/Theora 均评估后否掉。
+
+**本会话只交付「计划 + 环境清单」,不碰代码**(用户选定)。权威方案 + 分阶段执行计划 + 环境准备清单 + 技术要点全落 `docs/design/m01-completion-ffmpeg-decoder-plan.md`(已升级)。要点:
+- **唯一硬阻塞 = 阶段 0 环境**(本仓无桌面原生工程 + 无 FFmpeg 库 + 本机 Mac 无 Win MSVC)。阶段 2-5 原生代码在此环境编不了验不了,须留给有构建机的会话。
+- **阶段 1(TS 契约 + 桌面分流降级)此环境可做可验**,且不是 B 的沉没成本(叠层/看门狗/跳过/收尾复用现有,原生只替换「帧加载+渲染」内循环);做了它 Steam 在 native 落地前继续走帧序列降级。
+- **基座搬 [Xrysnow/cocos2d-x-video](https://github.com/Xrysnow/cocos2d-x-video)**(MIT, ffmpeg4.0+, FFDemuxer/FFCodec/**FFFrameQueue** 解码线程队列直接可用),砍移动端、贴图上传/JSB 为 CC 3.8 重写。
+- **音频 v1 简化**:复用现成 `completion-audio.mp3` 独立 AudioClip 同起(帧序列路径已验证的做法),不在 C++ 解 PCM → 原生契约收窄为纯视频 open/decodeNextFrame/close。
+- **已知坑**:解码帧 SpriteFrame 必 `packable=false`(否则动态图集 texSubImage2D 洪水);swscale→RGBA8888 注意 stride;验收必跑 codex(原生 headless 验不了)。
+
+**下一步**:待用户备好阶段 0 环境(或决定先做阶段 1 的 TS 契约切片),再开工原生。当前无代码改动,仅文档。
 
 ## 当前活跃线:M02 开场序章「三颗余烬点棒」(2026-07-09, 分支 `feat/m02-prologue`, 隔离 worktree)
 
