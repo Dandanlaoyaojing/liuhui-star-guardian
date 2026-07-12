@@ -103,6 +103,8 @@ Play 冒烟: 红灯压 hexagon_blue_1 → 覆盖内 3 片显色 **蓝→purple×
 `M01CompletionProbe.cs`: validate.Completed → **Unity VideoPlayer 全屏播 iOS 同款母版 mp4**(1920×1280/14.3s, `Assets/Resources/Videos/`, CameraNearPlane+FitInside)→ 点击跳过/播完 → 打出智慧结晶卡(session.GetLastToolCard, 完整卡面 log; 视觉卡面=下一波 UI)。
 **坑(记)**: VideoPlayer `loopPointReached` 实测**不触发**(停 333/343 帧 isPlaying=false 回调不来)→ Update 看门狗兜底(time>0.5 且 !isPlaying 或逼近片尾)——**Cocos VideoPlayer"完成回调不可靠+看门狗"的教训跨引擎复现, 同款解法**。
 Play 全流程冒烟(全自动): DebugDrop 6 片 → 通关 → ▶ 过场(截图=星光路径云海 finale 帧)→ 看门狗收尾 → 🎴 智慧结晶卡 [m01] 分类与归纳。**Steam 桌面视频洞至此闭合: 一个 VideoPlayer 组件 + 看门狗 ≈ 原 FFmpeg 立项的全部验收目标(流式/HD/省内存/跳过/出卡)。**
+### M01 盘面美术上身 ✅(2026-07-13): 齿轮水彩盘 + 描边拼片
+真水彩贴图拷入 `StarGuardian/Assets/Resources/Art/M01/`(hidden-fragments 3 + light-edge 3 + overlap-memory-gear + flashlights 3)。M01BoardProbe: 齿轮用 `m01-overlap-memory-gear`(750², 被半透明化的灰盒背板透出), 拼片=水彩底片(tint 白显本色)+ 描边子节点(不吃染色, 墨线恒色), 缺贴图回退程序化形状。显色/反馈染色乘法 tint 在水彩纹理上语义与 Cocos Sprite.color 一致(冒烟: 紫/橙水彩显色 + 绿 snap 反馈 + Light2D 光斑同框)。
 **桶 B 剩余**: ToolCard UI 卡面(Canvas)→ 正式化输入(Collider/EventSystem)→ 美术资产导入(拼片/盘面/莱米 802 帧)→ 莱米开场小剧场(最后)。M01 可玩内核(拖/转/照/配对/验证/通关/过场/出卡)**已全部在 Unity 跑通**。
 - 注意: 这波 agent 手写了 .cs.meta(违约定但 Unity 已吃下没报 GUID 冲突, 不动)。
 - **下一步**: 消费审 → MCP 驱动搭 PuzzleBoardView(Unity 里渲出 M01 盘面给用户看)→ 桶 B 逐件(DragInputController/EvidenceValidator/FlashlightRig…)。

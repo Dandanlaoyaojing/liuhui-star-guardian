@@ -85,9 +85,13 @@ public sealed class M01BoardProbe : MonoBehaviour
         // 纸底(整画布)
         AddQuad(root, "paper", new Vector2(0, 0), new Vector2((float)layout.Canvas.Width, (float)layout.Canvas.Height), Paper, -10);
 
-        // 齿轮盘 + 拼接背板
-        AddShape(root, "gear", "circle", layout.Gear.Position, layout.Gear.Size, GearTint, -5, 0);
-        AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(Paper.r * 0.96f, Paper.g * 0.95f, Paper.b * 0.92f), -4);
+        // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)
+        if (!TryAddArtSprite(root, "gear", "m01-overlap-memory-gear", layout.Gear.Position, layout.Gear.Size, Color.white, -5, 0))
+        {
+            AddShape(root, "gear", "circle", layout.Gear.Position, layout.Gear.Size, GearTint, -5, 0);
+        }
+        // 拼接背板半透明: 齿轮水彩盘(-5)从下面透出来(灰盒时代背板是实心方形, 有真齿轮图后只留轻微拼区提示)。
+        AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(Paper.r * 0.96f, Paper.g * 0.95f, Paper.b * 0.92f, 0.30f), -4);
 
         // 目标槽(虚影轮廓, 按 rotation)
         foreach (var slot in layout.TargetPieceSlots)
@@ -110,14 +114,15 @@ public sealed class M01BoardProbe : MonoBehaviour
             }
         }
 
-        // 9 拼片(灰白未显色; 描边示形)。渲染层节点登记进 fragmentObjects 供交互层驱动。
+        // 9 拼片: 真水彩灰白片(hidden)+ 描边(light-edge)两层; tint=白 显贴图本色,
+        // 显色/反馈仍走 SpriteRenderer.color 乘法(与 Cocos Sprite.color 同语义)。缺贴图回退程序化形状。
         fragmentObjects.Clear();
         FragmentBaseColors.Clear();
         foreach (var frag in layout.Fragments)
         {
-            var go = AddShape(root, $"frag:{frag.ControllerId}", frag.ShapeToken, frag.Position, frag.Size, GreyPiece, 0, 0);
+            var go = AddFragmentNode(root, frag);
             fragmentObjects[frag.ControllerId] = go;
-            FragmentBaseColors[frag.ControllerId] = GreyPiece;
+            FragmentBaseColors[frag.ControllerId] = Color.white;
         }
         Layout = layout;
 
@@ -140,6 +145,61 @@ public sealed class M01BoardProbe : MonoBehaviour
     }
 
     // ── 渲染原语 ──
+
+    /// <summary>拼片节点: 水彩底片(可染色)+ 描边层(恒白, 不吃 tint)。返回底片 GameObject(交互层驱动它)。</summary>
+    private GameObject AddFragmentNode(GameObject parent, M01GreyboxTokenNode frag)
+    {
+        var body = TryLoadArt($"m01-fragment-hidden-{frag.ShapeToken}");
+        if (body == null)
+        {
+            return AddShape(parent, $"frag:{frag.ControllerId}", frag.ShapeToken, frag.Position, frag.Size, GreyPiece, 0, 0);
+        }
+        var go = MakeArtSprite(parent, $"frag:{frag.ControllerId}", body, frag.Position, frag.Size, Color.white, 0);
+        var edge = TryLoadArt($"m01-fragment-light-edge-{frag.ShapeToken}");
+        if (edge != null)
+        {
+            // 描边挂子节点: 随父移动/旋转, 但不吃父 SpriteRenderer 的染色(保手绘墨线恒色)。
+            var edgeGo = new GameObject("edge");
+            edgeGo.transform.SetParent(go.transform, false);
+            var esr = edgeGo.AddComponent<SpriteRenderer>();
+            esr.sprite = edge;
+            if (litMaterial != null) esr.sharedMaterial = litMaterial;
+            esr.sortingOrder = 1;
+            var body0 = go.GetComponent<SpriteRenderer>();
+            // 与父同世界尺寸: 父已按 Size 缩放, edge 贴图若同分辨率则 localScale=贴图尺寸比。
+            var scale = body0.sprite.bounds.size.x / esr.sprite.bounds.size.x;
+            edgeGo.transform.localScale = new Vector3(scale, scale, 1f);
+        }
+        return go;
+    }
+
+    private bool TryAddArtSprite(GameObject parent, string name, string resource, M01GreyboxPoint pos, M01GreyboxSize size, Color tint, int order, float rotationDeg)
+    {
+        var sprite = TryLoadArt(resource);
+        if (sprite == null) return false;
+        MakeArtSprite(parent, name, sprite, pos, size, tint, order, rotationDeg);
+        return true;
+    }
+
+    private GameObject MakeArtSprite(GameObject parent, string name, Sprite sprite, M01GreyboxPoint pos, M01GreyboxSize size, Color tint, int order, float rotationDeg = 0)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent.transform, false);
+        go.transform.localPosition = new Vector3((float)pos.X / Ppu, (float)pos.Y / Ppu, 0);
+        go.transform.localRotation = Quaternion.Euler(0, 0, -rotationDeg);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        if (litMaterial != null) sr.sharedMaterial = litMaterial;
+        sr.color = tint;
+        sr.sortingOrder = order;
+        // 目标显示尺寸(Cocos px)→ units, 除以贴图自身 units 尺寸得缩放(等比, 按宽)。
+        var targetUnits = (float)System.Math.Max(size.Width, size.Height) / Ppu;
+        var scale = targetUnits / sprite.bounds.size.x;
+        go.transform.localScale = new Vector3(scale, scale, 1f);
+        return go;
+    }
+
+    private static Sprite? TryLoadArt(string name) => Resources.Load<Sprite>("Art/M01/" + name);
 
     private void AddQuad(GameObject parent, string name, Vector2 cocosPos, Vector2 sizePx, Color color, int order)
     {
