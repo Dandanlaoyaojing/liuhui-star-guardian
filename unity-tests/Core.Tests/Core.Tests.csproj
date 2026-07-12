@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- 直接编译 Unity 工程里的引擎无关源码(单一真源, 不复制文件):
+       这些 .cs 不得 using UnityEngine —— 它们要同时活在 dotnet test 与 Unity Assets 里 -->
+  <ItemGroup>
+    <Compile Include="../../StarGuardian/Assets/Scripts/Core/**/*.cs" LinkBase="Core" />
+    <Compile Include="../../StarGuardian/Assets/Scripts/Interaction/**/*.cs" LinkBase="Interaction" />
+    <Compile Include="../../StarGuardian/Assets/Scripts/M01/**/*.cs" LinkBase="M01" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+</Project>
