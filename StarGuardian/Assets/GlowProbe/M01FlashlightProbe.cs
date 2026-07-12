@@ -20,6 +20,7 @@ public sealed class M01FlashlightProbe : MonoBehaviour
 
     private M01BoardProbe board = null!;
     private Light2D? pool;
+    private SpriteRenderer? handSprite; // 手持手电本体(贴图随灯色换, 灭=显示但压暗)
     private int cycleIndex = -1; // -1 = 灭
     private double coverageRadius = 70;
     private readonly HashSet<string> litNow = new();
@@ -83,7 +84,7 @@ public sealed class M01FlashlightProbe : MonoBehaviour
     private void EnsurePool()
     {
         if (pool != null) return;
-        var go = new GameObject("~FlashlightPool") { hideFlags = HideFlags.DontSave };
+        var go = new GameObject("~FlashlightPool");
         pool = go.AddComponent<Light2D>();
         pool.lightType = Light2D.LightType.Point;
         pool.pointLightInnerRadius = 0.1f;
@@ -91,8 +92,29 @@ public sealed class M01FlashlightProbe : MonoBehaviour
         pool.intensity = 0f; // 灭态
         pool.color = Color.white;
 
-        var cfgRadius = board.Layout?.Canvas != null ? coverageRadius : coverageRadius;
-        coverageRadius = cfgRadius;
+        // 手电本体贴图: 挂光池节点右上(像被手持着), 灯色换贴图, 灭态压暗。
+        var handGo = new GameObject("hand");
+        handGo.transform.SetParent(go.transform, false);
+        handGo.transform.localPosition = new Vector3(0.34f, 0.30f, 0);
+        handGo.transform.localRotation = Quaternion.Euler(0, 0, 35f); // 斜向下照
+        handSprite = handGo.AddComponent<SpriteRenderer>();
+        handSprite.sortingOrder = 60; // 压在拼片之上
+        SetHandSprite(null);
+    }
+
+    private void SetHandSprite(string? colorWord)
+    {
+        if (handSprite == null) return;
+        var name = colorWord == null ? "m01-flashlight-red" : $"m01-flashlight-{colorWord}";
+        var sprite = Resources.Load<Sprite>("Art/M01/" + name);
+        if (sprite == null) { handSprite.enabled = false; return; }
+        handSprite.enabled = true;
+        handSprite.sprite = sprite;
+        handSprite.color = colorWord == null ? new Color(0.65f, 0.65f, 0.65f) : Color.white; // 灭态压暗
+        // 手电显示高约 30px(Cocos FLASHLIGHT_VISUAL_HEIGHT≈30)。
+        var targetUnits = 30f / Ppu;
+        var s = targetUnits / sprite.bounds.size.y;
+        handSprite.transform.localScale = new Vector3(s, s, 1f);
     }
 
     private void CycleFlashlight()
@@ -103,6 +125,7 @@ public sealed class M01FlashlightProbe : MonoBehaviour
         {
             var off = session.ClearFlashlight();
             pool!.intensity = 0f;
+            SetHandSprite(null);
             Debug.Log($"M01FlashlightProbe: 灭灯 status=\"{off.Status}\"");
             RestoreAll();
             return;
@@ -111,6 +134,7 @@ public sealed class M01FlashlightProbe : MonoBehaviour
         var c = result.ActiveFlashlightColor ?? "";
         pool!.color = RevealTint(c);
         pool.intensity = 1.1f;
+        SetHandSprite(c);
         // 换灯色 → 旧显色作废, 全部恢复底色重照(session.SelectFlashlight 已清 observed)。
         RestoreAll();
         Debug.Log($"M01FlashlightProbe: {CycleIds[cycleIndex]}({c}) status=\"{result.Status}\"");

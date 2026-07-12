@@ -15,6 +15,8 @@ public sealed class M01CompletionProbe : MonoBehaviour
     private GameObject? playerGo;
     private ToolCard? pendingCard;
     private bool playing;
+    private GameObject? cardGo;
+    private Font? cardFont;
 
     /// <summary>通关入口: 全屏播母版过场, 播完/点击跳过 → 出结晶卡。幂等(重复调用忽略)。</summary>
     public void PlayCompletion(ToolCard? card)
@@ -29,7 +31,7 @@ public sealed class M01CompletionProbe : MonoBehaviour
             return;
         }
         playing = true;
-        playerGo = new GameObject("~M01CompletionVideo") { hideFlags = HideFlags.DontSave };
+        playerGo = new GameObject("~M01CompletionVideo");
         player = playerGo.AddComponent<VideoPlayer>();
         player.clip = clip;
         player.renderMode = VideoRenderMode.CameraNearPlane; // 全屏叠相机近平面, 天然盖住盘面
@@ -45,6 +47,25 @@ public sealed class M01CompletionProbe : MonoBehaviour
 
     private void Update()
     {
+        // 卡面展示中: 文字材质自愈(动态字体图集材质首帧可能未就绪 → 品红字形网格)+ 点击收卡。
+        if (cardGo != null)
+        {
+            if (cardFont != null && cardFont.material != null)
+            {
+                foreach (var mr in cardGo.GetComponentsInChildren<MeshRenderer>())
+                {
+                    if (mr.sharedMaterial == null) mr.sharedMaterial = cardFont.material;
+                }
+            }
+            var m = Mouse.current;
+            if (m != null && m.leftButton.wasPressedThisFrame)
+            {
+                Destroy(cardGo);
+                cardGo = null;
+                Debug.Log("M01CompletionProbe: 收卡");
+            }
+            return;
+        }
         if (!playing) return;
         var mouse = Mouse.current;
         if (mouse != null && mouse.leftButton.wasPressedThisFrame)
@@ -83,14 +104,88 @@ public sealed class M01CompletionProbe : MonoBehaviour
             Debug.Log("M01CompletionProbe: (无 ToolCard 数据)");
             return;
         }
-        // 探针级出卡: log 完整卡面(正式 ToolCardView 是 UI Canvas 活, 下一波)。
-        Debug.Log(
-            $"M01CompletionProbe: 🎴 智慧结晶卡 [{card.PuzzleId}] {card.Front.ToolName}\n" +
-            $"  场景: {card.Front.Scene}\n" +
-            $"  智慧结晶: {card.Front.WisdomCrystal}\n" +
-            $"  核心动作: {card.Back.CoreAction}\n" +
-            $"  何时使用: {string.Join(" / ", card.Back.WhenToUse)}\n" +
-            $"  现实例子: {string.Join(" / ", card.Back.RealLifeExamples)}\n" +
-            $"  常见误区: {card.Back.CommonTraps}");
+        Debug.Log($"M01CompletionProbe: 🎴 智慧结晶卡 [{card.PuzzleId}] {card.Front.ToolName}");
+
+        // 世界空间卡面(米白圆卡 + 中文动态系统字体 TextMesh, 零字体资产; 点击任意处收卡)。
+        cardGo = new GameObject("~M01ToolCard");
+
+        // 暗罩(全屏)
+        var dim = MakeQuad(cardGo.transform, "dim", new Vector2(0, 0), new Vector2(9.6f, 6.4f), new Color(0.08f, 0.09f, 0.11f, 0.72f), 90);
+        // 卡身(竖版)
+        MakeQuad(cardGo.transform, "cardBg", new Vector2(0, 0), new Vector2(3.4f, 4.6f), new Color(0.95f, 0.93f, 0.88f), 91);
+        MakeQuad(cardGo.transform, "cardEdge", new Vector2(0, 0), new Vector2(3.5f, 4.7f), new Color(0.30f, 0.32f, 0.35f), 90);
+
+        var font = Font.CreateDynamicFontFromOSFont("PingFang SC", 48);
+        cardFont = font;
+        // 预请求本卡全部字符, 催生字体图集/材质(否则首帧 font.material 可能为 null)。
+        font?.RequestCharactersInTexture(card.Front.ToolName + card.Front.WisdomCrystal + card.Back.CoreAction +
+            string.Join("", card.Back.WhenToUse) + card.Back.CommonTraps + "「」核心动作何时使用常见误区·;", 48);
+        MakeText(cardGo.transform, "title", card.Front.ToolName, new Vector2(0, 1.8f), 0.085f, new Color(0.22f, 0.24f, 0.27f), font, 92, FontStyle.Bold);
+        MakeText(cardGo.transform, "crystal", Wrap($"「{card.Front.WisdomCrystal}」", 13), new Vector2(0, 1.2f), 0.05f, new Color(0.42f, 0.36f, 0.5f), font, 92, FontStyle.Normal);
+        MakeText(cardGo.transform, "core", Wrap($"核心动作 · {card.Back.CoreAction}", 16), new Vector2(0, 0.35f), 0.042f, new Color(0.28f, 0.3f, 0.33f), font, 92, FontStyle.Normal);
+        MakeText(cardGo.transform, "when", Wrap($"何时使用 · {string.Join(";", card.Back.WhenToUse)}", 18), new Vector2(0, -0.65f), 0.036f, new Color(0.35f, 0.37f, 0.4f), font, 92, FontStyle.Normal);
+        MakeText(cardGo.transform, "traps", Wrap($"常见误区 · {card.Back.CommonTraps}", 18), new Vector2(0, -1.65f), 0.036f, new Color(0.5f, 0.4f, 0.36f), font, 92, FontStyle.Normal);
+    }
+
+    private static Material? uiQuadMaterial;
+
+    private static GameObject MakeQuad(Transform parent, string name, Vector2 pos, Vector2 size, Color color, int order)
+    {
+        // URP 2D 渲染器不认内置 Sprites-Default(品红)→ 显式 URP 2D Unlit(卡面 UI 不受光)。
+        if (uiQuadMaterial == null)
+        {
+            var sh = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+            uiQuadMaterial = sh != null ? new Material(sh) { hideFlags = HideFlags.DontSave } : null;
+        }
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = new Vector3(pos.x, pos.y, 0);
+        var sr = go.AddComponent<SpriteRenderer>();
+        var tex = Texture2D.whiteTexture;
+        sr.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
+        if (uiQuadMaterial != null) sr.sharedMaterial = uiQuadMaterial;
+        sr.color = color;
+        sr.sortingOrder = order;
+        go.transform.localScale = new Vector3(size.x, size.y, 1f);
+        return go;
+    }
+
+    private static void MakeText(Transform parent, string name, string text, Vector2 pos, float size, Color color, Font? font, int order, FontStyle style)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = new Vector3(pos.x, pos.y, 0);
+        var tm = go.AddComponent<TextMesh>();
+        tm.text = text;
+        tm.characterSize = size;
+        tm.fontSize = 48;
+        tm.fontStyle = style;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.color = color;
+        if (font != null && font.material != null)
+        {
+            tm.font = font;
+            go.GetComponent<MeshRenderer>().sharedMaterial = font.material; // 动态字体图集材质(GUI/Text Shader), 缺它=品红字形网格
+        }
+        go.GetComponent<MeshRenderer>().sortingOrder = order;
+    }
+
+    // TextMesh 无自动换行 → 按字数手动断(中文场景按字符数够用)。
+    private static string Wrap(string text, int perLine)
+    {
+        var sb = new System.Text.StringBuilder();
+        var count = 0;
+        foreach (var ch in text)
+        {
+            sb.Append(ch);
+            count++;
+            if (count >= perLine && ch != '\n')
+            {
+                sb.Append('\n');
+                count = 0;
+            }
+        }
+        return sb.ToString();
     }
 }
