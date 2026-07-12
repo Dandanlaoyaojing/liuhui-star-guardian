@@ -15,6 +15,9 @@ public sealed class M01DragProbe : MonoBehaviour
     private const float Ppu = 100f;
     private const float PickupSlackPx = 8f; // 半径外余量, 手感宽一点
 
+    /// <summary>开场期间锁输入(IntroProbe 控制); 无 IntroProbe 时保持 false 直接可玩。</summary>
+    public bool InputLocked;
+
     private M01BoardProbe board = null!;
     private M01GreyboxTokenNode? held;
     private GameObject? heldGo;
@@ -29,7 +32,7 @@ public sealed class M01DragProbe : MonoBehaviour
 
     private void Update()
     {
-        if (!Application.isPlaying || board.Layout == null) return;
+        if (!Application.isPlaying || board.Layout == null || InputLocked) return;
         var mouse = Mouse.current;
         if (mouse == null) return;
 

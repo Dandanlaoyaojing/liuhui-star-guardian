@@ -18,6 +18,9 @@ public sealed class M01FlashlightProbe : MonoBehaviour
 
     private static readonly string[] CycleIds = { "flashlight_red", "flashlight_yellow", "flashlight_blue" };
 
+    /// <summary>手电是否已拾取(IntroProbe 拾取后置真); 无 IntroProbe 的场景在 Start 里自动置真。</summary>
+    public bool Acquired = true;
+
     private M01BoardProbe board = null!;
     private Light2D? pool;
     private SpriteRenderer? handSprite; // 手持手电本体(贴图随灯色换, 灭=显示但压暗)
@@ -31,6 +34,12 @@ public sealed class M01FlashlightProbe : MonoBehaviour
     private void Update()
     {
         if (!Application.isPlaying || board.Layout == null || board.Session == null) return;
+        if (!Acquired)
+        {
+            if (pool != null) pool.intensity = 0f;
+            if (handSprite != null) handSprite.enabled = false;
+            return; // 手电未拾取(开场期间)
+        }
         var mouse = Mouse.current;
         if (mouse == null) return;
 

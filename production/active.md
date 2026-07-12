@@ -105,6 +105,10 @@ Play 冒烟: 红灯压 hexagon_blue_1 → 覆盖内 3 片显色 **蓝→purple×
 Play 全流程冒烟(全自动): DebugDrop 6 片 → 通关 → ▶ 过场(截图=星光路径云海 finale 帧)→ 看门狗收尾 → 🎴 智慧结晶卡 [m01] 分类与归纳。**Steam 桌面视频洞至此闭合: 一个 VideoPlayer 组件 + 看门狗 ≈ 原 FFmpeg 立项的全部验收目标(流式/HD/省内存/跳过/出卡)。**
 ### M01 盘面美术上身 ✅(2026-07-13): 齿轮水彩盘 + 描边拼片
 真水彩贴图拷入 `StarGuardian/Assets/Resources/Art/M01/`(hidden-fragments 3 + light-edge 3 + overlap-memory-gear + flashlights 3)。M01BoardProbe: 齿轮用 `m01-overlap-memory-gear`(750², 被半透明化的灰盒背板透出), 拼片=水彩底片(tint 白显本色)+ 描边子节点(不吃染色, 墨线恒色), 缺贴图回退程序化形状。显色/反馈染色乘法 tint 在水彩纹理上语义与 Cocos Sprite.color 一致(冒烟: 紫/橙水彩显色 + 绿 snap 反馈 + Light2D 光斑同框)。
+### M01 完全体探针闭环 ✅(2026-07-13): 手电可视化 + 卡面 UI + 开场小剧场
+①**手电本体**: 贴图随灯色换挂光池节点(灭态压暗)。②**智慧结晶卡面**: 暗罩+米白竖卡+分段中文(PingFang SC 动态字体 TextMesh 零资产; 材质首帧 null→RequestCharactersInTexture 预热+Update 自愈; 手动断行)。③**开场小剧场**(M01IntroProbe): 拼片藏篮(hanging 贴图含画好的满篮)→点篮→tipped→按 ResolveSpillFlingVelocity 散布逐片弧线倒出→空篮→手电掉地→点击拾取→解锁拖拽+手电(InputLocked/Acquired 门闩, 无 Intro 场景自动解锁)。钉子独立贴图(Cocos 老坑)。莱米帧动画=下一波。④**输入正式化(Collider/EventSystem)有据跳过**: 距离拾取与 Collider 命中在本玩法行为等价, 零增益(ponytail)。
+**新坑三连(已入 unity_runtime_gotchas)**: DontSave 跨 Play 残留 16 具尸体致"新码不生效"假象; 动态字体材质首帧 null=品红; **Console Error Pause + MCP 截图的 assertion 每截一图就暂停 Play**(协程全冻, 查 isPaused/frameCount)+ 失焦不跑帧(runInBackground=true)。
+**M01 探针级完全体**: 开场(篮/手电)→拖/转/照显色→吸附配对→验证底光→过场视频→结晶卡, 全链 Unity 落地可玩。剩正式化: 莱米 802 帧开场剧场/绳物理渲染/证据标记贴图/提示灯泡/正式组件化(探针拆正式类)。
 **桶 B 剩余**: ToolCard UI 卡面(Canvas)→ 正式化输入(Collider/EventSystem)→ 美术资产导入(拼片/盘面/莱米 802 帧)→ 莱米开场小剧场(最后)。M01 可玩内核(拖/转/照/配对/验证/通关/过场/出卡)**已全部在 Unity 跑通**。
 - 注意: 这波 agent 手写了 .cs.meta(违约定但 Unity 已吃下没报 GUID 冲突, 不动)。
 - **下一步**: 消费审 → MCP 驱动搭 PuzzleBoardView(Unity 里渲出 M01 盘面给用户看)→ 桶 B 逐件(DragInputController/EvidenceValidator/FlashlightRig…)。

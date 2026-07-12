@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 1761020272}
   - component: {fileID: 1761020273}
   - component: {fileID: 1761020274}
+  - component: {fileID: 1761020275}
   m_Layer: 0
   m_Name: M01BoardProbe
   m_TagString: Untagged
@@ -178,6 +179,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b41445cb437844d78bfa1ae2a888e1d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::M01DragProbe
+  InputLocked: 0
 --- !u!114 &1761020273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -190,6 +192,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8d5f580c4c4c4854a885e8c5c14ef77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::M01FlashlightProbe
+  Acquired: 1
 --- !u!114 &1761020274
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -202,6 +205,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06d572323c3044ef2899847cf539b3bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::M01CompletionProbe
+--- !u!114 &1761020275
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1761020269}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44c40b523d4414e129b9b97a0f2c7675, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::M01IntroProbe
 --- !u!1 &1920915102
 GameObject:
   m_ObjectHideFlags: 0
