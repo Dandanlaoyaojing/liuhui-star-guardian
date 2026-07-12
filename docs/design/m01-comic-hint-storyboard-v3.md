@@ -4,16 +4,17 @@ Purpose: teach M01's playable actions through Machinarium-style silent comic pan
 
 Style direction:
 - Silent puzzle-game hint comic, one clear action per panel.
+- Drawing style source for all hint comics: `hint-comic-style-prompt.md`, extracted from the approved Panel 1 art.
 - Use drawings, cursor/tap icons, arrows, motion lines, color changes, and before/after mini poses.
 - Keep Lemmy and M01 props recognizable, but comic readability wins over exact runtime tracing.
 - Current panel art:
-  - Panel 1: `docs/design/generated-m01-art-slices/m01-hint-comic-panel-01-bump-basket-v1.png`
+  - Panel 1: `docs/design/generated-m01-art-slices/m01-hint-comic-panel-01-bump-basket-final.png`
 
 ## Panel Sequence
 
 | Panel | Image Content | Gameplay Meaning |
 | --- | --- | --- |
-| 1 | Use `docs/design/generated-m01-art-slices/m01-hint-comic-panel-01-bump-basket-v1.png` as the approved first panel: Lemmy stands under the hanging basket, with a simple upward arrow and basket wobble lines showing the bump. | Stand under the basket and bump it upward. |
+| 1 | Use `docs/design/generated-m01-art-slices/m01-hint-comic-panel-01-bump-basket-final.png` as the approved first panel: Lemmy stands under the hanging basket, with a simple upward arrow and basket wobble lines showing the bump. | Stand under the basket and bump it upward. |
 | 2 | The basket tips and several grey-white fragments plus the small flashlight fall out. Lemmy is below, slightly startled. | Bumping the basket releases the pieces and flashlight. |
 | 3 | The flashlight lies on the ground. Lemmy crouches and picks it up; a small before/after inset shows the flashlight moving into Lemmy's hand. | Pick up the flashlight. |
 | 4 | Close-up of the flashlight in Lemmy's hand. A tap mark lands on the flashlight head. Three small light cones show red, yellow, and blue states in sequence. | Tap the flashlight head to change color. |
