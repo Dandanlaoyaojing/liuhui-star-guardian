@@ -129,6 +129,8 @@ public sealed class M01IntroProbe : MonoBehaviour
         }
         yield return new WaitForSeconds(0.6f);
         SetBasketSprite("m01-basket-hanging-empty");
+        // 空篮压到拼片后面: 5/9 托盘落点在篮贴图不透明区内(实测 alpha=255), 不后置会"吞"拼片(审查 CONFIRMED)。
+        if (basketSr != null) basketSr.sortingOrder = -1;
         // 手电从篮口掉到地面。
         fallenFlashlight = new GameObject("~FallenFlashlight");
         var sr = fallenFlashlight.AddComponent<SpriteRenderer>();

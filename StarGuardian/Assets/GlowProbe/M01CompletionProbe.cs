@@ -17,11 +17,22 @@ public sealed class M01CompletionProbe : MonoBehaviour
     private bool playing;
     private GameObject? cardGo;
     private Font? cardFont;
+    private bool healed;
+    private float playStartRealtime;
+
+    private void SetGameplayInputLocked(bool locked)
+    {
+        var drag = GetComponent<M01DragProbe>();
+        if (drag != null) drag.InputLocked = locked;
+        var flashlight = GetComponent<M01FlashlightProbe>();
+        if (flashlight != null) flashlight.InputLocked = locked;
+    }
 
     /// <summary>通关入口: 全屏播母版过场, 播完/点击跳过 → 出结晶卡。幂等(重复调用忽略)。</summary>
     public void PlayCompletion(ToolCard? card)
     {
-        if (playing) return;
+        if (playing || cardGo != null) return; // 幂等: 演出中或卡面未收都不重入(防旧卡孤儿罩屏, 审查 CONFIRMED)
+        SetGameplayInputLocked(true); // 演出期间锁拖拽/手电(防跳过点击穿透拆散完成态盘面, 审查 CONFIRMED)
         var clip = Resources.Load<VideoClip>("Videos/m01-completion-cutscene");
         pendingCard = card;
         if (clip == null)
@@ -42,6 +53,7 @@ public sealed class M01CompletionProbe : MonoBehaviour
         player.loopPointReached += _ => EndCutscene();
         player.errorReceived += (_, msg) => { Debug.LogWarning($"M01CompletionProbe: video error {msg}"); EndCutscene(); };
         player.Play();
+        playStartRealtime = Time.realtimeSinceStartup;
         Debug.Log($"M01CompletionProbe: ▶ 播放通关过场 {clip.width}×{clip.height} {clip.length:F1}s(点击跳过)");
     }
 
@@ -50,8 +62,9 @@ public sealed class M01CompletionProbe : MonoBehaviour
         // 卡面展示中: 文字材质自愈(动态字体图集材质首帧可能未就绪 → 品红字形网格)+ 点击收卡。
         if (cardGo != null)
         {
-            if (cardFont != null && cardFont.material != null)
+            if (!healed && cardFont != null && cardFont.material != null)
             {
+                healed = true; // 自愈一次即停(每帧 GetComponentsInChildren 是无上界 GC 分配, 审查点名)
                 foreach (var mr in cardGo.GetComponentsInChildren<MeshRenderer>())
                 {
                     if (mr.sharedMaterial == null) mr.sharedMaterial = cardFont.material;
@@ -62,6 +75,8 @@ public sealed class M01CompletionProbe : MonoBehaviour
             {
                 Destroy(cardGo);
                 cardGo = null;
+                healed = false;
+                SetGameplayInputLocked(false); // 收卡才解锁玩法输入
                 Debug.Log("M01CompletionProbe: 收卡");
             }
             return;
@@ -80,6 +95,14 @@ public sealed class M01CompletionProbe : MonoBehaviour
             (!player.isPlaying || player.time >= player.length - 0.05))
         {
             Debug.Log("M01CompletionProbe: 片尾看门狗收尾(loopPointReached 未触发)");
+            EndCutscene();
+            return;
+        }
+        // 起播超时兜底(Cocos"入口看门狗覆盖加载阶段"同款): prepare 卡死(t 恒 0, 实测偶发)时
+        // 原看门狗 time>0.5 前置永不满足 → 黑屏卡死。起播 4s 仍没走时间 → 放弃视频直接出卡。
+        if (player != null && player.time < 0.1 && Time.realtimeSinceStartup - playStartRealtime > 4f)
+        {
+            Debug.LogWarning("M01CompletionProbe: 视频起播超时(prepare 卡死), 跳过过场直接出卡");
             EndCutscene();
         }
     }
@@ -120,6 +143,7 @@ public sealed class M01CompletionProbe : MonoBehaviour
         // 预请求本卡全部字符, 催生字体图集/材质(否则首帧 font.material 可能为 null)。
         font?.RequestCharactersInTexture(card.Front.ToolName + card.Front.WisdomCrystal + card.Back.CoreAction +
             string.Join("", card.Back.WhenToUse) + card.Back.CommonTraps + "「」核心动作何时使用常见误区·;", 48);
+        font?.RequestCharactersInTexture(card.Front.ToolName, 48, FontStyle.Bold); // 标题 Bold 字形单独预烘(防首帧图集 rebuild)
         MakeText(cardGo.transform, "title", card.Front.ToolName, new Vector2(0, 1.8f), 0.085f, new Color(0.22f, 0.24f, 0.27f), font, 92, FontStyle.Bold);
         MakeText(cardGo.transform, "crystal", Wrap($"「{card.Front.WisdomCrystal}」", 13), new Vector2(0, 1.2f), 0.05f, new Color(0.42f, 0.36f, 0.5f), font, 92, FontStyle.Normal);
         MakeText(cardGo.transform, "core", Wrap($"核心动作 · {card.Back.CoreAction}", 16), new Vector2(0, 0.35f), 0.042f, new Color(0.28f, 0.3f, 0.33f), font, 92, FontStyle.Normal);

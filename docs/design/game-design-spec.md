@@ -591,6 +591,8 @@ class LocalStorageSync implements ICloudSync {
 
 ### 5.2 M01：记忆齿轮的卡顿
 
+> **Unity 迁移过渡注(2026-07-13)**: 本节为权威玩法规格。Unity 侧当前为探针级实现(`StarGuardian/Assets/GlowProbe/`), 开场以「点篮倒片」暂代莱米顶篮小剧场、验证/显色/通关流已按本节语义接线;莱米走位/顶篮×3/手电砸头蹲拾等完整开场按本节在正式化波次实现, 差异清单见 `production/active.md`。
+
 **认知目标**：分类与归纳
 
 **场景描述**：

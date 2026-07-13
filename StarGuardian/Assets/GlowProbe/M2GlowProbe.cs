@@ -22,7 +22,13 @@ public class M2GlowProbe : MonoBehaviour
     readonly List<Br> breathers = new List<Br>();
 
     void OnEnable() { Build(); }
-    void OnDisable() { Clear(); }
+    void OnDisable()
+    {
+        Clear();
+        // 全局 Bloom Volume 一并回收: 不清会让残留 Bloom 污染同会话其它光效对照(审查 sweep 发现)。
+        var vgo = GameObject.Find("~GlowVolume");
+        if (vgo != null) DestroyImmediate(vgo);
+    }
 
     void Clear()
     {

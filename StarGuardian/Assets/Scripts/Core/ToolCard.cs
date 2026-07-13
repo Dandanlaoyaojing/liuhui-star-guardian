@@ -97,8 +97,24 @@ namespace StarGuardian.Core
             }
 
             RequireNonEmptyString(obj, "puzzleId", errors);
+            // 安全取整: 超 long 的 BigInteger 裸 (long) 转会抛(校验器永不抛); 整值浮点 2.0 按
+            // TS Number.isInteger 语义接受(与 StarWebConfig.IsPositiveInteger 修法一致, 审查 CONFIRMED)。
             var stage = obj["stage"];
-            if (stage is not { Type: JTokenType.Integer } || (long)stage! < 1 || (long)stage! > 5)
+            var stageOk = false;
+            var stageValue = 0.0;
+            if (stage is JValue { Type: JTokenType.Integer or JTokenType.Float })
+            {
+                try
+                {
+                    stageValue = stage.Value<double>();
+                    stageOk = double.IsFinite(stageValue) && Math.Floor(stageValue) == stageValue;
+                }
+                catch
+                {
+                    stageOk = false;
+                }
+            }
+            if (!stageOk || stageValue < 1 || stageValue > 5)
             {
                 errors.Add("stage must be an integer from 1 to 5");
             }

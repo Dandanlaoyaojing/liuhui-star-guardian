@@ -42,25 +42,55 @@ public sealed class M01DragProbe : MonoBehaviour
         {
             TryPickup(cocosPos);
         }
+        // release 独立于 press 检查: 同帧 press+release(快速轻点/低帧率)时立即在原地落下,
+        // 不再被 else-if 跳过导致 held 永久滞留(审查 CONFIRMED 的丢 drop 坑)。
+        if (held != null && mouse.leftButton.wasReleasedThisFrame)
+        {
+            Drop(cocosPos);
+        }
         else if (held != null && mouse.leftButton.isPressed)
         {
             MoveHeld(cocosPos);
             if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
             {
                 heldRotation = (heldRotation + 90) % 360;
-                heldGo!.transform.localRotation = Quaternion.Euler(0, 0, (float)-heldRotation);
+                heldGo!.transform.localRotation = Quaternion.Euler(0, 0, (float)heldRotation);
             }
         }
-        else if (held != null && mouse.leftButton.wasReleasedThisFrame)
+    }
+
+    /// <summary>该片是否已就位(中央槽或证据试拼)——手电 onTray 排除等消费。</summary>
+    public bool IsFragmentPlaced(string fragmentId)
+    {
+        if (snappedToTarget.Contains(fragmentId)) return true;
+        foreach (var set in weakSnapped.Values)
         {
-            Drop(cocosPos);
+            if (set.Contains(fragmentId)) return true;
         }
+        return false;
+    }
+
+    /// <summary>当前拖拽中的片(无则 null)——手电拖拽中排除观察等消费。</summary>
+    public string? HeldFragmentId => held?.ControllerId;
+
+    /// <summary>清空拖拽记账(BoardProbe 重建 Session 时调, 防旧账本对新 Session 假提交)。</summary>
+    public void ResetLedgers()
+    {
+        snappedToTarget.Clear();
+        weakSnapped.Clear();
+        held = null;
+        heldGo = null;
     }
 
     /// <summary>冒烟入口: 走与鼠标完全相同的 拾起→旋转→落下 路径(供 execute_code/自动验证)。</summary>
     public void DebugDrop(string fragmentId, double x, double y, double rotation)
     {
         if (board.Layout == null) return;
+        if (InputLocked || held != null)
+        {
+            Debug.Log($"M01DragProbe: DebugDrop({fragmentId}) 忽略 —— 输入锁定或正在拖拽(与真实输入同门禁)");
+            return;
+        }
         M01GreyboxTokenNode? target = null;
         foreach (var f in board.Layout.Fragments)
         {
@@ -76,7 +106,7 @@ public sealed class M01DragProbe : MonoBehaviour
         snappedToTarget.Remove(fragmentId);
         foreach (var set in weakSnapped.Values) set.Remove(fragmentId);
         heldRotation = rotation;
-        go.transform.localRotation = Quaternion.Euler(0, 0, (float)-rotation);
+        go.transform.localRotation = Quaternion.Euler(0, 0, (float)rotation);
         Drop(new Vector2((float)x, (float)y));
     }
 
@@ -101,7 +131,11 @@ public sealed class M01DragProbe : MonoBehaviour
 
         held = best;
         heldGo = go;
-        heldRotation = 0; // 拾起即重置账本(Cocos stale-rotation-ledger 坑的正解: 账本随拾起归零, 不跨落次叠旧账)
+        // 拾起时账本【重基线到当前视觉角就近的 90° 倍数】并把视觉贴齐(Cocos rebaselineFragmentRotationFromNode
+        // 的正解; 硬归零会让账本与屏幕朝向脱节 —— 审查 CONFIRMED 的"视觉转错却判 snap"坑)。
+        var visualZ = go.transform.localEulerAngles.z;
+        heldRotation = ((System.Math.Round(visualZ / 90.0) * 90.0) % 360 + 360) % 360;
+        go.transform.localRotation = Quaternion.Euler(0, 0, (float)heldRotation);
         var sr = go.GetComponent<SpriteRenderer>();
         heldBaseOrder = sr.sortingOrder;
         sr.sortingOrder = 50; // 拖起时压最上
@@ -132,8 +166,20 @@ public sealed class M01DragProbe : MonoBehaviour
             layout, token, new M01GreyboxPoint(cocosPos.x, cocosPos.y),
             new M01GreyboxDropOptions { Rotation = heldRotation });
 
-        // 有落点就同步逻辑层+渲染层(所有 action 带 Position 时统一处理)。
+        // 有落点就同步逻辑层+渲染层; weak_snap 的 action 不带 Position → 落座证据吸附位
+        // (Cocos snapNodeToEvidence 语义, 复用已迁移的 ResolveEvidenceFragmentSnapPosition, 消死代码)。
         var final = action.Position ?? new M01GreyboxPoint(cocosPos.x, cocosPos.y);
+        if (action.Type == M01GreyboxDropActionType.WeakSnapFragment && action.Position == null && action.EvidenceId != null)
+        {
+            foreach (var ev in layout.Evidence)
+            {
+                if (ev.ControllerId == action.EvidenceId)
+                {
+                    final = M01GreyboxLayout.ResolveEvidenceFragmentSnapPosition(ev, token.ControllerId);
+                    break;
+                }
+            }
+        }
         token.Position = final;
         go.transform.localPosition = new Vector3((float)final.X / Ppu, (float)final.Y / Ppu, 0);
 

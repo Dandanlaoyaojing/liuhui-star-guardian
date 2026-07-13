@@ -4,7 +4,7 @@
 
 **《流辉美慧号：星图守护者》** — 面向成人及青年玩家（16+）、对思维成长感兴趣者的认知解谜游戏。详见 `docs/design/vision.md`。
 
-- **Engine**: Cocos Creator 3.8+ (TypeScript)
+- **Engine**: **Unity 6.3 LTS `6000.3.19f1`(2D URP, C#)** —— 2026-07-12 起从 Cocos Creator 3.8(TypeScript)迁移, 决策与计划见 `docs/design/unity-migration-plan.md`。Cocos 版完整保留于 tag `cocos-engine-final-2026-07-12`(历史真源, TS 代码/`assets/` 目录暂存库中作迁移对照)
 - **Platforms**: iOS App + Steam (PC/Mac). (2026-06-01 调整;历史曾含 Web/微信小游戏/安卓，微信 4MB 主包限制不再适用，动画帧数可按质量给足)
 - **Architecture**: Pure client-side (MVP), with reserved backend interfaces
 - **Art Style**: Arrog-inspired minimalist hand-drawn line art with restrained low-saturation color
@@ -44,9 +44,9 @@
 
 ## Code Standards
 
-- All code in TypeScript (strict mode).
-- Puzzle logic is data-driven via JSON configs in `resources/configs/`.
-- Complex per-level logic goes in `scripts/levels/stageN/`.
+- Unity 侧一律 C#(工程在 `StarGuardian/`, 纯逻辑放 `StarGuardian/Assets/Scripts/{Core,Interaction,M01}/`, 禁 `using UnityEngine` 于纯逻辑层, C#9 兼容——禁 record struct/文件级 namespace)。历史 TS(`assets/scripts/`, strict mode)仅作迁移对照, 不再新增。
+- Puzzle logic is data-driven via JSON configs; Unity 运行时源=`StarGuardian/Assets/Resources/Configs/`(自 `assets/resources/configs/` 拷贝, 改配置两处同步直至 Cocos 树退役)。
+- 纯逻辑测试在 `unity-tests/Core.Tests`(xUnit, `dotnet test`; 同一批 .cs 由 Unity 与 dotnet 双编译——dotnet 绿≠Unity 编得过, 需 Unity console 复核)。
 - Interaction components in `scripts/interaction/` are reusable across levels.
 - Shaders live in `shaders/`.
 

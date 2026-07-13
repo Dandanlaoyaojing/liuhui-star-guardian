@@ -16,12 +16,15 @@ public sealed class M01FlashlightProbe : MonoBehaviour
 {
     private const float Ppu = 100f;
 
-    private static readonly string[] CycleIds = { "flashlight_red", "flashlight_yellow", "flashlight_blue" };
-
     /// <summary>手电是否已拾取(IntroProbe 拾取后置真); 无 IntroProbe 的场景在 Start 里自动置真。</summary>
     public bool Acquired = true;
 
+    /// <summary>通关演出等期间锁输入(与 DragProbe.InputLocked 同机制, CompletionProbe 驱动)。</summary>
+    public bool InputLocked;
+
+    private string[] cycleIds = System.Array.Empty<string>(); // 从 config.Flashlights 取, 不硬编码
     private M01BoardProbe board = null!;
+    private M01DragProbe? drag;
     private Light2D? pool;
     private SpriteRenderer? handSprite; // 手持手电本体(贴图随灯色换, 灭=显示但压暗)
     private int cycleIndex = -1; // -1 = 灭
@@ -29,11 +32,27 @@ public sealed class M01FlashlightProbe : MonoBehaviour
     private readonly HashSet<string> litNow = new();
     private readonly HashSet<string> litPrev = new();
 
-    private void Awake() => board = GetComponent<M01BoardProbe>();
+    private void Awake()
+    {
+        board = GetComponent<M01BoardProbe>();
+        drag = GetComponent<M01DragProbe>();
+    }
 
     private void Update()
     {
-        if (!Application.isPlaying || board.Layout == null || board.Session == null) return;
+        if (!Application.isPlaying || board.Layout == null || board.Session == null || InputLocked) return;
+        // 玩法数值单一真源: 半径与灯 id 从 config 读(硬编码曾被审查点名违反 puzzle-scripts 规则)。
+        if (cycleIds.Length == 0 && board.Config != null)
+        {
+            coverageRadius = board.Config.FlashlightCoverage?.Radius ?? coverageRadius;
+            var flashlights = board.Config.Flashlights;
+            if (flashlights != null && flashlights.Count > 0)
+            {
+                cycleIds = new string[flashlights.Count];
+                for (var i = 0; i < flashlights.Count; i++) cycleIds[i] = flashlights[i].Id;
+            }
+        }
+        if (cycleIds.Length == 0) return;
         if (!Acquired)
         {
             if (pool != null) pool.intensity = 0f;
@@ -60,9 +79,16 @@ public sealed class M01FlashlightProbe : MonoBehaviour
         }
 
         // 覆盖判定 + 显色(进=reveal 染混色, 出=恢复玩法底色)。
+        // onTray/拖拽中排除(TS collectCoverageCandidates + suspendFlashlightObservation 语义):
+        // 光束不照已上盘(中央槽/证据试拼)的片, 也不照正拖拽贴在光标上的片——否则玩家拼好后可用
+        // 手电直接核对隐藏色, 绕过"靠证据混色推理"的设计(审查 CONFIRMED)。
         litNow.Clear();
         foreach (var frag in board.Layout.Fragments)
         {
+            if (drag != null && (drag.IsFragmentPlaced(frag.ControllerId) || drag.HeldFragmentId == frag.ControllerId))
+            {
+                continue;
+            }
             var dx = (float)frag.Position.X - cocos.x;
             var dy = (float)frag.Position.Y - cocos.y;
             if (dx * dx + dy * dy <= coverageRadius * coverageRadius)
@@ -129,7 +155,7 @@ public sealed class M01FlashlightProbe : MonoBehaviour
     private void CycleFlashlight()
     {
         var session = board.Session!;
-        cycleIndex = cycleIndex >= CycleIds.Length - 1 ? -1 : cycleIndex + 1;
+        cycleIndex = cycleIndex >= cycleIds.Length - 1 ? -1 : cycleIndex + 1;
         if (cycleIndex < 0)
         {
             var off = session.ClearFlashlight();
@@ -139,14 +165,14 @@ public sealed class M01FlashlightProbe : MonoBehaviour
             RestoreAll();
             return;
         }
-        var result = session.SelectFlashlight(CycleIds[cycleIndex]);
+        var result = session.SelectFlashlight(cycleIds[cycleIndex]);
         var c = result.ActiveFlashlightColor ?? "";
         pool!.color = RevealTint(c);
         pool.intensity = 1.1f;
         SetHandSprite(c);
         // 换灯色 → 旧显色作废, 全部恢复底色重照(session.SelectFlashlight 已清 observed)。
         RestoreAll();
-        Debug.Log($"M01FlashlightProbe: {CycleIds[cycleIndex]}({c}) status=\"{result.Status}\"");
+        Debug.Log($"M01FlashlightProbe: {cycleIds[cycleIndex]}({c}) status=\"{result.Status}\"");
     }
 
     private void RestoreAll()

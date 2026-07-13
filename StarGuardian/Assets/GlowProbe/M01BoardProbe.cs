@@ -30,6 +30,9 @@ public sealed class M01BoardProbe : MonoBehaviour
     /// <summary>谜题会话(状态机); Play 下由交互层驱动 stage/validate。</summary>
     public M01GreyboxSession? Session { get; private set; }
 
+    /// <summary>已加载的 M01 配置(玩法数值单一真源, 手电半径/灯 id 等从这读)。</summary>
+    public M01MemoryGearConfig? Config { get; private set; }
+
     /// <summary>controllerId → 拼片 GameObject(渲染层), 与 Layout.Fragments 对齐。</summary>
     public IReadOnlyDictionary<string, GameObject> FragmentObjects => fragmentObjects;
 
@@ -46,6 +49,27 @@ public sealed class M01BoardProbe : MonoBehaviour
     {
         var old = GameObject.Find(RootName);
         if (old != null) DestroyImmediate(old);
+        // 清引用: 消费方只判 Layout==null, 不清会对已销毁 GameObject 抛 MissingReference,
+        // 且 DragProbe 旧账本会对下次重建的新 Session 假提交(审查 CONFIRMED)。
+        Layout = null;
+        Session = null;
+        Config = null;
+        fragmentObjects.Clear();
+        FragmentBaseColors.Clear();
+        GetComponent<M01DragProbe>()?.ResetLedgers();
+        // 资源回收: DontSave 的运行时纹理/材质不回收会跨重编译孤儿化(编辑器长会话累积)。
+        foreach (var sprite in spriteCache.Values)
+        {
+            if (sprite == null) continue;
+            if (sprite.texture != null) DestroyImmediate(sprite.texture);
+            DestroyImmediate(sprite);
+        }
+        spriteCache.Clear();
+        if (litMaterial != null)
+        {
+            DestroyImmediate(litMaterial);
+            litMaterial = null;
+        }
     }
 
     private void Build()
@@ -65,6 +89,7 @@ public sealed class M01BoardProbe : MonoBehaviour
             Debug.LogError("M01BoardProbe: config 反序列化失败");
             return;
         }
+        Config = config;
         var layout = M01GreyboxLayout.Build(config, new M01GreyboxLayoutOptions());
         Session = M01GreyboxSession.FromConfig(config);
 
@@ -186,7 +211,7 @@ public sealed class M01BoardProbe : MonoBehaviour
         var go = new GameObject(name);
         go.transform.SetParent(parent.transform, false);
         go.transform.localPosition = new Vector3((float)pos.X / Ppu, (float)pos.Y / Ppu, 0);
-        go.transform.localRotation = Quaternion.Euler(0, 0, -rotationDeg);
+        go.transform.localRotation = Quaternion.Euler(0, 0, rotationDeg);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = sprite;
         if (litMaterial != null) sr.sharedMaterial = litMaterial;
@@ -221,8 +246,8 @@ public sealed class M01BoardProbe : MonoBehaviour
         var go = new GameObject(name);
         go.transform.SetParent(parent.transform, false);
         go.transform.localPosition = new Vector3((float)pos.X / Ppu, (float)pos.Y / Ppu, 0);
-        // Cocos 旋转为顺时针 → Unity Z 轴逆时针取负。
-        go.transform.localRotation = Quaternion.Euler(0, 0, -rotationDeg);
+        // Cocos 3.x euler Z 与 Unity 同为逆时针 → 直接用正值(原先取负把绝对朝向镜像了, 审查 CONFIRMED)。
+        go.transform.localRotation = Quaternion.Euler(0, 0, rotationDeg);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = GetSprite(shapeToken, outlineOnly ? "outline" : "fill");
         if (litMaterial != null) sr.sharedMaterial = litMaterial;
