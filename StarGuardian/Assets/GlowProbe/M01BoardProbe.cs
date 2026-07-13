@@ -110,11 +110,16 @@ public sealed class M01BoardProbe : MonoBehaviour
         // 纸底(整画布)
         AddQuad(root, "paper", new Vector2(0, 0), new Vector2((float)layout.Canvas.Width, (float)layout.Canvas.Height), Paper, -10);
 
-        // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)
-        if (!TryAddArtSprite(root, "gear", "m01-overlap-memory-gear", layout.Gear.Position, layout.Gear.Size, Color.white, -5, 0))
+        // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)。
+        // 美术 displaySize=581(art.ts:472, 553×1.05 贴地补偿), 比引擎 size(430)大 35% —— 用美术尺寸渲染,
+        // 引擎槽/证据仍按 430 逻辑坐标落在其内(美术盘面天然比逻辑盘大, Cocos 同)。
+        var gearArt = new M01GreyboxSize(581, 581);
+        if (!TryAddArtSprite(root, "gear", "m01-overlap-memory-gear", layout.Gear.Position, gearArt, Color.white, -5, 0))
         {
             AddShape(root, "gear", "circle", layout.Gear.Position, layout.Gear.Size, GearTint, -5, 0);
         }
+        // 提示灯泡(持久盘面 UI, 篮/钉正上方 (300,180), 62×62; Cocos addHintButton)。
+        TryAddArtSprite(root, "hintBulb", "icon-hint", new M01GreyboxPoint(300, 180), new M01GreyboxSize(62, 62), Color.white, 30, 0);
         // 拼接背板半透明: 齿轮水彩盘(-5)从下面透出来(灰盒时代背板是实心方形, 有真齿轮图后只留轻微拼区提示)。
         AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(Paper.r * 0.96f, Paper.g * 0.95f, Paper.b * 0.92f, 0.30f), -4);
 
