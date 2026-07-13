@@ -18,6 +18,11 @@ public sealed class M01IntroProbe : MonoBehaviour
     private static readonly float BasketH = (float)M01IntroLayout.BasketDisplaySize.Height; // ≈271
     private static readonly float BasketY = -167f + BasketH / 2f;
     private const float FlashlightGroundY = -240f;
+    // 莱米走位常量(M01IntroSequence): 地面 -270, 站位 Y=地面+90-10=-190, 画外入场 -460, 平台前 -320。
+    private const float LemmyOffscreenX = -460f;
+    private const float LemmyPlatformX = -320f;
+    private const float LemmyY = -190f;
+    private const float LemmyWalkSpeed = 100.7f; // (265-(-460))/7.2s = WALK_TO_BASKET_DURATION 配速
 
     public bool IntroDone { get; private set; }
 
@@ -64,14 +69,14 @@ public sealed class M01IntroProbe : MonoBehaviour
             var s = (24f / Ppu) / nailSr.sprite.bounds.size.y;
             nail.transform.localScale = new Vector3(s, s, 1f);
         }
-        // 莱米: 平台位 idle(第一刀验渲染/位置/脚锚; 走位→顶篮→拾取下一步接上)。
+        // 莱米: 画外 -460 走入 → 平台 -320 → idle(LEMMY_PLATFORM_FRONT_X)。
         var lemmyGo = new GameObject("~Lemmy");
         if (root != null) lemmyGo.transform.SetParent(root.transform, false);
         lemmy = lemmyGo.AddComponent<M01LemmyAnimator>();
-        lemmy.SetCocosPosition(-320f, -190f); // LEMMY_PLATFORM_FRONT_X, LEMMY_Y
-        lemmy.Play("idle", true, 12f);
+        lemmy.SetCocosPosition(LemmyOffscreenX, LemmyY);
+        StartCoroutine(WalkIn());
 
-        Debug.Log("M01IntroProbe: 开场 —— 莱米在平台 idle, 点吊篮倒出拼片");
+        Debug.Log("M01IntroProbe: 开场 —— 莱米走入, 点吊篮倒出拼片");
     }
 
     private void SetBasketSprite(string name)
@@ -115,6 +120,22 @@ public sealed class M01IntroProbe : MonoBehaviour
         {
             StartCoroutine(SpillRoutine());
         }
+    }
+
+    /// <summary>莱米从画外走入平台前, 到位转 idle(walk 帧循环 + 匀速位移, 朝右)。</summary>
+    private IEnumerator WalkIn()
+    {
+        if (lemmy == null) yield break;
+        lemmy.SetFacing(true);
+        lemmy.Play("walk", true, 24f);
+        var x = LemmyOffscreenX;
+        while (x < LemmyPlatformX)
+        {
+            x = Mathf.Min(LemmyPlatformX, x + LemmyWalkSpeed * Time.deltaTime);
+            lemmy.SetCocosPosition(x, LemmyY);
+            yield return null;
+        }
+        lemmy.Play("idle", true, 12f);
     }
 
     private IEnumerator SpillRoutine()
