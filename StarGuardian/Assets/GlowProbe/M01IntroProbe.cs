@@ -45,10 +45,9 @@ public sealed class M01IntroProbe : MonoBehaviour
     private void Start()
     {
         if (!Application.isPlaying || board.Layout == null) return;
-        // 开场态: 锁拖拽/手电, 拼片入篮(隐藏)。
+        // 开场态: 锁拖拽/手电。拼片=真碎片精灵堆进空篮内胆(commit ea4d77c: 空篮+真拼片物理堆叠, 非烘焙篮图)。
         if (drag != null) drag.InputLocked = true;
         if (flashlight != null) flashlight.Acquired = false;
-        foreach (var go in board.FragmentObjects.Values) go.SetActive(false);
 
         var root = GameObject.Find("~M01BoardRoot");
         basketGo = new GameObject("~IntroBasket");
@@ -56,7 +55,7 @@ public sealed class M01IntroProbe : MonoBehaviour
         basketGo.transform.localPosition = new Vector3(BasketX / Ppu, BasketY / Ppu, 0);
         basketSr = basketGo.AddComponent<SpriteRenderer>();
         basketSr.sortingOrder = 20;
-        SetBasketSprite("m01-basket-hanging");
+        SetBasketSprite("m01-basket-hanging-empty"); // 最终=空篮(2e9e4da 降饱和贴平台画风)
         // 钉子(独立贴图, 不画进篮 —— Cocos 老坑)。
         var nail = new GameObject("nail");
         nail.transform.SetParent(basketGo.transform, false);
@@ -69,6 +68,19 @@ public sealed class M01IntroProbe : MonoBehaviour
             var s = (24f / Ppu) / nailSr.sprite.bounds.size.y;
             nail.transform.localScale = new Vector3(s, s, 1f);
         }
+        // 真拼片堆进内胆(可见), 再盖前壁遮挡(上排片露出篮沿, 前壁遮下半)。
+        PileFragmentsInBasket();
+        var occ = new GameObject("frontOccluder");
+        occ.transform.SetParent(basketGo.transform, false);
+        var occSr = occ.AddComponent<SpriteRenderer>();
+        occSr.sprite = Resources.Load<Sprite>("Art/M01/m01-basket-front-occluder");
+        occSr.sortingOrder = 25; // 盖在堆片(22)之上
+        if (occSr.sprite != null)
+        {
+            var targetW = (float)M01IntroLayout.BasketDisplaySize.Width / Ppu;
+            var s = targetW / occSr.sprite.bounds.size.x;
+            occ.transform.localScale = new Vector3(s, s, 1f);
+        }
         // 莱米: 画外 -460 走入 → 平台 -320 → idle(LEMMY_PLATFORM_FRONT_X)。
         var lemmyGo = new GameObject("~Lemmy");
         if (root != null) lemmyGo.transform.SetParent(root.transform, false);
@@ -77,6 +89,28 @@ public sealed class M01IntroProbe : MonoBehaviour
         StartCoroutine(WalkIn());
 
         Debug.Log("M01IntroProbe: 开场 —— 莱米走入, 点吊篮倒出拼片");
+    }
+
+    /// <summary>9 片真碎片堆进空篮内胆(basket-local, 相对篮心; 上排露出篮沿, 前壁遮下半)。静态近似, 真物理堆=下一刀。</summary>
+    private void PileFragmentsInBasket()
+    {
+        var slots = new (float x, float y)[]
+        {
+            (-75, -80), (-25, -84), (25, -84), (75, -80), // 底排 4(贴内胆floor≈-98)
+            (-50, -60), (0, -62), (50, -60),               // 中排 3
+            (-28, -42), (28, -42),                         // 顶排 2(露出篮沿 WallTop≈-43)
+        };
+        var i = 0;
+        foreach (var frag in board.Layout!.Fragments)
+        {
+            if (!board.FragmentObjects.TryGetValue(frag.ControllerId, out var go)) continue;
+            if (i >= slots.Length) break;
+            var (lx, ly) = slots[i];
+            go.SetActive(true);
+            go.transform.localPosition = new Vector3((BasketX + lx) / Ppu, (BasketY + ly) / Ppu, 0);
+            go.GetComponent<SpriteRenderer>().sortingOrder = 22; // 篮身(20)之上, 前遮挡(25)之下
+            i++;
+        }
     }
 
     private void SetBasketSprite(string name)
@@ -142,15 +176,18 @@ public sealed class M01IntroProbe : MonoBehaviour
     {
         spilling = true;
         SetBasketSprite("m01-basket-tipped");
+        // 撤前遮挡(篮倾倒, 拼片飞出, 不再需要前壁遮下半)。
+        var occ = basketGo != null ? basketGo.transform.Find("frontOccluder") : null;
+        if (occ != null) occ.gameObject.SetActive(false);
         Debug.Log("M01IntroProbe: 篮子倾倒 —— 拼片撒出");
-        var mouthX = BasketX - 30f;
-        var mouthY = BasketY - 30f;
         var i = 0;
         foreach (var frag in board.Layout!.Fragments)
         {
             if (!board.FragmentObjects.TryGetValue(frag.ControllerId, out var go)) continue;
             var fling = M01IntroLayout.ResolveSpillFlingVelocity(i);
-            StartCoroutine(ArcMove(go, new Vector2(mouthX, mouthY),
+            var fromCocos = new Vector2(go.transform.localPosition.x * Ppu, go.transform.localPosition.y * Ppu); // 从当前堆位起飞
+            go.GetComponent<SpriteRenderer>().sortingOrder = 0; // 离篮回盘面层
+            StartCoroutine(ArcMove(go, fromCocos,
                 new Vector2((float)frag.Position.X, (float)frag.Position.Y),
                 0.55f, (float)fling.Vy / 200f));
             i++;
@@ -158,8 +195,6 @@ public sealed class M01IntroProbe : MonoBehaviour
         }
         yield return new WaitForSeconds(0.6f);
         SetBasketSprite("m01-basket-hanging-empty");
-        // 空篮压到拼片后面: 5/9 托盘落点在篮贴图不透明区内(实测 alpha=255), 不后置会"吞"拼片(审查 CONFIRMED)。
-        if (basketSr != null) basketSr.sortingOrder = -1;
         // 手电从篮口掉到地面。
         fallenFlashlight = new GameObject("~FallenFlashlight");
         var sr = fallenFlashlight.AddComponent<SpriteRenderer>();
@@ -171,7 +206,7 @@ public sealed class M01IntroProbe : MonoBehaviour
             fallenFlashlight.transform.localScale = new Vector3(s, s, 1f);
         }
         fallenFlashlight.transform.localRotation = Quaternion.Euler(0, 0, 80f); // 躺平
-        StartCoroutine(ArcMove(fallenFlashlight, new Vector2(mouthX, mouthY),
+        StartCoroutine(ArcMove(fallenFlashlight, new Vector2(BasketX - 30f, BasketY - 30f), // 篮口
             new Vector2(BasketX - 60f, FlashlightGroundY), 0.5f, 0.4f));
         Debug.Log("M01IntroProbe: 手电掉落 —— 点它拾取");
     }
