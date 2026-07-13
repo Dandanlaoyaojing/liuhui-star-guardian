@@ -217,8 +217,9 @@ public sealed class M01BoardProbe : MonoBehaviour
         return true;
     }
 
-    /// <summary>按 Cocos trimType "auto" 渲染: displaySize 套在【裁剪内容 content(px)】上, 非整张画布。
-    /// localScale = display/content → 可见不透明内容 = display; 内容近似居中于 pos(gear offset≈0)。</summary>
+    /// <summary>按 Cocos 齿轮渲染复刻(commit 334deff "齿轮变圆"): 裁剪内容(content px)以 CONTAIN 装进
+    /// displaySize 框 —— 等比缩放(min 比例)保持真实宽高比, 不拉成方形(方形会把略宽的齿轮压成细长)。
+    /// content=Cocos .meta 裁剪 rect(gear 620×587, 非整画布 750²); 居中于 pos, 底边贴地。</summary>
     private bool AddTrimmedArt(GameObject parent, string name, string resource, Vector2 content, Vector2 display, M01GreyboxPoint pos, int order)
     {
         var sprite = TryLoadArt(resource);
@@ -231,7 +232,9 @@ public sealed class M01BoardProbe : MonoBehaviour
         if (litMaterial != null) sr.sharedMaterial = litMaterial;
         sr.color = Color.white;
         sr.sortingOrder = order;
-        go.transform.localScale = new Vector3(display.x / content.x, display.y / content.y, 1f);
+        // CONTAIN: 等比装框(aspectContentSize 同款), 保持圆; 裁剪内容 620×587 → 581×550(×0.937)。
+        var scale = Mathf.Min(display.x / content.x, display.y / content.y);
+        go.transform.localScale = new Vector3(scale, scale, 1f);
         return true;
     }
 
