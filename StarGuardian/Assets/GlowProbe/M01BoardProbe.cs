@@ -110,6 +110,10 @@ public sealed class M01BoardProbe : MonoBehaviour
         // 纸底(整画布)
         AddQuad(root, "paper", new Vector2(0, 0), new Vector2((float)layout.Canvas.Width, (float)layout.Canvas.Height), Paper, -10);
 
+        // 手绘地面线(M01PhysicsBoundary.renderGroundLine): 960×39 横跨, 中心 Y=-286 让墨色行落在地面 -270
+        // (=-270-(39/2-6×39/66))。极宽比 → 非等比拉伸(Cocos CUSTOM sizeMode)。莱米/掉落物踩这条线。
+        AddStretchedArt(root, "groundLine", "m01-ground-line", new Vector2(0, -285.95f), new Vector2(960, 39), -6);
+
         // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)。
         // 美术 displaySize=581(art.ts:472, 553×1.05 贴地补偿), 比引擎 size(430)大 35% —— 用美术尺寸渲染,
         // 引擎槽/证据仍按 430 逻辑坐标落在其内(美术盘面天然比逻辑盘大, Cocos 同)。
@@ -230,6 +234,23 @@ public sealed class M01BoardProbe : MonoBehaviour
     }
 
     private static Sprite? TryLoadArt(string name) => Resources.Load<Sprite>("Art/M01/" + name);
+
+    /// <summary>非等比拉伸精灵到精确 W×H(Cocos Sprite.SizeMode.CUSTOM); 用于极端宽高比的地面线等。</summary>
+    private void AddStretchedArt(GameObject parent, string name, string resource, Vector2 cocosPos, Vector2 sizePx, int order)
+    {
+        var sprite = TryLoadArt(resource);
+        if (sprite == null) return;
+        var go = new GameObject(name);
+        go.transform.SetParent(parent.transform, false);
+        go.transform.localPosition = new Vector3(cocosPos.x / Ppu, cocosPos.y / Ppu, 0);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        if (litMaterial != null) sr.sharedMaterial = litMaterial;
+        sr.sortingOrder = order;
+        go.transform.localScale = new Vector3(
+            (sizePx.x / Ppu) / sprite.bounds.size.x,
+            (sizePx.y / Ppu) / sprite.bounds.size.y, 1f); // 非等比
+    }
 
     private void AddQuad(GameObject parent, string name, Vector2 cocosPos, Vector2 sizePx, Color color, int order)
     {
