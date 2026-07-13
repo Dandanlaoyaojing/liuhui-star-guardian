@@ -117,15 +117,17 @@ public sealed class M01BoardProbe : MonoBehaviour
         // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)。
         // 美术 displaySize=581(art.ts:472, 553×1.05 贴地补偿), 比引擎 size(430)大 35% —— 用美术尺寸渲染,
         // 引擎槽/证据仍按 430 逻辑坐标落在其内(美术盘面天然比逻辑盘大, Cocos 同)。
-        var gearArt = new M01GreyboxSize(581, 581);
-        if (!TryAddArtSprite(root, "gear", "m01-overlap-memory-gear", layout.Gear.Position, gearArt, Color.white, -5, 0))
+        // 齿轮: Cocos trimType "auto" → displaySize 581 套在【裁剪内容 620×587】上(非整张 750² 画布)。
+        // 整张 sprite 按 localScale=display/content 缩放, 使可见内容=581², 居中于 (-120,0) → 底边贴地(和 Cocos 同)。
+        if (!AddTrimmedArt(root, "gear", "m01-overlap-memory-gear",
+                content: new Vector2(620, 587), display: new Vector2(581, 581), layout.Gear.Position, -5))
         {
             AddShape(root, "gear", "circle", layout.Gear.Position, layout.Gear.Size, GearTint, -5, 0);
         }
         // 提示灯泡(持久盘面 UI, 篮/钉正上方 (300,180), 62×62; Cocos addHintButton)。
         TryAddArtSprite(root, "hintBulb", "icon-hint", new M01GreyboxPoint(300, 180), new M01GreyboxSize(62, 62), Color.white, 30, 0);
-        // 拼接背板半透明: 齿轮水彩盘(-5)从下面透出来(灰盒时代背板是实心方形, 有真齿轮图后只留轻微拼区提示)。
-        AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(Paper.r * 0.96f, Paper.g * 0.95f, Paper.b * 0.92f, 0.30f), -4);
+        // 拼接背板 = 底光反馈逻辑节点(tag bottom_light): 静息透明, 只在验证时由 DragProbe 闪色。不是可见灰板。
+        AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(1f, 1f, 1f, 0f), -4);
 
         // 目标槽(虚影轮廓, 按 rotation)
         foreach (var slot in layout.TargetPieceSlots)
@@ -212,6 +214,24 @@ public sealed class M01BoardProbe : MonoBehaviour
         var sprite = TryLoadArt(resource);
         if (sprite == null) return false;
         MakeArtSprite(parent, name, sprite, pos, size, tint, order, rotationDeg);
+        return true;
+    }
+
+    /// <summary>按 Cocos trimType "auto" 渲染: displaySize 套在【裁剪内容 content(px)】上, 非整张画布。
+    /// localScale = display/content → 可见不透明内容 = display; 内容近似居中于 pos(gear offset≈0)。</summary>
+    private bool AddTrimmedArt(GameObject parent, string name, string resource, Vector2 content, Vector2 display, M01GreyboxPoint pos, int order)
+    {
+        var sprite = TryLoadArt(resource);
+        if (sprite == null) return false;
+        var go = new GameObject(name);
+        go.transform.SetParent(parent.transform, false);
+        go.transform.localPosition = new Vector3((float)pos.X / Ppu, (float)pos.Y / Ppu, 0);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        if (litMaterial != null) sr.sharedMaterial = litMaterial;
+        sr.color = Color.white;
+        sr.sortingOrder = order;
+        go.transform.localScale = new Vector3(display.x / content.x, display.y / content.y, 1f);
         return true;
     }
 
