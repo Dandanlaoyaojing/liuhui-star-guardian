@@ -24,6 +24,7 @@ public sealed class M01IntroProbe : MonoBehaviour
     private M01BoardProbe board = null!;
     private M01DragProbe? drag;
     private M01FlashlightProbe? flashlight;
+    private M01LemmyAnimator? lemmy;
     private GameObject? basketGo;
     private SpriteRenderer? basketSr;
     private GameObject? fallenFlashlight;
@@ -63,7 +64,14 @@ public sealed class M01IntroProbe : MonoBehaviour
             var s = (24f / Ppu) / nailSr.sprite.bounds.size.y;
             nail.transform.localScale = new Vector3(s, s, 1f);
         }
-        Debug.Log("M01IntroProbe: 开场 —— 点吊篮倒出拼片");
+        // 莱米: 平台位 idle(第一刀验渲染/位置/脚锚; 走位→顶篮→拾取下一步接上)。
+        var lemmyGo = new GameObject("~Lemmy");
+        if (root != null) lemmyGo.transform.SetParent(root.transform, false);
+        lemmy = lemmyGo.AddComponent<M01LemmyAnimator>();
+        lemmy.SetCocosPosition(-320f, -190f); // LEMMY_PLATFORM_FRONT_X, LEMMY_Y
+        lemmy.Play("idle", true, 12f);
+
+        Debug.Log("M01IntroProbe: 开场 —— 莱米在平台 idle, 点吊篮倒出拼片");
     }
 
     private void SetBasketSprite(string name)
