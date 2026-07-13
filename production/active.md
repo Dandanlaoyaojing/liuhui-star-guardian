@@ -76,7 +76,7 @@ fable 审 5 单元消费: **修 1 真 bug** — `JToken.Parse` 默认 DateParseH
 3. **M01MemoryGearColors** 头注称"xUnit 钉死"但无 C# 测试 → 补 7 条颜色函数 [Fact](或改注释)。
 4. **TargetPatternGenerator ResolveConfigWithCurrentTargetEvidence** 手写逐字段拷贝无守卫 → 加反射守护测试(新增 config 字段漏拷会炸红)。
 5. **GoalDef.Params** 仍 AllSortedGoalParams(丢 overlap goal 键)→ GoalEvaluator 长出 overlap 支持时读 M01MemoryGearConfig.Goal(单数)。
-6. 配置必填字段无 M01 校验器(反序列化默认值)/ JToken 宽松解析(NaN/Infinity/尾随)—— 约定级, latent。
+6. **M01 config 载入边界校验器**(正式化波次 · 与 `PuzzleConfig.Validate<T>` 物化 + EvidenceValidator 同期设计)—— 三方审(code-review / codex / zcode, 2026-07-13)一致结论: **边界拦畸形数据是正解**, 一次性消化本清单潜伏风险(内部 falsy/越界差异随之不可达), 别散修内部。**必拒**(对齐 TS 运行时 falsy 守卫会拦的): ① `flashlight.color` 空串 → 否则漏过 `M01GreyboxSession.cs:446/939` 的 `== null`(比 TS `if(!color)` 窄)→ `BlendPigmentColors` 抛 ArgumentException; ② `evidence.fragmentIds` < 2 → 否则 `M01GreyboxLayout.cs:747` 的 `[0]/[1]` 越界(同文件 `:551` 已守, 消歧); (重复 node id 已由 `StarWebConfig.ValidateLayout:411` 拦, 不重复)。**别误改**: hiddenColor 回退**非** falsy bug —— TS 用 `??`(nullish)≠ `||`(falsy), C# `HiddenColor=""` 与之等价, `Layout:432-434` 注释正确, 拿它当 falsy 改反而错; StarNetworkModel `L46/56` 的 `ToDictionary` 重复键参考正解 = `GoalEvaluator:83-88`(last-wins 索引器 + 注释), 但它收 `BoardGraph`、上游 ValidateLayout 已拦 → **仅当**出现绕过 ValidateLayout 直建 BoardGraph 的路径(运行时改图/测试直造)才在 BoardGraph 构造去重, 否则不动。**报错文案**正式化时逐条对齐 TS。附带: JToken 宽松解析(NaN/Infinity/尾随)同属边界, 一并挡。
 **Unity 导入教训**: 新增 .cs 要 `refresh scope=all`(assets 导入生成 .meta)才被 Unity 看到; scope=scripts 只重编已导入的、看不到新文件(dotnet 直接 glob 不受影响)。
 
 ### M01 纯逻辑收尾波 ✅ 转写(2026-07-12): Session + Drag + Controller 状态机
