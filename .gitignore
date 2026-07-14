@@ -26,6 +26,9 @@ __pycache__/
 *.pem
 *.key
 
+# Local Unity build outputs
+/Builds/
+
 # Cocos Creator generated outputs
 /library/
 /temp/

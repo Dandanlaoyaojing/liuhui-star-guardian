@@ -60,16 +60,16 @@
         "meshType": 0,
         "vertices": {
           "rawPosition": [
-            -1000.0,
+            -1000,
             -547.5,
             0,
-            1000.0,
+            1000,
             -547.5,
             0,
-            -1000.0,
+            -1000,
             547.5,
             0,
-            1000.0,
+            1000,
             547.5,
             0
           ],
@@ -102,12 +102,12 @@
             1
           ],
           "minPos": [
-            -1000.0,
+            -1000,
             -547.5,
             0
           ],
           "maxPos": [
-            1000.0,
+            1000,
             547.5,
             0
           ]
@@ -128,7 +128,7 @@
   "userData": {
     "type": "sprite-frame",
     "fixAlphaTransparencyArtifacts": false,
-    "hasAlpha": true,
+    "hasAlpha": false,
     "redirect": "12b58487-90b6-4b70-98b9-7ac42cc0dc65@6c48a"
   }
 }

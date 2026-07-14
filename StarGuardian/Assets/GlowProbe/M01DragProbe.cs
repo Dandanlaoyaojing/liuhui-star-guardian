@@ -1,10 +1,10 @@
-// M01 拖拽交互探针(桶 B: DragInputController 雏形)—— 鼠标接【已迁移的吸附判定 M01GreyboxDrag】。
-// 玩法: 左键按住拼片拖动; 拖动中按 R 旋转 90°(玩家 90° 步进, 同 Cocos); 松手按
-// ResolveM01GreyboxDrop 的 action 处置(snap=落槽 / stick=贴槽 / weak_snap=吸证据 / free=原地)。
-// 仅 Play 模式生效。逻辑层 token.Position 与渲染层 GameObject 同步更新(单一真源=layout)。
-// ponytail: 探针级输入(距离拾取, 无 Collider/EventSystem), 正式 DragInputController 再升级。
+// M01GreyboxBootstrap.ts 拼片指针交互的 Unity 胶水层。
+// 按下接管刚体; 移动超过 6px=拖放; 原地轻点=转 90°并钉住 2 秒; 自由落点恢复 Dynamic 物理。
 #nullable enable
 
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using StarGuardian.M01;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -23,39 +23,72 @@ public sealed class M01DragProbe : MonoBehaviour
     private GameObject? heldGo;
     private double heldRotation;
     private int heldBaseOrder;
+    private Vector2 heldPointerStart;
+    private Vector2 heldDragOffset;
+    private bool introPickupGate;
+    private bool physicsSettled;
+    private M01FlashlightProbe? flashlight;
+    private M01IntroProbe? intro;
+    private readonly HashSet<string> spilledOutFragments = new();
+    private readonly Dictionary<string, double> fragmentRotations = new();
+    private readonly Dictionary<string, Coroutine> rotatePinRoutines = new();
 
     // 玩法状态(镜像 Cocos bootstrap 的 weakSnappedFragmentsByEvidence / target-pattern 配对):
-    private readonly System.Collections.Generic.HashSet<string> snappedToTarget = new();
-    private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> weakSnapped = new();
+    private readonly HashSet<string> snappedToTarget = new();
+    private readonly Dictionary<string, HashSet<string>> weakSnapped = new();
+    private readonly Dictionary<string, string> targetSlotOccupants = new();
+    private Coroutine? validationFailureRoutine;
 
-    private void Awake() => board = GetComponent<M01BoardProbe>();
+    private void Awake()
+    {
+        board = GetComponent<M01BoardProbe>();
+        flashlight = GetComponent<M01FlashlightProbe>();
+        intro = GetComponent<M01IntroProbe>();
+    }
+
+    public void BeginIntroPickupGate()
+    {
+        introPickupGate = true;
+        physicsSettled = false;
+        spilledOutFragments.Clear();
+        InputLocked = false;
+    }
+
+    public void SetFragmentSpilledOut(string fragmentId, bool spilledOut)
+    {
+        if (spilledOut) spilledOutFragments.Add(fragmentId);
+        else spilledOutFragments.Remove(fragmentId);
+    }
+
+    public void MarkFragmentPhysicsSettled()
+    {
+        physicsSettled = true;
+        InputLocked = false;
+    }
+
+    public bool CanStartFragmentPointerAt(Vector2 cocosPos) => FindPickupCandidate(cocosPos) != null;
 
     private void Update()
     {
         if (!Application.isPlaying || board.Layout == null || InputLocked) return;
-        var mouse = Mouse.current;
-        if (mouse == null) return;
+        var pointer = Pointer.current;
+        if (pointer == null) return;
 
-        var cocosPos = ScreenToCocos(mouse.position.ReadValue());
+        var cocosPos = ScreenToCocos(pointer.position.ReadValue());
 
-        if (mouse.leftButton.wasPressedThisFrame && held == null)
+        if (pointer.press.wasPressedThisFrame && held == null)
         {
             TryPickup(cocosPos);
         }
         // release 独立于 press 检查: 同帧 press+release(快速轻点/低帧率)时立即在原地落下,
         // 不再被 else-if 跳过导致 held 永久滞留(审查 CONFIRMED 的丢 drop 坑)。
-        if (held != null && mouse.leftButton.wasReleasedThisFrame)
+        if (held != null && pointer.press.wasReleasedThisFrame)
         {
-            Drop(cocosPos);
+            EndPointer(cocosPos);
         }
-        else if (held != null && mouse.leftButton.isPressed)
+        else if (held != null && pointer.press.isPressed)
         {
             MoveHeld(cocosPos);
-            if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
-            {
-                heldRotation = (heldRotation + 90) % 360;
-                heldGo!.transform.localRotation = Quaternion.Euler(0, 0, (float)heldRotation);
-            }
         }
     }
 
@@ -78,6 +111,17 @@ public sealed class M01DragProbe : MonoBehaviour
     {
         snappedToTarget.Clear();
         weakSnapped.Clear();
+        targetSlotOccupants.Clear();
+        spilledOutFragments.Clear();
+        fragmentRotations.Clear();
+        foreach (var routine in rotatePinRoutines.Values)
+        {
+            if (routine != null) StopCoroutine(routine);
+        }
+        rotatePinRoutines.Clear();
+        if (validationFailureRoutine != null) StopCoroutine(validationFailureRoutine);
+        validationFailureRoutine = null;
+        board?.RenderValidationBlendOverlays(false);
         held = null;
         heldGo = null;
     }
@@ -97,48 +141,49 @@ public sealed class M01DragProbe : MonoBehaviour
             if (f.ControllerId == fragmentId) { target = f; break; }
         }
         if (target == null || !board.FragmentObjects.TryGetValue(fragmentId, out var go)) return;
-        // 复用拾起路径(unstage/记账清理), 再定向落下。
-        held = target;
-        heldGo = go;
-        heldBaseOrder = go.GetComponent<SpriteRenderer>().sortingOrder;
+        CancelRotatePin(fragmentId);
+        var renderer = go.GetComponent<SpriteRenderer>();
+        var baseOrder = renderer == null ? 0 : renderer.sortingOrder;
         var session = board.Session;
         if (session != null) session.UnstageFragment(fragmentId);
-        snappedToTarget.Remove(fragmentId);
-        foreach (var set in weakSnapped.Values) set.Remove(fragmentId);
-        heldRotation = rotation;
+        RemoveFragmentFromPlacementLedgers(fragmentId);
+        fragmentRotations[fragmentId] = rotation;
         go.transform.localRotation = Quaternion.Euler(0, 0, (float)rotation);
-        Drop(new Vector2((float)x, (float)y));
+        SetFragmentPointerControl(go, true);
+        ResolveDrop(target, go, new Vector2((float)x, (float)y), baseOrder);
     }
 
     private void TryPickup(Vector2 cocosPos)
     {
-        var layout = board.Layout!;
-        M01GreyboxTokenNode? best = null;
-        var bestDist = float.MaxValue;
-        foreach (var frag in layout.Fragments)
-        {
-            var r = (float)System.Math.Max(frag.Size.Width, frag.Size.Height) / 2f + PickupSlackPx;
-            var dx = (float)frag.Position.X - cocosPos.x;
-            var dy = (float)frag.Position.Y - cocosPos.y;
-            var d = Mathf.Sqrt(dx * dx + dy * dy);
-            if (d <= r && d < bestDist)
-            {
-                best = frag;
-                bestDist = d;
-            }
-        }
-        if (best == null || !board.FragmentObjects.TryGetValue(best.ControllerId, out var go)) return;
+        var candidate = FindPickupCandidate(cocosPos);
+        if (candidate == null) return;
+        var best = candidate.Value.Token;
+        var go = candidate.Value.Go;
 
+        CancelRotatePin(best.ControllerId);
         held = best;
         heldGo = go;
-        // 拾起时账本【重基线到当前视觉角就近的 90° 倍数】并把视觉贴齐(Cocos rebaselineFragmentRotationFromNode
-        // 的正解; 硬归零会让账本与屏幕朝向脱节 —— 审查 CONFIRMED 的"视觉转错却判 snap"坑)。
-        var visualZ = go.transform.localEulerAngles.z;
-        heldRotation = ((System.Math.Round(visualZ / 90.0) * 90.0) % 360 + 360) % 360;
-        go.transform.localRotation = Quaternion.Euler(0, 0, (float)heldRotation);
+        heldPointerStart = cocosPos;
+        heldDragOffset = CurrentCocosPosition(go) - cocosPos;
+        var body = go.GetComponent<Rigidbody2D>();
+        if (body != null && body.bodyType == RigidbodyType2D.Dynamic)
+        {
+            fragmentRotations[best.ControllerId] =
+                M01FragmentPointerRules.RebaselineRotation(go.transform.eulerAngles.z);
+        }
+        else if (!fragmentRotations.ContainsKey(best.ControllerId))
+        {
+            fragmentRotations[best.ControllerId] =
+                M01FragmentPointerRules.RebaselineRotation(go.transform.eulerAngles.z);
+        }
+        heldRotation = fragmentRotations[best.ControllerId];
         var sr = go.GetComponent<SpriteRenderer>();
-        heldBaseOrder = sr.sortingOrder;
-        sr.sortingOrder = 50; // 拖起时压最上
+        heldBaseOrder = sr == null ? 0 : sr.sortingOrder;
+        if (sr != null) sr.sortingOrder = 60;
+        SetFragmentPointerControl(go, true);
+        WakeDynamicPileExcept(go);
+        SyncTokenToVisual(best, go);
+        flashlight?.TurnOffForFragmentPickup();
 
         // 拼片被拿走 → 撤它参与的暂存/配对(镜像 bootstrap: 掉片/挪走即 unstage)。
         var session = board.Session;
@@ -147,24 +192,41 @@ public sealed class M01DragProbe : MonoBehaviour
             var cleared = session.UnstageFragment(best.ControllerId);
             if (cleared.Count > 0) Debug.Log($"M01DragProbe: unstaged {best.ControllerId} → cleared evidence [{string.Join(",", cleared)}]");
         }
-        snappedToTarget.Remove(best.ControllerId);
-        foreach (var set in weakSnapped.Values) set.Remove(best.ControllerId);
+        RemoveFragmentFromPlacementLedgers(best.ControllerId);
     }
 
     private void MoveHeld(Vector2 cocosPos)
     {
-        held!.Position = new M01GreyboxPoint(cocosPos.x, cocosPos.y);
-        heldGo!.transform.localPosition = new Vector3(cocosPos.x / Ppu, cocosPos.y / Ppu, 0);
+        var target = cocosPos + heldDragOffset;
+        SetWorldCocosPosition(heldGo!, target);
+        held!.Position = new M01GreyboxPoint(target.x, target.y);
     }
 
-    private void Drop(Vector2 cocosPos)
+    private void EndPointer(Vector2 cocosPos)
     {
-        var layout = board.Layout!;
         var token = held!;
         var go = heldGo!;
+        var total = cocosPos - heldPointerStart;
+        if (M01FragmentPointerRules.IsRotateTap(total.x, total.y))
+        {
+            RotateAndPin(token, go, heldBaseOrder);
+            ClearHeld();
+            return;
+        }
+
+        ResolveDrop(token, go, CurrentCocosPosition(go), heldBaseOrder);
+        ClearHeld();
+    }
+
+    private void ResolveDrop(M01GreyboxTokenNode token, GameObject go, Vector2 cocosPos, int baseOrder)
+    {
+        var layout = board.Layout!;
+        var rotation = fragmentRotations.TryGetValue(token.ControllerId, out var trackedRotation)
+            ? trackedRotation
+            : M01FragmentPointerRules.RebaselineRotation(go.transform.eulerAngles.z);
         var action = M01GreyboxDrag.ResolveM01GreyboxDrop(
             layout, token, new M01GreyboxPoint(cocosPos.x, cocosPos.y),
-            new M01GreyboxDropOptions { Rotation = heldRotation });
+            new M01GreyboxDropOptions { Rotation = rotation });
 
         // 有落点就同步逻辑层+渲染层; weak_snap 的 action 不带 Position → 落座证据吸附位
         // (Cocos snapNodeToEvidence 语义, 复用已迁移的 ResolveEvidenceFragmentSnapPosition, 消死代码)。
@@ -181,22 +243,24 @@ public sealed class M01DragProbe : MonoBehaviour
             }
         }
         token.Position = final;
-        go.transform.localPosition = new Vector3((float)final.X / Ppu, (float)final.Y / Ppu, 0);
-
-        // 探针级视觉反馈: snap 亮绿一拍语义 → 这里直接染色区分(正式版走 session 事件)。
-        var sr = go.GetComponent<SpriteRenderer>();
-        sr.sortingOrder = heldBaseOrder;
-        var feedback = action.Type switch
+        SetWorldCocosPosition(go, new Vector2((float)final.X, (float)final.Y));
+        if (action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece && action.Rotation != null)
         {
-            M01GreyboxDropActionType.SnapFragmentToTargetPiece => new Color(0.55f, 0.72f, 0.55f), // 吸附成功: 灰绿
-            M01GreyboxDropActionType.WeakSnapFragment => new Color(0.62f, 0.60f, 0.74f),          // 证据试拼: 淡紫
-            M01GreyboxDropActionType.StickFragmentToSlot => new Color(0.80f, 0.66f, 0.52f),       // 贴槽待转: 琥珀
-            _ => new Color(0.78f, 0.78f, 0.76f)                                                   // 自由落: 灰白
-        };
-        sr.color = feedback;
-        board.FragmentBaseColors[token.ControllerId] = feedback; // 手电显色离开覆盖后恢复到这个玩法色
+            rotation = action.Rotation.Value;
+            fragmentRotations[token.ControllerId] = rotation;
+            go.transform.rotation = Quaternion.Euler(0, 0, (float)rotation);
+        }
+        else if (action.Type == M01GreyboxDropActionType.StickFragmentToSlot)
+        {
+            go.transform.rotation = Quaternion.Euler(0, 0, (float)rotation);
+        }
 
-        Debug.Log($"M01DragProbe: {token.ControllerId} rot={heldRotation} → {action.Type}" +
+        // 交互只改排序、位置、Session 与刚体状态。Cocos 的水彩拼片本体在拾取/吸附/自由落点时不染色；
+        // 真正的颜色变化只允许由手电观察层临时叠加，离开光束后恢复原图。
+        var sr = go.GetComponent<SpriteRenderer>();
+        if (sr != null) sr.sortingOrder = baseOrder;
+
+        Debug.Log($"M01DragProbe: {token.ControllerId} rot={rotation} → {action.Type}" +
                   (action.PieceSlotId != null ? $" slot={action.PieceSlotId}" : "") +
                   (action.EvidenceId != null ? $" evidence={action.EvidenceId}" : "") +
                   (action.Reason != null ? $" reason={action.Reason}" : ""));
@@ -208,6 +272,13 @@ public sealed class M01DragProbe : MonoBehaviour
             if (action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece)
             {
                 snappedToTarget.Add(token.ControllerId);
+                RecordTargetSlotOccupant(action.PieceSlotId, token.ControllerId);
+            }
+            else if (action.Type == M01GreyboxDropActionType.StickFragmentToSlot)
+            {
+                // 角度不对也已经占住目标槽；Cocos 会在六槽全满时立刻做失败显色，
+                // 不能因它尚未 staged 就永远不触发验证。
+                RecordTargetSlotOccupant(action.PieceSlotId, token.ControllerId);
             }
             else if (action.Type == M01GreyboxDropActionType.WeakSnapFragment && action.EvidenceId != null)
             {
@@ -223,49 +294,256 @@ public sealed class M01DragProbe : MonoBehaviour
             TryValidate(session);
         }
 
-        held = null;
-        heldGo = null;
+        if (action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece ||
+            action.Type == M01GreyboxDropActionType.WeakSnapFragment ||
+            action.Type == M01GreyboxDropActionType.StickFragmentToSlot)
+        {
+            ParkFragmentBody(go);
+        }
+        else
+        {
+            ReleaseFragmentBodyToPhysics(go);
+        }
     }
 
-    /// <summary>每条证据的两片真解(FragmentSnapPositions 键)都已就位(中央 target 槽 pose 对 或 证据上试拼) → 提交配对。</summary>
+    private (M01GreyboxTokenNode Token, GameObject Go)? FindPickupCandidate(Vector2 cocosPos)
+    {
+        if (InputLocked || board.Layout == null) return null;
+        if (intro != null && intro.ReservesPointerForIntroAt(cocosPos)) return null;
+        M01GreyboxTokenNode? best = null;
+        GameObject? bestGo = null;
+        var bestDistance = float.MaxValue;
+        foreach (var fragment in board.Layout.Fragments)
+        {
+            var spilledOut = spilledOutFragments.Contains(fragment.ControllerId);
+            if (introPickupGate && !M01FragmentPointerRules.CanPickFragment(physicsSettled, spilledOut))
+            {
+                continue;
+            }
+            if (!board.FragmentObjects.TryGetValue(fragment.ControllerId, out var fragmentObject)) continue;
+            var live = CurrentCocosPosition(fragmentObject);
+            var radius = (float)System.Math.Max(fragment.Size.Width, fragment.Size.Height) / 2f + PickupSlackPx;
+            var distance = Vector2.Distance(live, cocosPos);
+            if (distance <= radius && distance < bestDistance)
+            {
+                best = fragment;
+                bestGo = fragmentObject;
+                bestDistance = distance;
+            }
+        }
+        return best == null || bestGo == null ? null : (best, bestGo);
+    }
+
+    private void RotateAndPin(M01GreyboxTokenNode token, GameObject go, int baseOrder)
+    {
+        var beforeLowest = LowestPolygonWorldY(go);
+        var next = M01FragmentPointerRules.NextClockwiseRotation(heldRotation);
+        heldRotation = next;
+        fragmentRotations[token.ControllerId] = next;
+        go.transform.rotation = Quaternion.Euler(0, 0, (float)next);
+        Physics2D.SyncTransforms();
+        var afterLowest = LowestPolygonWorldY(go);
+        if (beforeLowest != null && afterLowest != null)
+        {
+            go.transform.position += Vector3.up * (beforeLowest.Value - afterLowest.Value);
+        }
+        SyncTokenToVisual(token, go);
+        var renderer = go.GetComponent<SpriteRenderer>();
+        if (renderer != null) renderer.sortingOrder = baseOrder;
+        ParkFragmentBody(go);
+        CancelRotatePin(token.ControllerId);
+        rotatePinRoutines[token.ControllerId] = StartCoroutine(ReleaseRotatePinAfterDelay(token, go, baseOrder));
+    }
+
+    private IEnumerator ReleaseRotatePinAfterDelay(M01GreyboxTokenNode token, GameObject go, int baseOrder)
+    {
+        yield return new WaitForSeconds((float)M01FragmentPointerRules.RotatePinHoldSeconds);
+        rotatePinRoutines.Remove(token.ControllerId);
+        if (InputLocked || go == null || board.Layout == null) yield break;
+        ResolveDrop(token, go, CurrentCocosPosition(go), baseOrder);
+    }
+
+    private void CancelRotatePin(string fragmentId)
+    {
+        if (!rotatePinRoutines.TryGetValue(fragmentId, out var routine)) return;
+        if (routine != null) StopCoroutine(routine);
+        rotatePinRoutines.Remove(fragmentId);
+    }
+
+    private static float? LowestPolygonWorldY(GameObject go)
+    {
+        var polygon = go.GetComponent<PolygonCollider2D>();
+        if (polygon == null || polygon.points.Length == 0) return null;
+        var minimum = float.PositiveInfinity;
+        foreach (var point in polygon.points)
+        {
+            var local = point + polygon.offset;
+            minimum = Mathf.Min(minimum, go.transform.TransformPoint(local).y);
+        }
+        return minimum;
+    }
+
+    private static void SetFragmentPointerControl(GameObject go, bool controlledByPointer)
+    {
+        var body = go.GetComponent<Rigidbody2D>();
+        if (controlledByPointer)
+        {
+            foreach (var collider in go.GetComponents<Collider2D>()) collider.enabled = false;
+            if (body == null) return;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.simulated = false;
+            return;
+        }
+
+        if (body != null)
+        {
+            body.simulated = true;
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
+        }
+        foreach (var collider in go.GetComponents<Collider2D>()) collider.enabled = true;
+    }
+
+    private static void ParkFragmentBody(GameObject go)
+    {
+        var body = go.GetComponent<Rigidbody2D>();
+        if (body != null)
+        {
+            body.simulated = false;
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+        }
+        SetFragmentPointerControl(go, false);
+    }
+
+    private static void ReleaseFragmentBodyToPhysics(GameObject go)
+    {
+        var body = go.GetComponent<Rigidbody2D>();
+        if (body == null)
+        {
+            foreach (var collider in go.GetComponents<Collider2D>()) collider.enabled = true;
+            return;
+        }
+        body.simulated = false;
+        body.bodyType = RigidbodyType2D.Dynamic;
+        body.gravityScale = (float)M01IntroLayout.BasketPieceGravityScale;
+        body.linearDamping = (float)M01IntroLayout.FragmentLinearDamping;
+        body.angularDamping = (float)M01IntroLayout.FragmentAngularDamping;
+        body.linearVelocity = Vector2.zero;
+        body.angularVelocity = 0f;
+        foreach (var collider in go.GetComponents<Collider2D>()) collider.enabled = true;
+        body.simulated = true;
+        body.WakeUp();
+    }
+
+    /// <summary>拿走一块支撑片后唤醒其余落地刚体，让上层拼片按 Cocos/Box2D 重新坍落垒叠。</summary>
+    private void WakeDynamicPileExcept(GameObject pickedUp)
+    {
+        if (board.Layout == null) return;
+        foreach (var token in board.Layout.Fragments)
+        {
+            if (!board.FragmentObjects.TryGetValue(token.ControllerId, out var fragment) || fragment == pickedUp) continue;
+            var body = fragment.GetComponent<Rigidbody2D>();
+            if (body == null || !body.simulated || body.bodyType != RigidbodyType2D.Dynamic) continue;
+            body.WakeUp();
+        }
+    }
+
+    private static Vector2 CurrentCocosPosition(GameObject go) =>
+        new(go.transform.position.x * Ppu, go.transform.position.y * Ppu);
+
+    private static void SetWorldCocosPosition(GameObject go, Vector2 cocosPosition)
+    {
+        var position = go.transform.position;
+        go.transform.position = new Vector3(cocosPosition.x / Ppu, cocosPosition.y / Ppu, position.z);
+    }
+
+    private static void SyncTokenToVisual(M01GreyboxTokenNode token, GameObject go)
+    {
+        var live = CurrentCocosPosition(go);
+        token.Position = new M01GreyboxPoint(live.x, live.y);
+    }
+
+    private void ClearHeld()
+    {
+        held = null;
+        heldGo = null;
+        heldDragOffset = Vector2.zero;
+    }
+
+    /// <summary>按玩家当前实际放入的拼片提交证据；错误颜色也要进入验证并显出真实结果。</summary>
     private void TrySubmitPairs(M01GreyboxSession session)
     {
         var layout = board.Layout!;
+        // 自由证据区：按当前弱吸附进去的实际两片提交，不能反查真解 id。
         foreach (var ev in layout.Evidence)
         {
-            if (ev.FragmentSnapPositions == null || ev.FragmentSnapPositions.Count == 0) continue;
             if (session.IsEvidenceStaged(ev.ControllerId)) continue;
-            var pair = new System.Collections.Generic.List<string>(ev.FragmentSnapPositions.Keys);
-            var allPlaced = true;
-            weakSnapped.TryGetValue(ev.ControllerId, out var weak);
-            foreach (var fid in pair)
-            {
-                if (!(snappedToTarget.Contains(fid) || (weak != null && weak.Contains(fid))))
-                {
-                    allPlaced = false;
-                    break;
-                }
-            }
-            if (!allPlaced) continue;
+            if (!weakSnapped.TryGetValue(ev.ControllerId, out var weak) || weak.Count < 2) continue;
+            var pair = weak.Take(2).ToArray();
             var result = session.SubmitEvidencePair(ev.ControllerId, pair);
             Debug.Log($"M01DragProbe: SubmitEvidencePair {ev.ControllerId} [{string.Join(",", pair)}] → accepted={result.Accepted} staged={result.CompletedEvidenceCount}" +
                       (result.Reason != null ? $" reason={result.Reason}" : ""));
         }
+
+        TrySubmitTargetPatternEvidencePairs(session);
+    }
+
+    /// <summary>
+    /// Cocos trySubmitTargetPatternEvidencePairs：证据关系由目标槽位上的实际占用片组成，而不是由
+    /// 真解 fragment id 组成。这样六片位置/角度正确但颜色错误时会进入 wrong_blend_color 或
+    /// wrong_fragment_set，并在失败窗口按玩家刚拼出的六片显色。
+    /// </summary>
+    private void TrySubmitTargetPatternEvidencePairs(M01GreyboxSession session)
+    {
+        var config = board.Config;
+        var layout = board.Layout;
+        if (config?.TargetPattern?.Locked != true || layout == null) return;
+
+        var slotByExpectedFragment = layout.TargetPieceSlots
+            .Where(slot => slot.ExpectedFragmentId != null)
+            .ToDictionary(slot => slot.ExpectedFragmentId!, slot => slot);
+
+        foreach (var ev in config.Evidence)
+        {
+            var solutionIds = ev.Solution.FragmentIds;
+            if (solutionIds.Count != 2 ||
+                !slotByExpectedFragment.TryGetValue(solutionIds[0], out var firstSlot) ||
+                !slotByExpectedFragment.TryGetValue(solutionIds[1], out var secondSlot) ||
+                !TryGetPoseCorrectSlotOccupant(firstSlot, out var firstOccupant) ||
+                !TryGetPoseCorrectSlotOccupant(secondSlot, out var secondOccupant) ||
+                firstOccupant == secondOccupant)
+            {
+                continue;
+            }
+
+            session.SubmitEvidencePair(ev.Id, new[] { firstOccupant, secondOccupant });
+        }
+    }
+
+    private bool TryGetPoseCorrectSlotOccupant(M01GreyboxPieceSnapZone slot, out string fragmentId)
+    {
+        if (!targetSlotOccupants.TryGetValue(slot.Id, out fragmentId!)) return false;
+        if (!board.FragmentObjects.TryGetValue(fragmentId, out var go)) return false;
+        var body = go.GetComponent<Rigidbody2D>();
+        return body != null && body.bodyType == RigidbodyType2D.Kinematic &&
+               Mathf.Abs(Mathf.DeltaAngle(go.transform.eulerAngles.z, (float)slot.Rotation)) <= 1f;
     }
 
     /// <summary>全部证据 staged → 验证候选结构 → 底光反馈(探针: 背板染色 + 打点)。</summary>
     private void TryValidate(M01GreyboxSession session)
     {
-        if (!session.AreAllEvidenceStaged()) return;
+        if (validationFailureRoutine != null) return;
+        if (!AllTargetSlotsPositionOccupied() && !session.AreAllEvidenceStaged()) return;
         var validation = session.ValidateCandidateStructure();
         Debug.Log($"M01DragProbe: VALIDATE → accepted={validation.Accepted} completed={validation.Completed} bottomLight={validation.BottomLight}" +
                   (validation.Reason != null ? $" reason={validation.Reason}" : ""));
-        var boardGo = GameObject.Find("~M01BoardRoot/board");
-        if (boardGo != null)
+        ApplyValidationPresentation(session, validation);
+        if (!validation.Completed && validation.ValidationLightSeconds != null)
         {
-            boardGo.GetComponent<SpriteRenderer>().color = validation.Accepted
-                ? new Color(0.62f, 0.78f, 0.60f)   // 底光亮: 灰绿
-                : new Color(0.85f, 0.58f, 0.52f);  // 验证失败: 砖红闪(探针不做定时复位)
+            ScheduleFailedCandidateReturn(session, (float)validation.ValidationLightSeconds.Value);
         }
         if (validation.Completed)
         {
@@ -276,6 +554,87 @@ public sealed class M01DragProbe : MonoBehaviour
                 completion.PlayCompletion(session.GetLastToolCard());
             }
         }
+    }
+
+    private void ApplyValidationPresentation(M01GreyboxSession session, M01GreyboxValidateResult validation)
+    {
+        foreach (var fragment in board.Layout!.Fragments)
+        {
+            if (!board.FragmentObjects.TryGetValue(fragment.ControllerId, out var go)) continue;
+            var view = session.GetFragmentView(fragment.ControllerId);
+            var renderer = go.GetComponent<SpriteRenderer>();
+            if (renderer == null) continue;
+            renderer.color = view.ValidationColor != null
+                ? M01FlashlightProbe.RevealTint(view.ValidationColor)
+                : board.FragmentBaseColors[fragment.ControllerId];
+        }
+
+        // 正确与错误都按当前台面真实几何即时求交叠色；失败保持配置规定的 3 秒后再掉片。
+        board.RenderValidationBlendOverlays(validation.BottomLight != M01BottomLightState.Off);
+        var boardGo = GameObject.Find("~M01BoardRoot/board");
+        if (boardGo != null)
+        {
+            boardGo.GetComponent<SpriteRenderer>().color = validation.Accepted
+                ? new Color(0.62f, 0.78f, 0.60f, 0.56f)
+                : new Color(0.85f, 0.58f, 0.52f, 0.56f);
+        }
+    }
+
+    private void ScheduleFailedCandidateReturn(M01GreyboxSession session, float delaySeconds)
+    {
+        var snapshot = new HashSet<string>(targetSlotOccupants.Values);
+        foreach (var set in weakSnapped.Values) snapshot.UnionWith(set);
+        validationFailureRoutine = StartCoroutine(ReturnFailedCandidateAfterDelay(session, snapshot, delaySeconds));
+    }
+
+    private IEnumerator ReturnFailedCandidateAfterDelay(
+        M01GreyboxSession session,
+        HashSet<string> snapshot,
+        float delaySeconds)
+    {
+        yield return new WaitForSeconds(Mathf.Max(0f, delaySeconds));
+        snapshot.UnionWith(session.ResetCandidateStructure());
+        board.RenderValidationBlendOverlays(false);
+        var boardGo = GameObject.Find("~M01BoardRoot/board");
+        if (boardGo != null) boardGo.GetComponent<SpriteRenderer>().color = Color.clear;
+
+        foreach (var fragment in board.Layout!.Fragments)
+        {
+            if (!board.FragmentObjects.TryGetValue(fragment.ControllerId, out var go)) continue;
+            var renderer = go.GetComponent<SpriteRenderer>();
+            if (renderer != null && board.FragmentBaseColors.TryGetValue(fragment.ControllerId, out var baseColor))
+            {
+                renderer.color = baseColor;
+            }
+            if (!snapshot.Contains(fragment.ControllerId) || held?.ControllerId == fragment.ControllerId) continue;
+            RemoveFragmentFromPlacementLedgers(fragment.ControllerId);
+            ReleaseFragmentBodyToPhysics(go);
+        }
+        validationFailureRoutine = null;
+    }
+
+    private bool AllTargetSlotsPositionOccupied()
+    {
+        var slots = board.Layout?.TargetPieceSlots;
+        return slots != null && slots.Count > 0 &&
+               slots.All(slot => targetSlotOccupants.ContainsKey(slot.Id));
+    }
+
+    private void RecordTargetSlotOccupant(string? slotId, string fragmentId)
+    {
+        if (slotId == null) return;
+        targetSlotOccupants[slotId] = fragmentId;
+    }
+
+    private void RemoveFragmentFromPlacementLedgers(string fragmentId)
+    {
+        snappedToTarget.Remove(fragmentId);
+        foreach (var set in weakSnapped.Values) set.Remove(fragmentId);
+        var occupiedSlots = targetSlotOccupants
+            .Where(pair => pair.Value == fragmentId)
+            .Select(pair => pair.Key)
+            .ToArray();
+        foreach (var slotId in occupiedSlots) targetSlotOccupants.Remove(slotId);
     }
 
     private static Vector2 ScreenToCocos(Vector2 screen)

@@ -46,6 +46,23 @@ namespace StarGuardian.M01
         public override string ToString() => $"M01IntroPoint {{ X = {X}, Y = {Y} }}";
     }
 
+    /// <summary>Cocos 连续预览中稳定的篮内结算姿态，坐标为 basket 局部像素。</summary>
+    public readonly struct M01IntroSettledPose
+    {
+        public string FragmentId { get; }
+        public double X { get; }
+        public double Y { get; }
+        public double RotationDeg { get; }
+
+        public M01IntroSettledPose(string fragmentId, double x, double y, double rotationDeg)
+        {
+            FragmentId = fragmentId;
+            X = x;
+            Y = y;
+            RotationDeg = rotationDeg;
+        }
+    }
+
     /// <summary>单片溢出抛速 {vx,vy} —— resolveM01IntroSpillFlingVelocity 的返回</summary>
     public readonly struct M01IntroFlingVelocity : IEquatable<M01IntroFlingVelocity>
     {
@@ -106,6 +123,44 @@ namespace StarGuardian.M01
         public double AngleDeg { get; init; }
     }
 
+    public enum M01IntroBasketPiecePhase
+    {
+        Settling,
+        Frozen,
+        Headbutting,
+        Released
+    }
+
+    /// <summary>篮内拼片在各阶段的引擎无关刚体契约。</summary>
+    public readonly struct M01IntroBasketPiecePhysics
+    {
+        public bool IsDynamic { get; }
+        public bool Simulated { get; }
+        public double GravityScale { get; }
+
+        public M01IntroBasketPiecePhysics(bool isDynamic, bool simulated, double gravityScale)
+        {
+            IsDynamic = isDynamic;
+            Simulated = simulated;
+            GravityScale = gravityScale;
+        }
+    }
+
+    /// <summary>Cocos M01PhysicsPile 中一块拼片的接触材质参数。</summary>
+    public readonly struct M01IntroFragmentMaterial
+    {
+        public double Friction { get; }
+        public double Restitution { get; }
+        public double Density { get; }
+
+        public M01IntroFragmentMaterial(double friction, double restitution, double density)
+        {
+            Friction = friction;
+            Restitution = restitution;
+            Density = density;
+        }
+    }
+
     public static class M01IntroLayout
     {
         // 一个旋钮温和放大整套篮子, 让 9 片标准尺寸(56×56)在其中堆成可见的一摞。片仍保持标准尺寸;
@@ -116,10 +171,88 @@ namespace StarGuardian.M01
             new(387 * BasketScale, 242 * BasketScale);
 
         public const int TargetPieceCount = 9;
+        public const int HeadbuttPiecesPerBatch = 3;
 
         public static readonly M01IntroPieceCountRange VisiblePieceCountRange = new(4, 5);
 
         public const double EffectiveColliderSize = 60;
+
+        // Cocos BASKET_PILE_SETTLE_MS=900; Unity Physics2D 默认重力 9.81m/s²,
+        // 乘 640/981 后得到 Cocos 的 -640px/s²(PPU=100)等效重力。
+        public const double BasketPileSettleSeconds = 0.9;
+        public const double BasketPieceGravityScale = 640d / 981d;
+        public const double FragmentRestitution = 0.08;
+        public const double CircleFriction = 0.18;
+        public const double PolygonFriction = 0.6;
+        public const double FragmentDensity = 1;
+        public const double FragmentLinearDamping = 0.05;
+        public const double FragmentAngularDamping = 0.55;
+        // Cocos 3.8 Box2D 的节点坐标换算常量；linearVelocity 本身直接使用 Box2D m/s，不能当 px/s。
+        public const double CocosPhysicsPixelsPerMeter = 32;
+        public const double CocosPhysicsFixedStepSeconds = 1d / 60d;
+
+        // Cocos SpriteFrame 对 198×437 PNG 使用 trimType:auto，真正绘制的是 x=52,y=14,w=94,h=409，
+        // 再 CUSTOM 到 12×30。Unity Resources.Load<Sprite> 当前拿到完整画布；若直接按画布缩放，左右
+        // 透明边会把有效宽度压成约 5.7px。这里反向补偿画布尺寸，使最终可见轮廓仍严格为 12×30。
+        public static readonly M01IntroSize FlashlightDisplaySize = new(12, 30);
+        public static readonly M01IntroSize FlashlightSourceCanvasSize = new(198, 437);
+        public static readonly M01IntroSize FlashlightSourceTrimSize = new(94, 409);
+        public static readonly M01IntroSize FlashlightCanvasDisplaySize = new(
+            FlashlightDisplaySize.Width * FlashlightSourceCanvasSize.Width / FlashlightSourceTrimSize.Width,
+            FlashlightDisplaySize.Height * FlashlightSourceCanvasSize.Height / FlashlightSourceTrimSize.Height);
+
+        // 点击区和 Cocos 已调好的 14×30 碰撞体继续独立，不用视觉画布尺寸反推物理。
+        public static readonly M01IntroSize FlashlightColliderSize = new(14, 30);
+        public const double FlashlightTapMinimumPixels = 44;
+        public const double FlashlightHeadGlowOffsetY = 11;
+        public const double FlashlightHeadGlowDiameter = 18;
+        public const double FlashlightLaunchDelaySeconds = 0;
+        public const double FlashlightBonkSeconds = 0.42;
+        public const double FlashlightSettleSeconds = 1.1;
+
+        public static M01IntroFragmentMaterial ResolveFragmentMaterial(M01PhysicsShape shape) =>
+            new(
+                shape == M01PhysicsShape.Circle ? CircleFriction : PolygonFriction,
+                FragmentRestitution,
+                FragmentDensity);
+
+        public static double CocosBodyLinearVelocityToUnity(
+            double cocosMetersPerSecond,
+            double unityPixelsPerUnit) =>
+            cocosMetersPerSecond * CocosPhysicsPixelsPerMeter / unityPixelsPerUnit;
+
+        public static double CocosBodyAngularVelocityToUnity(double cocosRadiansPerSecond) =>
+            cocosRadiansPerSecond * 180 / Math.PI;
+
+        public static double CocosColliderDensityToUnity(
+            double cocosDensity,
+            double unityPixelsPerUnit)
+        {
+            var linearScale = unityPixelsPerUnit / CocosPhysicsPixelsPerMeter;
+            return cocosDensity * linearScale * linearScale;
+        }
+
+        public static M01IntroBasketPiecePhysics ResolveBasketPiecePhysics(
+            M01IntroBasketPiecePhase phase)
+        {
+            var physical = phase != M01IntroBasketPiecePhase.Frozen;
+            return new M01IntroBasketPiecePhysics(
+                physical,
+                physical,
+                physical ? BasketPieceGravityScale : 0);
+        }
+
+        /// <summary>
+        /// Cocos 最终地面堆只是让 Dynamic 刚体休眠；仍留在物理世界，拿走支撑片后可被唤醒并重新垒叠。
+        /// </summary>
+        public static M01IntroBasketPiecePhysics ResolveGroundPileSettledPhysics() =>
+            ResolveBasketPiecePhysics(M01IntroBasketPiecePhase.Released);
+
+        /// <summary>
+        /// Cocos 在第一次 headbutt 批次就销毁三面内胆，之后调用保持幂等。
+        /// releasedCount 是本次释放完成后的累计片数。
+        /// </summary>
+        public static bool ShouldKeepBasketCavityActive(int releasedCount) => releasedCount == 0;
 
         // 把整个内腔(地板 + 墙)相对篮子向下移。-y = 下。单位 px。
         public const double CavityYShift = -15;
@@ -225,6 +358,22 @@ namespace StarGuardian.M01
                 new(30 * BasketScale, 56 * BasketScale)
             };
 
+        // Cocos 3.8.8 在相同种子、材质和 0.9s 结算窗口下连续三次预览均收敛到这组姿态。
+        // Unity/Box2D 求解器版本会得到另一组稳定解，因此只在开场冻结边界归一化；顶篮后仍恢复真实 Dynamic Physics2D。
+        public static readonly IReadOnlyList<M01IntroSettledPose> CocosSettledPilePoses =
+            new List<M01IntroSettledPose>
+            {
+                new("fragment_circle_blue_1", -81.3525, -47.7649, -17.1982),
+                new("fragment_circle_yellow_1", -25.0806, -67.6560, -6.3931),
+                new("fragment_circle_red_2", 34.5899, -67.6519, 5.9655),
+                new("fragment_triangle_blue_1", 95.5603, -53.9077, -55.5286),
+                new("fragment_triangle_red_1", -56.5537, 6.0865, -13.9099),
+                new("fragment_triangle_yellow_2", 0.5336, -9.4670, 0.0764),
+                new("fragment_hexagon_blue_1", 67.8033, -16.9585, 4.3036),
+                new("fragment_hexagon_yellow_1", -21.0267, 35.0244, -30.2997),
+                new("fragment_hexagon_red_2", 30.2181, 19.6052, 6.3084)
+            };
+
         public static readonly IReadOnlyList<string> PileShapes =
             new List<string>
             {
@@ -238,6 +387,22 @@ namespace StarGuardian.M01
                 "hexagon",
                 "hexagon"
             };
+
+        public static bool TryResolveCocosSettledPilePose(string fragmentId, out M01IntroSettledPose pose)
+        {
+            for (var index = 0; index < CocosSettledPilePoses.Count; index += 1)
+            {
+                var candidate = CocosSettledPilePoses[index];
+                if (string.Equals(candidate.FragmentId, fragmentId, StringComparison.Ordinal))
+                {
+                    pose = candidate;
+                    return true;
+                }
+            }
+
+            pose = default;
+            return false;
+        }
 
         /// <summary>内腔在给定 y 处的半宽(底窄顶宽线性内插, 夹在 [floor, wallTop])—— TS resolveM01IntroBasketInnerHalfWidthAtY</summary>
         public static double ResolveInnerHalfWidthAtY(double y)

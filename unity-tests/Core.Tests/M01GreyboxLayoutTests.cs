@@ -23,6 +23,21 @@ namespace StarGuardian.M01.Tests
         /// <summary>沿目录向上找仓库根读同一份真 config —— 同 M01TargetPatternGeneratorTests/PuzzleConfigTests 模式。</summary>
         private static readonly M01MemoryGearConfig Config = LoadConfig();
 
+        [Theory(DisplayName = "ports the Cocos fragment-art display override without changing standard snap geometry")]
+        [InlineData("circle", 60, 60)]
+        [InlineData("triangle", 56, 56)]
+        [InlineData("hexagon", 56, 56)]
+        public void ResolvesShapeSpecificFragmentArtDisplaySize(
+            string shapeToken,
+            double expectedWidth,
+            double expectedHeight)
+        {
+            Assert.Equal(
+                new M01GreyboxSize(expectedWidth, expectedHeight),
+                M01GreyboxLayout.ResolveFragmentArtDisplaySize(shapeToken));
+            Assert.Equal(new M01GreyboxSize(56, 56), M01GreyboxLayout.StandardPieceDisplaySize);
+        }
+
         [Fact(DisplayName = "builds candidate fragment, evidence, and board nodes without legacy flashlight buttons")]
         public void BuildsFragmentEvidenceAndBoardNodesWithoutLegacyFlashlightButtons()
         {

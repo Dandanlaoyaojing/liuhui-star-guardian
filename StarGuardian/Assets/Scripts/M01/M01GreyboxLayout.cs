@@ -157,6 +157,15 @@ namespace StarGuardian.M01
         // TS: export const M01_STANDARD_PIECE_DISPLAY_SIZE。
         public static readonly M01GreyboxSize StandardPieceDisplaySize = new(56, 56);
 
+        /// <summary>
+        /// Cocos M01GreyboxArt 的 HIDDEN_FRAGMENT_DISPLAY_SIZE_OVERRIDES：圆片使用 60×60
+        /// 精灵画布容纳完整手绘轮廓；拼接/吸附几何仍保持标准 56×56。
+        /// </summary>
+        public static M01GreyboxSize ResolveFragmentArtDisplaySize(string shapeToken) =>
+            shapeToken == "circle"
+                ? new M01GreyboxSize(60, 60)
+                : StandardPieceDisplaySize;
+
         // TS: export const M01_TARGET_REFERENCE_DISPLAY_SIZE(本文件未消费, 供渲染层)。
         public static readonly M01GreyboxSize TargetReferenceDisplaySize = new(196, 170.32);
 
