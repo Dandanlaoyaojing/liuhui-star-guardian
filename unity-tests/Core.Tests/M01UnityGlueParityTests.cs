@@ -179,7 +179,7 @@ namespace StarGuardian.Tests
         {
             var drag = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01DragProbe.cs");
 
-            Assert.Contains("targetSlotOccupants", drag);
+            Assert.Contains("placementLedger", drag);
             Assert.Contains("AllTargetSlotsPositionOccupied", drag);
             Assert.Contains("StickFragmentToSlot", drag);
             Assert.Contains("ScheduleFailedCandidateReturn", drag);
@@ -193,7 +193,7 @@ namespace StarGuardian.Tests
             Assert.Contains("TrySubmitTargetPatternEvidencePairs", drag);
             Assert.Contains("TryGetPoseCorrectSlotOccupant(firstSlot, out var firstOccupant)", drag);
             Assert.Contains("TryGetPoseCorrectSlotOccupant(secondSlot, out var secondOccupant)", drag);
-            Assert.Contains("targetSlotOccupants.TryGetValue(slot.Id", drag);
+            Assert.Contains("placementLedger.TryGetSlotOccupant(slot.Id", drag);
             Assert.Contains("session.SubmitEvidencePair(ev.Id, new[] { firstOccupant, secondOccupant })", drag);
         }
 
@@ -242,6 +242,56 @@ namespace StarGuardian.Tests
             Assert.True(
                 freezeBlock.IndexOf("ApplyCocosSettledBasketPose()", StringComparison.Ordinal) <
                 freezeBlock.IndexOf("SetUnreleasedBasketPiecePhase(M01IntroBasketPiecePhase.Frozen)", StringComparison.Ordinal));
+        }
+
+        [Fact(DisplayName = "failed validation cancels every delayed rotate pin before resetting fragments")]
+        public void FailedValidationCancelsRotatePinsBeforeReset()
+        {
+            var drag = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01DragProbe.cs");
+            var start = drag.IndexOf("private IEnumerator ReturnFailedCandidateAfterDelay", StringComparison.Ordinal);
+            var end = drag.IndexOf("private bool AllTargetSlotsPositionOccupied", start, StringComparison.Ordinal);
+            Assert.True(start >= 0 && end > start);
+            var resetBlock = drag.Substring(start, end - start);
+
+            var cancel = resetBlock.IndexOf("CancelAllRotatePins()", StringComparison.Ordinal);
+            var reset = resetBlock.IndexOf("session.ResetCandidateStructure()", StringComparison.Ordinal);
+            Assert.True(cancel >= 0, "failure reset must cancel delayed rotate-pin coroutines");
+            Assert.True(cancel < reset, "rotate pins must be cancelled before candidate state is reset");
+        }
+
+        [Fact(DisplayName = "target-slot replacement releases the displaced wrong-pose body")]
+        public void TargetSlotReplacementReleasesDisplacedBody()
+        {
+            var drag = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01DragProbe.cs");
+
+            Assert.Contains("ReleaseReplaceableSlotOccupant", drag);
+            Assert.Contains("placementLedger.TryGetSlotOccupant", drag);
+            Assert.Contains("ReleaseFragmentBodyToPhysics(displacedGo)", drag);
+        }
+
+        [Fact(DisplayName = "weak evidence always resubmits its ordered latest pair")]
+        public void WeakEvidenceResubmitsLatestPair()
+        {
+            var drag = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01DragProbe.cs");
+
+            Assert.Contains("placementLedger.TryGetWeakPair", drag);
+            Assert.Contains("session.SubmitEvidencePair(ev.ControllerId, pair)", drag);
+            Assert.DoesNotContain("if (session.IsEvidenceStaged(ev.ControllerId)) continue", drag);
+        }
+
+        [Fact(DisplayName = "Lemmy frames use high-quality compression and a bounded runtime cache")]
+        public void LemmyAnimationMemoryIsBounded()
+        {
+            var importer = ReadRepoFile("StarGuardian/Assets/Editor/M01RenderAssetImporter.cs");
+            var animator = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01LemmyAnimator.cs");
+
+            Assert.Contains("LemmyRoot", importer);
+            Assert.Contains("override uint GetVersion()", importer);
+            Assert.Contains("assetPath.EndsWith(\".png\"", importer);
+            Assert.Contains("TextureImporterCompression.CompressedHQ", importer);
+            Assert.Contains("MaxCachedClips", animator);
+            Assert.Contains("TrimClipCache", animator);
+            Assert.Contains("Resources.UnloadUnusedAssets", animator);
         }
 
         private static string ReadRepoFile(string relativePath)

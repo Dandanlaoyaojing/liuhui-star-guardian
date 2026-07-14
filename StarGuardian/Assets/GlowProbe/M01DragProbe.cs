@@ -34,9 +34,7 @@ public sealed class M01DragProbe : MonoBehaviour
     private readonly Dictionary<string, Coroutine> rotatePinRoutines = new();
 
     // 玩法状态(镜像 Cocos bootstrap 的 weakSnappedFragmentsByEvidence / target-pattern 配对):
-    private readonly HashSet<string> snappedToTarget = new();
-    private readonly Dictionary<string, HashSet<string>> weakSnapped = new();
-    private readonly Dictionary<string, string> targetSlotOccupants = new();
+    private readonly M01PlacementLedger placementLedger = new();
     private Coroutine? validationFailureRoutine;
 
     private void Awake()
@@ -95,12 +93,7 @@ public sealed class M01DragProbe : MonoBehaviour
     /// <summary>该片是否已就位(中央槽或证据试拼)——手电 onTray 排除等消费。</summary>
     public bool IsFragmentPlaced(string fragmentId)
     {
-        if (snappedToTarget.Contains(fragmentId)) return true;
-        foreach (var set in weakSnapped.Values)
-        {
-            if (set.Contains(fragmentId)) return true;
-        }
-        return false;
+        return placementLedger.IsPlaced(fragmentId);
     }
 
     /// <summary>当前拖拽中的片(无则 null)——手电拖拽中排除观察等消费。</summary>
@@ -109,16 +102,10 @@ public sealed class M01DragProbe : MonoBehaviour
     /// <summary>清空拖拽记账(BoardProbe 重建 Session 时调, 防旧账本对新 Session 假提交)。</summary>
     public void ResetLedgers()
     {
-        snappedToTarget.Clear();
-        weakSnapped.Clear();
-        targetSlotOccupants.Clear();
+        placementLedger.Clear();
         spilledOutFragments.Clear();
         fragmentRotations.Clear();
-        foreach (var routine in rotatePinRoutines.Values)
-        {
-            if (routine != null) StopCoroutine(routine);
-        }
-        rotatePinRoutines.Clear();
+        CancelAllRotatePins();
         if (validationFailureRoutine != null) StopCoroutine(validationFailureRoutine);
         validationFailureRoutine = null;
         board?.RenderValidationBlendOverlays(false);
@@ -267,36 +254,39 @@ public sealed class M01DragProbe : MonoBehaviour
 
         // ── session 玩法闭环: snap/weak_snap → 记账 → 证据两片齐即提交 → 全 staged 即验证 ──
         var session = board.Session;
+        var placementAccepted = true;
         if (session != null)
         {
             if (action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece)
             {
-                snappedToTarget.Add(token.ControllerId);
-                RecordTargetSlotOccupant(action.PieceSlotId, token.ControllerId);
+                placementAccepted = ReleaseReplaceableSlotOccupant(action.PieceSlotId, token.ControllerId);
+                if (placementAccepted && action.PieceSlotId != null)
+                {
+                    placementLedger.OccupySlot(action.PieceSlotId, token.ControllerId);
+                }
             }
             else if (action.Type == M01GreyboxDropActionType.StickFragmentToSlot)
             {
                 // 角度不对也已经占住目标槽；Cocos 会在六槽全满时立刻做失败显色，
                 // 不能因它尚未 staged 就永远不触发验证。
-                RecordTargetSlotOccupant(action.PieceSlotId, token.ControllerId);
+                placementAccepted = ReleaseReplaceableSlotOccupant(action.PieceSlotId, token.ControllerId);
+                if (placementAccepted && action.PieceSlotId != null)
+                {
+                    placementLedger.OccupySlot(action.PieceSlotId, token.ControllerId);
+                }
             }
             else if (action.Type == M01GreyboxDropActionType.WeakSnapFragment && action.EvidenceId != null)
             {
                 session.WeakSnapFragmentToEvidence(token.ControllerId, action.EvidenceId);
-                if (!weakSnapped.TryGetValue(action.EvidenceId, out var set))
-                {
-                    set = new System.Collections.Generic.HashSet<string>();
-                    weakSnapped[action.EvidenceId] = set;
-                }
-                set.Add(token.ControllerId);
+                placementLedger.TrackWeakSnap(action.EvidenceId, token.ControllerId);
             }
             TrySubmitPairs(session);
             TryValidate(session);
         }
 
-        if (action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece ||
-            action.Type == M01GreyboxDropActionType.WeakSnapFragment ||
-            action.Type == M01GreyboxDropActionType.StickFragmentToSlot)
+        if ((action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece ||
+             action.Type == M01GreyboxDropActionType.WeakSnapFragment ||
+             action.Type == M01GreyboxDropActionType.StickFragmentToSlot) && placementAccepted)
         {
             ParkFragmentBody(go);
         }
@@ -368,6 +358,15 @@ public sealed class M01DragProbe : MonoBehaviour
         if (!rotatePinRoutines.TryGetValue(fragmentId, out var routine)) return;
         if (routine != null) StopCoroutine(routine);
         rotatePinRoutines.Remove(fragmentId);
+    }
+
+    private void CancelAllRotatePins()
+    {
+        foreach (var routine in rotatePinRoutines.Values)
+        {
+            if (routine != null) StopCoroutine(routine);
+        }
+        rotatePinRoutines.Clear();
     }
 
     private static float? LowestPolygonWorldY(GameObject go)
@@ -480,9 +479,7 @@ public sealed class M01DragProbe : MonoBehaviour
         // 自由证据区：按当前弱吸附进去的实际两片提交，不能反查真解 id。
         foreach (var ev in layout.Evidence)
         {
-            if (session.IsEvidenceStaged(ev.ControllerId)) continue;
-            if (!weakSnapped.TryGetValue(ev.ControllerId, out var weak) || weak.Count < 2) continue;
-            var pair = weak.Take(2).ToArray();
+            if (!placementLedger.TryGetWeakPair(ev.ControllerId, out var pair)) continue;
             var result = session.SubmitEvidencePair(ev.ControllerId, pair);
             Debug.Log($"M01DragProbe: SubmitEvidencePair {ev.ControllerId} [{string.Join(",", pair)}] → accepted={result.Accepted} staged={result.CompletedEvidenceCount}" +
                       (result.Reason != null ? $" reason={result.Reason}" : ""));
@@ -525,7 +522,7 @@ public sealed class M01DragProbe : MonoBehaviour
 
     private bool TryGetPoseCorrectSlotOccupant(M01GreyboxPieceSnapZone slot, out string fragmentId)
     {
-        if (!targetSlotOccupants.TryGetValue(slot.Id, out fragmentId!)) return false;
+        if (!placementLedger.TryGetSlotOccupant(slot.Id, out fragmentId!)) return false;
         if (!board.FragmentObjects.TryGetValue(fragmentId, out var go)) return false;
         var body = go.GetComponent<Rigidbody2D>();
         return body != null && body.bodyType == RigidbodyType2D.Kinematic &&
@@ -582,8 +579,7 @@ public sealed class M01DragProbe : MonoBehaviour
 
     private void ScheduleFailedCandidateReturn(M01GreyboxSession session, float delaySeconds)
     {
-        var snapshot = new HashSet<string>(targetSlotOccupants.Values);
-        foreach (var set in weakSnapped.Values) snapshot.UnionWith(set);
+        var snapshot = new HashSet<string>(placementLedger.PlacedFragments());
         validationFailureRoutine = StartCoroutine(ReturnFailedCandidateAfterDelay(session, snapshot, delaySeconds));
     }
 
@@ -593,6 +589,7 @@ public sealed class M01DragProbe : MonoBehaviour
         float delaySeconds)
     {
         yield return new WaitForSeconds(Mathf.Max(0f, delaySeconds));
+        CancelAllRotatePins();
         snapshot.UnionWith(session.ResetCandidateStructure());
         board.RenderValidationBlendOverlays(false);
         var boardGo = GameObject.Find("~M01BoardRoot/board");
@@ -617,24 +614,35 @@ public sealed class M01DragProbe : MonoBehaviour
     {
         var slots = board.Layout?.TargetPieceSlots;
         return slots != null && slots.Count > 0 &&
-               slots.All(slot => targetSlotOccupants.ContainsKey(slot.Id));
+               slots.All(slot => placementLedger.TryGetSlotOccupant(slot.Id, out _));
     }
 
-    private void RecordTargetSlotOccupant(string? slotId, string fragmentId)
+    private bool ReleaseReplaceableSlotOccupant(string? slotId, string incomingFragmentId)
     {
-        if (slotId == null) return;
-        targetSlotOccupants[slotId] = fragmentId;
+        if (slotId == null || !placementLedger.TryGetSlotOccupant(slotId, out var displacedId) ||
+            displacedId == incomingFragmentId)
+        {
+            return true;
+        }
+
+        var slot = board.Layout?.TargetPieceSlots.FirstOrDefault(candidate => candidate.Id == slotId);
+        if (slot != null && TryGetPoseCorrectSlotOccupant(slot, out var correctId) && correctId == displacedId)
+        {
+            return false;
+        }
+
+        board.Session?.UnstageFragment(displacedId);
+        placementLedger.Remove(displacedId);
+        if (board.FragmentObjects.TryGetValue(displacedId, out var displacedGo))
+        {
+            ReleaseFragmentBodyToPhysics(displacedGo);
+        }
+        return true;
     }
 
     private void RemoveFragmentFromPlacementLedgers(string fragmentId)
     {
-        snappedToTarget.Remove(fragmentId);
-        foreach (var set in weakSnapped.Values) set.Remove(fragmentId);
-        var occupiedSlots = targetSlotOccupants
-            .Where(pair => pair.Value == fragmentId)
-            .Select(pair => pair.Key)
-            .ToArray();
-        foreach (var slotId in occupiedSlots) targetSlotOccupants.Remove(slotId);
+        placementLedger.Remove(fragmentId);
     }
 
     private static Vector2 ScreenToCocos(Vector2 screen)

@@ -71,6 +71,20 @@ namespace StarGuardian.M01.Tests
             Assert.Equal("b5e19b1ed12b25391c66d3d1bbeaf3d3ffd4ebcc722a72f04c9cd78d70a2e304", aggregate);
         }
 
+        [Fact]
+        public void EveryLemmyFrameIsImportedWithHighQualityCompression()
+        {
+            var metas = Directory.GetFiles(Path.Combine(ArtRoot, "lemmy"), "*.png.meta", SearchOption.AllDirectories);
+
+            Assert.Equal(697, metas.Length);
+            Assert.All(metas, path => Assert.Contains("textureCompression: 2", File.ReadAllText(path)));
+            var previews = Directory.GetFiles(Path.Combine(ArtRoot, "lemmy"), "*.gif.meta", SearchOption.AllDirectories);
+            Assert.All(previews, path => Assert.Contains("textureCompression: 0", File.ReadAllText(path)));
+            Assert.Contains(
+                "textureCompression: 0",
+                File.ReadAllText(Path.Combine(ArtRoot, "m01-basket-hanging-empty.png.meta")));
+        }
+
         [Theory]
         [InlineData("m01-evidence-green-triangle-hexagon.png")]
         [InlineData("m01-evidence-orange-hexagon-hexagon.png")]

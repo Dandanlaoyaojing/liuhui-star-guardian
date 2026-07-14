@@ -4,6 +4,7 @@
 #nullable enable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using StarGuardian.M01.Rendering;
@@ -11,8 +12,11 @@ using UnityEngine;
 
 public sealed class M01LemmyAnimator : MonoBehaviour
 {
+    private const int MaxCachedClips = 3;
     private SpriteRenderer sr = null!;
     private readonly Dictionary<string, Sprite[]> clips = new();
+    private readonly M01LemmyClipCachePolicy clipCachePolicy = new(MaxCachedClips);
+    private Coroutine? unusedAssetCleanup;
     private Sprite[] cur = System.Array.Empty<Sprite>();
     private int[] sourceFrameIndices = System.Array.Empty<int>();
     private double[] frameDurationsMs = System.Array.Empty<double>();
@@ -49,8 +53,47 @@ public sealed class M01LemmyAnimator : MonoBehaviour
                 Debug.LogError($"M01LemmyAnimator: {action} expected {expected} frames, loaded {arr.Length}");
             }
             clips[action] = arr;
+            TouchClip(action);
+            TrimClipCache(action);
+        }
+        else
+        {
+            TouchClip(action);
         }
         return arr;
+    }
+
+    private void TouchClip(string action)
+    {
+        clipCachePolicy.Touch(action);
+    }
+
+    private void TrimClipCache(string loadingAction)
+    {
+        foreach (var evictedAction in clipCachePolicy.RecordLoaded(loadingAction, spec?.Id))
+        {
+            if (!clips.Remove(evictedAction, out var evicted)) continue;
+            foreach (var sprite in evicted)
+            {
+                if (sprite != null) Resources.UnloadAsset(sprite);
+            }
+            ScheduleUnusedAssetCleanup();
+        }
+    }
+
+    private void ScheduleUnusedAssetCleanup()
+    {
+        if (unusedAssetCleanup == null)
+        {
+            unusedAssetCleanup = StartCoroutine(UnloadUnusedAssetsAfterFrame());
+        }
+    }
+
+    private IEnumerator UnloadUnusedAssetsAfterFrame()
+    {
+        yield return null;
+        yield return Resources.UnloadUnusedAssets();
+        unusedAssetCleanup = null;
     }
 
     /// <summary>按 Cocos 动作契约播放；一次性动作播完是否留末帧由 holdLast 决定。</summary>
