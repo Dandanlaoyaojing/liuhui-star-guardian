@@ -53,11 +53,13 @@ public sealed class M01BoardProbe : MonoBehaviour
 
     private void OnDisable()
     {
+        // 动态验证覆盖层的 Sprite/Texture 不是磁盘资源，必须在 key 仍可达时主动释放。
+        // 根节点本身仍交给场景 teardown/下次 Build 处理，避免 OnDisable 销毁层级触发 Unity 断言。
+        ReleaseValidationOverlaySprites();
         // 根节点是本组件对象的子节点，会随场景对象一起销毁。Play/脚本重载的 teardown 阶段
         // 主动查找/销毁它会触发 Unity 的 go.IsActive 断言，因此这里只断开托管引用。
         runtimeRoot = null;
         validationOverlayRoot = null;
-        validationOverlaySpriteKeys.Clear();
         // 清引用: 消费方只判 Layout==null, 不清会对已销毁 GameObject 抛 MissingReference,
         // 且 DragProbe 旧账本会对下次重建的新 Session 假提交(审查 CONFIRMED)。
         Layout = null;
@@ -227,6 +229,11 @@ public sealed class M01BoardProbe : MonoBehaviour
             else DestroyImmediate(validationOverlayRoot);
             validationOverlayRoot = null;
         }
+        ReleaseValidationOverlaySprites();
+    }
+
+    private void ReleaseValidationOverlaySprites()
+    {
         foreach (var key in validationOverlaySpriteKeys)
         {
             if (!spriteCache.Remove(key, out var sprite) || sprite == null) continue;

@@ -209,6 +209,34 @@ namespace StarGuardian.Tests
             Assert.Contains("TargetOverlapColor", board);
         }
 
+        [Fact(DisplayName = "disabling the board releases generated validation sprites before losing their cache keys")]
+        public void BoardDisableReleasesGeneratedValidationSprites()
+        {
+            var board = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01BoardProbe.cs");
+            var start = board.IndexOf("private void OnDisable()", StringComparison.Ordinal);
+            var end = board.IndexOf("private void Build()", start, StringComparison.Ordinal);
+            Assert.True(start >= 0 && end > start);
+            var disableBlock = board.Substring(start, end - start);
+
+            var release = disableBlock.IndexOf("ReleaseValidationOverlaySprites()", StringComparison.Ordinal);
+            var loseRoot = disableBlock.IndexOf("validationOverlayRoot = null", StringComparison.Ordinal);
+            Assert.True(release >= 0, "OnDisable must release generated validation sprites");
+            Assert.True(release < loseRoot, "generated sprites must be released before overlay handles are cleared");
+            Assert.DoesNotContain("validationOverlaySpriteKeys.Clear()", disableBlock);
+
+            var helperStart = board.IndexOf("private void ReleaseValidationOverlaySprites()", StringComparison.Ordinal);
+            var helperEnd = board.IndexOf("private void SetupCamera()", helperStart, StringComparison.Ordinal);
+            Assert.True(helperStart >= 0 && helperEnd > helperStart);
+            var helperBlock = board.Substring(helperStart, helperEnd - helperStart);
+            var remove = helperBlock.IndexOf("spriteCache.Remove(key, out var sprite)", StringComparison.Ordinal);
+            var clear = helperBlock.IndexOf("validationOverlaySpriteKeys.Clear()", StringComparison.Ordinal);
+
+            Assert.True(remove >= 0, "overlay sprites must be removed from the cache");
+            Assert.Contains("Destroy(sprite)", helperBlock);
+            Assert.Contains("Destroy(texture)", helperBlock);
+            Assert.True(remove < clear, "cache entries must be released before their keys are cleared");
+        }
+
         [Fact(DisplayName = "opening does not render the Cocos reference-pattern node whose live sprite is transparent")]
         public void OpeningDoesNotRenderTransparentReferencePattern()
         {

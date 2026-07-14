@@ -78,11 +78,18 @@ namespace StarGuardian.M01.Tests
 
             Assert.Equal(697, metas.Length);
             Assert.All(metas, path => Assert.Contains("textureCompression: 2", File.ReadAllText(path)));
-            var previews = Directory.GetFiles(Path.Combine(ArtRoot, "lemmy"), "*.gif.meta", SearchOption.AllDirectories);
-            Assert.All(previews, path => Assert.Contains("textureCompression: 0", File.ReadAllText(path)));
             Assert.Contains(
                 "textureCompression: 0",
                 File.ReadAllText(Path.Combine(ArtRoot, "m01-basket-hanging-empty.png.meta")));
+        }
+
+        [Fact]
+        public void UnityRuntimeResourcesExcludeLemmyPreviewGifs()
+        {
+            var root = Path.Combine(ArtRoot, "lemmy");
+
+            Assert.Empty(Directory.GetFiles(root, "*.gif", SearchOption.AllDirectories));
+            Assert.Empty(Directory.GetFiles(root, "*.gif.meta", SearchOption.AllDirectories));
         }
 
         [Theory]
