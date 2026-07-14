@@ -5,18 +5,19 @@
 #nullable enable
 
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using StarGuardian.M01;
+using StarGuardian.M01.Rendering;
 using UnityEngine;
 
-[ExecuteAlways]
 public sealed class M01BoardProbe : MonoBehaviour
 {
-    private const float Ppu = 100f;
+    private const float Ppu = (float)M01RenderContract.PixelsPerUnit;
     private const string RootName = "~M01BoardRoot";
 
     private static readonly Color Ink = new(0.22f, 0.24f, 0.27f);          // 手绘墨线
-    private static readonly Color Paper = new(0.93f, 0.91f, 0.86f);        // 米白纸底
+    private static Color Paper => ToUnityColor(M01VisualParity.Paper);
     private static readonly Color GreyPiece = new(0.78f, 0.78f, 0.76f);    // 未显色拼片灰白
     private static readonly Color SlotGhost = new(0.55f, 0.58f, 0.62f, 0.55f); // 目标槽虚影
     private static readonly Color EvidenceTint = new(0.72f, 0.68f, 0.78f); // 证据淡紫
@@ -38,17 +39,27 @@ public sealed class M01BoardProbe : MonoBehaviour
 
     private readonly Dictionary<string, GameObject> fragmentObjects = new();
 
-    /// <summary>拼片"底色"账本(玩法反馈色); 手电显色离开覆盖时恢复到这里的值。DragProbe 落子时更新。</summary>
+    /// <summary>拼片原始水彩底色账本；交互不修改，手电显色离开覆盖时永远恢复原图。</summary>
     public readonly Dictionary<string, Color> FragmentBaseColors = new();
 
-    private Material? litMaterial; // URP 2D 受光材质(Light2D 光池要照得上)
+    private Material? unlitMaterial;
+    public Material? ArtMaterial => unlitMaterial;
+    private GameObject? runtimeRoot;
+    private GameObject? validationOverlayRoot;
+    private readonly List<string> validationOverlaySpriteKeys = new();
+    private int validationOverlayGeneration;
 
     private void OnEnable() => Build();
 
     private void OnDisable()
     {
-        var old = GameObject.Find(RootName);
-        if (old != null) DestroyImmediate(old);
+        // 动态验证覆盖层的 Sprite/Texture 不是磁盘资源，必须在 key 仍可达时主动释放。
+        // 根节点本身仍交给场景 teardown/下次 Build 处理，避免 OnDisable 销毁层级触发 Unity 断言。
+        ReleaseValidationOverlaySprites();
+        // 根节点是本组件对象的子节点，会随场景对象一起销毁。Play/脚本重载的 teardown 阶段
+        // 主动查找/销毁它会触发 Unity 的 go.IsActive 断言，因此这里只断开托管引用。
+        runtimeRoot = null;
+        validationOverlayRoot = null;
         // 清引用: 消费方只判 Layout==null, 不清会对已销毁 GameObject 抛 MissingReference,
         // 且 DragProbe 旧账本会对下次重建的新 Session 假提交(审查 CONFIRMED)。
         Layout = null;
@@ -57,25 +68,17 @@ public sealed class M01BoardProbe : MonoBehaviour
         fragmentObjects.Clear();
         FragmentBaseColors.Clear();
         GetComponent<M01DragProbe>()?.ResetLedgers();
-        // 资源回收: DontSave 的运行时纹理/材质不回收会跨重编译孤儿化(编辑器长会话累积)。
-        foreach (var sprite in spriteCache.Values)
-        {
-            if (sprite == null) continue;
-            if (sprite.texture != null) DestroyImmediate(sprite.texture);
-            DestroyImmediate(sprite);
-        }
-        spriteCache.Clear();
-        if (litMaterial != null)
-        {
-            DestroyImmediate(litMaterial);
-            litMaterial = null;
-        }
+        // spriteCache 继续由同一个组件实例复用；场景对象销毁时 Unity 回收 DontSave 资源。
     }
 
     private void Build()
     {
         var old = GameObject.Find(RootName);
-        if (old != null) DestroyImmediate(old);
+        if (old != null)
+        {
+            if (Application.isPlaying) Destroy(old);
+            else DestroyImmediate(old);
+        }
 
         var text = Resources.Load<TextAsset>("Configs/m01-memory-gear");
         if (text == null)
@@ -94,53 +97,63 @@ public sealed class M01BoardProbe : MonoBehaviour
         Session = M01GreyboxSession.FromConfig(config);
 
         var root = new GameObject(RootName) { hideFlags = HideFlags.DontSave };
+        root.transform.SetParent(transform, false);
+        runtimeRoot = root;
 
         SetupCamera();
 
-        // URP 2D 受光材质 + 全局光(intensity=1 保持基础亮度不变); 手电 Light2D 光池在其上叠亮。
-        var litShader = Shader.Find("Universal Render Pipeline/2D/Sprite-Lit-Default");
-        litMaterial = litShader != null ? new Material(litShader) { hideFlags = HideFlags.DontSave } : null;
-        var globalLightGo = new GameObject("globalLight2D");
-        globalLightGo.transform.SetParent(root.transform, false);
-        var globalLight = globalLightGo.AddComponent<UnityEngine.Rendering.Universal.Light2D>();
-        globalLight.lightType = UnityEngine.Rendering.Universal.Light2D.LightType.Global;
-        globalLight.intensity = 1f;
-        globalLight.color = Color.white;
+        // Cocos Sprite 不参与场景灯光。URP 2D 的 SpriteRenderer 默认材质可能是 Lit，必须显式覆盖。
+        var unlitShader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+        if (unlitMaterial == null && unlitShader != null)
+            unlitMaterial = new Material(unlitShader) { hideFlags = HideFlags.DontSave };
+        if (unlitMaterial == null)
+            Debug.LogError("M01BoardProbe: Sprite-Unlit-Default shader 未找到，M01 色彩无法与 Cocos 对齐");
 
         // 纸底(整画布)
         AddQuad(root, "paper", new Vector2(0, 0), new Vector2((float)layout.Canvas.Width, (float)layout.Canvas.Height), Paper, -10);
 
-        // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)
-        if (!TryAddArtSprite(root, "gear", "m01-overlap-memory-gear", layout.Gear.Position, layout.Gear.Size, Color.white, -5, 0))
+        // 手绘地面线(M01PhysicsBoundary.renderGroundLine): 960×39 横跨, 中心 Y=-286 让墨色行落在地面 -270
+        // (=-270-(39/2-6×39/66))。极宽比 → 非等比拉伸(Cocos CUSTOM sizeMode)。莱米/掉落物踩这条线。
+        AddStretchedArt(root, "groundLine", "m01-ground-line", new Vector2(0, -285.95f),
+            new Vector2((float)M01RenderContract.GroundDisplayWidthPx, (float)M01RenderContract.GroundDisplayHeightPx), -6);
+
+        // 齿轮盘 + 拼接背板(齿轮用真水彩贴图, 缺失时回退程序化圆)。
+        // 美术 displaySize=581(art.ts:472, 553×1.05 贴地补偿), 比引擎 size(430)大 35% —— 用美术尺寸渲染,
+        // 引擎槽/证据仍按 430 逻辑坐标落在其内(美术盘面天然比逻辑盘大, Cocos 同)。
+        // 齿轮: Cocos trimType "auto" → displaySize 581 套在【裁剪内容 620×587】上(非整张 750² 画布)。
+        // 整张 sprite 按 localScale=display/content 缩放, 使可见内容=581², 居中于 (-120,0) → 底边贴地(和 Cocos 同)。
+        if (!AddTrimmedArt(root, "gear", "m01-overlap-memory-gear",
+                content: new Vector2(620, 587), display: new Vector2(581, 581), layout.Gear.Position,
+                ToUnityColor(M01VisualParity.UnityLinearGearSpriteTint), -5))
         {
             AddShape(root, "gear", "circle", layout.Gear.Position, layout.Gear.Size, GearTint, -5, 0);
         }
-        // 拼接背板半透明: 齿轮水彩盘(-5)从下面透出来(灰盒时代背板是实心方形, 有真齿轮图后只留轻微拼区提示)。
-        AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(Paper.r * 0.96f, Paper.g * 0.95f, Paper.b * 0.92f, 0.30f), -4);
+        // 提示灯泡(持久盘面 UI, 篮/钉正上方 (300,180), 62×62; Cocos addHintButton)。
+        TryAddArtSprite(root, "hintBulb", "icon-hint", new M01GreyboxPoint(300, 180), new M01GreyboxSize(62, 62), Color.white, 30, 0);
+        // 拼接背板 = 底光反馈逻辑节点(tag bottom_light): 静息透明, 只在验证时由 DragProbe 闪色。不是可见灰板。
+        AddQuad(root, "board", ToV2(layout.Board.Position), new Vector2((float)layout.Board.Size.Width, (float)layout.Board.Size.Height), new Color(1f, 1f, 1f, 0f), -4);
 
-        // 目标槽(虚影轮廓, 按 rotation)
-        foreach (var slot in layout.TargetPieceSlots)
-        {
-            AddShape(root, $"slot:{slot.Id}", slot.ShapeToken, slot.Position, slot.Size, SlotGhost, -3, (float)slot.Rotation, outlineOnly: true);
-        }
-
-        // 证据区(拼接盘上的交叠证据)
-        foreach (var ev in layout.Evidence)
-        {
-            AddShape(root, $"evidence:{ev.ControllerId}", "circle", ev.Position, ev.Size, EvidenceTint, -2, 0, alpha: 0.5f);
-        }
+        // Cocos renderGreybox 的正式顺序不是把 TargetPieceSlots 画成 6 个槽。艺术预览开启时，
+        // 先按 sourcePosition + magnetPolygon 画盘内交叠证据。当前 Cocos live 中参考图根节点存在，
+        // 但 Graphics fill/stroke 均为 alpha 0 且没有可见子节点，因此开场不额外手绘参考图。
+        RenderTargetOverlapEvidence(root, layout, -3);
 
         // 滤镜(手电三色按钮; v4 里由手电承担, 探针仅显示位置)
         if (layout.Filters != null)
         {
             foreach (var f in layout.Filters)
             {
-                AddShape(root, $"filter:{f.ControllerId}", "circle", f.Position, f.Size, ColorFor(f.ColorToken, 0.65f), -2, 0);
+                if (!TryAddArtSprite(root, $"filter:{f.ControllerId}", "m01-filter-" + f.ColorToken,
+                        f.Position, f.Size, Color.white, -1, 0))
+                {
+                    AddShape(root, $"filter:{f.ControllerId}", "quad", f.Position, f.Size,
+                        ColorFor(f.ColorToken, 0.65f), -1, 0);
+                }
             }
         }
 
         // 9 拼片: 真水彩灰白片(hidden)+ 描边(light-edge)两层; tint=白 显贴图本色,
-        // 显色/反馈仍走 SpriteRenderer.color 乘法(与 Cocos Sprite.color 同语义)。缺贴图回退程序化形状。
+        // 只有手电观察显色走 SpriteRenderer.color 临时乘法；拾取/吸附不改色。缺贴图回退程序化形状。
         fragmentObjects.Clear();
         FragmentBaseColors.Clear();
         foreach (var frag in layout.Fragments)
@@ -152,6 +165,91 @@ public sealed class M01BoardProbe : MonoBehaviour
         Layout = layout;
 
         Debug.Log($"M01BoardProbe: rendered fragments={layout.Fragments.Count} slots={layout.TargetPieceSlots.Count} evidence={layout.Evidence.Count} status=\"{layout.StatusText}\"");
+    }
+
+    /// <summary>
+    /// Cocos drawManualTargetBlendOverlays：只在结构验证亮起时，把当前位于中央平台内的
+    /// 原色拼片两两求真实几何交叠，并把橙/绿/紫反应色盖在拼片上方。
+    /// </summary>
+    public void RenderValidationBlendOverlays(bool revealActive)
+    {
+        ClearValidationBlendOverlays();
+        if (!revealActive || runtimeRoot == null || Layout == null) return;
+
+        var boardCenter = Layout.Board.Position;
+        var boardRadius = Layout.Board.Size.Width / 2d - M01GreyboxLayout.StandardPieceDisplaySize.Width / 2d;
+        var pieces = new List<M01StandardPieceBlendPlacement>();
+        foreach (var fragment in Layout.Fragments)
+        {
+            if (!fragmentObjects.TryGetValue(fragment.ControllerId, out var go)) continue;
+            var position = new M01StandardPieceBlendPoint(go.transform.position.x * Ppu, go.transform.position.y * Ppu);
+            var dx = position.X - boardCenter.X;
+            var dy = position.Y - boardCenter.Y;
+            if (dx * dx + dy * dy > boardRadius * boardRadius) continue;
+
+            pieces.Add(new M01StandardPieceBlendPlacement
+            {
+                Id = fragment.ControllerId,
+                ShapeToken = fragment.ShapeToken,
+                ColorToken = fragment.ColorToken,
+                Position = position,
+                Size = new M01StandardPieceBlendSize(fragment.Size.Width, fragment.Size.Height),
+                Rotation = go.transform.eulerAngles.z
+            });
+        }
+
+        var overlays = M01StandardPieceBlend.ResolveOverlays(pieces);
+        if (overlays.Count == 0) return;
+        validationOverlayRoot = new GameObject("M01ValidationBlendOverlays");
+        validationOverlayRoot.transform.SetParent(runtimeRoot.transform, false);
+        var generation = ++validationOverlayGeneration;
+        foreach (var overlay in overlays)
+        {
+            var name = $"validation:{generation}:{overlay.Id}";
+            var points = overlay.Points.Select(point => new Vector2((float)point.X, (float)point.Y)).ToList();
+            validationOverlaySpriteKeys.Add(name + ":fill");
+            validationOverlaySpriteKeys.Add(name + ":stroke");
+            AddPolygon(
+                validationOverlayRoot,
+                name,
+                new M01GreyboxPoint(0, 0),
+                points,
+                TargetOverlapColor(overlay.ColorToken),
+                Color.clear,
+                20,
+                0f);
+        }
+    }
+
+    private void ClearValidationBlendOverlays()
+    {
+        if (validationOverlayRoot != null)
+        {
+            if (Application.isPlaying) Destroy(validationOverlayRoot);
+            else DestroyImmediate(validationOverlayRoot);
+            validationOverlayRoot = null;
+        }
+        ReleaseValidationOverlaySprites();
+    }
+
+    private void ReleaseValidationOverlaySprites()
+    {
+        foreach (var key in validationOverlaySpriteKeys)
+        {
+            if (!spriteCache.Remove(key, out var sprite) || sprite == null) continue;
+            var texture = sprite.texture;
+            if (Application.isPlaying)
+            {
+                Destroy(sprite);
+                if (texture != null) Destroy(texture);
+            }
+            else
+            {
+                DestroyImmediate(sprite);
+                if (texture != null) DestroyImmediate(texture);
+            }
+        }
+        validationOverlaySpriteKeys.Clear();
     }
 
     private void SetupCamera()
@@ -174,12 +272,13 @@ public sealed class M01BoardProbe : MonoBehaviour
     /// <summary>拼片节点: 水彩底片(可染色)+ 描边层(恒白, 不吃 tint)。返回底片 GameObject(交互层驱动它)。</summary>
     private GameObject AddFragmentNode(GameObject parent, M01GreyboxTokenNode frag)
     {
+        var artDisplaySize = M01GreyboxLayout.ResolveFragmentArtDisplaySize(frag.ShapeToken);
         var body = TryLoadArt($"m01-fragment-hidden-{frag.ShapeToken}");
         if (body == null)
         {
-            return AddShape(parent, $"frag:{frag.ControllerId}", frag.ShapeToken, frag.Position, frag.Size, GreyPiece, 0, 0);
+            return AddShape(parent, $"frag:{frag.ControllerId}", frag.ShapeToken, frag.Position, artDisplaySize, GreyPiece, 0, 0);
         }
-        var go = MakeArtSprite(parent, $"frag:{frag.ControllerId}", body, frag.Position, frag.Size, Color.white, 0);
+        var go = MakeArtSprite(parent, $"frag:{frag.ControllerId}", body, frag.Position, artDisplaySize, Color.white, 0);
         var edge = TryLoadArt($"m01-fragment-light-edge-{frag.ShapeToken}");
         if (edge != null)
         {
@@ -188,7 +287,7 @@ public sealed class M01BoardProbe : MonoBehaviour
             edgeGo.transform.SetParent(go.transform, false);
             var esr = edgeGo.AddComponent<SpriteRenderer>();
             esr.sprite = edge;
-            if (litMaterial != null) esr.sharedMaterial = litMaterial;
+            esr.sharedMaterial = unlitMaterial;
             esr.sortingOrder = 1;
             var body0 = go.GetComponent<SpriteRenderer>();
             // 与父同世界尺寸: 父已按 Size 缩放, edge 贴图若同分辨率则 localScale=贴图尺寸比。
@@ -206,6 +305,27 @@ public sealed class M01BoardProbe : MonoBehaviour
         return true;
     }
 
+    /// <summary>按 Cocos 齿轮渲染复刻(commit 334deff "齿轮变圆"): 裁剪内容(content px)以 CONTAIN 装进
+    /// displaySize 框 —— 等比缩放(min 比例)保持真实宽高比, 不拉成方形(方形会把略宽的齿轮压成细长)。
+    /// content=Cocos .meta 裁剪 rect(gear 620×587, 非整画布 750²); 居中于 pos, 底边贴地。</summary>
+    private bool AddTrimmedArt(GameObject parent, string name, string resource, Vector2 content, Vector2 display, M01GreyboxPoint pos, Color tint, int order)
+    {
+        var sprite = TryLoadArt(resource);
+        if (sprite == null) return false;
+        var go = new GameObject(name);
+        go.transform.SetParent(parent.transform, false);
+        go.transform.localPosition = new Vector3((float)pos.X / Ppu, (float)pos.Y / Ppu, 0);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sharedMaterial = unlitMaterial;
+        sr.color = tint;
+        sr.sortingOrder = order;
+        // CONTAIN: 等比装框(aspectContentSize 同款), 保持圆; 裁剪内容 620×587 → 581×550(×0.937)。
+        var scale = Mathf.Min(display.x / content.x, display.y / content.y);
+        go.transform.localScale = new Vector3(scale, scale, 1f);
+        return true;
+    }
+
     private GameObject MakeArtSprite(GameObject parent, string name, Sprite sprite, M01GreyboxPoint pos, M01GreyboxSize size, Color tint, int order, float rotationDeg = 0)
     {
         var go = new GameObject(name);
@@ -214,17 +334,35 @@ public sealed class M01BoardProbe : MonoBehaviour
         go.transform.localRotation = Quaternion.Euler(0, 0, rotationDeg);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = sprite;
-        if (litMaterial != null) sr.sharedMaterial = litMaterial;
+        sr.sharedMaterial = unlitMaterial;
         sr.color = tint;
         sr.sortingOrder = order;
-        // 目标显示尺寸(Cocos px)→ units, 除以贴图自身 units 尺寸得缩放(等比, 按宽)。
-        var targetUnits = (float)System.Math.Max(size.Width, size.Height) / Ppu;
-        var scale = targetUnits / sprite.bounds.size.x;
-        go.transform.localScale = new Vector3(scale, scale, 1f);
+        // Cocos Sprite.SizeMode.CUSTOM: displaySize 的宽高逐轴生效，不擅自按最大边等比缩放。
+        go.transform.localScale = new Vector3(
+            ((float)size.Width / Ppu) / sprite.bounds.size.x,
+            ((float)size.Height / Ppu) / sprite.bounds.size.y,
+            1f);
         return go;
     }
 
     private static Sprite? TryLoadArt(string name) => Resources.Load<Sprite>("Art/M01/" + name);
+
+    /// <summary>非等比拉伸精灵到精确 W×H(Cocos Sprite.SizeMode.CUSTOM); 用于极端宽高比的地面线等。</summary>
+    private void AddStretchedArt(GameObject parent, string name, string resource, Vector2 cocosPos, Vector2 sizePx, int order)
+    {
+        var sprite = TryLoadArt(resource);
+        if (sprite == null) return;
+        var go = new GameObject(name);
+        go.transform.SetParent(parent.transform, false);
+        go.transform.localPosition = new Vector3(cocosPos.x / Ppu, cocosPos.y / Ppu, 0);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sharedMaterial = unlitMaterial;
+        sr.sortingOrder = order;
+        go.transform.localScale = new Vector3(
+            (sizePx.x / Ppu) / sprite.bounds.size.x,
+            (sizePx.y / Ppu) / sprite.bounds.size.y, 1f); // 非等比
+    }
 
     private void AddQuad(GameObject parent, string name, Vector2 cocosPos, Vector2 sizePx, Color color, int order)
     {
@@ -233,7 +371,7 @@ public sealed class M01BoardProbe : MonoBehaviour
         go.transform.localPosition = new Vector3(cocosPos.x / Ppu, cocosPos.y / Ppu, 0);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = GetSprite("quad", "quad");
-        if (litMaterial != null) sr.sharedMaterial = litMaterial;
+        sr.sharedMaterial = unlitMaterial;
         sr.color = color;
         sr.sortingOrder = order;
         go.transform.localScale = new Vector3(sizePx.x / Ppu, sizePx.y / Ppu, 1f);
@@ -250,16 +388,110 @@ public sealed class M01BoardProbe : MonoBehaviour
         go.transform.localRotation = Quaternion.Euler(0, 0, rotationDeg);
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = GetSprite(shapeToken, outlineOnly ? "outline" : "fill");
-        if (litMaterial != null) sr.sharedMaterial = litMaterial;
+        sr.sharedMaterial = unlitMaterial;
         var c = color; c.a *= alpha;
         sr.color = c;
         sr.sortingOrder = order;
-        var d = (float)System.Math.Max(size.Width, size.Height);
-        go.transform.localScale = new Vector3(d / Ppu, d / Ppu, 1f);
+        go.transform.localScale = new Vector3((float)size.Width / Ppu, (float)size.Height / Ppu, 1f);
         return go;
     }
 
+    private void RenderTargetOverlapEvidence(GameObject parent, M01GreyboxLayoutData layout, int order)
+    {
+        foreach (var evidence in layout.Evidence)
+        {
+            if (evidence.MagnetPolygon == null || evidence.MagnetPolygon.Count < 3) continue;
+            var position = evidence.SourcePosition ?? evidence.Position;
+            var points = evidence.MagnetPolygon.Select(p => new Vector2((float)p.X, (float)p.Y)).ToList();
+            AddPolygon(parent, $"M01TargetOverlapEvidence_{evidence.ControllerId}", position, points,
+                TargetOverlapColor(evidence.ColorToken), new Color32(44, 43, 38, 205), order, 1.6f);
+        }
+    }
+
+    private void AddPolygon(GameObject parent, string name, M01GreyboxPoint position, IReadOnlyList<Vector2> points,
+        Color fill, Color stroke, int order, float lineWidthPx)
+    {
+        var fillSprite = GetPolygonSprite(name + ":fill", points, 0f);
+        var fillGo = new GameObject(name);
+        fillGo.transform.SetParent(parent.transform, false);
+        fillGo.transform.localPosition = new Vector3((float)position.X / Ppu, (float)position.Y / Ppu, 0);
+        var fillRenderer = fillGo.AddComponent<SpriteRenderer>();
+        fillRenderer.sprite = fillSprite;
+        fillRenderer.sharedMaterial = unlitMaterial;
+        fillRenderer.color = fill;
+        fillRenderer.sortingOrder = order;
+
+        var strokeGo = new GameObject("stroke");
+        strokeGo.transform.SetParent(fillGo.transform, false);
+        var strokeRenderer = strokeGo.AddComponent<SpriteRenderer>();
+        strokeRenderer.sprite = GetPolygonSprite(name + ":stroke", points, lineWidthPx);
+        strokeRenderer.sharedMaterial = unlitMaterial;
+        strokeRenderer.color = stroke;
+        strokeRenderer.sortingOrder = order + 1;
+    }
+
+    private Sprite GetPolygonSprite(string key, IReadOnlyList<Vector2> points, float outlineWidth)
+    {
+        if (spriteCache.TryGetValue(key, out var cached) && cached != null) return cached;
+        var minX = Mathf.Floor(points.Min(p => p.x) - 3f);
+        var maxX = Mathf.Ceil(points.Max(p => p.x) + 3f);
+        var minY = Mathf.Floor(points.Min(p => p.y) - 3f);
+        var maxY = Mathf.Ceil(points.Max(p => p.y) + 3f);
+        var width = Mathf.Max(1, Mathf.CeilToInt(maxX - minX));
+        var height = Mathf.Max(1, Mathf.CeilToInt(maxY - minY));
+        var tex = new Texture2D(width, height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.DontSave };
+        var pixels = new Color32[width * height];
+        for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+        {
+            var p = new Vector2(minX + x + 0.5f, minY + y + 0.5f);
+            var inside = InPolygon(points, p.x, p.y);
+            var solid = outlineWidth <= 0 ? inside : inside && DistanceToEdges(points, p) <= outlineWidth;
+            pixels[y * width + x] = solid ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+        }
+        tex.SetPixels32(pixels);
+        tex.Apply();
+        var pivot = new Vector2(Mathf.Clamp01(-minX / width), Mathf.Clamp01(-minY / height));
+        var sprite = Sprite.Create(tex, new Rect(0, 0, width, height), pivot, Ppu);
+        sprite.hideFlags = HideFlags.DontSave;
+        spriteCache[key] = sprite;
+        return sprite;
+    }
+
+    private static float DistanceToEdges(IReadOnlyList<Vector2> points, Vector2 p)
+    {
+        var best = float.PositiveInfinity;
+        for (var i = 0; i < points.Count; i++)
+        {
+            var a = points[i];
+            var b = points[(i + 1) % points.Count];
+            var ab = b - a;
+            var t = ab.sqrMagnitude <= 0.00001f ? 0f : Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+            best = Mathf.Min(best, Vector2.Distance(p, a + ab * t));
+        }
+        return best;
+    }
+
+    private static Color TargetOverlapColor(string token)
+    {
+        var raw = token switch
+        {
+            "orange" => new Vector3(206, 154, 114),
+            "green" => new Vector3(136, 166, 138),
+            "purple" => new Vector3(167, 140, 166),
+            _ => new Vector3(150, 132, 118)
+        };
+        var lum = 0.299f * raw.x + 0.587f * raw.y + 0.114f * raw.z;
+        raw = new Vector3(
+            Mathf.Clamp(Mathf.Round(lum + (raw.x - lum) * 1.4f), 0, 255),
+            Mathf.Clamp(Mathf.Round(lum + (raw.y - lum) * 1.4f), 0, 255),
+            Mathf.Clamp(Mathf.Round(lum + (raw.z - lum) * 1.4f), 0, 255));
+        return new Color(raw.x / 255f, raw.y / 255f, raw.z / 255f, 232f / 255f);
+    }
+
     private static Vector2 ToV2(M01GreyboxPoint p) => new((float)p.X, (float)p.Y);
+
+    private static Color ToUnityColor(M01Color32 color) => new Color32(color.R, color.G, color.B, color.A);
 
     private static Color ColorFor(string token, float s) => token switch
     {
@@ -291,7 +523,9 @@ public sealed class M01BoardProbe : MonoBehaviour
                 if (inside && outline)
                 {
                     // 轮廓 = 内缩 6px 后不在形内
-                    edge = !InPolygon(poly, x + 0.5f, y + 0.5f, shapeToken, n, inset: 6f);
+                    edge = shapeToken == "quad"
+                        ? x < 6 || y < 6 || x >= n - 6 || y >= n - 6
+                        : !InPolygon(poly, x + 0.5f, y + 0.5f, shapeToken, n, inset: 6f);
                 }
                 var solid = outline ? (inside && edge) : inside;
                 px[y * n + x] = solid ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
@@ -313,30 +547,29 @@ public sealed class M01BoardProbe : MonoBehaviour
         {
             case "triangle":
             {
-                var pts = new List<Vector2>();
-                for (var i = 0; i < 3; i++)
+                var triangleHeight = r * Mathf.Sqrt(3f);
+                return new List<Vector2>
                 {
-                    var a = Mathf.Deg2Rad * (90 + i * 120);
-                    pts.Add(new Vector2(c + r * Mathf.Cos(a), c + r * Mathf.Sin(a)));
-                }
-                return pts;
+                    new(c, c + triangleHeight / 2f),
+                    new(c - r, c - triangleHeight / 2f),
+                    new(c + r, c - triangleHeight / 2f)
+                };
             }
             case "hexagon":
             {
-                var pts = new List<Vector2>();
-                for (var i = 0; i < 6; i++)
+                var hh = Mathf.Sqrt(3f) * r / 2f;
+                return new List<Vector2>
                 {
-                    var a = Mathf.Deg2Rad * (30 + i * 60); // 平顶六边
-                    pts.Add(new Vector2(c + r * Mathf.Cos(a), c + r * Mathf.Sin(a)));
-                }
-                return pts;
+                    new(c - r, c), new(c - r / 2f, c + hh), new(c + r / 2f, c + hh),
+                    new(c + r, c), new(c + r / 2f, c - hh), new(c - r / 2f, c - hh)
+                };
             }
             default:
                 return null; // circle / quad 走解析式
         }
     }
 
-    private static bool InPolygon(List<Vector2>? poly, float x, float y, string shapeToken, int n, float inset = 0f)
+    private static bool InPolygon(IReadOnlyList<Vector2>? poly, float x, float y, string shapeToken = "polygon", int n = 128, float inset = 0f)
     {
         var c = n / 2f;
         if (poly == null)
@@ -347,15 +580,16 @@ public sealed class M01BoardProbe : MonoBehaviour
             return dx * dx + dy * dy <= r * r;
         }
         // 多边形: 先对质心做 inset 缩放, 再射线法
-        var pts = poly;
+        IReadOnlyList<Vector2> pts = poly;
         if (inset > 0f)
         {
             var shrink = 1f - inset / (n / 2f);
-            pts = new List<Vector2>(poly.Count);
+            var insetPoints = new List<Vector2>(poly.Count);
             foreach (var p in poly)
             {
-                pts.Add(new Vector2(c + (p.x - c) * shrink, c + (p.y - c) * shrink));
+                insetPoints.Add(new Vector2(c + (p.x - c) * shrink, c + (p.y - c) * shrink));
             }
+            pts = insetPoints;
         }
         var insideFlag = false;
         for (int i = 0, j = pts.Count - 1; i < pts.Count; j = i++)

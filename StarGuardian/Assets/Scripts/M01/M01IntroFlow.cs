@@ -24,7 +24,7 @@ namespace StarGuardian.M01
         ReadyToHeadbutt,    // 还有拼片在篮里(已在篮下耳后贴待机): WAITS 玩家再点篮 → 再顶一次
         Bonking,            // 手电从篮里掉出砸到莱米(startle)
         WaitingPickup,      // 手电落地 —— WAITS for the player to tap it
-        PickingUp,          // 莱米蹲下把手电捡起(crouch)
+        PickingUp,          // 莱米走向手电，按落点选择蹲拾或站立拿取
         Acquired            // 手电到手 → 谜题阶段开始
     }
 
@@ -38,7 +38,20 @@ namespace StarGuardian.M01
         FragmentsSettled,
         FlashlightBonked,
         FlashlightTapped,
-        CrouchDone
+        CrouchDone          // 拾取完成（沿用旧事件名；站立拿取也由此收口）
+    }
+
+    public enum M01IntroBasketTapAction
+    {
+        Ignore,
+        ApproachReachAndShake,
+        Headbutt
+    }
+
+    public enum M01IntroPickupMotion
+    {
+        Crouch,
+        Standing
     }
 
     public static class M01IntroFlow
@@ -99,6 +112,51 @@ namespace StarGuardian.M01
                 return next;
             }
             return phase;
+        }
+
+        /// <summary>
+        /// 点篮子本身绝不替玩家走位。只有玩家已把莱米移动到篮下时才顶篮；
+        /// roaming 与重复顶篮阶段只要不在篮下，都只能演“走近→伸手够→转脸摇头”。
+        /// </summary>
+        public static M01IntroBasketTapAction ResolveBasketTapAction(
+            M01IntroPhase phase,
+            bool isUnderBasket)
+        {
+            if (phase != M01IntroPhase.Roaming && phase != M01IntroPhase.ReadyToHeadbutt)
+            {
+                return M01IntroBasketTapAction.Ignore;
+            }
+            return isUnderBasket
+                ? M01IntroBasketTapAction.Headbutt
+                : M01IntroBasketTapAction.ApproachReachAndShake;
+        }
+
+        /// <summary>
+        /// 篮子动作必须先中断仍在最后一帧收尾的 roam；否则 roam 的 idle 会覆盖刚启动的 headbutt。
+        /// </summary>
+        public static bool ShouldInterruptRoamForBasketTap(M01IntroPhase phase) =>
+            phase == M01IntroPhase.Roaming || phase == M01IntroPhase.ReadyToHeadbutt;
+
+        /// <summary>
+        /// 手电直接落地时需要蹲下；若手电由拼片承托，手部高度足够，走到旁边即可拿起。
+        /// </summary>
+        public static M01IntroPickupMotion ResolvePickupMotion(bool isSupportedByFragment) =>
+            isSupportedByFragment
+                ? M01IntroPickupMotion.Standing
+                : M01IntroPickupMotion.Crouch;
+
+        /// <summary>
+        /// 从莱米当前所在侧接近手电，避免为了固定站到左侧而跨过手电、背对道具。
+        /// </summary>
+        public static double ResolvePickupApproachX(
+            double lemmyX,
+            double flashlightX,
+            double standOff)
+        {
+            var offset = standOff < 0 ? -standOff : standOff;
+            return lemmyX <= flashlightX
+                ? flashlightX - offset
+                : flashlightX + offset;
         }
     }
 }

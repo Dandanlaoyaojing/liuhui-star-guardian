@@ -131,5 +131,50 @@ namespace StarGuardian.M01.Tests
             }
             Assert.Equal(M01IntroPhase.Headbutting, M01IntroFlow.NextIntroPhase(M01IntroPhase.ReadyToHeadbutt, M01IntroEvent.HeadbuttStarted));
         }
+
+        [Theory(DisplayName = "点篮子不会替玩家走到篮下顶: 不在篮下会走近、伸手、转脸摇头")]
+        [InlineData(M01IntroPhase.Roaming)]
+        [InlineData(M01IntroPhase.ReadyToHeadbutt)]
+        public void BasketTapNeverAutoWalksIntoAHeadbutt(M01IntroPhase phase)
+        {
+            Assert.Equal(
+                M01IntroBasketTapAction.ApproachReachAndShake,
+                M01IntroFlow.ResolveBasketTapAction(phase, isUnderBasket: false));
+            Assert.Equal(
+                M01IntroBasketTapAction.Headbutt,
+                M01IntroFlow.ResolveBasketTapAction(phase, isUnderBasket: true));
+        }
+
+        [Theory(DisplayName = "basket tap interrupts a still-finishing roam before starting the basket action")]
+        [InlineData(M01IntroPhase.Roaming)]
+        [InlineData(M01IntroPhase.ReadyToHeadbutt)]
+        public void BasketTapInterruptsStillFinishingRoam(M01IntroPhase phase)
+        {
+            Assert.True(M01IntroFlow.ShouldInterruptRoamForBasketTap(phase));
+            Assert.False(M01IntroFlow.ShouldInterruptRoamForBasketTap(M01IntroPhase.Acquired));
+        }
+
+        [Theory(DisplayName = "flashlight pickup crouches only when the flashlight is resting on the ground")]
+        [InlineData(false, M01IntroPickupMotion.Crouch)]
+        [InlineData(true, M01IntroPickupMotion.Standing)]
+        public void PickupMotionDependsOnFragmentSupport(
+            bool isSupportedByFragment,
+            M01IntroPickupMotion expected)
+        {
+            Assert.Equal(expected, M01IntroFlow.ResolvePickupMotion(isSupportedByFragment));
+        }
+
+        [Theory(DisplayName = "flashlight pickup stops on Lemmy's current side instead of crossing over the flashlight")]
+        [InlineData(-100, 0, -30)]
+        [InlineData(100, 0, 30)]
+        public void PickupApproachStaysOnTheNearSide(
+            double lemmyX,
+            double flashlightX,
+            double expectedX)
+        {
+            Assert.Equal(
+                expectedX,
+                M01IntroFlow.ResolvePickupApproachX(lemmyX, flashlightX, standOff: 30));
+        }
     }
 }

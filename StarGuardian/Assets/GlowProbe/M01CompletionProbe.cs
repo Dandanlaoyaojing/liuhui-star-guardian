@@ -11,6 +11,8 @@ using UnityEngine.Video;
 
 public sealed class M01CompletionProbe : MonoBehaviour
 {
+    // Cocos 当前源真值：HIDE_SCREEN_TEXT=true，结算后不渲染文字卡面，只保留逻辑解锁数据。
+    private static readonly bool HideScreenText = true;
     private VideoPlayer? player;
     private GameObject? playerGo;
     private ToolCard? pendingCard;
@@ -33,15 +35,30 @@ public sealed class M01CompletionProbe : MonoBehaviour
     {
         if (playing || cardGo != null) return; // 幂等: 演出中或卡面未收都不重入(防旧卡孤儿罩屏, 审查 CONFIRMED)
         SetGameplayInputLocked(true); // 演出期间锁拖拽/手电(防跳过点击穿透拆散完成态盘面, 审查 CONFIRMED)
-        var clip = Resources.Load<VideoClip>("Videos/m01-completion-cutscene");
         pendingCard = card;
+        playing = true;
+        var intro = GetComponent<M01IntroProbe>();
+        if (intro != null)
+        {
+            intro.PlayCelebrationThenIdle(StartVideo);
+        }
+        else
+        {
+            StartVideo();
+        }
+    }
+
+    private void StartVideo()
+    {
+        if (!playing) return;
+        var clip = Resources.Load<VideoClip>("Videos/m01-completion-cutscene");
         if (clip == null)
         {
             Debug.LogWarning("M01CompletionProbe: 母版 VideoClip 未找到, 直接出卡");
+            playing = false;
             ShowToolCard();
             return;
         }
-        playing = true;
         playerGo = new GameObject("~M01CompletionVideo");
         player = playerGo.AddComponent<VideoPlayer>();
         player.clip = clip;
@@ -82,6 +99,7 @@ public sealed class M01CompletionProbe : MonoBehaviour
             return;
         }
         if (!playing) return;
+        if (player == null) return; // celebrate 窗口还没有视频叠层，点击不应提前跳过庆祝。
         var mouse = Mouse.current;
         if (mouse != null && mouse.leftButton.wasPressedThisFrame)
         {
@@ -125,9 +143,16 @@ public sealed class M01CompletionProbe : MonoBehaviour
         if (card == null)
         {
             Debug.Log("M01CompletionProbe: (无 ToolCard 数据)");
+            SetGameplayInputLocked(false);
             return;
         }
         Debug.Log($"M01CompletionProbe: 🎴 智慧结晶卡 [{card.PuzzleId}] {card.Front.ToolName}");
+        if (HideScreenText)
+        {
+            // 与 Cocos renderToolCardPreview 的早返回一致；解锁已由 session/controller 完成。
+            SetGameplayInputLocked(false);
+            return;
+        }
 
         // 世界空间卡面(米白圆卡 + 中文动态系统字体 TextMesh, 零字体资产; 点击任意处收卡)。
         cardGo = new GameObject("~M01ToolCard");
