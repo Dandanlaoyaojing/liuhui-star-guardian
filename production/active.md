@@ -1,5 +1,14 @@
 # Active Work State
 
+## 当前目标: M02 迁移 Unity(2026-07-15 立项, 分支 feat/m02-unity-port)
+**已在 Unity 的 M02 纯逻辑(第一波迁过+测过)**: StarNetworkModel / StarWebConfig / GoalEvaluator / ProgressStore / ToolCard。
+**待迁清单(Cocos 侧 1216 行 TS)**:
+1. 纯逻辑转 C#(~330 行): M02StarWebSession(121)/ M02PrologueSession(180)/ M02CompletionController(29)+ 对应 3 个 vitest → xUnit(tests/cocos/M02*.test.ts)。
+2. 渲染层(~886 行): M02StarWebView(616)/ M02PrologueView(270)→ Unity 探针(照 M01 模式: 消费纯逻辑 + 渲染契约); **光效=迁移动机**, 直接用 M2GlowProbe 验证过的 Light2D+Bloom+GlowAdditive 管线。
+3. 资产: configs/stage1/m02-starweb-warmth.json → StarGuardian Resources/Configs(双源同步); art/stage1-m02(bg-star-map-watercolor / m02-star-sprite-atlas 等)→ Resources/Art/M02。
+**方法(M01 教训全套)**: TS→C# 逐字转写+fable 审; 渲染 1:1 照 Cocos 渲染函数(displaySize/锚点/坐标 ÷100); 资产 md5 对主仓验最终版; .meta trim 按资产类型(动画帧 Single 全画布/静态图按裁剪内容); 行为测试禁 grep 源码; M02 Cocos 侧已到 phase3b(codex/m02-phase3b 已合)= 参照完整。
+
+
 Last updated: 2026-07-15
 
 > 这是**当前状态薄层**(CLAUDE.md 要求)。已完成的历史流水归档在 `production/archive/`,细节查那里或 `git log`。
