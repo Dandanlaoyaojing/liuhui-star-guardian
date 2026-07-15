@@ -87,8 +87,8 @@ public sealed class M01CompletionProbe : MonoBehaviour
                     if (mr.sharedMaterial == null) mr.sharedMaterial = cardFont.material;
                 }
             }
-            var m = Mouse.current;
-            if (m != null && m.leftButton.wasPressedThisFrame)
+            var m = Pointer.current;
+            if (m != null && m.press.wasPressedThisFrame)
             {
                 Destroy(cardGo);
                 cardGo = null;
@@ -100,8 +100,8 @@ public sealed class M01CompletionProbe : MonoBehaviour
         }
         if (!playing) return;
         if (player == null) return; // celebrate 窗口还没有视频叠层，点击不应提前跳过庆祝。
-        var mouse = Mouse.current;
-        if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+        var mouse = Pointer.current;
+        if (mouse != null && mouse.press.wasPressedThisFrame)
         {
             Debug.Log("M01CompletionProbe: 点击跳过过场");
             EndCutscene();

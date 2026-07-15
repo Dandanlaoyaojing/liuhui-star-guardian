@@ -103,8 +103,9 @@ public sealed class M02StarWebProbe : MonoBehaviour
         prologueGo = null;
         starVisuals.Clear();
         spriteCache.Clear();
-        // 全局 Bloom Volume 一并回收(M2GlowProbe 审查教训: 残留 Bloom 污染同会话其它光效对照)
-        if (volumeGo == null) volumeGo = GameObject.Find(VolumeName);
+        // 全局 Bloom Volume 一并回收(M2GlowProbe 审查教训: 残留 Bloom 污染同会话其它光效对照)。
+        // ⚠️ 只销毁自己持有的引用, 不 Find 兜底: Find 会在多实例场景抓走别家活体 volume 反杀
+        // (审查逮到: A.OnDisable 假 null → Find 命中 B 的 volume → B 剩空后处理链洗白)。
         if (volumeGo != null)
         {
             var profile = volumeGo.GetComponent<Volume>()?.profile;
@@ -351,8 +352,23 @@ public sealed class M02StarWebProbe : MonoBehaviour
 
         var pointer = Pointer.current; // iOS 触屏无 Mouse; M01DragProbe 同款 Pointer 路径
         if (pointer == null) return;
-        if (pointer.press.wasPressedThisFrame) OnPress();
-        if (pointer.press.wasReleasedThisFrame) OnRelease(ScreenToCocos(pointer.position.ReadValue()));
+        // 同帧 press+release 的处理序必须按【帧初是否已有在途按压】分流(审查逮到 + 自查纠正):
+        //  · 已在途(pressCaptured): 本帧事件必以旧按压的 release 打头 → 先结算再捕获新 press,
+        //    否则新 press 被 pressCaptured 吞、其 release 又被 !pressCaptured 丢 = 整次点击蒸发。
+        //  · 不在途: 本帧必以新 press 打头(完整快速轻点) → 先捕获再结算, 反序会丢掉这次点击
+        //    并把 pressCaptured 永久卡在 true。
+        var pressed = pointer.press.wasPressedThisFrame;
+        var released = pointer.press.wasReleasedThisFrame;
+        if (pressCaptured)
+        {
+            if (released) OnRelease(ScreenToCocos(pointer.position.ReadValue()));
+            if (pressed) OnPress();
+        }
+        else
+        {
+            if (pressed) OnPress();
+            if (released) OnRelease(ScreenToCocos(pointer.position.ReadValue()));
+        }
     }
 
     private void OnPress()
@@ -737,12 +753,18 @@ public sealed class M02StarWebProbe : MonoBehaviour
     private void HealCompletionText()
     {
         // 动态字体图集材质首帧可能未就绪 → 品红字形网格; 自愈一次即停(M01CompletionProbe 审查样板)
+        // 首帧动态字体图集/材质未就绪时 AddCardLabel 会连 tm.font 一起跳过 → 自愈必须补 font, 只补材质
+        // 无字形网格(TextMesh 无 font 不出字) —— 审查逮到: 原实现只补材质且一次性锁存=文字永久空白。
         if (completionRoot == null || completionTextHealed || cardFont == null || cardFont.material == null) return;
-        completionTextHealed = true;
+        foreach (var tm in completionRoot.GetComponentsInChildren<TextMesh>())
+        {
+            if (tm.font == null) tm.font = cardFont;
+        }
         foreach (var mr in completionRoot.GetComponentsInChildren<MeshRenderer>())
         {
             if (mr.sharedMaterial == null) mr.sharedMaterial = cardFont.material;
         }
+        completionTextHealed = true; // 补齐后才锁存
     }
 
     // ── 渲染原语/资源 ──
@@ -786,7 +808,7 @@ public sealed class M02StarWebProbe : MonoBehaviour
         var cam = Camera.main;
         if (cam == null)
         {
-            var cgo = new GameObject("Main Camera") { tag = "MainCamera" };
+            var cgo = new GameObject("Main Camera") { tag = "MainCamera", hideFlags = HideFlags.DontSave }; // ExecuteAlways: 编辑态也会建, 别序列化进场景
             cam = cgo.AddComponent<Camera>();
         }
         cam.orthographic = true;
@@ -797,10 +819,27 @@ public sealed class M02StarWebProbe : MonoBehaviour
         var data = cam.GetUniversalAdditionalCameraData();
         if (data != null) data.renderPostProcessing = true;
 
-        // 跨 Play 残留的旧壳(M01 DontSave 教训): 名字在、组件态坏 → 一律销毁重建, 不复用。
+        // 跨 Play 残留的旧壳: 名字在、组件态坏 → 销毁重建, 不复用(Find 复用坏壳 = Volume 永远建不起)。
+        // 连 profile 一起销毁, 否则运行时 CreateInstance 的 VolumeProfile/Bloom 成无主 SO 滞留到域重载。
         var stale = GameObject.Find(VolumeName);
-        if (stale != null) DestroyImmediate(stale);
-        volumeGo = new GameObject(VolumeName); // 纯 Play 对象不用 DontSave, 随退出销毁
+        if (stale != null)
+        {
+            var staleProfile = stale.GetComponent<Volume>()?.profile;
+            if (Application.isPlaying)
+            {
+                Destroy(stale);
+                if (staleProfile != null) Destroy(staleProfile);
+            }
+            else
+            {
+                DestroyImmediate(stale);
+                if (staleProfile != null) DestroyImmediate(staleProfile);
+            }
+        }
+        // ⚠️ 必须 DontSave: 本类是 [ExecuteAlways], 编辑模式下 OnEnable→Build 同样建这个 Volume;
+        // 不加就会被序列化进 .unity(场景永远脏 + 空壳提交进库)。M01 的"纯 Play 对象别 DontSave"
+        // 是另一情形(那些只在 isPlaying 建), 别把结论套反 —— 审查逮到我上一版正是套反了。
+        volumeGo = new GameObject(VolumeName) { hideFlags = HideFlags.DontSave };
         var vol = volumeGo.AddComponent<Volume>();
         vol.isGlobal = true;
         if (vol.profile == null) vol.profile = ScriptableObject.CreateInstance<VolumeProfile>();

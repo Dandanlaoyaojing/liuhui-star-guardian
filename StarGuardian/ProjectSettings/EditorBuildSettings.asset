@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/M01BoardProbe.unity
     guid: f1806a196d5dd48398c847fe29811678
+  - enabled: 1
+    path: Assets/Scenes/M02StarWebProbe.unity
+    guid: 7ab024b89cd364c089f699c3d71abda5
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0
