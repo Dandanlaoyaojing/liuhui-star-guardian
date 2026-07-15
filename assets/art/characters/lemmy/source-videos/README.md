@@ -20,7 +20,8 @@
 | `lemmy-nod-source.mp4` | **点头**(2026-06-16 误生成:想要左右摇头、即梦出了上下点头;留用, 说不定后面用得上) | 27 | `…/lemmy/nod/` |
 | `lemmy-headshake-source.mp4` | **正脸左右摇头="不行"**(v9 正脸定妆 frames2video 首尾双锁;够不着 beat 用;抽帧只取第一次摇·fps8) | 15 | `…/lemmy/headshake/` |
 | `lemmy-startleback-source.mp4` | **耳后贴⑥受惊**(收耳状态被砸→低头→瞪眼→恢复;frames2video 首尾双锁收耳锚图 f1=f120 直立;uniform_torso=131,pencil-baked 跳描边)。**2026-06-28 重抽为非均匀 20 帧**(治"回正显跳"): 源弧=直立→耳惊飞→深蹲(f19-31)→深蹲保持(f28-85 几乎静)→慢回正(f85-113)→直立(f120)。旧 uniform 把半数帧浪费在静止深蹲、回正仅 9 帧;新抽=缩头 5 帧(源 f19,23,26,28,31)+回正 15 帧密集(源 f85-113 每2帧),剔除铺垫与深蹲保持。**二次精修→14 帧**: 删平静起手+耳惊飞 2 帧(起手即低头缩身)+删源重复帧(即梦有效帧率<60 带进的零运动帧, 按相邻 diff<1 判)。pacing 在 `LemmyActorContract`: fps100/peakFrame2/hold420/tail16,无 skipLeadFrames(反应快慢只调走帧速度不砍帧)。 | 14 | `…/lemmy/startleback/` |
-| `lemmy-firstframe-earsback-pencil-white.png` | 耳后贴锚图(白底,frames2video 锁②③④⑥尾) | — | — |
+| `lemmy-crouchback-source.mp4` | **耳后贴⑦蹲下拾取**(收耳状态 站→蹲→前爪触地→起身;运行帧只取下蹲段,起身反播) | 28 | `…/lemmy/crouchback/` |
+| `lemmy-firstframe-earsback-pencil-white.png` | 耳后贴锚图(白底,frames2video 锁②③④⑥⑦尾) | — | — |
 | `lemmy-firstframe-white.png` | 旧首帧(**干净无描边** canonical 白底版;最早 5 套源视频用它生成) | — | — |
 | `lemmy-firstframe-pencil-white.png` | **新首帧(2026-06-07,带铅笔描边 W5 白底版)**;新动作即梦生图用它,描边烘进画面 | — | — |
 
@@ -125,6 +126,13 @@ iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给�
 - 抽帧: `extract-frames-arc.py <mp4> ref-front.png <out> nod 24 0.08 0.95` → 躯干宽 125/脚底 490 逐帧统一缩放归一(躯干全程 123-125 稳, 头点下去身高 429→414→429 是真实竖直点头, 保留)。正脸全程橙, 无鬼眼。
 - 产物: `assets/resources/art/characters/lemmy/nod/`(24 帧, 覆盖旧 27 帧)。contract fps 14(≈1.7s, hold-last)。**未接进具体 beat**。
 - 旧 nod(headshake 首版意外出成点头, v9 正脸源)已被本版替换; 要找回见 git 历史。
+
+## crouchback(2026-07-15, 耳后贴⑦收耳版蹲下拾取 — 补篮下收耳时播竖耳 crouch 的穿帮)
+- `lemmy-crouchback-source.mp4`: frames2video 首尾双锁【耳后贴锚图】(`lemmy-firstframe-earsback-pencil-white.png`, pencil 已烘→跳描边脚本), prompt=收耳状态缓缓蹲下、一只前爪伸向地面轻触、收爪起身回站姿;明确"两耳全程后贴不竖起"+"画面无任何其他物体"(防即梦画出道具)。1440²/60fps/5s。submit_id `7b6a98ce-57aa-4e18-a79c-81eed6031d76`。
+- 抽帧: `extract-frames-arc.py <mp4> lemmy-rabbit-canonical-pencil.png <out> crouchback 40 0.0 0.55`(源弧对称 站429→蹲底275→回429, **只取下蹲段** seg 0-0.55 与 crouch 语义一致, 起身=运行时反播)。
+- 收耳族对齐: arc 输出站姿躯干 180 → 全帧统一缩放 k=131/180(脚底钉 490、水平对齐 idleback footcx 250.8), 校后站姿 躯干131/脚底490/totH314 与 idleback-00(131/490/314) 完全一致。
+- 去重: 即梦低有效帧率带进的近重复帧按相邻 diff<2.0 贪心剔除, 40→**28 帧**, 相邻差 min2.07/med3.28/max4.54 无卡帧。oxipng -o4。
+- 产物: `assets/resources/art/characters/lemmy/crouchback/`(28 帧)。contract fps 35(≈0.8s, hold-last)。**已注册未接 beat**: `M01IntroSequence.beginPickup` 仍固定播竖耳 `crouch`, 收耳时(earsFolded)应改播 crouchback——待接线。
 
 ## nodside(2026-07-11, 侧面点头 — 旧 nod 存作侧面变体)
 - 无独立源视频: 即是 headshake 第一版意外出成的【侧3/4脸点头】27帧(v9 之前的侧脸源, 见 headshake 节缘由链), 2026-07-11 nod 改为正面点头后把旧帧存作 `nodside`(侧面点头变体)。

@@ -30,6 +30,9 @@ export type LemmyFrameActionId =
   // 渲染缩放见各动作 renderScale(逐帧/ramp 补回源姿势身高差, 脚底锚定, 接缝恒 404)。
   | "startleback"
   | "earsback" | "idleback" | "walkback" | "headbutt" | "earsup"
+  // crouchback(2026-07-15, 即梦生成): 【收耳版】蹲下拾取 — 耳后贴状态站→蹲→前爪触地(hold-last, 起身反播);
+  // 补 beginPickup 在篮下收耳时播竖耳 crouch 的穿帮。基准=收耳族(站姿躯干131/脚底490)。
+  | "crouchback"
   // celebrate(2026-06-30): 通关/修复完成时的庆祝 — 正脸原地蹦两下欢呼(闭嘴/耳柔), 一次性 hold-last, 播完接 idle。
   | "celebrate";
 /** Any Lemmy action id. (All actions are frame sequences now.) */
@@ -285,6 +288,8 @@ export const LEMMY_FRAME_ACTIONS: Record<LemmyFrameActionId, LemmyFrameActionSpe
     pacing: { peakFrame: 2, peakHoldMs: 420, tailFps: 16 }
   },
   crouch: { dir: "art/characters/lemmy/crouch", fps: 50, loop: false, holdLast: true }, // 下蹲+起身(反播)节奏; 16→32→42→50(2026-06-17 再快 30% 后又 20%)
+  // crouchback 收耳版蹲下拾取(2026-07-15): 28帧 站→蹲→前爪触地; fps 35 ≈ crouch 同时长(0.8s), 观感可调。
+  crouchback: { dir: "art/characters/lemmy/crouchback", fps: 35, loop: false, holdLast: true },
   // ── 耳后贴系列(2026-06-08) ── fps 是观感参数, 引擎内可微调。
   // ⚠️ 不设 renderScale(2026-06-15 修「走到篮下变大」): fitSpriteToFrame 的 contain 适配已把每帧
   //    裁剪框归一到 displayH, 再乘系数 = 整体超调 34~50%(详见上方 renderScale 字段注释)。
