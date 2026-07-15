@@ -195,6 +195,14 @@ namespace StarGuardian.M01
                 : M01IntroPickupAnimation.Crouch;
         }
 
+        public static string? ResolvePickupActionId(M01IntroPickupAnimation animation) =>
+            animation switch
+            {
+                M01IntroPickupAnimation.Crouch => "crouch",
+                M01IntroPickupAnimation.FoldedCrouch => "crouchback",
+                _ => null
+            };
+
         /// <summary>
         /// 从莱米当前所在侧接近手电，避免为了固定站到左侧而跨过手电、背对道具。
         /// </summary>

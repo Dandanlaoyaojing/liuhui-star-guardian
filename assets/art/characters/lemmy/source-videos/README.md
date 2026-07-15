@@ -132,7 +132,7 @@ iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给�
 - 抽帧: `extract-frames-arc.py <mp4> lemmy-rabbit-canonical-pencil.png <out> crouchback 40 0.0 0.55`(源弧对称 站429→蹲底275→回429, **只取下蹲段** seg 0-0.55 与 crouch 语义一致, 起身=运行时反播)。
 - 收耳族对齐: arc 输出站姿躯干 180 → 全帧统一缩放 k=131/180(脚底钉 490、水平对齐 idleback footcx 250.8), 校后站姿 躯干131/脚底490/totH314 与 idleback-00(131/490/314) 完全一致。
 - 去重: 即梦低有效帧率带进的近重复帧按相邻 diff<2.0 贪心剔除, 40→**28 帧**, 相邻差 min2.07/med3.28/max4.54 无卡帧。oxipng -o4。
-- 产物: `assets/resources/art/characters/lemmy/crouchback/`(28 帧)。contract fps 35(≈0.8s, hold-last)。**已注册未接 beat**: `M01IntroSequence.beginPickup` 仍固定播竖耳 `crouch`, 收耳时(earsFolded)应改播 crouchback——待接线。
+- 产物: `assets/resources/art/characters/lemmy/crouchback/`(28 帧)。contract fps 35(≈0.8s, hold-last)。Unity 权威运行时已接入：篮下收耳地面拾取正放 `crouchback`，起身反播；历史 Cocos `M01IntroSequence` 保持迁移对照，不再新增接线。
 
 ## nodside(2026-07-11, 侧面点头 — 旧 nod 存作侧面变体)
 - 无独立源视频: 即是 headshake 第一版意外出成的【侧3/4脸点头】27帧(v9 之前的侧脸源, 见 headshake 节缘由链), 2026-07-11 nod 改为正面点头后把旧帧存作 `nodside`(侧面点头变体)。

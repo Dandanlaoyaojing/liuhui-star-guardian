@@ -107,6 +107,7 @@ namespace StarGuardian.M01.Rendering
                 new M01LemmyActionContract("startle", 29, 60, false, true, 4, peakFrame: 6, peakHoldMs: 420, tailFps: 13),
                 new M01LemmyActionContract("startleback", 14, 100, false, true, peakFrame: 2, peakHoldMs: 420, tailFps: 16),
                 new M01LemmyActionContract("crouch", 40, 50, false, true),
+                new M01LemmyActionContract("crouchback", 28, 35, false, true),
                 new M01LemmyActionContract("earsback", 40, 48, false, true),
                 new M01LemmyActionContract("idleback", 19, 10, true, false),
                 new M01LemmyActionContract("walkback", 12, 15, true, false),

@@ -1,12 +1,14 @@
 # M01 Review Debt Cleanup Implementation Plan
 
-**Status (2026-07-15):** Implemented and verified on `codex/m01-review-debt`; gear sizing and 1.65 saturation remain deliberately out of scope.
+**Status (2026-07-15):** Implemented and verified on `codex/m01-review-debt`. The initial `headbutt`
+prefix fallback was superseded later the same day by the approved dedicated 28-frame `crouchback`
+clip. Gear sizing and 1.65 saturation remain deliberately out of scope.
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Remove the remaining M01 review debt without changing the deferred gear sizing or flashlight saturation decisions.
 
-**Architecture:** Keep gameplay decisions in the engine-independent M01 layer and use Unity only for playback and GameObject verification. Reuse the first 40 folded-ear anticipation frames from the existing `headbutt` clip for basket-zone ground pickup, avoiding both a visible upright-ear pop and a duplicate 40-frame asset set. Remove editor/reference-only and legacy-unused images from Unity `Resources`; replace source-text assertions with pure behavior tests, parsed configuration checks, or the existing Unity Editor verifier.
+**Architecture:** Keep gameplay decisions in the engine-independent M01 layer and use Unity only for playback and GameObject verification. Use the authored `crouchback` action for basket-zone ground pickup and reverse the same clip for rising, so ears remain folded throughout without borrowing frames from the semantically different headbutt. Remove editor/reference-only and legacy-unused images from Unity `Resources`; replace source-text assertions with pure behavior tests, parsed configuration checks, or the existing Unity Editor verifier.
 
 **Tech Stack:** Unity 6.3/C# 9, xUnit/net10, Unity batchmode Editor verification, Vitest/TypeScript historical parity.
 
@@ -23,11 +25,11 @@
 - Test: `unity-tests/Core.Tests/M01IntroFlowTests.cs`
 - Test: `unity-tests/Core.Tests/M01/M01LemmyPlaybackTests.cs`
 
-1. Add failing tests that choose folded crouch for a ground pickup in the ear-fold zone and select source frames `0..39` from `headbutt` in forward/reverse order.
-2. Run the targeted xUnit tests and confirm they fail because the pickup-animation decision and frame-range API do not exist.
-3. Add the smallest pure decision enum/helper and source-frame range helper.
-4. Add `PlayRange`/`PlayRangeReverse` to `M01LemmyAnimator` and route basket-zone crouch pickup through the folded range; keep normal `crouch` outside the zone.
-5. Extend `M01InteractionGlueVerifier` to assert the actual first Unity sprite is `headbutt-000` forward and `headbutt-039` reverse.
+1. Add failing tests that choose folded crouch for a ground pickup in the ear-fold zone and map that decision to the authored `crouchback` action.
+2. Run the targeted xUnit tests and confirm they fail because the dedicated action is not registered or available in Unity.
+3. Register the 28-frame/35fps action in the Unity render contract and mirror its approved PNGs into Unity `Resources`.
+4. Route basket-zone crouch pickup through `crouchback`/reverse; keep normal `crouch` outside the zone and remove the temporary frame-range playback API.
+5. Extend `M01InteractionGlueVerifier` to assert the actual first Unity sprite is `crouchback-00` forward and `crouchback-27` reverse.
 6. Run targeted xUnit and Unity batchmode verification.
 
 ### Task 2: Runtime resource hygiene

@@ -30,7 +30,7 @@ public sealed class M01RenderAssetImporter : AssetPostprocessor
         importer.spritePixelsPerUnit = 100f;
         importer.alphaIsTransparency = true;
         importer.mipmapEnabled = false;
-        // 697 张 512² RGBA 动作帧若保持 Uncompressed，理论纹理驻留接近 697 MiB。
+        // 725 张 512² RGBA 动作帧若保持 Uncompressed，理论纹理驻留接近 725 MiB。
         // 只压缩角色动作帧；篮子、平台等已做像素级颜色校准的静态画面继续保持无损导入。
         var isLemmyFrame = assetPath.StartsWith(LemmyRoot, System.StringComparison.Ordinal) &&
                            assetPath.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase);
