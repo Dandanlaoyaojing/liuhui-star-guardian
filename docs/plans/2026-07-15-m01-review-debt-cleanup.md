@@ -84,3 +84,16 @@ execute Unity GameObjects, physics, or coroutines and therefore did not constitu
 4. Commit only the scoped files on `codex/m01-review-debt`.
 
 **Explicitly out of scope:** gear `CONTAIN` versus `CUSTOM`; observed-fragment saturation `1.4` versus `1.65`; all changes from unmerged `2511bac` not independently selected above.
+
+### Task 5: Post-merge pickup verification hardening
+
+**Files:**
+- Modify: `StarGuardian/Assets/Editor/M01InteractionGlueVerifier.cs`
+- Modify: `StarGuardian/Assets/Scripts/M01/M01IntroFlow.cs`
+- Modify: `production/active.md`
+
+1. Exercise the real private `M01IntroProbe.BeginPickup` coroutine through the Unity Editor verifier for three runtime scenarios: folded-ear ground pickup, upright-ear ground pickup, and fragment-supported standing pickup.
+2. Assert that crouching scenarios start the selected clip forward and then start the same clip in reverse; assert that the supported scenario completes without entering either crouch clip.
+3. Advance the full reversed `crouchback` playback and assert source order `27..0`, final sprite `crouchback-00`, and `Done=true`.
+4. Prove the new checks detect deliberate wiring and reverse-playback mutations, then restore the correct implementation and rerun the verifier.
+5. Replace the stale `headbutt`-prefix comment with the dedicated `crouchback` contract and run the full verification matrix.

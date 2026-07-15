@@ -8,6 +8,8 @@ Last updated: 2026-07-15
 
 - **审阅债清理已完成(2026-07-15)**: ①篮下地面蹲拾使用新定稿的 28 帧 `crouchback` 收耳动作，起身反播同一动作，全程不再借用 `headbutt` 或闪成立耳；②冻结 manifest 移出 Unity `Resources` 并去开发机绝对路径，移除 Unity 未消费的 canonical/floor/evidence/filter 运行时副本；③删除 `M01UnityGlueParityTests` 的 78 条生产源码字符串断言，把固定步长、拾灯朝向、满平台验证、实时占用证据迁移为配置解析或纯行为测试，并新增禁止源码文本测试回流的架构守卫。最终验证：xUnit **380/380**、Vitest **480/480**、TypeScript typecheck、Unity batchmode 编译/Editor verifier **3/3**、`npm audit --omit=dev` **0 vulnerability**。齿轮缩放与 1.65 饱和度本波未改。实施计划=`docs/plans/2026-07-15-m01-review-debt-cleanup.md`。
 
+- **拾灯测试加固已完成(2026-07-15)**: Unity verifier 现直接驱动真实 `M01IntroProbe.BeginPickup`，覆盖篮下地面 `crouchback`、篮外地面 `crouch`、拼片承托站立拿取三条链路，并锁定下蹲后反播同一动作；`crouchback` 倒放另验证完整源帧顺序 `27..0`、末帧 `00` 与 `Done=true`。故障注入证明：篮下故意误接 `crouch`、倒放故意改成正放时验证器都会红灯，恢复正确实现后 Unity Editor verifier **4/4**。旧 `headbutt` 前段注释已改为专用 `crouchback`。全套回归：xUnit **380/380**、Vitest **480/480**、TypeScript typecheck、`npm audit --omit=dev` **0 vulnerability**；不改变玩家行为、动画资源或显色参数。
+
 - **源快照已冻结**: Cocos `e67f7cd` + 当时工作树资源/配置哈希，清单=`production/manifests/m01-render-source-manifest.json`；该审计清单不再打入 Unity Player，且已移除开发机绝对路径。
 - **纠正资源口径**: Lemmy 当前是 **19 动作 / 725 PNG 帧**（新增 `crouchback` 28 帧）；旧文档的 802 是早期整批美术/音视频文件数，不是角色帧数。
 - **已落地**: 960×640/PPU100 坐标契约、Cocos displaySize/anchor/aspect 适配、19 动作 fps/loop/hold/skip/event/峰值停顿、725 帧和当前实际消费的 M01 运行时图/音视频逐字节复制、Unity 6 导入规则。

@@ -179,7 +179,7 @@ namespace StarGuardian.M01
                 : M01IntroPickupMotion.Crouch;
 
         /// <summary>
-        /// 篮下已收耳时不能播放立耳 crouch；复用 headbutt 的收耳下蹲前段完成同一动作。
+        /// 篮下已收耳时不能播放立耳 crouch；使用专用 crouchback 保持收耳下蹲轮廓。
         /// 承托在拼片上的手电无需下蹲，也不应额外切换耳态。
         /// </summary>
         public static M01IntroPickupAnimation ResolvePickupAnimation(
