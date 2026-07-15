@@ -359,15 +359,19 @@ public sealed class M02StarWebProbe : MonoBehaviour
         //    并把 pressCaptured 永久卡在 true。
         var pressed = pointer.press.wasPressedThisFrame;
         var released = pointer.press.wasReleasedThisFrame;
+        var pos = ScreenToCocos(pointer.position.ReadValue());
+        // SWV:90 触摸区矩形命中: 框外点击 Cocos 根本不派发 → Unity 轮询必须显式裁剪。
+        // 已在途的按压其 release 仍要结算(等价 Cocos 的配对 TOUCH_END; 不裁会漏配对)。
+        var inside = M02RenderContract.IsInsideTouchArea(pos.x, pos.y);
         if (pressCaptured)
         {
-            if (released) OnRelease(ScreenToCocos(pointer.position.ReadValue()));
-            if (pressed) OnPress();
+            if (released) OnRelease(pos);
+            if (pressed && inside) OnPress();
         }
         else
         {
-            if (pressed) OnPress();
-            if (released) OnRelease(ScreenToCocos(pointer.position.ReadValue()));
+            if (pressed && inside) OnPress();
+            if (released) OnRelease(pos);
         }
     }
 

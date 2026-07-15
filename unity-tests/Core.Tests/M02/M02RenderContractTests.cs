@@ -268,5 +268,25 @@ namespace StarGuardian.M02.Tests
             Assert.Equal(M02RenderContract.WandTipLitColor, M02RenderContract.WandTipColor(WandState.Lit));   // PV:253
             Assert.Equal(M02RenderContract.WandTipDimColor, M02RenderContract.WandTipColor(WandState.Planted));
         }
-    }
+    
+        [Theory(DisplayName = "touch area rect mirrors Cocos setContentSize(1000,720) hit-test (SWV:90 / PV:66)")]
+        [InlineData(0, 0, true)]
+        [InlineData(500, 360, true)]      // 边界含(Cocos 矩形命中含边)
+        [InlineData(-500, -360, true)]
+        [InlineData(500.1, 0, false)]     // 宽屏 16:9 可见 ±569px, 框外 Cocos 不派发
+        [InlineData(569, 0, false)]
+        [InlineData(0, 360.1, false)]
+        [InlineData(-569, -400, false)]
+        public void IsInsideTouchAreaMirrorsCocosRectHitTest(double x, double y, bool expected)
+        {
+            Assert.Equal(expected, M02RenderContract.IsInsideTouchArea(x, y));
+        }
+
+        [Fact(DisplayName = "touch area dimensions stay at the Cocos values")]
+        public void TouchAreaDimensionsPinned()
+        {
+            Assert.Equal(1000d, M02RenderContract.TouchAreaWidthPx);
+            Assert.Equal(720d, M02RenderContract.TouchAreaHeightPx);
+        }
+}
 }

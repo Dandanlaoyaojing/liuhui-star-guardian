@@ -66,6 +66,15 @@ namespace StarGuardian.M02.Rendering
         public const double TouchAreaWidthPx = 1000;
         public const double TouchAreaHeightPx = 720;
 
+        /// <summary>
+        /// 点是否落在触摸区内(Cocos 把 TOUCH_START/END 挂在 setContentSize(1000,720) 的 UITransform
+        /// 节点上, 触摸按该矩形命中派发 → 框外点击根本不进 onTouchStart/onTouchEnd)。
+        /// Unity 用轮询 Pointer 没有这层裁剪, 必须显式判定, 否则宽屏(16:9 可见 ±569px)下点框外
+        /// 会触发 Cocos 里不会发生的行为。锚点 0.5/0.5 居中 → 半宽/半高对称。SWV:90 / PV:66。
+        /// </summary>
+        public static bool IsInsideTouchArea(double cocosX, double cocosY) =>
+            Math.Abs(cocosX) <= TouchAreaWidthPx / 2 && Math.Abs(cocosY) <= TouchAreaHeightPx / 2;
+
         // ── 主视图布局常量 SWV:17-36 ──
         public const double NodeRadiusPx = 22;                  // SWV:17 星视觉半径
         public const double TapRadiusPx = 44;                   // SWV:18 命中半径(比视觉大)

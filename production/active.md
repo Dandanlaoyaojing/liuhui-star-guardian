@@ -2,7 +2,8 @@
 
 ## M02 自审消费(2026-07-15, 三路 finder 19 条)
 **修掉(本轮)**: ①`M01CompletionProbe` 是全仓最后一个 `Mouse.current` 消费者(iOS 过场跳不掉/卡收不掉→输入永久锁死)→ Pointer; ②`HealCompletionText` 只补材质不补 `tm.font` 且一次性锁存 → 首帧字体未就绪=完成面板文字永久空白, 改成补 font+补齐后才锁存; ③**我上一版把 M01 的 DontSave 教训用反了**: M02StarWebProbe 是 `[ExecuteAlways]`(编辑态也建 Volume), 恰恰**需要** DontSave, 否则空壳被序列化进 .unity 提交进库(M01 那批是纯 Play 对象才不该 DontSave)——volumeGo/自动建的相机都补上; ④stale volume 回收补 profile 销毁 + Play/Edit 分流(与全文件惯例一致); ⑤`OnDisable` 的 `Find` 兜底删除(多实例时会抓走别家活体 volume 反杀); ⑥同帧 press+release 处理序按**帧初 pressCaptured 状态分流**(自查纠正: 无脑"release 先"会丢掉新快速轻点并把 pressCaptured 永久卡 true); ⑦M02 场景注册进 EditorBuildSettings。
-**defer(记档, 非阻塞)**: ①`TouchAreaWidthPx/HeightPx(1000×720)` 探针未消费——Cocos 有矩形命中裁剪, Unity 全屏响应, 宽屏(16:9 可见 ±569px)下点边缘行为与 Cocos 相反, 影响行为对照可信度; ②`LabelLineHeightPx(fontSize+5)` 零消费(完成面板多行走 TextMesh 原生行距); ③契约测试只钉约四成值(约 30 个常量零覆盖); ④`WrapCardText` 注释对 TS 负值行为描述不实(node 实测不抛); ⑤M02PrologueProbe 同帧输入序同构问题(拖拽交互不烧电量, 新轻点序正确, 低风险); ⑥序章→主盘交接帧输入归属竞态; ⑦M2GlowProbe 与 M02 双全局 Volume 同优先级互踩(对照场景同开时); ⑧M01/M02 探针 sortingOrder 分带重叠(同场景并存时)。
+**已补(2026-07-15)**: `TouchArea` 矩形裁剪落地——核准 Cocos 确把 TOUCH_START/END 挂在 `setContentSize(1000,720)` 的 UITransform 上(按矩形命中派发, SWV:90/PV:66), 新增 `M02RenderContract.IsInsideTouchArea` + 两探针 press 侧消费(release 不裁, 保配对结算等价 Cocos TOUCH_END) + 8 条边界测试钉死。**Play 实测: 序章在 Unity 跑通(水彩底/余烬辉光/魔杖, Light2D+加法+Bloom 三层光效工作)**。
+**defer(记档, 非阻塞)**: ②`LabelLineHeightPx(fontSize+5)` 零消费(完成面板多行走 TextMesh 原生行距); ③契约测试只钉约四成值(约 30 个常量零覆盖); ④`WrapCardText` 注释对 TS 负值行为描述不实(node 实测不抛); ⑤M02PrologueProbe 同帧输入序同构问题(拖拽交互不烧电量, 新轻点序正确, 低风险); ⑥序章→主盘交接帧输入归属竞态; ⑦M2GlowProbe 与 M02 双全局 Volume 同优先级互踩(对照场景同开时); ⑧M01/M02 探针 sortingOrder 分带重叠(同场景并存时)。
 **契约保真**: finder 逐条核验 100+ 值 + RNG 用 node 独立复算黄金值逐位一致 —— **零错**。
 
 ## 当前目标: M02 迁移 Unity(2026-07-15 立项, 分支 feat/m02-unity-port)

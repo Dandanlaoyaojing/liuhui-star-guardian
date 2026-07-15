@@ -277,10 +277,12 @@ public sealed class M02PrologueProbe : MonoBehaviour
         if (pointer == null || Session == null) return;
         var local = ScreenToCocos(pointer.position.ReadValue());
 
+        // PV:66 触摸区矩形命中(1000×720): 框外 Cocos 不派发 → Unity 轮询显式裁剪
+        var insideTouchArea = M02RenderContract.IsInsideTouchArea(local.x, local.y);
         if (pointer.press.wasPressedThisFrame)
         {
             // PV:116-127 onTouchStart
-            if (!pressCaptured)
+            if (!pressCaptured && insideTouchArea)
             {
                 pressCaptured = true;
                 dragActivated = false;
