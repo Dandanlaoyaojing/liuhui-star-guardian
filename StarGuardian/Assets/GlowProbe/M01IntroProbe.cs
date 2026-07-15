@@ -875,7 +875,12 @@ public sealed class M01IntroProbe : MonoBehaviour
         }
         lemmy.SetFacing(flashX >= CurrentLemmyX());
         var pickupMotion = M01IntroFlow.ResolvePickupMotion(IsFlashlightSupportedByFragment());
-        if (pickupMotion == M01IntroPickupMotion.Crouch)
+        var pickupAnimation = M01IntroFlow.ResolvePickupAnimation(pickupMotion, earsFolded);
+        if (pickupAnimation == M01IntroPickupAnimation.FoldedCrouch)
+        {
+            yield return PlayActionRange("headbutt", 0, 40);
+        }
+        else if (pickupAnimation == M01IntroPickupAnimation.Crouch)
         {
             yield return PlayAction("crouch");
         }
@@ -891,7 +896,14 @@ public sealed class M01IntroProbe : MonoBehaviour
         if (pickupMotion == M01IntroPickupMotion.Crouch)
         {
             SetCocosPosition(flashlightObject.transform, heldX, HeldFlashlightY - PickupHandDrop);
-            lemmy.PlayReverse("crouch");
+            if (pickupAnimation == M01IntroPickupAnimation.FoldedCrouch)
+            {
+                lemmy.PlayRangeReverse("headbutt", 0, 40);
+            }
+            else
+            {
+                lemmy.PlayReverse("crouch");
+            }
             var elapsed = 0f;
             while (elapsed < PickupRiseSeconds)
             {
@@ -946,6 +958,13 @@ public sealed class M01IntroProbe : MonoBehaviour
     {
         if (lemmy == null) yield break;
         lemmy.Play(id);
+        while (!lemmy.Done) yield return null;
+    }
+
+    private IEnumerator PlayActionRange(string id, int sourceStartFrame, int sourceFrameCount)
+    {
+        if (lemmy == null) yield break;
+        lemmy.PlayRange(id, sourceStartFrame, sourceFrameCount);
         while (!lemmy.Done) yield return null;
     }
 

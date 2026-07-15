@@ -53,6 +53,24 @@ namespace StarGuardian.M01.Tests
             Assert.All(durations, duration => Assert.Equal(1000d / 48d, duration, 10));
         }
 
+        [Fact]
+        public void SelectsTheFoldedHeadbuttCrouchPrefixInBothDirections()
+        {
+            Assert.Equal(
+                Enumerable.Range(0, 40),
+                IntArray("FrameRangeIndices", "headbutt", 124, 0, 40, false));
+            Assert.Equal(
+                Enumerable.Range(0, 40).Reverse(),
+                IntArray("FrameRangeIndices", "headbutt", 124, 0, 40, true));
+
+            var forwardDurations = DoubleArray(
+                "FrameRangeDurationsMs", "headbutt", 124, 0, 40, false);
+            var reverseDurations = DoubleArray(
+                "FrameRangeDurationsMs", "headbutt", 124, 0, 40, true);
+            Assert.Equal(40, forwardDurations.Length);
+            Assert.Equal(forwardDurations.Reverse(), reverseDurations);
+        }
+
         [Theory]
         [InlineData("reach", 36, 23)]
         [InlineData("reach", 20, 19)]

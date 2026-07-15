@@ -54,6 +54,13 @@ namespace StarGuardian.M01
         Standing
     }
 
+    public enum M01IntroPickupAnimation
+    {
+        None,
+        Crouch,
+        FoldedCrouch
+    }
+
     public enum M01IntroEarTransition
     {
         None,
@@ -170,6 +177,23 @@ namespace StarGuardian.M01
             isSupportedByFragment
                 ? M01IntroPickupMotion.Standing
                 : M01IntroPickupMotion.Crouch;
+
+        /// <summary>
+        /// 篮下已收耳时不能播放立耳 crouch；复用 headbutt 的收耳下蹲前段完成同一动作。
+        /// 承托在拼片上的手电无需下蹲，也不应额外切换耳态。
+        /// </summary>
+        public static M01IntroPickupAnimation ResolvePickupAnimation(
+            M01IntroPickupMotion motion,
+            bool earsFolded)
+        {
+            if (motion != M01IntroPickupMotion.Crouch)
+            {
+                return M01IntroPickupAnimation.None;
+            }
+            return earsFolded
+                ? M01IntroPickupAnimation.FoldedCrouch
+                : M01IntroPickupAnimation.Crouch;
+        }
 
         /// <summary>
         /// 从莱米当前所在侧接近手电，避免为了固定站到左侧而跨过手电、背对道具。

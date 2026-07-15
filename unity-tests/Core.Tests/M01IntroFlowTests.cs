@@ -197,6 +197,24 @@ namespace StarGuardian.M01.Tests
             Assert.Equal(expected, M01IntroFlow.ResolvePickupMotion(isSupportedByFragment));
         }
 
+        [Theory(DisplayName = "ground pickup keeps the position-driven ear silhouette throughout the crouch")]
+        [InlineData(M01IntroPickupMotion.Crouch, false, "Crouch")]
+        [InlineData(M01IntroPickupMotion.Crouch, true, "FoldedCrouch")]
+        [InlineData(M01IntroPickupMotion.Standing, false, "None")]
+        [InlineData(M01IntroPickupMotion.Standing, true, "None")]
+        public void GroundPickupSelectsAnEarSafeAnimation(
+            M01IntroPickupMotion motion,
+            bool earsFolded,
+            string expected)
+        {
+            var method = typeof(M01IntroFlow).GetMethod("ResolvePickupAnimation");
+            Assert.NotNull(method);
+
+            var animation = method!.Invoke(null, new object[] { motion, earsFolded });
+
+            Assert.Equal(expected, animation?.ToString());
+        }
+
         [Theory(DisplayName = "flashlight pickup stops on Lemmy's current side instead of crossing over the flashlight")]
         [InlineData(-100, 0, -30)]
         [InlineData(100, 0, 30)]

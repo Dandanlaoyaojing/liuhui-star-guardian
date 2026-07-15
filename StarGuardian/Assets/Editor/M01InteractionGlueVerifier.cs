@@ -11,7 +11,8 @@ public static class M01InteractionGlueVerifier
         {
             VerifyFragmentSortingOrder();
             VerifyParkedFragmentBody();
-            Debug.Log("M01InteractionGlueVerifier: passed 2/2");
+            VerifyFoldedPickupPlayback();
+            Debug.Log("M01InteractionGlueVerifier: passed 3/3");
             EditorApplication.Exit(0);
         }
         catch (Exception exception)
@@ -71,6 +72,39 @@ public static class M01InteractionGlueVerifier
         finally
         {
             UnityEngine.Object.DestroyImmediate(fragment);
+        }
+    }
+
+    private static void VerifyFoldedPickupPlayback()
+    {
+        var lemmyObject = new GameObject("lemmy-folded-pickup");
+        try
+        {
+            var animator = lemmyObject.AddComponent<M01LemmyAnimator>();
+            if (lemmyObject.transform.childCount == 0)
+            {
+                var awakeMethod = typeof(M01LemmyAnimator).GetMethod(
+                    "Awake",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Require(awakeMethod != null, "M01LemmyAnimator.Awake must exist");
+                awakeMethod!.Invoke(animator, Array.Empty<object>());
+            }
+
+            animator.PlayRange("headbutt", 0, 40);
+            var spriteRenderer = lemmyObject.GetComponentInChildren<SpriteRenderer>();
+            Require(spriteRenderer != null, "Lemmy sprite renderer must exist");
+            Require(
+                spriteRenderer!.sprite != null && spriteRenderer.sprite.name == "headbutt-000",
+                "folded crouch must start at headbutt-000");
+
+            animator.PlayRangeReverse("headbutt", 0, 40);
+            Require(
+                spriteRenderer.sprite != null && spriteRenderer.sprite.name == "headbutt-039",
+                "folded rise must start at headbutt-039");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(lemmyObject);
         }
     }
 

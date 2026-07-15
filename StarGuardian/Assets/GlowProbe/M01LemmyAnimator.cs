@@ -108,16 +108,44 @@ public sealed class M01LemmyAnimator : MonoBehaviour
         StartPlayback(action, reverse: true);
     }
 
-    private void StartPlayback(string action, bool reverse)
+    public void PlayRange(string action, int sourceStartFrame, int sourceFrameCount)
+    {
+        StartPlayback(action, reverse: false, sourceStartFrame, sourceFrameCount);
+    }
+
+    public void PlayRangeReverse(string action, int sourceStartFrame, int sourceFrameCount)
+    {
+        StartPlayback(action, reverse: true, sourceStartFrame, sourceFrameCount);
+    }
+
+    private void StartPlayback(
+        string action,
+        bool reverse,
+        int? sourceStartFrame = null,
+        int? sourceFrameCount = null)
     {
         var arr = Load(action);
         if (arr.Length == 0) return;
         spec = M01LemmyPlayback.Find(action);
-        sourceFrameIndices = M01LemmyPlayback.PlayableFrameIndices(action, arr.Length);
-        if (reverse) System.Array.Reverse(sourceFrameIndices);
+        sourceFrameIndices = sourceStartFrame.HasValue && sourceFrameCount.HasValue
+            ? M01LemmyPlayback.FrameRangeIndices(
+                action,
+                arr.Length,
+                sourceStartFrame.Value,
+                sourceFrameCount.Value,
+                reverse)
+            : M01LemmyPlayback.PlayableFrameIndices(action, arr.Length);
+        if (reverse && !sourceStartFrame.HasValue) System.Array.Reverse(sourceFrameIndices);
         cur = sourceFrameIndices.Select(index => arr[index]).ToArray();
-        frameDurationsMs = M01LemmyPlayback.FrameDurationsMs(action, arr.Length);
-        if (reverse) System.Array.Reverse(frameDurationsMs);
+        frameDurationsMs = sourceStartFrame.HasValue && sourceFrameCount.HasValue
+            ? M01LemmyPlayback.FrameRangeDurationsMs(
+                action,
+                arr.Length,
+                sourceStartFrame.Value,
+                sourceFrameCount.Value,
+                reverse)
+            : M01LemmyPlayback.FrameDurationsMs(action, arr.Length);
+        if (reverse && !sourceStartFrame.HasValue) System.Array.Reverse(frameDurationsMs);
         frame = 0;
         timerMs = 0;
         Done = false;
