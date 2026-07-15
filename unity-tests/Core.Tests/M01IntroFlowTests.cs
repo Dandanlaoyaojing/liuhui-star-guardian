@@ -143,20 +143,15 @@ namespace StarGuardian.M01.Tests
                 M01IntroFlow.ResolveBasketTapAction(M01IntroPhase.Roaming, isUnderBasket: true));
         }
 
-        [Fact(DisplayName = "重复顶篮阶段即使莱米走开，点篮也会恢复顶篮流程")]
-        public void RepeatBasketTapReturnsToHeadbuttFlowAfterLemmyWalksAway()
+        [Fact(DisplayName = "重复顶篮阶段莱米走开后，点篮不能替玩家自动回到篮下")]
+        public void RepeatBasketTapDoesNotAutoReturnAfterLemmyWalksAway()
         {
             Assert.Equal(
-                M01IntroBasketTapAction.Headbutt,
+                M01IntroBasketTapAction.ApproachReachAndShake,
                 M01IntroFlow.ResolveBasketTapAction(M01IntroPhase.ReadyToHeadbutt, isUnderBasket: false));
-            Assert.True(
-                M01IntroFlow.ShouldReturnToBasketBeforeHeadbutt(
-                    M01IntroPhase.ReadyToHeadbutt,
-                    isUnderBasket: false));
-            Assert.False(
-                M01IntroFlow.ShouldReturnToBasketBeforeHeadbutt(
-                    M01IntroPhase.ReadyToHeadbutt,
-                    isUnderBasket: true));
+            Assert.Equal(
+                M01IntroBasketTapAction.Headbutt,
+                M01IntroFlow.ResolveBasketTapAction(M01IntroPhase.ReadyToHeadbutt, isUnderBasket: true));
         }
 
         [Theory(DisplayName = "basket tap interrupts a still-finishing roam before starting the basket action")]

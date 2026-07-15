@@ -646,23 +646,17 @@ public sealed class M01IntroProbe : MonoBehaviour
         var action = M01IntroFlow.ResolveBasketTapAction(phase, IsUnderBasket(CurrentLemmyX()));
         if (action == M01IntroBasketTapAction.ApproachReachAndShake)
         {
-            yield return MoveLemmy(BasketReachX, 1f);
+            yield return RoamTo(BasketReachX);
             lemmy.SetFacing(true);
             yield return PlayAction("reach");
             yield return PlayAction("turnface");
             yield return PlayAction("headshake");
-            earsFolded = false;
-            lemmy.Play("idle");
+            M01IntroFlow.CommitEarState(ref earsFolded, IsEarFoldZone(CurrentLemmyX()));
+            lemmy.Play(earsFolded ? "idleback" : "idle");
         }
         else if (action == M01IntroBasketTapAction.Headbutt)
         {
             var repeat = phase == M01IntroPhase.ReadyToHeadbutt;
-            if (M01IntroFlow.ShouldReturnToBasketBeforeHeadbutt(
-                    phase,
-                    IsUnderBasket(CurrentLemmyX())))
-            {
-                yield return RoamTo(HeadbuttX);
-            }
             yield return Headbutt(repeat);
         }
         actionInProgress = false;

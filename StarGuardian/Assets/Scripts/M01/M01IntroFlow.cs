@@ -122,18 +122,14 @@ namespace StarGuardian.M01
         }
 
         /// <summary>
-        /// 首次点篮不替玩家走到篮下；只有玩家已在篮下时才开始第一轮顶篮。
-        /// 进入重复顶篮阶段后，点篮会恢复顶篮流程，胶水层负责先把走开的莱米带回篮下。
+        /// 点篮不替玩家走到篮下；首次与重复顶篮都只有在莱米已经位于篮下时才触发。
+        /// 若莱米走开，玩家必须先点篮下地面把它走回来，再点篮继续。
         /// </summary>
         public static M01IntroBasketTapAction ResolveBasketTapAction(
             M01IntroPhase phase,
             bool isUnderBasket)
         {
-            if (phase == M01IntroPhase.ReadyToHeadbutt)
-            {
-                return M01IntroBasketTapAction.Headbutt;
-            }
-            if (phase != M01IntroPhase.Roaming)
+            if (phase != M01IntroPhase.Roaming && phase != M01IntroPhase.ReadyToHeadbutt)
             {
                 return M01IntroBasketTapAction.Ignore;
             }
@@ -153,11 +149,6 @@ namespace StarGuardian.M01
         /// </summary>
         public static bool ShouldInterruptRoamForPickup(M01IntroPhase phase) =>
             phase == M01IntroPhase.WaitingPickup;
-
-        public static bool ShouldReturnToBasketBeforeHeadbutt(
-            M01IntroPhase phase,
-            bool isUnderBasket) =>
-            phase == M01IntroPhase.ReadyToHeadbutt && !isUnderBasket;
 
         /// <summary>
         /// 先提交位置对应的耳态，再由调用方播放可中断动画；即使协程被停止，状态也不会回退。
