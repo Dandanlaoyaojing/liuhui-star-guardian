@@ -491,19 +491,9 @@ public sealed class M01BoardProbe : MonoBehaviour
 
     private static Color TargetOverlapColor(string token)
     {
-        var raw = token switch
-        {
-            "orange" => new Vector3(206, 154, 114),
-            "green" => new Vector3(136, 166, 138),
-            "purple" => new Vector3(167, 140, 166),
-            _ => new Vector3(150, 132, 118)
-        };
-        var lum = 0.299f * raw.x + 0.587f * raw.y + 0.114f * raw.z;
-        raw = new Vector3(
-            Mathf.Clamp(Mathf.Round(lum + (raw.x - lum) * 1.4f), 0, 255),
-            Mathf.Clamp(Mathf.Round(lum + (raw.y - lum) * 1.4f), 0, 255),
-            Mathf.Clamp(Mathf.Round(lum + (raw.z - lum) * 1.4f), 0, 255));
-        return new Color(raw.x / 255f, raw.y / 255f, raw.z / 255f, 232f / 255f);
+        // 线索 blend == 亮片显色同一套(Cocos colorForTargetBlendRgb 语义): 单一真源, 饱和度随拍板值走。
+        var tint = StarGuardian.M01.Rendering.M01VisualParity.ObservedFragmentTint(token);
+        return new Color(tint.R / 255f, tint.G / 255f, tint.B / 255f, 232f / 255f);
     }
 
     private static Vector2 ToV2(M01GreyboxPoint p) => new((float)p.X, (float)p.Y);

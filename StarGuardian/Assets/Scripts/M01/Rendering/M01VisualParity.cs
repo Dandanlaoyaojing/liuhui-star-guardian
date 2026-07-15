@@ -50,7 +50,7 @@ namespace StarGuardian.M01.Rendering
         public const double HeadGlowOffsetYPx = 11;
         public const double HeadGlowDiameterPx = 18;
         public const byte HeadGlowAlpha = 210;
-        public const double ObservedTintSaturation = 1.4;
+        public const double ObservedTintSaturation = 1.65; // 2026-07-15 用户拍板: 手电下显色提饱和保持醒目; 有意偏离 Cocos 参照 1.4(不回改, 历史参照)
 
         public static M01Color32 BeamVisualColor(string token)
         {

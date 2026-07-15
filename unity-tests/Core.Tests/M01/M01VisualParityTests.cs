@@ -26,13 +26,13 @@ namespace StarGuardian.M01.Tests
                 M01VisualParity.UnityLinearBasketSpriteTint);
         }
 
-        [Theory(DisplayName = "reproduces the Cocos channel multiply and 1.4 saturation observation palette")]
-        [InlineData("red", 255, 41, 22)]
-        [InlineData("yellow", 255, 205, 13)]
-        [InlineData("blue", 38, 94, 245)]
-        [InlineData("orange", 222, 150, 94)]
-        [InlineData("green", 129, 171, 132)]
-        [InlineData("purple", 173, 136, 172)]
+        [Theory(DisplayName = "applies the user-approved 1.65 saturation (2026-07-15) atop the Cocos channel-multiply palette; intentional divergence from Cocos 1.4")]
+        [InlineData("red", 255, 29, 6)]
+        [InlineData("yellow", 255, 206, 0)]
+        [InlineData("blue", 28, 94, 255)]
+        [InlineData("orange", 233, 147, 81)]
+        [InlineData("green", 124, 174, 128)]
+        [InlineData("purple", 177, 133, 176)]
         public void ReproducesObservedFragmentPalette(string token, byte red, byte green, byte blue)
         {
             Assert.Equal(
