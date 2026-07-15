@@ -273,11 +273,11 @@ public sealed class M02PrologueProbe : MonoBehaviour
 
     private void HandleInput()
     {
-        var mouse = Mouse.current;
-        if (mouse == null || Session == null) return;
-        var local = ScreenToCocos(mouse.position.ReadValue());
+        var pointer = Pointer.current; // iOS 触屏无 Mouse; M01DragProbe 同款 Pointer 路径
+        if (pointer == null || Session == null) return;
+        var local = ScreenToCocos(pointer.position.ReadValue());
 
-        if (mouse.leftButton.wasPressedThisFrame)
+        if (pointer.press.wasPressedThisFrame)
         {
             // PV:116-127 onTouchStart
             if (!pressCaptured)
@@ -296,7 +296,7 @@ public sealed class M02PrologueProbe : MonoBehaviour
             }
         }
 
-        if (pressCaptured && mouse.leftButton.isPressed && dragState.Active != null)
+        if (pressCaptured && pointer.press.isPressed && dragState.Active != null)
         {
             // PV:129-146 onTouchMove(仅指针真移动时驱动, 镜像触摸事件语义)
             var current = dragState.Active.CurrentPosition;
@@ -331,7 +331,7 @@ public sealed class M02PrologueProbe : MonoBehaviour
             }
         }
 
-        if (mouse.leftButton.wasReleasedThisFrame)
+        if (pointer.press.wasReleasedThisFrame)
         {
             // PV:148-170 onTouchEnd
             if (!pressCaptured) return;

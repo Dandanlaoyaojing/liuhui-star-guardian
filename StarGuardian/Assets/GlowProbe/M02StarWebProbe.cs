@@ -349,10 +349,10 @@ public sealed class M02StarWebProbe : MonoBehaviour
         TickPulse();
         HealCompletionText();
 
-        var mouse = Mouse.current;
-        if (mouse == null) return;
-        if (mouse.leftButton.wasPressedThisFrame) OnPress();
-        if (mouse.leftButton.wasReleasedThisFrame) OnRelease(ScreenToCocos(mouse.position.ReadValue()));
+        var pointer = Pointer.current; // iOS 触屏无 Mouse; M01DragProbe 同款 Pointer 路径
+        if (pointer == null) return;
+        if (pointer.press.wasPressedThisFrame) OnPress();
+        if (pointer.press.wasReleasedThisFrame) OnRelease(ScreenToCocos(pointer.position.ReadValue()));
     }
 
     private void OnPress()

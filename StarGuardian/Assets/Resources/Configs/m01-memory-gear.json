@@ -946,7 +946,7 @@
   },
   "completionVideo": {
     "videoClipPath": "art/stage1-m01/m01-completion-cutscene",
-    "videoClipPath_comment": "iOS/Android/Web 走: resources.load VideoClip 的 mp4 路径(内嵌音轨, 原生播放省内存); 全屏 960×640 成片",
+    "videoClipPath_comment": "iOS/Android/Web 走: resources.load VideoClip 的 mp4 路径(内嵌音轨, 原生播放省内存); 母版 1920×1280(retina), 铺满 960×640 显示框",
     "resourcesPath": "art/stage1-m01/completion-frames",
     "resourcesPath_comment": "Steam 桌面走: resources.loadDir 逐帧 SpriteFrame 目录(frame_0001..frame_0344, 960×640, 按名排序)",
     "audioPath": "art/stage1-m01/completion-audio",
