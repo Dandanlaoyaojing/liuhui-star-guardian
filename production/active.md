@@ -8,10 +8,10 @@ Last updated: 2026-07-15
 
 - **当前清理波次(2026-07-15)**: 处理三项已拍板审阅债：①篮下地面蹲拾复用 `headbutt` 前 40 帧收耳下蹲段，消除 `crouch` 首帧立耳跳变；②冻结 manifest 移出 Unity `Resources` 并去开发机绝对路径，移除 Unity 未消费的 canonical/floor/evidence/filter 运行时副本；③清空 `M01UnityGlueParityTests` 的生产源码字符串断言，按实际价值迁移为纯行为、Unity Editor 或配置测试。齿轮缩放与 1.65 饱和度本波不动。实施计划=`docs/plans/2026-07-15-m01-review-debt-cleanup.md`。
 
-- **源快照已冻结**: Cocos `e67f7cd` + 当前工作树资源/配置哈希，清单=`StarGuardian/Assets/Resources/Configs/m01-render-source-manifest.json`。
+- **源快照已冻结**: Cocos `e67f7cd` + 当时工作树资源/配置哈希，清单=`production/manifests/m01-render-source-manifest.json`；该审计清单不再打入 Unity Player，且已移除开发机绝对路径。
 - **纠正资源口径**: Lemmy 是 **18 动作 / 697 PNG 帧**；旧文档的 802 是整批美术/音视频文件数，不是角色帧数。
-- **已落地**: 960×640/PPU100 坐标契约、Cocos displaySize/anchor/aspect 适配、18 动作 fps/loop/hold/skip/event/峰值停顿、697 帧和 M01 运行时图/音视频逐字节复制、Unity 6 导入规则。
-- **盘面已纠偏**: 删除 Unity 旧探针误画的 6 个 TargetPieceSlots；改按 Cocos `renderGreybox()` 顺序绘制 `sourcePosition + magnetPolygon` 交叠证据、完整参考图案、真实 fragment/filter/gear 图层；Cocos 正角度直接映射 Unity 正角度。
+- **已落地**: 960×640/PPU100 坐标契约、Cocos displaySize/anchor/aspect 适配、18 动作 fps/loop/hold/skip/event/峰值停顿、697 帧和当前实际消费的 M01 运行时图/音视频逐字节复制、Unity 6 导入规则。
+- **盘面已纠偏**: 删除 Unity 旧探针误画的 6 个 TargetPieceSlots；改按 Cocos `renderGreybox()` 顺序绘制 `sourcePosition + magnetPolygon` 交叠证据、完整参考图案、真实 fragment/gear 图层；当前权威配置无 legacy `filters`，Cocos 正角度直接映射 Unity 正角度。
 - **开场已替换**: 不再“一点篮子自动倒完”；接入 `M01IntroFlow`，并锁定原交互：直接点篮子时莱米只会**走近篮子→伸手够→转脸摇头**，不会替玩家自动走到篮下；玩家必须先点地面把莱米移到篮下，再点篮子才会顶。三次顶篮每次只释放顶部 3 片。篮内改为真实 Physics2D：按 Cocos `PileOffsets` 投放，使用圆/三角/六边形原碰撞几何与摩擦、弹性、密度、阻尼，在三面内胆中物理沉降 0.9s 后冻结；顶篮时仅解冻本批，未释放拼片随篮体同步，形成真实贴靠和垒叠。最终曲线前沿蒙版按完整画布导入，遮住下层而让上层拼片露出；绳芯按 Cocos trim 规则恢复为 12px。撞出后沿用 Cocos 冲量、`-640px/s²` 等效重力及 3.6s 沉降门控。2026-07-14 修正跨引擎物理单位：Cocos `RigidBody2D.linearVelocity` 是 Box2D m/s（PTM=32），不能直接按像素速度除 Unity PPU；`20` 现正确换成 Unity `6.4m/s`，理论可见上扬约 320px，并把 Cocos rad/s 角速度转为 Unity deg/s。手电同源抛掷速度一并修正。手电 PNG 为 198×437 画布但有效 alpha 仅 94×409；Cocos `trimType:auto` 后再 CUSTOM 到 12×30，Unity 曾漏掉 trim 而把完整透明画布缩到 18×40，导致有效轮廓只有约 8.5×37.4、看起来又细又长。现按 alpha trim 比例反向补偿，最终可见轮廓恢复为 12×30；碰撞体 14×30、点击区 44×44 保持独立。砸头后保持 Dynamic Physics2D 自然碰撞、滚动和停下；即使落在拼片上也保留真实落点，不再传送到兔子脚边，也不强制横躺、清空速度、冻结旋转或休眠。拾取时读取手电与拼片的真实碰撞接触：直接落地才播放蹲下/起身，落在任意拼片上则只走到旁边并直接拿到手里。
 - **手电拾取站位**: 莱米按自己当前所在侧选择手电 `±30px` 的接近点，不再固定走到手电左侧；到位后显式面向手电，因此从右侧来时不会穿过道具，也不会背对手电蹲拾。
 - **篮内圆片间距**: 补回 Cocos `HIDDEN_FRAGMENT_DISPLAY_SIZE_OVERRIDES` 对圆片的专属 `60×60` 美术显示尺寸；Unity 此前把圆片也画成标准 `56×56`，透明画布缩放后可见直径仅约 `54.1px`，与上层拼片形成额外空隙。现在可见直径恢复约 `58px`；拼接/吸附几何仍为 `56×56`，Physics2D 碰撞外壳仍为 `60px`，不会牺牲防穿透，三角形和六边形保持 `56×56`。

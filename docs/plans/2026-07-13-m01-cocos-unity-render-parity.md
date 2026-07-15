@@ -12,6 +12,10 @@
 
 ### Task 1: Freeze the source snapshot and render contract
 
+> 2026-07-15 resource-boundary follow-up: the completed snapshot manifest was moved to
+> `production/manifests/m01-render-source-manifest.json` so a reference-only audit artifact is not
+> bundled into Unity Player `Resources`; its machine-specific source path was removed.
+
 **Files:**
 - Create: `StarGuardian/Assets/Scripts/M01/Rendering/M01RenderContract.cs`
 - Create: `unity-tests/Core.Tests/M01/M01RenderContractTests.cs`

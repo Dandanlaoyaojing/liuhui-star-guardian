@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Xunit;
 
 namespace StarGuardian.M01.Tests
@@ -92,18 +93,52 @@ namespace StarGuardian.M01.Tests
             Assert.Empty(Directory.GetFiles(root, "*.gif.meta", SearchOption.AllDirectories));
         }
 
+        [Fact]
+        public void ReferenceOnlyAssetsStayOutsideUnityRuntimeResources()
+        {
+            var referenceOnlyArt = new[]
+            {
+                "lemmy-canonical.png",
+                "m01-fragment-floor-surface.png",
+                "m01-evidence-green-triangle-hexagon.png",
+                "m01-evidence-orange-hexagon-hexagon.png",
+                "m01-evidence-purple-circle-triangle.png",
+                "m01-evidence-purple-hexagon-circle.png",
+                "m01-filter-red.png",
+                "m01-filter-yellow.png",
+                "m01-filter-blue.png"
+            };
+            Assert.All(referenceOnlyArt, filename =>
+                Assert.False(File.Exists(Path.Combine(ArtRoot, filename)),
+                    $"Reference-only art leaked into Unity Resources: {filename}"));
+
+            var runtimeManifest = Path.Combine(
+                ProjectRoot,
+                "StarGuardian/Assets/Resources/Configs/m01-render-source-manifest.json");
+            Assert.False(File.Exists(runtimeManifest));
+
+            var frozenManifest = Path.Combine(
+                ProjectRoot,
+                "production/manifests/m01-render-source-manifest.json");
+            Assert.True(File.Exists(frozenManifest), "Frozen source manifest must remain under production/manifests");
+            using var manifest = JsonDocument.Parse(File.ReadAllText(frozenManifest));
+            Assert.False(manifest.RootElement.TryGetProperty("sourceRepository", out _));
+
+            var currentLayout = Path.Combine(
+                ProjectRoot,
+                "assets/resources/configs/stage1/m01-memory-gear.json");
+            using var layout = JsonDocument.Parse(File.ReadAllText(currentLayout));
+            Assert.False(layout.RootElement.TryGetProperty("filters", out _),
+                "Removing legacy filter sprites is safe only while the authoritative layout has no filters");
+        }
+
         [Theory]
-        [InlineData("m01-evidence-green-triangle-hexagon.png")]
-        [InlineData("m01-evidence-orange-hexagon-hexagon.png")]
-        [InlineData("m01-evidence-purple-circle-triangle.png")]
-        [InlineData("m01-evidence-purple-hexagon-circle.png")]
         [InlineData("m01-fragment-light-mask-circle.png")]
         [InlineData("m01-fragment-light-mask-triangle.png")]
         [InlineData("m01-fragment-light-mask-hexagon.png")]
         [InlineData("m01-basket-front-occluder.png")]
         [InlineData("m01-basket-nail.png")]
         [InlineData("m01-rope-segment.png")]
-        [InlineData("m01-fragment-floor-surface.png")]
         [InlineData("m01-target-reference-card.png")]
         [InlineData("m01-single-flashlight-tool.png")]
         [InlineData("m01-toolcard-preview-frame.png")]
