@@ -208,5 +208,8 @@ namespace StarGuardian.M01
                 ? flashlightX - offset
                 : flashlightX + offset;
         }
+
+        public static bool ResolvePickupFacingRight(double lemmyX, double flashlightX) =>
+            flashlightX >= lemmyX;
     }
 }

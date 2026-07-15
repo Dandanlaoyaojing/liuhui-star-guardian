@@ -6,7 +6,7 @@ Last updated: 2026-07-15
 
 ## M01 Cocos→Unity 渲染等价迁移(2026-07-15,进行中)
 
-- **当前清理波次(2026-07-15)**: 处理三项已拍板审阅债：①篮下地面蹲拾复用 `headbutt` 前 40 帧收耳下蹲段，消除 `crouch` 首帧立耳跳变；②冻结 manifest 移出 Unity `Resources` 并去开发机绝对路径，移除 Unity 未消费的 canonical/floor/evidence/filter 运行时副本；③清空 `M01UnityGlueParityTests` 的生产源码字符串断言，按实际价值迁移为纯行为、Unity Editor 或配置测试。齿轮缩放与 1.65 饱和度本波不动。实施计划=`docs/plans/2026-07-15-m01-review-debt-cleanup.md`。
+- **审阅债清理已完成(2026-07-15)**: ①篮下地面蹲拾复用 `headbutt` 前 40 帧收耳下蹲段，消除 `crouch` 首帧立耳跳变；②冻结 manifest 移出 Unity `Resources` 并去开发机绝对路径，移除 Unity 未消费的 canonical/floor/evidence/filter 运行时副本；③删除 `M01UnityGlueParityTests` 的 78 条生产源码字符串断言，把固定步长、拾灯朝向、满平台验证、实时占用证据迁移为配置解析或纯行为测试，并新增禁止源码文本测试回流的架构守卫。验证：xUnit **377/377**、Vitest **480/480**、TypeScript typecheck、Unity batchmode 编译/Editor verifier **3/3**、`npm audit --omit=dev` **0 vulnerability**。齿轮缩放与 1.65 饱和度本波未改。实施计划=`docs/plans/2026-07-15-m01-review-debt-cleanup.md`。
 
 - **源快照已冻结**: Cocos `e67f7cd` + 当时工作树资源/配置哈希，清单=`production/manifests/m01-render-source-manifest.json`；该审计清单不再打入 Unity Player，且已移除开发机绝对路径。
 - **纠正资源口径**: Lemmy 是 **18 动作 / 697 PNG 帧**；旧文档的 802 是整批美术/音视频文件数，不是角色帧数。

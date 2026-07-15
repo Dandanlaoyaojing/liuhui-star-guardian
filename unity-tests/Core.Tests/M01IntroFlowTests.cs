@@ -227,5 +227,16 @@ namespace StarGuardian.M01.Tests
                 expectedX,
                 M01IntroFlow.ResolvePickupApproachX(lemmyX, flashlightX, standOff: 30));
         }
+
+        [Theory(DisplayName = "pickup faces the flashlight from either approach side")]
+        [InlineData(-100, 0, true)]
+        [InlineData(100, 0, false)]
+        [InlineData(0, 0, true)]
+        public void PickupFacesTheTool(double lemmyX, double flashlightX, bool expectedFacingRight)
+        {
+            Assert.Equal(
+                expectedFacingRight,
+                M01IntroFlow.ResolvePickupFacingRight(lemmyX, flashlightX));
+        }
     }
 }

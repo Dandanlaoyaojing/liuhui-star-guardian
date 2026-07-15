@@ -488,24 +488,22 @@ public sealed class M01DragProbe : MonoBehaviour
         var layout = board.Layout;
         if (config?.TargetPattern?.Locked != true || layout == null) return;
 
-        var slotByExpectedFragment = layout.TargetPieceSlots
-            .Where(slot => slot.ExpectedFragmentId != null)
-            .ToDictionary(slot => slot.ExpectedFragmentId!, slot => slot);
+        var liveOccupantByExpectedFragment = new Dictionary<string, string>();
+        foreach (var slot in layout.TargetPieceSlots)
+        {
+            if (slot.ExpectedFragmentId != null &&
+                TryGetPoseCorrectSlotOccupant(slot, out var liveOccupant))
+            {
+                liveOccupantByExpectedFragment[slot.ExpectedFragmentId] = liveOccupant;
+            }
+        }
 
         foreach (var ev in config.Evidence)
         {
-            var solutionIds = ev.Solution.FragmentIds;
-            if (solutionIds.Count != 2 ||
-                !slotByExpectedFragment.TryGetValue(solutionIds[0], out var firstSlot) ||
-                !slotByExpectedFragment.TryGetValue(solutionIds[1], out var secondSlot) ||
-                !TryGetPoseCorrectSlotOccupant(firstSlot, out var firstOccupant) ||
-                !TryGetPoseCorrectSlotOccupant(secondSlot, out var secondOccupant) ||
-                firstOccupant == secondOccupant)
-            {
-                continue;
-            }
-
-            session.SubmitEvidencePair(ev.Id, new[] { firstOccupant, secondOccupant });
+            var pair = M01CandidateAssembly.ResolveTargetEvidencePair(
+                ev.Solution.FragmentIds,
+                liveOccupantByExpectedFragment);
+            if (pair != null) session.SubmitEvidencePair(ev.Id, pair);
         }
     }
 
@@ -522,7 +520,9 @@ public sealed class M01DragProbe : MonoBehaviour
     private void TryValidate(M01GreyboxSession session)
     {
         if (validationFailureRoutine != null) return;
-        if (!AllTargetSlotsPositionOccupied() && !session.AreAllEvidenceStaged()) return;
+        if (!M01CandidateAssembly.ShouldValidate(
+                AllTargetSlotsPositionOccupied(),
+                session.AreAllEvidenceStaged())) return;
         var validation = session.ValidateCandidateStructure();
         Debug.Log($"M01DragProbe: VALIDATE → accepted={validation.Accepted} completed={validation.Completed} bottomLight={validation.BottomLight}" +
                   (validation.Reason != null ? $" reason={validation.Reason}" : ""));

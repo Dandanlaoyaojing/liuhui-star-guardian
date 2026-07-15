@@ -109,13 +109,19 @@ namespace StarGuardian.M01.Tests
                 "m01-filter-blue.png"
             };
             Assert.All(referenceOnlyArt, filename =>
-                Assert.False(File.Exists(Path.Combine(ArtRoot, filename)),
-                    $"Reference-only art leaked into Unity Resources: {filename}"));
+            {
+                var runtimePath = Path.Combine(ArtRoot, filename);
+                Assert.False(File.Exists(runtimePath),
+                    $"Reference-only art leaked into Unity Resources: {filename}");
+                Assert.False(File.Exists(runtimePath + ".meta"),
+                    $"Orphaned Unity metadata remained for reference-only art: {filename}.meta");
+            });
 
             var runtimeManifest = Path.Combine(
                 ProjectRoot,
                 "StarGuardian/Assets/Resources/Configs/m01-render-source-manifest.json");
             Assert.False(File.Exists(runtimeManifest));
+            Assert.False(File.Exists(runtimeManifest + ".meta"));
 
             var frozenManifest = Path.Combine(
                 ProjectRoot,

@@ -1,5 +1,7 @@
 # M01 Review Debt Cleanup Implementation Plan
 
+**Status (2026-07-15):** Implemented and verified on `codex/m01-review-debt`; gear sizing and 1.65 saturation remain deliberately out of scope.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Remove the remaining M01 review debt without changing the deferred gear sizing or flashlight saturation decisions.
@@ -50,14 +52,24 @@
 
 **Files:**
 - Delete: `unity-tests/Core.Tests/M01UnityGlueParityTests.cs`
+- Create: `StarGuardian/Assets/Scripts/M01/M01CandidateAssembly.cs`
+- Create: `unity-tests/Core.Tests/M01CandidateAssemblyTests.cs`
+- Create: `unity-tests/Core.Tests/M01TestArchitectureTests.cs`
+- Create: `unity-tests/Core.Tests/M01UnityProjectSettingsTests.cs`
 - Modify: relevant existing pure M01 test files only where a behavior is not already covered
 - Modify: `StarGuardian/Assets/Editor/M01InteractionGlueVerifier.cs`
-- Optionally create: `unity-tests/Core.Tests/M01/M01UnityProjectSettingsTests.cs`
 
 1. Inventory each source-reading test and map it to existing behavior coverage, a new pure behavior test, an actual Unity Editor assertion, a parsed project-setting rule, or deletion as duplicate/implementation-coupled.
 2. Add any missing behavior/config/Unity assertions before removing their source-text predecessor; run each targeted test to establish RED where new production support is required.
 3. Delete `M01UnityGlueParityTests.cs` once every useful contract has a non-source-text home or is explicitly judged redundant.
 4. Assert the test tree no longer contains `ReadRepoFile`-based production-source checks.
+
+**Migration result:** the fixed timestep is now parsed from `TimeManager.asset`; pickup facing,
+full-platform validation, and live-occupant evidence composition are pure behavior tests; folded
+pickup frames, nested sorting, and parked-body state run through the Unity Editor verifier. Existing
+layout, visual-parity, session, placement-ledger, importer-metadata, and clip-cache tests retain their
+own contracts. The remaining implementation-name/order assertions were deleted because they did not
+execute Unity GameObjects, physics, or coroutines and therefore did not constitute runtime coverage.
 
 ### Task 4: Final verification and review
 

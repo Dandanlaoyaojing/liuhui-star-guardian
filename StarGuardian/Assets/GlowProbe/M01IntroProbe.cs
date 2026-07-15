@@ -873,7 +873,7 @@ public sealed class M01IntroProbe : MonoBehaviour
         {
             yield return RoamTo(Mathf.Clamp(approachX, LemmyRoamMinX, LemmyRoamMaxX));
         }
-        lemmy.SetFacing(flashX >= CurrentLemmyX());
+        lemmy.SetFacing(M01IntroFlow.ResolvePickupFacingRight(CurrentLemmyX(), flashX));
         var pickupMotion = M01IntroFlow.ResolvePickupMotion(IsFlashlightSupportedByFragment());
         var pickupAnimation = M01IntroFlow.ResolvePickupAnimation(pickupMotion, earsFolded);
         if (pickupAnimation == M01IntroPickupAnimation.FoldedCrouch)
