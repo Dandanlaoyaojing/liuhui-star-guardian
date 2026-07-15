@@ -1,5 +1,5 @@
 ---
-globs: resources/configs/**/*.json
+globs: StarGuardian/Assets/Resources/Configs/**/*.json, assets/resources/configs/**/*.json
 ---
 
 # Puzzle Config Rules

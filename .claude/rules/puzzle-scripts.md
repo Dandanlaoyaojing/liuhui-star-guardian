@@ -1,5 +1,5 @@
 ---
-globs: scripts/levels/**/*.ts
+globs: StarGuardian/Assets/Scripts/**/*.cs, StarGuardian/Assets/GlowProbe/**/*.cs, assets/scripts/levels/**/*.ts
 ---
 
 # Puzzle Script Rules

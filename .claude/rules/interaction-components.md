@@ -1,5 +1,5 @@
 ---
-globs: scripts/interaction/**/*.ts
+globs: StarGuardian/Assets/Scripts/Interaction/**/*.cs, assets/scripts/interaction/**/*.ts
 ---
 
 # Interaction Component Rules

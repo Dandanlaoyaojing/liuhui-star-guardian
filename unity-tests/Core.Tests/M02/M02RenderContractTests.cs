@@ -181,8 +181,11 @@ namespace StarGuardian.M02.Tests
             Assert.Equal(28, M02RenderContract.StarGlowRadiusPx(StarNodeStatus.Decaying, 1, 3), 12);
             Assert.Equal(3, M02RenderContract.StarGlowLineWidthPx(StarNodeStatus.Frozen), 12); // SWV:575
             Assert.Equal(2, M02RenderContract.StarGlowLineWidthPx(StarNodeStatus.Decaying), 12);
-            Assert.Equal(M02RenderContract.FrozenGlowColor, M02RenderContract.StarGlowColor(StarNodeStatus.Frozen));
-            Assert.Equal(M02RenderContract.DecayingGlowColor, M02RenderContract.StarGlowColor(StarNodeStatus.Decaying));
+            // 字面字节(非常量比自己): 变异测试证明 routing-only 断言对错字节全绿(终审逮到)
+            var fg = M02RenderContract.StarGlowColor(StarNodeStatus.Frozen);
+            Assert.Equal((248, 214, 150, 135), (fg.R, fg.G, fg.B, fg.A)); // SWV:46
+            var dg = M02RenderContract.StarGlowColor(StarNodeStatus.Decaying);
+            Assert.Equal((214, 170, 104, 95), (dg.R, dg.G, dg.B, dg.A));  // SWV:47
         }
 
         [Fact]
@@ -197,8 +200,10 @@ namespace StarGuardian.M02.Tests
             Assert.Throws<ArgumentException>(() => M02RenderContract.StarFillColor("nova"));
 
             Assert.Equal((110, 116, 138, 150), (M02RenderContract.EdgeColor.R, M02RenderContract.EdgeColor.G, M02RenderContract.EdgeColor.B, M02RenderContract.EdgeColor.A)); // SWV:43
-            Assert.Equal(M02RenderContract.StarStrokeDarkColor, M02RenderContract.StarStrokeColor(StarNodeStatus.Dark));   // SWV:512
-            Assert.Equal(M02RenderContract.StarStrokeLitColor, M02RenderContract.StarStrokeColor(StarNodeStatus.Frozen));
+            var sd = M02RenderContract.StarStrokeColor(StarNodeStatus.Dark);   // SWV:512 字面字节
+            Assert.Equal((126, 132, 150, 150), (sd.R, sd.G, sd.B, sd.A)); // SWV:49 DARK_STAR_STROKE_COLOR
+            var sl = M02RenderContract.StarStrokeColor(StarNodeStatus.Frozen);
+            Assert.Equal((255, 244, 202, 180), (sl.R, sl.G, sl.B, sl.A)); // SWV:48 STAR_STROKE_COLOR
             Assert.Equal(new[] { 0, 2, 4, 1, 3, 0 }, M02RenderContract.StargazeStarDrawOrder);                             // SWV:29
         }
 
@@ -207,8 +212,10 @@ namespace StarGuardian.M02.Tests
         {
             Assert.Equal(0, M02RenderContract.ChargePipOffsetXPx(0), 12);
             Assert.Equal(48, M02RenderContract.ChargePipOffsetXPx(2), 12); // SWV:590 i*24
-            Assert.Equal(M02RenderContract.ChargeColor, M02RenderContract.ChargePipColor(1, 2));      // SWV:591 i<left
-            Assert.Equal(M02RenderContract.ChargeEmptyColor, M02RenderContract.ChargePipColor(2, 2));
+            var cOn = M02RenderContract.ChargePipColor(1, 2);   // SWV:591 i<left; 字面字节
+            Assert.Equal((248, 214, 150, 255), (cOn.R, cOn.G, cOn.B, cOn.A));
+            var cOff = M02RenderContract.ChargePipColor(2, 2);
+            Assert.Equal((92, 98, 116, 120), (cOff.R, cOff.G, cOff.B, cOff.A)); // SWV:45 CHARGE_EMPTY_COLOR
         }
 
         [Fact]
@@ -287,6 +294,37 @@ namespace StarGuardian.M02.Tests
         {
             Assert.Equal(1000d, M02RenderContract.TouchAreaWidthPx);
             Assert.Equal(720d, M02RenderContract.TouchAreaHeightPx);
+        }
+
+        [Fact(DisplayName = "wobble actually perturbs vertices (rng!=0.5; 变异测试逮到 rng=0.5 令 wobble 项代数归零=假覆盖)")]
+        public void Stargaze_wobble_perturbs_vertices()
+        {
+            // rng=1.0 → (rng-0.5)*wobble = +0.5*wobble ≠ 0, 常量真正参与
+            var wobbled = M02RenderContract.GenerateStargazeStarVertices(
+                M02RenderContract.NodeRadiusPx, M02RenderContract.StargazeStarWobble, ConstantRng(1.0));
+            var none = M02RenderContract.GenerateStargazeStarVertices(
+                M02RenderContract.NodeRadiusPx, 0d, ConstantRng(1.0));
+            Assert.Equal(5, wobbled.Count);
+            // wobble≠0 必须改变几何(否则 0.35→777.5 之类的错值无人可挡)
+            var differs = false;
+            for (var i = 0; i < 5; i += 1)
+            {
+                if (Math.Abs(wobbled[i].X - none[i].X) > 1e-9 || Math.Abs(wobbled[i].Y - none[i].Y) > 1e-9) differs = true;
+            }
+            Assert.True(differs, "StargazeStarWobble 未影响顶点 → 手绘抖动丢失(星变机械正五边形)");
+            Assert.Equal(0.35d, M02RenderContract.StargazeStarWobble); // SWV:28 值本身
+        }
+
+        [Fact(DisplayName = "live input/timing thresholds pinned (变异测试证明这批零覆盖: 改成 4 则整关点不动仍全绿)")]
+        public void LiveGameplayThresholdsPinned()
+        {
+            Assert.Equal(44d, M02RenderContract.TapRadiusPx);        // SWV:18 星命中半径
+            Assert.Equal(48d, M02RenderContract.EmberDragRadiusPx);  // PV:23 余烬拾取半径
+            Assert.Equal(70d, M02RenderContract.WandTapRadiusPx);    // PV:24 点棒半径
+            Assert.Equal(1.1d, M02RenderContract.DoneDelaySeconds);  // PV:27 序章→主盘交接
+            Assert.Equal(960d, M02RenderContract.DesignWidthPx);
+            Assert.Equal(640d, M02RenderContract.DesignHeightPx);
+            Assert.Equal(100d, M02RenderContract.PixelsPerUnit);
         }
 }
 }

@@ -279,6 +279,16 @@ public sealed class M02PrologueProbe : MonoBehaviour
 
         // PV:66 触摸区矩形命中(1000×720): 框外 Cocos 不派发 → Unity 轮询显式裁剪
         var insideTouchArea = M02RenderContract.IsInsideTouchArea(local.x, local.y);
+        // 同帧 press+release 定序按【帧初 pressCaptured】分流(与 M02StarWebProbe:355 同款; 终审逮到本处
+        // 逐字复制了旧序): 在途时本帧事件必以旧按压的 release 打头, 先结算再捕获新 press —— 否则新 press
+        // 被 !pressCaptured 吞、wasPressedThisFrame 当帧过期 → pressCaptured 永回不到 true → 整次按住
+        // 拖拽全程 inert(不 BeginDragSession/不 MoveEmber/抬手不 DipWand)。
+        var releaseHandledThisFrame = false;
+        if (pressCaptured && pointer.press.wasReleasedThisFrame)
+        {
+            HandleRelease(local);
+            releaseHandledThisFrame = true;
+        }
         if (pointer.press.wasPressedThisFrame)
         {
             // PV:116-127 onTouchStart
@@ -333,9 +343,17 @@ public sealed class M02PrologueProbe : MonoBehaviour
             }
         }
 
-        if (pointer.press.wasReleasedThisFrame)
+        if (pointer.press.wasReleasedThisFrame && !releaseHandledThisFrame)
         {
-            // PV:148-170 onTouchEnd
+            HandleRelease(local);
+        }
+    }
+
+    /// <summary>PV:148-170 onTouchEnd —— 抽出供同帧分流两处调用。</summary>
+    private void HandleRelease(Vector2 local)
+    {
+        if (Session == null) return;
+        {
             if (!pressCaptured) return;
             pressCaptured = false;
             var wasDrag = dragActivated;
@@ -410,7 +428,7 @@ public sealed class M02PrologueProbe : MonoBehaviour
                 {
                     visual.Light.color = new Color(glowColor.R / 255f, glowColor.G / 255f, glowColor.B / 255f, 1f);
                     // M2GlowProbe:82 点光 1.3 为满档, 按 TS 光晕 alpha(95/135)折算亮度(判断值, 契约无 TS 真源)
-                    visual.Light.intensity = 1.3f * (glowColor.A / 135f);
+                    visual.Light.intensity = 1.3f * (glowColor.A / (float)M02RenderContract.FrozenGlowColor.A);
                     visual.Light.pointLightInnerRadius = (float)M02RenderContract.EmberCoreRadiusPx / Ppu;
                     visual.Light.pointLightOuterRadius = glowRadius / Ppu * 4f;
                 }

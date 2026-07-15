@@ -210,6 +210,8 @@ namespace StarGuardian.M02.Rendering
         }
 
         /// <summary>光晕描边线宽: 冻结 3 / 衰减 2。SWV:575</summary>
+        /// <summary>⚠️ Unity 不消费: Cocos 光晕是 stroke 圆环(半径+alpha+线宽三轴区分冻结/衰减),
+        /// Unity 换填充径向加法光晕后线宽轴不存在, 区分只剩半径+alpha 两轴。保留作 Cocos 参照记录。</summary>
         public static double StarGlowLineWidthPx(string status) => status == StarNodeStatus.Frozen ? 3 : 2;
 
         /// <summary>光晕色: 冻结暖金 / 衰减琥珀。SWV:576</summary>

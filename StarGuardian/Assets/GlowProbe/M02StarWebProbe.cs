@@ -135,10 +135,13 @@ public sealed class M02StarWebProbe : MonoBehaviour
 
     private void Build()
     {
-        var old = GameObject.Find(RootName);
-        if (old != null)
+        // 只销毁自己持有的引用, 不 Find 兜底 —— 与 OnDisable 同一教训: Find 按名字会在多实例场景
+        // 抓走【别家活体】盘面根(B.Build 销毁 A 的 root → A.starVisuals 全成已毁对象 → TickRepairFlow
+        // 抛 MissingReference)。跨 Play 残留已由 DontSave + OnDisable 覆盖, 此处 Find 冗余(终审逮到)。
+        if (runtimeRoot != null)
         {
-            if (Application.isPlaying) Destroy(old); else DestroyImmediate(old);
+            if (Application.isPlaying) Destroy(runtimeRoot); else DestroyImmediate(runtimeRoot);
+            runtimeRoot = null;
         }
 
         SetupCameraAndBloom();
@@ -566,7 +569,9 @@ public sealed class M02StarWebProbe : MonoBehaviour
         if (visual.Light != null)
         {
             visual.Light.color = new Color(color.R / 255f, color.G / 255f, color.B / 255f, 1f);
-            visual.Light.intensity = 1.3f; // M2GlowProbe:82 验证值
+            // 与序章同规则按 glow alpha 折算(终审逮到两侧不一致: 主盘常数 1.3 抹平了契约用
+            // alpha 95/135 编码的"命数将尽更暗"读盘线索); 分母取契约而非硬编码 135f。
+            visual.Light.intensity = 1.3f * (color.A / (float)M02RenderContract.FrozenGlowColor.A); // M2GlowProbe:82 验证值
             visual.Light.pointLightInnerRadius = (float)M02RenderContract.NodeRadiusPx / Ppu;
             visual.Light.pointLightOuterRadius = glowRadius / Ppu * 4f; // 暖光池外扩(判断值, 契约无 TS 真源)
         }
@@ -816,16 +821,16 @@ public sealed class M02StarWebProbe : MonoBehaviour
             cam = cgo.AddComponent<Camera>();
         }
         cam.orthographic = true;
-        cam.orthographicSize = 3.2f; // 640px 竖向 / 2 / PPU(M01BoardProbe 同)
+        cam.orthographicSize = (float)(M02RenderContract.DesignHeightPx / 2 / M02RenderContract.PixelsPerUnit); // 契约派生, 非魔数(终审逮到)(M01BoardProbe 同)
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.03f, 0.05f, 0.065f);
         cam.transform.position = new Vector3(0f, 0f, -10f);
         var data = cam.GetUniversalAdditionalCameraData();
         if (data != null) data.renderPostProcessing = true;
 
-        // 跨 Play 残留的旧壳: 名字在、组件态坏 → 销毁重建, 不复用(Find 复用坏壳 = Volume 永远建不起)。
+        // 只销毁自己持有的引用(同 Build/OnDisable): Find 按名字会抓走别家活体 volume 反杀(终审逮到)。
         // 连 profile 一起销毁, 否则运行时 CreateInstance 的 VolumeProfile/Bloom 成无主 SO 滞留到域重载。
-        var stale = GameObject.Find(VolumeName);
+        var stale = volumeGo;
         if (stale != null)
         {
             var staleProfile = stale.GetComponent<Volume>()?.profile;

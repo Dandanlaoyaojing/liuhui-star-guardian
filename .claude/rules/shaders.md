@@ -1,5 +1,5 @@
 ---
-globs: shaders/**/*.effect
+globs: StarGuardian/Assets/**/*.shader, shaders/**/*.effect
 ---
 
 # Shader Rules
