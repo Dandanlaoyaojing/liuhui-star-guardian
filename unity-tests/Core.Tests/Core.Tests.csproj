@@ -14,6 +14,7 @@
     <Compile Include="../../StarGuardian/Assets/Scripts/Interaction/**/*.cs" LinkBase="Interaction" />
     <Compile Include="../../StarGuardian/Assets/Scripts/M01/**/*.cs" LinkBase="M01" />
     <Compile Include="../../StarGuardian/Assets/Scripts/M02/**/*.cs" LinkBase="M02" />
+    <Compile Include="../../StarGuardian/Assets/Scripts/UI/**/*.cs" LinkBase="UI" />
   </ItemGroup>
 
   <ItemGroup>

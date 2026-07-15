@@ -8,6 +8,8 @@
 3. 资产: configs/stage1/m02-starweb-warmth.json → StarGuardian Resources/Configs(双源同步); art/stage1-m02(bg-star-map-watercolor / m02-star-sprite-atlas 等)→ Resources/Art/M02。
 **方法(M01 教训全套)**: TS→C# 逐字转写+fable 审; 渲染 1:1 照 Cocos 渲染函数(displaySize/锚点/坐标 ÷100); 资产 md5 对主仓验最终版; .meta trim 按资产类型(动画帧 Single 全画布/静态图按裁剪内容); 行为测试禁 grep 源码; M02 Cocos 侧已到 phase3b(codex/m02-phase3b 已合)= 参照完整。
 
+**第二波(渲染层, 2026-07-15 本轮)已落地**: ①资产: `m02-starweb-warmth.json`(md5 df0b7f67 与主仓一致)→ Resources/Configs; View 实际消费的图只有 `bg-star-map-watercolor.png`(SWV:22, md5 dbbec8ea)→ Resources/Art/M02 —— atlas/backup/clean/toolcards 均无代码引用, **未搬**(M01 教训: 死资产别进 Resources); M01RenderAssetImporter 扩到 Art/M02。②契约: `Scripts/M02/Rendering/M02RenderContract.cs`(纯 C#, 全部魔数注 SWV/PV 行号; rng 的 JS int32/uint32 语义用 node 黄金值钉死)。③`Scripts/UI/ToolCardPreview.cs`(ToolCardView.ts 逐字迁, 完成面板消费)+ csproj 加 UI 目录。④探针: `GlowProbe/M02StarWebProbe.cs`(整关流程: 序章→三板→修复流→完成面板; 光效=Light2D 点光+全局光+GlowAdditive+Bloom)与 `M02PrologueProbe.cs`(可注入可独立自举)。验证: dotnet test **428/428**; Unity 编辑器被并行会话占用(loving-swartz worktree), 用真 UnityEngine/URP2D/InputSystem 程序集 + C#9/netstandard2.1 建 scratch 编译闸门 ✅ —— **仍欠真 Unity console 复核 + Play 目检**(dotnet 绿≠Unity 编得过的教训, .meta 为手写模板, Unity 首开会重写内容但 guid 稳定)。存疑点见 commit 信息。
+
 
 Last updated: 2026-07-15
 

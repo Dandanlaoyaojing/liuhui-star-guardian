@@ -3,10 +3,12 @@
 using UnityEditor;
 using UnityEngine;
 
-/// <summary>Deterministic import settings required by the Cocos M01 render contract.</summary>
+/// <summary>Deterministic import settings required by the Cocos M01/M02 render contracts.
+/// M02 复用同一套规则(Sprite/PPU100/无 mipmap/静态画面不压缩), 只是根目录多一个 Art/M02。</summary>
 public sealed class M01RenderAssetImporter : AssetPostprocessor
 {
     private const string Root = "Assets/Resources/Art/M01/";
+    private const string M02Root = "Assets/Resources/Art/M02/";
     private const string LemmyRoot = Root + "lemmy/";
 
     // Bump when import policy changes so Unity invalidates existing artifacts instead of
@@ -15,7 +17,8 @@ public sealed class M01RenderAssetImporter : AssetPostprocessor
 
     private void OnPreprocessTexture()
     {
-        if (!assetPath.StartsWith(Root, System.StringComparison.Ordinal)) return;
+        if (!assetPath.StartsWith(Root, System.StringComparison.Ordinal) &&
+            !assetPath.StartsWith(M02Root, System.StringComparison.Ordinal)) return;
         var importer = (TextureImporter)assetImporter;
         // Action folders also contain source preview GIFs. They are documentation,
         // not Cocos SpriteFrames; keeping them as Default prevents Resources.LoadAll<Sprite>
