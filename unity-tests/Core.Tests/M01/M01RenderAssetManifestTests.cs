@@ -16,6 +16,7 @@ namespace StarGuardian.M01.Tests
             {
                 ["celebrate"] = 93,
                 ["crouch"] = 40,
+                ["crouchback"] = 28,
                 ["earsback"] = 40,
                 ["earsup"] = 38,
                 ["headbutt"] = 124,
@@ -42,7 +43,7 @@ namespace StarGuardian.M01.Tests
             "StarGuardian/Assets/Resources/Art/M01");
 
         [Fact]
-        public void UnityContainsEveryLemmyActionAndAllSixHundredNinetySevenFrames()
+        public void UnityContainsEveryLemmyActionAndAllSevenHundredTwentyFiveFrames()
         {
             var actual = Directory.GetDirectories(Path.Combine(ArtRoot, "lemmy"))
                 .ToDictionary(
@@ -51,7 +52,7 @@ namespace StarGuardian.M01.Tests
                     StringComparer.Ordinal);
 
             Assert.Equal(LemmyFrames, actual);
-            Assert.Equal(697, actual.Values.Sum());
+            Assert.Equal(725, actual.Values.Sum());
         }
 
         [Fact]
@@ -69,7 +70,7 @@ namespace StarGuardian.M01.Tests
                 .Select(item => $"{Sha256File(item.Path)}  {item.Relative}\n");
             var aggregate = Sha256Text(string.Concat(lines));
 
-            Assert.Equal("b5e19b1ed12b25391c66d3d1bbeaf3d3ffd4ebcc722a72f04c9cd78d70a2e304", aggregate);
+            Assert.Equal("df9b9e6e69440e103b890d95d9350e9bbd00b3f4a90c9f44e23a73b48d7b4349", aggregate);
         }
 
         [Fact]
@@ -77,7 +78,7 @@ namespace StarGuardian.M01.Tests
         {
             var metas = Directory.GetFiles(Path.Combine(ArtRoot, "lemmy"), "*.png.meta", SearchOption.AllDirectories);
 
-            Assert.Equal(697, metas.Length);
+            Assert.Equal(725, metas.Length);
             Assert.All(metas, path => Assert.Contains("textureCompression: 2", File.ReadAllText(path)));
             Assert.Contains(
                 "textureCompression: 0",

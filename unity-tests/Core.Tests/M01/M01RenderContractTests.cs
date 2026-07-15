@@ -40,12 +40,13 @@ namespace StarGuardian.M01.Tests
         }
 
         [Fact]
-        public void PreservesAllEighteenLemmyActionsAndSixHundredNinetySevenFrames()
+        public void PreservesAllNineteenLemmyActionsAndSevenHundredTwentyFiveFrames()
         {
             var expected = new Dictionary<string, int>
             {
                 ["celebrate"] = 93,
                 ["crouch"] = 40,
+                ["crouchback"] = 28,
                 ["earsback"] = 40,
                 ["earsup"] = 38,
                 ["headbutt"] = 124,
@@ -72,8 +73,8 @@ namespace StarGuardian.M01.Tests
                 item => Convert.ToInt32(Property(item, "FrameCount")));
 
             Assert.Equal(expected, actual);
-            Assert.Equal(18, actual.Count);
-            Assert.Equal(697, actual.Values.Sum());
+            Assert.Equal(19, actual.Count);
+            Assert.Equal(725, actual.Values.Sum());
         }
 
         [Fact]

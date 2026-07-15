@@ -90,17 +90,17 @@ public static class M01InteractionGlueVerifier
                 awakeMethod!.Invoke(animator, Array.Empty<object>());
             }
 
-            animator.PlayRange("headbutt", 0, 40);
+            animator.Play("crouchback");
             var spriteRenderer = lemmyObject.GetComponentInChildren<SpriteRenderer>();
             Require(spriteRenderer != null, "Lemmy sprite renderer must exist");
             Require(
-                spriteRenderer!.sprite != null && spriteRenderer.sprite.name == "headbutt-000",
-                "folded crouch must start at headbutt-000");
+                spriteRenderer!.sprite != null && spriteRenderer.sprite.name == "crouchback-00",
+                "folded crouch must start at crouchback-00");
 
-            animator.PlayRangeReverse("headbutt", 0, 40);
+            animator.PlayReverse("crouchback");
             Require(
-                spriteRenderer.sprite != null && spriteRenderer.sprite.name == "headbutt-039",
-                "folded rise must start at headbutt-039");
+                spriteRenderer.sprite != null && spriteRenderer.sprite.name == "crouchback-27",
+                "folded rise must start at crouchback-27");
         }
         finally
         {

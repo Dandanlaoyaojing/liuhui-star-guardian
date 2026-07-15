@@ -215,6 +215,19 @@ namespace StarGuardian.M01.Tests
             Assert.Equal(expected, animation?.ToString());
         }
 
+        [Theory(DisplayName = "pickup animation decisions resolve to the authored upright or folded clip")]
+        [InlineData(M01IntroPickupAnimation.None, null)]
+        [InlineData(M01IntroPickupAnimation.Crouch, "crouch")]
+        [InlineData(M01IntroPickupAnimation.FoldedCrouch, "crouchback")]
+        public void PickupAnimationUsesTheAuthoredClip(
+            M01IntroPickupAnimation animation,
+            string? expectedActionId)
+        {
+            Assert.Equal(
+                expectedActionId,
+                M01IntroFlow.ResolvePickupActionId(animation));
+        }
+
         [Theory(DisplayName = "flashlight pickup stops on Lemmy's current side instead of crossing over the flashlight")]
         [InlineData(-100, 0, -30)]
         [InlineData(100, 0, 30)]

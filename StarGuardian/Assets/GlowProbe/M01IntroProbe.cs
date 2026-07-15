@@ -876,13 +876,10 @@ public sealed class M01IntroProbe : MonoBehaviour
         lemmy.SetFacing(M01IntroFlow.ResolvePickupFacingRight(CurrentLemmyX(), flashX));
         var pickupMotion = M01IntroFlow.ResolvePickupMotion(IsFlashlightSupportedByFragment());
         var pickupAnimation = M01IntroFlow.ResolvePickupAnimation(pickupMotion, earsFolded);
-        if (pickupAnimation == M01IntroPickupAnimation.FoldedCrouch)
+        var pickupActionId = M01IntroFlow.ResolvePickupActionId(pickupAnimation);
+        if (pickupActionId != null)
         {
-            yield return PlayActionRange("headbutt", 0, 40);
-        }
-        else if (pickupAnimation == M01IntroPickupAnimation.Crouch)
-        {
-            yield return PlayAction("crouch");
+            yield return PlayAction(pickupActionId);
         }
 
         var heldBody = flashlightObject.GetComponent<Rigidbody2D>();
@@ -893,17 +890,10 @@ public sealed class M01IntroProbe : MonoBehaviour
         var right = lemmy.FacingRight;
         var heldX = right ? HeldFlashlightX : -HeldFlashlightX;
         flashlightObject.transform.localRotation = Quaternion.Euler(0, 0, right ? HeldFlashlightAngle : -HeldFlashlightAngle);
-        if (pickupMotion == M01IntroPickupMotion.Crouch)
+        if (pickupActionId != null)
         {
             SetCocosPosition(flashlightObject.transform, heldX, HeldFlashlightY - PickupHandDrop);
-            if (pickupAnimation == M01IntroPickupAnimation.FoldedCrouch)
-            {
-                lemmy.PlayRangeReverse("headbutt", 0, 40);
-            }
-            else
-            {
-                lemmy.PlayReverse("crouch");
-            }
+            lemmy.PlayReverse(pickupActionId);
             var elapsed = 0f;
             while (elapsed < PickupRiseSeconds)
             {
@@ -958,13 +948,6 @@ public sealed class M01IntroProbe : MonoBehaviour
     {
         if (lemmy == null) yield break;
         lemmy.Play(id);
-        while (!lemmy.Done) yield return null;
-    }
-
-    private IEnumerator PlayActionRange(string id, int sourceStartFrame, int sourceFrameCount)
-    {
-        if (lemmy == null) yield break;
-        lemmy.PlayRange(id, sourceStartFrame, sourceFrameCount);
         while (!lemmy.Done) yield return null;
     }
 
