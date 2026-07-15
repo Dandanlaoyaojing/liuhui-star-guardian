@@ -54,6 +54,13 @@ namespace StarGuardian.M01
         Standing
     }
 
+    public enum M01IntroEarTransition
+    {
+        None,
+        Fold,
+        Raise
+    }
+
     public static class M01IntroFlow
     {
         // roaming/readyToHeadbutt/waitingPickup edges are player-driven, which enforces the mandatory
@@ -115,14 +122,18 @@ namespace StarGuardian.M01
         }
 
         /// <summary>
-        /// 点篮子本身绝不替玩家走位。只有玩家已把莱米移动到篮下时才顶篮；
-        /// roaming 与重复顶篮阶段只要不在篮下，都只能演“走近→伸手够→转脸摇头”。
+        /// 首次点篮不替玩家走到篮下；只有玩家已在篮下时才开始第一轮顶篮。
+        /// 进入重复顶篮阶段后，点篮会恢复顶篮流程，胶水层负责先把走开的莱米带回篮下。
         /// </summary>
         public static M01IntroBasketTapAction ResolveBasketTapAction(
             M01IntroPhase phase,
             bool isUnderBasket)
         {
-            if (phase != M01IntroPhase.Roaming && phase != M01IntroPhase.ReadyToHeadbutt)
+            if (phase == M01IntroPhase.ReadyToHeadbutt)
+            {
+                return M01IntroBasketTapAction.Headbutt;
+            }
+            if (phase != M01IntroPhase.Roaming)
             {
                 return M01IntroBasketTapAction.Ignore;
             }
@@ -136,6 +147,30 @@ namespace StarGuardian.M01
         /// </summary>
         public static bool ShouldInterruptRoamForBasketTap(M01IntroPhase phase) =>
             phase == M01IntroPhase.Roaming || phase == M01IntroPhase.ReadyToHeadbutt;
+
+        /// <summary>
+        /// 等待拾灯时仍允许自由走位；点中手电后必须终止旧走位，避免它与拾取协程同时改位置和耳态。
+        /// </summary>
+        public static bool ShouldInterruptRoamForPickup(M01IntroPhase phase) =>
+            phase == M01IntroPhase.WaitingPickup;
+
+        public static bool ShouldReturnToBasketBeforeHeadbutt(
+            M01IntroPhase phase,
+            bool isUnderBasket) =>
+            phase == M01IntroPhase.ReadyToHeadbutt && !isUnderBasket;
+
+        /// <summary>
+        /// 先提交位置对应的耳态，再由调用方播放可中断动画；即使协程被停止，状态也不会回退。
+        /// </summary>
+        public static M01IntroEarTransition CommitEarState(ref bool earsFolded, bool shouldFold)
+        {
+            if (earsFolded == shouldFold)
+            {
+                return M01IntroEarTransition.None;
+            }
+            earsFolded = shouldFold;
+            return shouldFold ? M01IntroEarTransition.Fold : M01IntroEarTransition.Raise;
+        }
 
         /// <summary>
         /// 手电直接落地时需要蹲下；若手电由拼片承托，手部高度足够，走到旁边即可拿起。

@@ -8,6 +8,13 @@ using System.Linq;
 
 namespace StarGuardian.M01
 {
+    public enum M01TargetSlotPlacementAction
+    {
+        ClaimIncoming,
+        ReleaseExistingAndClaimIncoming,
+        PreserveExistingAndParkIncoming
+    }
+
     public sealed class M01PlacementLedger
     {
         private const int WeakEvidenceCapacity = 2;
@@ -64,6 +71,45 @@ namespace StarGuardian.M01
         public bool IsPlaced(string fragmentId) =>
             slotOccupants.Values.Contains(fragmentId) ||
             weakByEvidence.Values.Any(fragments => fragments.Contains(fragmentId));
+
+        public static M01TargetSlotPlacementAction ResolveTargetSlotPlacement(
+            bool hasDifferentOccupant,
+            bool existingOccupantPoseCorrect)
+        {
+            if (!hasDifferentOccupant)
+            {
+                return M01TargetSlotPlacementAction.ClaimIncoming;
+            }
+            return existingOccupantPoseCorrect
+                ? M01TargetSlotPlacementAction.PreserveExistingAndParkIncoming
+                : M01TargetSlotPlacementAction.ReleaseExistingAndClaimIncoming;
+        }
+
+        /// <summary>
+        /// 单一入口提交目标槽账本：正确旧片保持占用；否则来片成为占用者并返回被替换片。
+        /// 来片是否保持 Kinematic 由 Unity 胶水统一处理，与账本占用是两个独立结果。
+        /// </summary>
+        public M01TargetSlotPlacementAction PlaceIntoTargetSlot(
+            string slotId,
+            string incomingFragmentId,
+            bool existingOccupantPoseCorrect,
+            out string? displacedFragmentId)
+        {
+            var hasDifferentOccupant =
+                slotOccupants.TryGetValue(slotId, out var existingFragmentId) &&
+                existingFragmentId != incomingFragmentId;
+            var action = ResolveTargetSlotPlacement(
+                hasDifferentOccupant,
+                existingOccupantPoseCorrect);
+            if (action == M01TargetSlotPlacementAction.PreserveExistingAndParkIncoming)
+            {
+                displacedFragmentId = null;
+                return action;
+            }
+
+            displacedFragmentId = OccupySlot(slotId, incomingFragmentId);
+            return action;
+        }
 
         public IReadOnlyList<string> PlacedFragments() =>
             weakByEvidence.Values.SelectMany(fragments => fragments)

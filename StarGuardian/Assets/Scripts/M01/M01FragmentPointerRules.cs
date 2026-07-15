@@ -28,6 +28,15 @@ namespace StarGuardian.M01
         public static bool CanPickFragment(bool physicsSettled, bool spilledOut) =>
             physicsSettled || spilledOut;
 
+        public static int RendererSortingOrder(int baseOrder, int relativeOffset)
+        {
+            if (relativeOffset < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(relativeOffset));
+            }
+            return baseOrder + relativeOffset;
+        }
+
         private static double NormalizeRotation(double degrees)
         {
             var normalized = degrees % 360d;

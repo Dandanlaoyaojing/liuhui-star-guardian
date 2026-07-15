@@ -132,17 +132,31 @@ namespace StarGuardian.M01.Tests
             Assert.Equal(M01IntroPhase.Headbutting, M01IntroFlow.NextIntroPhase(M01IntroPhase.ReadyToHeadbutt, M01IntroEvent.HeadbuttStarted));
         }
 
-        [Theory(DisplayName = "点篮子不会替玩家走到篮下顶: 不在篮下会走近、伸手、转脸摇头")]
-        [InlineData(M01IntroPhase.Roaming)]
-        [InlineData(M01IntroPhase.ReadyToHeadbutt)]
-        public void BasketTapNeverAutoWalksIntoAHeadbutt(M01IntroPhase phase)
+        [Fact(DisplayName = "首次点篮不会替玩家走到篮下顶: 不在篮下会走近、伸手、转脸摇头")]
+        public void FirstBasketTapDoesNotAutoWalkIntoAHeadbutt()
         {
             Assert.Equal(
                 M01IntroBasketTapAction.ApproachReachAndShake,
-                M01IntroFlow.ResolveBasketTapAction(phase, isUnderBasket: false));
+                M01IntroFlow.ResolveBasketTapAction(M01IntroPhase.Roaming, isUnderBasket: false));
             Assert.Equal(
                 M01IntroBasketTapAction.Headbutt,
-                M01IntroFlow.ResolveBasketTapAction(phase, isUnderBasket: true));
+                M01IntroFlow.ResolveBasketTapAction(M01IntroPhase.Roaming, isUnderBasket: true));
+        }
+
+        [Fact(DisplayName = "重复顶篮阶段即使莱米走开，点篮也会恢复顶篮流程")]
+        public void RepeatBasketTapReturnsToHeadbuttFlowAfterLemmyWalksAway()
+        {
+            Assert.Equal(
+                M01IntroBasketTapAction.Headbutt,
+                M01IntroFlow.ResolveBasketTapAction(M01IntroPhase.ReadyToHeadbutt, isUnderBasket: false));
+            Assert.True(
+                M01IntroFlow.ShouldReturnToBasketBeforeHeadbutt(
+                    M01IntroPhase.ReadyToHeadbutt,
+                    isUnderBasket: false));
+            Assert.False(
+                M01IntroFlow.ShouldReturnToBasketBeforeHeadbutt(
+                    M01IntroPhase.ReadyToHeadbutt,
+                    isUnderBasket: true));
         }
 
         [Theory(DisplayName = "basket tap interrupts a still-finishing roam before starting the basket action")]
@@ -152,6 +166,30 @@ namespace StarGuardian.M01.Tests
         {
             Assert.True(M01IntroFlow.ShouldInterruptRoamForBasketTap(phase));
             Assert.False(M01IntroFlow.ShouldInterruptRoamForBasketTap(M01IntroPhase.Acquired));
+        }
+
+        [Fact(DisplayName = "flashlight pickup interrupts an in-flight roam before pickup changes position and ear state")]
+        public void FlashlightPickupInterruptsInFlightRoam()
+        {
+            Assert.True(M01IntroFlow.ShouldInterruptRoamForPickup(M01IntroPhase.WaitingPickup));
+            Assert.False(M01IntroFlow.ShouldInterruptRoamForPickup(M01IntroPhase.PickingUp));
+        }
+
+        [Theory(DisplayName = "position-driven ear state is committed before its interruptible animation")]
+        [InlineData(false, true, M01IntroEarTransition.Fold)]
+        [InlineData(true, false, M01IntroEarTransition.Raise)]
+        [InlineData(true, true, M01IntroEarTransition.None)]
+        public void PositionCommitsEarStateBeforeAnimation(
+            bool initialState,
+            bool shouldFold,
+            M01IntroEarTransition expectedTransition)
+        {
+            var earsFolded = initialState;
+
+            var transition = M01IntroFlow.CommitEarState(ref earsFolded, shouldFold);
+
+            Assert.Equal(expectedTransition, transition);
+            Assert.Equal(shouldFold, earsFolded);
         }
 
         [Theory(DisplayName = "flashlight pickup crouches only when the flashlight is resting on the ground")]

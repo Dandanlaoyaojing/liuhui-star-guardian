@@ -269,6 +269,23 @@ public sealed class M01BoardProbe : MonoBehaviour
 
     // ── 渲染原语 ──
 
+    public static void SetFragmentSortingOrder(GameObject fragment, int baseOrder)
+    {
+        var rootRenderer = fragment.GetComponent<SpriteRenderer>();
+        if (rootRenderer != null)
+        {
+            rootRenderer.sortingOrder = M01FragmentPointerRules.RendererSortingOrder(baseOrder, 0);
+        }
+
+        var relativeOffset = 1;
+        foreach (var renderer in fragment.GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            if (renderer == rootRenderer) continue;
+            renderer.sortingOrder = M01FragmentPointerRules.RendererSortingOrder(baseOrder, relativeOffset);
+            relativeOffset += 1;
+        }
+    }
+
     /// <summary>拼片节点: 水彩底片(可染色)+ 描边层(恒白, 不吃 tint)。返回底片 GameObject(交互层驱动它)。</summary>
     private GameObject AddFragmentNode(GameObject parent, M01GreyboxTokenNode frag)
     {

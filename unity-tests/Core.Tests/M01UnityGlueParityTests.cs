@@ -287,16 +287,6 @@ namespace StarGuardian.Tests
             Assert.True(cancel < reset, "rotate pins must be cancelled before candidate state is reset");
         }
 
-        [Fact(DisplayName = "target-slot replacement releases the displaced wrong-pose body")]
-        public void TargetSlotReplacementReleasesDisplacedBody()
-        {
-            var drag = ReadRepoFile("StarGuardian/Assets/GlowProbe/M01DragProbe.cs");
-
-            Assert.Contains("ReleaseReplaceableSlotOccupant", drag);
-            Assert.Contains("placementLedger.TryGetSlotOccupant", drag);
-            Assert.Contains("ReleaseFragmentBodyToPhysics(displacedGo)", drag);
-        }
-
         [Fact(DisplayName = "weak evidence always resubmits its ordered latest pair")]
         public void WeakEvidenceResubmitsLatestPair()
         {

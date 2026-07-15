@@ -50,5 +50,15 @@ namespace StarGuardian.M01.Tests
         {
             Assert.Equal(expected, M01FragmentPointerRules.CanPickFragment(physicsSettled, spilledOut));
         }
+
+        [Theory(DisplayName = "keeps each fragment renderer in one relative visual stack while dragging and restoring")]
+        [InlineData(60, 0, 60)]
+        [InlineData(60, 1, 61)]
+        [InlineData(0, 0, 0)]
+        [InlineData(0, 1, 1)]
+        public void PreservesRendererStack(int baseOrder, int relativeOffset, int expected)
+        {
+            Assert.Equal(expected, M01FragmentPointerRules.RendererSortingOrder(baseOrder, relativeOffset));
+        }
     }
 }

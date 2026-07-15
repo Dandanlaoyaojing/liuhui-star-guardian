@@ -60,5 +60,57 @@ namespace StarGuardian.Tests
             Assert.False(ledger.TryGetSlotOccupant("slot", out _));
             Assert.Empty(ledger.PlacedFragments().ToArray());
         }
+
+        [Theory(DisplayName = "target slots preserve a correct occupant without rejecting the incoming parked fragment")]
+        [InlineData(false, false, M01TargetSlotPlacementAction.ClaimIncoming)]
+        [InlineData(true, false, M01TargetSlotPlacementAction.ReleaseExistingAndClaimIncoming)]
+        [InlineData(true, true, M01TargetSlotPlacementAction.PreserveExistingAndParkIncoming)]
+        public void ResolvesTargetSlotOccupantWithoutRejectingIncoming(
+            bool hasDifferentOccupant,
+            bool existingOccupantPoseCorrect,
+            M01TargetSlotPlacementAction expected)
+        {
+            Assert.Equal(
+                expected,
+                M01PlacementLedger.ResolveTargetSlotPlacement(hasDifferentOccupant, existingOccupantPoseCorrect));
+        }
+
+        [Fact(DisplayName = "placing onto a correct target occupant preserves its ledger entry while parking the incoming fragment separately")]
+        public void CorrectTargetOccupantRemainsRecorded()
+        {
+            var ledger = new M01PlacementLedger();
+            ledger.OccupySlot("slot", "correct");
+
+            var action = ledger.PlaceIntoTargetSlot(
+                "slot",
+                "incoming",
+                existingOccupantPoseCorrect: true,
+                out var displaced);
+
+            Assert.Equal(M01TargetSlotPlacementAction.PreserveExistingAndParkIncoming, action);
+            Assert.Null(displaced);
+            Assert.True(ledger.TryGetSlotOccupant("slot", out var occupant));
+            Assert.Equal("correct", occupant);
+            Assert.False(ledger.IsPlaced("incoming"));
+        }
+
+        [Fact(DisplayName = "placing onto an incorrect target occupant atomically replaces the ledger entry")]
+        public void IncorrectTargetOccupantIsReplacedAtomically()
+        {
+            var ledger = new M01PlacementLedger();
+            ledger.OccupySlot("slot", "incorrect");
+
+            var action = ledger.PlaceIntoTargetSlot(
+                "slot",
+                "incoming",
+                existingOccupantPoseCorrect: false,
+                out var displaced);
+
+            Assert.Equal(M01TargetSlotPlacementAction.ReleaseExistingAndClaimIncoming, action);
+            Assert.Equal("incorrect", displaced);
+            Assert.True(ledger.TryGetSlotOccupant("slot", out var occupant));
+            Assert.Equal("incoming", occupant);
+            Assert.False(ledger.IsPlaced("incorrect"));
+        }
     }
 }

@@ -588,10 +588,10 @@ public sealed class M01IntroProbe : MonoBehaviour
     {
         if (lemmy == null) yield break;
         var under = IsEarFoldZone(CurrentLemmyX());
-        if (under != earsFolded)
+        var initialEarTransition = M01IntroFlow.CommitEarState(ref earsFolded, under);
+        if (initialEarTransition != M01IntroEarTransition.None)
         {
-            yield return PlayAction(under ? "earsback" : "earsup");
-            earsFolded = under;
+            yield return PlayAction(initialEarTransition == M01IntroEarTransition.Fold ? "earsback" : "earsup");
         }
 
         var from = CurrentLemmyX();
@@ -605,10 +605,10 @@ public sealed class M01IntroProbe : MonoBehaviour
         {
             yield return MoveLemmy(edge, walkBoost);
             var nowUnder = IsEarFoldZone(edge + direction);
-            if (nowUnder != earsFolded)
+            var edgeEarTransition = M01IntroFlow.CommitEarState(ref earsFolded, nowUnder);
+            if (edgeEarTransition != M01IntroEarTransition.None)
             {
-                earsFolded = nowUnder;
-                yield return PlayAction(nowUnder ? "earsback" : "earsup");
+                yield return PlayAction(edgeEarTransition == M01IntroEarTransition.Fold ? "earsback" : "earsup");
             }
             current = edge;
         }
@@ -656,7 +656,14 @@ public sealed class M01IntroProbe : MonoBehaviour
         }
         else if (action == M01IntroBasketTapAction.Headbutt)
         {
-            yield return Headbutt(phase == M01IntroPhase.ReadyToHeadbutt);
+            var repeat = phase == M01IntroPhase.ReadyToHeadbutt;
+            if (M01IntroFlow.ShouldReturnToBasketBeforeHeadbutt(
+                    phase,
+                    IsUnderBasket(CurrentLemmyX())))
+            {
+                yield return RoamTo(HeadbuttX);
+            }
+            yield return Headbutt(repeat);
         }
         actionInProgress = false;
     }
@@ -856,6 +863,11 @@ public sealed class M01IntroProbe : MonoBehaviour
     private IEnumerator BeginPickup()
     {
         if (lemmy == null || flashlightObject == null) yield break;
+        if (M01IntroFlow.ShouldInterruptRoamForPickup(phase) && walkRoutine != null)
+        {
+            StopCoroutine(walkRoutine);
+            walkRoutine = null;
+        }
         if (!Advance(M01IntroEvent.FlashlightTapped)) yield break;
         actionInProgress = true;
         var flashX = ToCocos(flashlightObject.transform.position).x;
@@ -900,8 +912,8 @@ public sealed class M01IntroProbe : MonoBehaviour
         {
             SetCocosPosition(flashlightObject.transform, heldX, HeldFlashlightY);
         }
-        lemmy.Play("idle");
-        earsFolded = false;
+        M01IntroFlow.CommitEarState(ref earsFolded, IsEarFoldZone(CurrentLemmyX()));
+        lemmy.Play(earsFolded ? "idleback" : "idle");
         Advance(M01IntroEvent.CrouchDone);
         if (flashlight != null)
         {

@@ -166,7 +166,7 @@ public sealed class M01DragProbe : MonoBehaviour
         heldRotation = fragmentRotations[best.ControllerId];
         var sr = go.GetComponent<SpriteRenderer>();
         heldBaseOrder = sr == null ? 0 : sr.sortingOrder;
-        if (sr != null) sr.sortingOrder = 60;
+        M01BoardProbe.SetFragmentSortingOrder(go, 60);
         SetFragmentPointerControl(go, true);
         WakeDynamicPileExcept(go);
         SyncTokenToVisual(best, go);
@@ -244,8 +244,7 @@ public sealed class M01DragProbe : MonoBehaviour
 
         // 交互只改排序、位置、Session 与刚体状态。Cocos 的水彩拼片本体在拾取/吸附/自由落点时不染色；
         // 真正的颜色变化只允许由手电观察层临时叠加，离开光束后恢复原图。
-        var sr = go.GetComponent<SpriteRenderer>();
-        if (sr != null) sr.sortingOrder = baseOrder;
+        M01BoardProbe.SetFragmentSortingOrder(go, baseOrder);
 
         Debug.Log($"M01DragProbe: {token.ControllerId} rot={rotation} → {action.Type}" +
                   (action.PieceSlotId != null ? $" slot={action.PieceSlotId}" : "") +
@@ -254,26 +253,17 @@ public sealed class M01DragProbe : MonoBehaviour
 
         // ── session 玩法闭环: snap/weak_snap → 记账 → 证据两片齐即提交 → 全 staged 即验证 ──
         var session = board.Session;
-        var placementAccepted = true;
         if (session != null)
         {
             if (action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece)
             {
-                placementAccepted = ReleaseReplaceableSlotOccupant(action.PieceSlotId, token.ControllerId);
-                if (placementAccepted && action.PieceSlotId != null)
-                {
-                    placementLedger.OccupySlot(action.PieceSlotId, token.ControllerId);
-                }
+                PlaceIntoTargetSlot(action.PieceSlotId, token.ControllerId);
             }
             else if (action.Type == M01GreyboxDropActionType.StickFragmentToSlot)
             {
                 // 角度不对也已经占住目标槽；Cocos 会在六槽全满时立刻做失败显色，
                 // 不能因它尚未 staged 就永远不触发验证。
-                placementAccepted = ReleaseReplaceableSlotOccupant(action.PieceSlotId, token.ControllerId);
-                if (placementAccepted && action.PieceSlotId != null)
-                {
-                    placementLedger.OccupySlot(action.PieceSlotId, token.ControllerId);
-                }
+                PlaceIntoTargetSlot(action.PieceSlotId, token.ControllerId);
             }
             else if (action.Type == M01GreyboxDropActionType.WeakSnapFragment && action.EvidenceId != null)
             {
@@ -286,7 +276,7 @@ public sealed class M01DragProbe : MonoBehaviour
 
         if ((action.Type == M01GreyboxDropActionType.SnapFragmentToTargetPiece ||
              action.Type == M01GreyboxDropActionType.WeakSnapFragment ||
-             action.Type == M01GreyboxDropActionType.StickFragmentToSlot) && placementAccepted)
+             action.Type == M01GreyboxDropActionType.StickFragmentToSlot))
         {
             ParkFragmentBody(go);
         }
@@ -338,8 +328,7 @@ public sealed class M01DragProbe : MonoBehaviour
             go.transform.position += Vector3.up * (beforeLowest.Value - afterLowest.Value);
         }
         SyncTokenToVisual(token, go);
-        var renderer = go.GetComponent<SpriteRenderer>();
-        if (renderer != null) renderer.sortingOrder = baseOrder;
+        M01BoardProbe.SetFragmentSortingOrder(go, baseOrder);
         ParkFragmentBody(go);
         CancelRotatePin(token.ControllerId);
         rotatePinRoutines[token.ControllerId] = StartCoroutine(ReleaseRotatePinAfterDelay(token, go, baseOrder));
@@ -617,27 +606,45 @@ public sealed class M01DragProbe : MonoBehaviour
                slots.All(slot => placementLedger.TryGetSlotOccupant(slot.Id, out _));
     }
 
-    private bool ReleaseReplaceableSlotOccupant(string? slotId, string incomingFragmentId)
+    private M01TargetSlotPlacementAction PlaceIntoTargetSlot(
+        string? slotId,
+        string incomingFragmentId)
     {
-        if (slotId == null || !placementLedger.TryGetSlotOccupant(slotId, out var displacedId) ||
-            displacedId == incomingFragmentId)
+        if (slotId == null)
         {
-            return true;
+            return M01TargetSlotPlacementAction.ClaimIncoming;
+        }
+        var displacedId = incomingFragmentId;
+        var hasDifferentOccupant =
+            placementLedger.TryGetSlotOccupant(slotId, out displacedId) &&
+            displacedId != incomingFragmentId;
+        var existingOccupantPoseCorrect = false;
+        if (hasDifferentOccupant)
+        {
+            var slot = board.Layout?.TargetPieceSlots.FirstOrDefault(candidate => candidate.Id == slotId);
+            existingOccupantPoseCorrect = slot != null &&
+                TryGetPoseCorrectSlotOccupant(slot, out var correctId) &&
+                correctId == displacedId;
         }
 
-        var slot = board.Layout?.TargetPieceSlots.FirstOrDefault(candidate => candidate.Id == slotId);
-        if (slot != null && TryGetPoseCorrectSlotOccupant(slot, out var correctId) && correctId == displacedId)
+        var action = placementLedger.PlaceIntoTargetSlot(
+            slotId,
+            incomingFragmentId,
+            existingOccupantPoseCorrect,
+            out var replacedId);
+        if (action != M01TargetSlotPlacementAction.ReleaseExistingAndClaimIncoming)
         {
-            return false;
+            return action;
         }
 
-        board.Session?.UnstageFragment(displacedId);
-        placementLedger.Remove(displacedId);
-        if (board.FragmentObjects.TryGetValue(displacedId, out var displacedGo))
+        // 此分支必有不同占用者；上面的纯决策把“保留正确占用者并停放来片”单独分流。
+        if (replacedId == null) return action;
+        board.Session?.UnstageFragment(replacedId);
+        if (board.FragmentObjects.TryGetValue(replacedId, out var displacedGo))
         {
             ReleaseFragmentBodyToPhysics(displacedGo);
         }
-        return true;
+        return action;
     }
 
     private void RemoveFragmentFromPlacementLedgers(string fragmentId)
