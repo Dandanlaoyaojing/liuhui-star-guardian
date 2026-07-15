@@ -6,6 +6,8 @@ Last updated: 2026-07-15
 
 ## M01 Cocos→Unity 渲染等价迁移(2026-07-15,进行中)
 
+- **当前清理波次(2026-07-15)**: 处理三项已拍板审阅债：①篮下地面蹲拾复用 `headbutt` 前 40 帧收耳下蹲段，消除 `crouch` 首帧立耳跳变；②冻结 manifest 移出 Unity `Resources` 并去开发机绝对路径，移除 Unity 未消费的 canonical/floor/evidence/filter 运行时副本；③清空 `M01UnityGlueParityTests` 的生产源码字符串断言，按实际价值迁移为纯行为、Unity Editor 或配置测试。齿轮缩放与 1.65 饱和度本波不动。实施计划=`docs/plans/2026-07-15-m01-review-debt-cleanup.md`。
+
 - **源快照已冻结**: Cocos `e67f7cd` + 当前工作树资源/配置哈希，清单=`StarGuardian/Assets/Resources/Configs/m01-render-source-manifest.json`。
 - **纠正资源口径**: Lemmy 是 **18 动作 / 697 PNG 帧**；旧文档的 802 是整批美术/音视频文件数，不是角色帧数。
 - **已落地**: 960×640/PPU100 坐标契约、Cocos displaySize/anchor/aspect 适配、18 动作 fps/loop/hold/skip/event/峰值停顿、697 帧和 M01 运行时图/音视频逐字节复制、Unity 6 导入规则。
