@@ -939,7 +939,9 @@ public sealed class M02StarWebProbe : MonoBehaviour
         tex.SetPixels(pixels);
         tex.Apply();
         ownedResources.Add(tex);
-        var pivot = new Vector2(Mathf.Clamp01((float)(-minX / (maxX - minX))), Mathf.Clamp01((float)(-minY / (maxY - minY))));
+        // 分母必须用纹理【实际】跨度(CeilToInt 后 width/scale), 非原始 maxX-minX —— 两者差 [0,1)px
+        // 会让星形亚像素错位(终审逮到)。不再 Clamp01 静默钳: bbox 不含原点是布局错, 该显性暴露。
+        var pivot = new Vector2((float)(-minX / (width / (double)scale)), (float)(-minY / (height / (double)scale)));
         var sprite = Sprite.Create(tex, new Rect(0, 0, width, height), pivot, Ppu * scale);
         sprite.hideFlags = HideFlags.DontSave;
         ownedResources.Add(sprite);
@@ -1071,7 +1073,8 @@ public sealed class M02StarWebProbe : MonoBehaviour
         tex.SetPixels32(pixels);
         tex.Apply();
         ownedResources.Add(tex);
-        var pivot = new Vector2(Mathf.Clamp01((float)(-minX / (maxX - minX))), Mathf.Clamp01((float)(-minY / (maxY - minY))));
+        // 同上: 分母取纹理实际跨度(此处 scale=1), 不 Clamp01 静默钳错(终审逮到)。
+        var pivot = new Vector2((float)(-minX / (double)width), (float)(-minY / (double)height));
         var sprite = Sprite.Create(tex, new Rect(0, 0, width, height), pivot, Ppu);
         sprite.hideFlags = HideFlags.DontSave;
         ownedResources.Add(sprite);
@@ -1091,7 +1094,7 @@ public sealed class M02StarWebProbe : MonoBehaviour
         bodySr.sortingOrder = order;
         body.transform.localScale = new Vector3((float)widthPx / Ppu, (float)heightPx / Ppu, 1f);
 
-        var frameSprite = GetOrBakeFrameSprite($"frame:{widthPx}x{heightPx}", widthPx, heightPx, M02RenderContract.CompletionPanelLineWidthPx);
+        var frameSprite = GetOrBakeFrameSprite($"frame:{widthPx}x{heightPx}:{M02RenderContract.CompletionPanelLineWidthPx}", widthPx, heightPx, M02RenderContract.CompletionPanelLineWidthPx);
         var frame = new GameObject(name + "Frame");
         frame.transform.SetParent(parent.transform, false);
         var frameSr = frame.AddComponent<SpriteRenderer>();
@@ -1187,7 +1190,8 @@ public sealed class M02StarWebProbe : MonoBehaviour
         tex.SetPixels(pixels);
         tex.Apply();
         ownedResources.Add(tex);
-        var pivot = new Vector2(Mathf.Clamp01((float)(-minX / (maxX - minX))), Mathf.Clamp01((float)(-minY / (maxY - minY))));
+        // 同 GetStarSprite: 分母取纹理实际跨度(CeilToInt 后), 不 Clamp01 静默钳错(终审逮到)。
+        var pivot = new Vector2((float)(-minX / (width / (double)scale)), (float)(-minY / (height / (double)scale)));
         var sprite = Sprite.Create(tex, new Rect(0, 0, width, height), pivot, Ppu * scale);
         sprite.hideFlags = HideFlags.DontSave;
         ownedResources.Add(sprite);

@@ -1,4 +1,7 @@
-// 工具卡解锁预览的纯文案装配 —— 引擎无关, 从 assets/scripts/ui/ToolCardView.ts 逐字迁移, 规则不变.
+// 工具卡解锁预览的纯文案装配 —— 引擎无关, 从 assets/scripts/ui/ToolCardView.ts 逐字迁移。
+// ⚠️ 已知语义差(终审逮到, 现有数据不可达): C# string.Replace 替换【全部】匹配且 $ 作字面量;
+// JS String.prototype.replace(字符串针) 只替换【第一个】且会解释 $&/$`/$'/$1 替换模式。
+// 现有文案(prefix 单 {value}、无 $)两者等价; 若日后 prefix 配多占位符或文案含 $, 需显式对齐 TS.
 // M02StarWebView 完成面板消费(SWV:345-350); 这些 .cs 不得 using UnityEngine.
 #nullable enable
 

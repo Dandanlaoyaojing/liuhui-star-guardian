@@ -7,6 +7,9 @@
 **变异测试结论**: 42 个数值常量原只 16 个被钉住(38%); **但转写干净**——TS↔C# 断言 32/32 忠实、RNG 黄金值独立复算到最后一位。剩余未钉簇(完成面板几何/脉冲动画/RepairFlowSeconds 等)记为 defer。
 **Unity 当场抓到 dotnet 漏掉的编译错**(探针不进 dotnet 编译集): `glowColor` 变量名错 → 正是 CLAUDE.md 警告的"dotnet 绿≠Unity 编得过", 双验证机制生效。
 
+**终审 A 路补修(4 条)**: ⑩三处 `pivot` 分母用未取整的 `maxX-minX`, 而纹理按 `CeilToInt` 取整 → 差 [0,1)px 亚像素错位; 且 `Clamp01` 会在"bbox 不含原点"时**静默钳错**(弧边整张贴图平移且不报错)→ 分母改用纹理实际跨度 + 去 Clamp01(布局错该显性暴露); ⑪`GetOrBakeFrameSprite` 缓存键漏 `lineWidthPx`(现两调用点同为常量 2 故不可达; 将来不同线宽会静默命中错缓存 = 尺寸对只有描边粗细错, 截图最难看出); ⑫`ToolCardPreview` 的 `string.Replace` 与 JS `replace(字符串针)` 语义不等价(C# 替全部+$字面量 / JS 只替首个+解释 $& 模式), 文件头原称"逐字迁移规则不变"→ 如实标注(现有数据不可达)。**Play 复验 pivot: 星/弧边/辉光全部在位, 几何完好。**
+**defer(记档)**: `LabelLineHeightPx`(Cocos `lineHeight=fontSize+5` px vs Unity `TextMesh.lineSpacing` 是行高倍数, 需字体度量换算; 完成面板两条 Label 实测确会折 2 行故差异可见)—— 不硬凑换算(猜一个反而更错), 待 TMP 化或字体度量确定后接。剩余未钉常量簇(完成面板几何/脉冲/RepairFlowSeconds)同 defer。
+
 ## M02 自审消费(2026-07-15, 三路 finder 19 条)
 **修掉(本轮)**: ①`M01CompletionProbe` 是全仓最后一个 `Mouse.current` 消费者(iOS 过场跳不掉/卡收不掉→输入永久锁死)→ Pointer; ②`HealCompletionText` 只补材质不补 `tm.font` 且一次性锁存 → 首帧字体未就绪=完成面板文字永久空白, 改成补 font+补齐后才锁存; ③**我上一版把 M01 的 DontSave 教训用反了**: M02StarWebProbe 是 `[ExecuteAlways]`(编辑态也建 Volume), 恰恰**需要** DontSave, 否则空壳被序列化进 .unity 提交进库(M01 那批是纯 Play 对象才不该 DontSave)——volumeGo/自动建的相机都补上; ④stale volume 回收补 profile 销毁 + Play/Edit 分流(与全文件惯例一致); ⑤`OnDisable` 的 `Find` 兜底删除(多实例时会抓走别家活体 volume 反杀); ⑥同帧 press+release 处理序按**帧初 pressCaptured 状态分流**(自查纠正: 无脑"release 先"会丢掉新快速轻点并把 pressCaptured 永久卡 true); ⑦M02 场景注册进 EditorBuildSettings。
 **已补(2026-07-15)**: `TouchArea` 矩形裁剪落地——核准 Cocos 确把 TOUCH_START/END 挂在 `setContentSize(1000,720)` 的 UITransform 上(按矩形命中派发, SWV:90/PV:66), 新增 `M02RenderContract.IsInsideTouchArea` + 两探针 press 侧消费(release 不裁, 保配对结算等价 Cocos TOUCH_END) + 8 条边界测试钉死。**Play 实测: 序章在 Unity 跑通(水彩底/余烬辉光/魔杖, Light2D+加法+Bloom 三层光效工作)**。
