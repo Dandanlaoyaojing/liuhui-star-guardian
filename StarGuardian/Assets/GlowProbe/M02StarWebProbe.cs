@@ -797,19 +797,20 @@ public sealed class M02StarWebProbe : MonoBehaviour
         var data = cam.GetUniversalAdditionalCameraData();
         if (data != null) data.renderPostProcessing = true;
 
-        volumeGo = GameObject.Find(VolumeName);
-        if (volumeGo == null)
-        {
-            volumeGo = new GameObject(VolumeName) { hideFlags = HideFlags.DontSave };
-        }
-        var vol = volumeGo.GetComponent<Volume>();
-        if (vol == null) vol = volumeGo.AddComponent<Volume>();
+        // 跨 Play 残留的旧壳(M01 DontSave 教训): 名字在、组件态坏 → 一律销毁重建, 不复用。
+        var stale = GameObject.Find(VolumeName);
+        if (stale != null) DestroyImmediate(stale);
+        volumeGo = new GameObject(VolumeName); // 纯 Play 对象不用 DontSave, 随退出销毁
+        var vol = volumeGo.AddComponent<Volume>();
         vol.isGlobal = true;
         if (vol.profile == null) vol.profile = ScriptableObject.CreateInstance<VolumeProfile>();
         if (!vol.profile.TryGet(out Bloom bloom)) bloom = vol.profile.Add<Bloom>(true);
         bloom.active = true;
-        bloom.intensity.Override(1.5f);
-        bloom.threshold.Override(0.5f);
+        // M2GlowProbe 的 0.5/1.5 是深底(近黑)参数; M02 是浅色水彩底(亮度≈0.9), threshold 0.5 会整面
+        // 超阈值→全屏泛光洗白(实测截图对照 Cocos 确认)。提到 HDR-only: 只有 additive 光晕/Light2D
+        // 打亮(>1)的像素参与 bloom, 水彩底原样保留。
+        bloom.intensity.Override(1.1f);
+        bloom.threshold.Override(1.05f);
         bloom.scatter.Override(0.72f);
     }
 
