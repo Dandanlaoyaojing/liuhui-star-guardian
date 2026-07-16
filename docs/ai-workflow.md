@@ -147,6 +147,32 @@ Before calling work done, review it through these lenses:
 
 ---
 
+## 7b. Cross-AI Review Must Be Zero-Framed
+
+When asking **another AI** (codex/gemini/另一个 Claude 会话/子代理) to review work, give it **zero framing**.
+
+Give **only**:
+
+- the review target (which branch/commit/range/file)
+- minimal **neutral environment facts** that reduce friction (where the reference source lives, how to run tests, where cross-session notes are) — facts, not judgments
+- "报告你发现的问题" / "report what you find"
+
+Do **NOT** give:
+
+- what you changed or fixed (a checklist tells it where to look — and where *not* to)
+- "重点查什么" / "重点质疑这几点"
+- measurement methods, metrics, or an analysis framework
+- "什么别报" / "这是设计不是 bug" — the most dangerous: it uses your assumption to pre-exclude a whole class of findings
+- any of your own conclusions
+
+**Why**: the entire value of a second opinion is **independence**. Framing transmits your blind spots to the reviewer, and its PASS becomes an endorsement of your own assumptions — the second opinion degrades into an echo. You are the **judge after the fact**, not the prompt-writer before it.
+
+**Proven in this repo (2026-07-16, M02)**: the same reviewer, same branch, run twice. The framed run (13-item fix list + 4 "重点质疑" points) only answered whether those fixes were right. The zero-framed run independently found what no one had asked about — that `Core.Tests.csproj` compiles only `Scripts/` and excludes `GlowProbe/`, so ~1873 lines of Unity runtime code never enter the `dotnet test` gate at all. A framed reviewer would never have opened the csproj.
+
+**Applies to**: `/code-review` finder agents, `codex exec` reviews, any "帮我看看这个对不对" to another model. (Earlier instance: 2026-06-07 — a framed review was told "crouch/reach height changes are by design, don't report them", which would have silently suppressed a real height bug had one existed.)
+
+---
+
 ## 8. Verify Before Claiming Success
 
 Never claim "fixed" or "done" without evidence.

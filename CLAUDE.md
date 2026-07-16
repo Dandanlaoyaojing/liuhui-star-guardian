@@ -18,6 +18,7 @@
 ## Shared Workflow
 
 - Follow `docs/ai-workflow.md` for the common execution flow.
+- **跨 AI 审阅一律零框架**(只给对象+中性环境事实, 不给你改了什么/重点查什么/你的结论)——见 `docs/ai-workflow.md` §7b。引导=把盲点传染给审阅者, 第二意见沦为回声。
 - Follow `docs/ai-autonomous-checkpoint-loop.md` when the user asks to keep moving autonomously with prompts like "继续下一步", "开始下一步工作", or "自己 review 一下".
 - Before substantial work, read `production/active.md` if it exists.
 - For substantial work, keep `production/active.md` updated with the current objective, scope, decisions, blockers, and next step.
