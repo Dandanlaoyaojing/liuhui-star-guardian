@@ -47,7 +47,8 @@
 
 - Unity 侧一律 C#(工程在 `StarGuardian/`, 纯逻辑放 `StarGuardian/Assets/Scripts/{Core,Interaction,M01}/`, 禁 `using UnityEngine` 于纯逻辑层, C#9 兼容——禁 record struct/文件级 namespace)。历史 TS(`assets/scripts/`, strict mode)仅作迁移对照, 不再新增。
 - Puzzle logic is data-driven via JSON configs; Unity 运行时源=`StarGuardian/Assets/Resources/Configs/`(自 `assets/resources/configs/` 拷贝, 改配置两处同步直至 Cocos 树退役)。
-- 纯逻辑测试在 `unity-tests/Core.Tests`(xUnit, `dotnet test`; 同一批 .cs 由 Unity 与 dotnet 双编译——dotnet 绿≠Unity 编得过, 需 Unity console 复核)。
+- 纯逻辑测试在 `unity-tests/Core.Tests`(xUnit, `dotnet test`)。⚠️ **它只编译 `Scripts/`(引擎无关层), 不含 `GlowProbe/`** —— 探针那约 1900 行 UnityEngine/URP/InputSystem 代码**不在 dotnet 门禁内**(2026-07-16 零框架 codex 审独立发现; 真实案例: `glowColor` 变量名错在 440/440 全绿下漏过)。
+- **提交 Unity 侧改动前跑 `npm run verify:unity`**(= `dotnet test` + `scripts/unity-probe-compile-check.sh`, 后者直接编译 Unity 生成的 `Assembly-CSharp.csproj`, 覆盖探针)。这是"dotnet 绿≠Unity 编得过"的机械防线; CI 无 Unity 会自动跳过, 故**本地必跑**。
 - Interaction components in `scripts/interaction/` are reusable across levels.
 - Shaders live in `shaders/`.
 
