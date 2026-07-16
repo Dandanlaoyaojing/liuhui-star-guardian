@@ -1,5 +1,12 @@
 # Active Work State
 
+## 规则边界划定(2026-07-16, 零框架 codex 审的后续)
+零框架审按规则报出"玩法阈值硬编码(TapRadius/WandTapRadius/DoneDelay/RepairFlowSeconds)违反 JSON 规则""config 缺 _comment""探针超 300 行"——**报告没错, 错的是我前一天把 glob 圈错了层**。
+**为什么不能照做**: 这些阈值在 **Cocos 侧就是 View 层常量**(`M02PrologueView.ts:24/27`), Cocos config 里**零命中**; 硬塞进 Unity config 会①凭空发明 Cocos 没有的键(违背 1:1 迁移)②当场撞红 `M02ConfigSyncTests` 的**双源字节相等**断言。同理 config 的 `_comment` 也不能单侧加。
+**正解=精确划边界**(不是改代码): `puzzle-scripts` glob 收窄到 `Scripts/{Core,M0x}/`(**不含 `M0x/Rendering/`**)+ `assets/scripts/levels/`; 渲染契约与 `GlowProbe/` 探针**豁免**(规则原本 glob=`scripts/levels/**/*.ts` 本就只管玩法逻辑层, 从不管 view)。`puzzle-configs` 对"自 Cocos 逐字拷贝、双源字节相等"的 config 豁免 `_comment`/`$schema`/命名。两条边界连同**理由与这次误判经过**都写进规则正文, 免得下次又被"报出违规→硬改代码"带偏。
+**验证**: Unity 纯逻辑层(规则真正该管的)实测**零硬编码**——玩法值全走 config, 规则本来就守住了; 违规全部落在被 glob 误圈的渲染层。
+**顺手**: 规则里 `resources/configs/` 是 Cocos 时代陈旧路径 → 校正为 Unity 运行时源 + 历史 Cocos 双列。
+
 ## M02 终审消费(2026-07-16, codex + 三路 finder)
 **codex 终审**: 8 提交**无合并阻断项**; 它报的两条(ProgressStore 内存存储 / PingFang SC 无 Windows fallback)均**非本批次新增**(M01 期已记档老债)。它因只读沙箱跑不了 dotnet test, 我这边实跑补齐证据。它报的"M02RenderContract 被外部改脏"= 测试可信度 finder 在做**变异测试**(改常量看测试红不红), 验完已还原, 工作区干净。
 **修掉(9 条)**: ①`Build()`/`SetupCameraAndBloom` 的 `GameObject.Find` 反杀——**与我自己在 OnDisable 写的"不 Find 兜底"教训自相矛盾**(多实例时 B.Build 销毁 A 的活体 root → A.starVisuals 全成已毁对象); ②序章同帧 press+release 定序(我上轮 defer 得太轻: 不只丢一次点击, 而是 **wasPressedThisFrame 当帧过期 → pressCaptured 永回不到 true → 整次按住拖拽全程 inert**), 抽 `HandleRelease` 按帧初状态分流; ③主盘 Light2D 亮度改与序章同规则(常数 1.3 抹平了契约用 alpha 95/135 编码的"命数将尽更暗"读盘线索), 分母取契约非硬编码 135f; ④相机 orthographicSize 硬编码 3.2 → 契约派生; ⑤`StargazeStarWobble` **假覆盖**(变异证明: 测试用 rng=0.5 令 wobble 项代数归零, 0.35→777.5 全绿)→ 补 rng≠0.5 真钉子; ⑥颜色断言**近重言式**(变异证明: ChargeColor/FrozenGlowColor/StarStrokeLitColor 改 (1,2,3,4) 全存活)→ 改字面字节(当场逮到我猜错的 2 个期望值, 查 TS 真值修正 = 证明新写法有效); ⑦**活玩法阈值零覆盖**(变异证明 777 哨兵全存活: TapRadius 44/EmberDrag 48/WandTap 70/DoneDelay 1.1 改成 4 则整关点不动仍全绿)→ 补钉; ⑧**四个规则文件 glob 全指向已退役 Cocos 树**(`scripts/levels/**/*.ts`)→ 护栏对 Unity 代码**静默失效**(这解释了 1276 行探针为何没触发 300 行规则)→ 重指向 StarGuardian 树; ⑨`LangVersion 10` 与 CLAUDE.md 的 C#9 要求矛盾(dotnet 绿≠Unity 编得过的门禁缺口, 本 diff 还把 Scripts/M02+UI 加进 Compile 集扩大风险面)→ 降到 9。
