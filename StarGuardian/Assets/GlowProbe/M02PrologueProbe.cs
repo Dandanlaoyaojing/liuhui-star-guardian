@@ -484,9 +484,11 @@ public sealed class M02PrologueProbe : MonoBehaviour
         {
             var glowColor = M02RenderContract.WandTipLitGlowColor;
             wandTipLight.color = new Color(glowColor.R / 255f, glowColor.G / 255f, glowColor.B / 255f, 1f);
-            wandTipLight.intensity = lit ? 1.3f : 0f;
+            // 峰值/外扩与余烬/主盘星同参(0.47 / 2.2×): 07-18 全场调暗后若魔杖独留 1.3/4×,
+            // 它会成为 M02 最亮光源(自审逮到, 与 codex P2 同类漏网)。
+            wandTipLight.intensity = lit ? 0.47f : 0f;
             wandTipLight.pointLightInnerRadius = (float)M02RenderContract.WandTipRadiusPx / Ppu;
-            wandTipLight.pointLightOuterRadius = (float)(M02RenderContract.WandTipRadiusPx + M02RenderContract.WandLitGlowExtraPx) / Ppu * 4f;
+            wandTipLight.pointLightOuterRadius = (float)(M02RenderContract.WandTipRadiusPx + M02RenderContract.WandLitGlowExtraPx) / Ppu * 2.2f;
         }
     }
 

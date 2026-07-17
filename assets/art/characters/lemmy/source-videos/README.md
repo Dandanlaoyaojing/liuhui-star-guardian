@@ -124,7 +124,7 @@ iOS App + Steam(PC/Mac),无 4MB 包体限制,帧数可按动画质量需要给�
 ## nod(2026-07-11 重做, 点头 — 正脸低头→回正; 取代 headshake 首版残留的旧 nod)
 - `lemmy-nod-source.mp4`: frames2video 首尾双锁【正脸定妆】(`lemmy-rabbit-front-canonical` 白底), 正面原地微微低头看向地面→抬脸回正。1080p/5s。submit_id `4ec1d057-ee18-42ea-b99c-1e8cc6a9f369`。
 - 抽帧: `extract-frames-arc.py <mp4> ref-front.png <out> nod 24 0.08 0.95` → 躯干宽 125/脚底 490 逐帧统一缩放归一(躯干全程 123-125 稳, 头点下去身高 429→414→429 是真实竖直点头, 保留)。正脸全程橙, 无鬼眼。
-- 产物: `assets/resources/art/characters/lemmy/nod/`(24 帧, 覆盖旧 27 帧)。contract fps 14(≈1.7s, hold-last)。**未接进具体 beat**。
+- 产物: `assets/resources/art/characters/lemmy/nod/`(**44 帧定稿**, fc71c4e 重抽为"点两下、两下间抬头位停顿4帧", 覆盖本节初版 24 帧; contract fps 16, hold-last)。**未接进具体 beat**。(2026-07-18 自审发现本行曾陈旧记 24 帧, 已按 fc71c4e 定稿修正)
 - 旧 nod(headshake 首版意外出成点头, v9 正脸源)已被本版替换; 要找回见 git 历史。
 
 ## crouchback(2026-07-15, 耳后贴⑦收耳版蹲下拾取 — 补篮下收耳时播竖耳 crouch 的穿帮)

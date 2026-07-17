@@ -598,7 +598,7 @@ public sealed class M02StarWebProbe : MonoBehaviour
         var glowRadius = (float)M02RenderContract.StarGlowRadiusPx(node.Status, node.Life, lifeMax);
         var color = M02RenderContract.StarGlowColor(node.Status);
         visual.GlowSprite.enabled = true;
-        // 径向精灵直径 1 unit → 缩放到 2×半径; alpha 用 Cocos 圆环 alpha(78/104, 2026-07-17 调暗)
+        // 径向精灵直径 1 unit → 缩放到 2×半径; alpha 取契约 glow alpha(调优值见 M02RenderContract 色板注释)
         var scale = glowRadius * 2f / Ppu;
         visual.GlowSprite.transform.localScale = new Vector3(scale, scale, 1f);
         visual.GlowSprite.color = new Color(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
