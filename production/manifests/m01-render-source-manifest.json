@@ -1,28 +1,29 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-07-13",
-  "sourceHead": "e67f7cdde6495c9929b6b104c5e76e3c2677f179",
-  "includesUncommittedSourceChanges": true,
+  "capturedAt": "2026-07-18",
+  "sourceHead": "365e2225af4e45f68c26352298e03890bebc3cc8",
+  "includesUncommittedSourceChanges": false,
   "files": {
-    "assets/scripts/cocos/M01GreyboxBootstrap.ts": "9ae01a466be25444f41516707750f4e798d6c8e3a08023917f5a573bcd29611e",
+    "assets/scripts/cocos/M01GreyboxBootstrap.ts": "1aac1f7705f5e45397082933f7c00290d0c463f67953545b78c3131aa414cd1f",
     "assets/scripts/cocos/M01GreyboxArt.ts": "67818eb76f0eb0f6280efb8f6ba0210809af58ca83574207c0cb19630204b226",
     "assets/scripts/cocos/M01SpriteAspect.ts": "b27250bbe2ecae999f3a9ee6e5adac6ae9c224a75e3cad32a60f287956a6d283",
     "assets/scripts/cocos/M01IntroSequence.ts": "a5b54a0d814f52a33aec3587ba610a823aa472f0a7f774fe30b9307b73de0a15",
     "assets/scripts/cocos/LemmyActor.ts": "ca375749f1a1726fe291bbe221779eacccc633b62f5041f60848c65b563d6348",
-    "assets/scripts/cocos/LemmyActorContract.ts": "2cf35d5f5095d413a0dadc83421a9f235729dc3f4d8fe2b9c8c8c265940c9246",
+    "assets/scripts/cocos/LemmyActorContract.ts": "6ed9fe6b8368d1e003bae1b952df226079d911838cbfb480df723e3042c38c63",
     "assets/scripts/cocos/M01PhysicsBoundary.ts": "b02e187be1b3794b390e759c0db98036b0ca97a5b65f802bed9f67d3a7afb504",
     "assets/scripts/cocos/M01IntroLayout.ts": "4e6d1eab0813c46129eee59bb95449c762cfe91c101acf6c76558810ba1e3674",
     "assets/scripts/cocos/M01GreyboxLayout.ts": "e60720ba691ac483557aa1b7aaa5ac6f05b0a481431f13f5f87f9c01cc066995",
-    "assets/resources/configs/stage1/m01-memory-gear.json": "374e84ce82bdbe20252b2d0fd71631006dfd7d339ebbab6f53faaaaec81d15c7"
+    "assets/resources/configs/stage1/m01-memory-gear.json": "5e71827df408f66558c025e2105be8c98eba083950bdb7ca673edab39e338fcc"
   },
   "lemmy": {
-    "actionCount": 18,
-    "frameCount": 697,
-    "aggregateSha256": "b5e19b1ed12b25391c66d3d1bbeaf3d3ffd4ebcc722a72f04c9cd78d70a2e304",
+    "actionCount": 19,
+    "frameCount": 725,
+    "aggregateSha256": "14eaab6b621572c9e7e0d822208655f042cf4b5207cc762fe6ba123981519f36",
     "aggregateMethod": "action-relative paths sorted ordinal; sha256 + two spaces + ./relative-path + newline; then sha256",
     "framesByAction": {
       "celebrate": 93,
       "crouch": 40,
+      "crouchback": 28,
       "earsback": 40,
       "earsup": 38,
       "headbutt": 124,
@@ -46,5 +47,6 @@
     "videoSha256": "a3bed8eb6ef7a9769e6007f064ae12f13d806287d13ed2f6ad9900793f869a23",
     "audioPath": "assets/resources/art/stage1-m01/completion-audio.mp3",
     "audioSha256": "3f1cdd2b35b9ad1084a9bd4b3dfb8ae73314cb2c2aa2278ee51e9efbb3da2c9d"
-  }
+  },
+  "refrozenNote": "2026-07-18 重冻结: 6b848e8 双引擎副本一并压缩(512²→384²+pngquant256+oxipng)且原清单漏含 crouchback(28帧); Unity 侧同口径聚合=unity-tests M01RenderAssetManifestTests, 两侧当前逐字节一致。"
 }

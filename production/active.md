@@ -46,7 +46,7 @@ Last updated: 2026-07-15
 
 - **拾灯测试加固已完成(2026-07-15)**: Unity verifier 现直接驱动真实 `M01IntroProbe.BeginPickup`，覆盖篮下地面 `crouchback`、篮外地面 `crouch`、拼片承托站立拿取三条链路，并锁定下蹲后反播同一动作；`crouchback` 倒放另验证完整源帧顺序 `27..0`、末帧 `00` 与 `Done=true`。故障注入证明：篮下故意误接 `crouch`、倒放故意改成正放时验证器都会红灯，恢复正确实现后 Unity Editor verifier **4/4**。旧 `headbutt` 前段注释已改为专用 `crouchback`。全套回归：xUnit **380/380**、Vitest **480/480**、TypeScript typecheck、`npm audit --omit=dev` **0 vulnerability**；不改变玩家行为、动画资源或显色参数。
 
-- **源快照已冻结**: Cocos `e67f7cd` + 当时工作树资源/配置哈希，清单=`production/manifests/m01-render-source-manifest.json`；该审计清单不再打入 Unity Player，且已移除开发机绝对路径。
+- **源快照已冻结**: 清单=`production/manifests/m01-render-source-manifest.json`。**2026-07-18 重冻结**(原 `e67f7cd` 版已失效): 6b848e8 把双引擎莱米副本一并压缩(512²→384²+pngquant)且旧清单漏含 crouchback,现按压缩后基线重算(19 动作/725 帧, 双侧聚合 `14eaab6b…` 逐字节一致, Unity 侧同口径守卫在 xUnit M01RenderAssetManifestTests)。该审计清单不再打入 Unity Player,且已移除开发机绝对路径。
 - **纠正资源口径**: Lemmy 当前是 **19 动作 / 725 PNG 帧**（新增 `crouchback` 28 帧）；旧文档的 802 是早期整批美术/音视频文件数，不是角色帧数。
 - **已落地**: 960×640/PPU100 坐标契约、Cocos displaySize/anchor/aspect 适配、19 动作 fps/loop/hold/skip/event/峰值停顿、725 帧和当前实际消费的 M01 运行时图/音视频逐字节复制、Unity 6 导入规则。
 - **盘面已纠偏**: 删除 Unity 旧探针误画的 6 个 TargetPieceSlots；改按 Cocos `renderGreybox()` 顺序绘制 `sourcePosition + magnetPolygon` 交叠证据、完整参考图案、真实 fragment/gear 图层；当前权威配置无 legacy `filters`，Cocos 正角度直接映射 Unity 正角度。

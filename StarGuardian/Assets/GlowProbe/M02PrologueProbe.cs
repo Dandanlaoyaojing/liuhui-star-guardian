@@ -427,10 +427,11 @@ public sealed class M02PrologueProbe : MonoBehaviour
                 if (visual.Light != null)
                 {
                     visual.Light.color = new Color(glowColor.R / 255f, glowColor.G / 255f, glowColor.B / 255f, 1f);
-                    // M2GlowProbe:82 点光 1.3 为满档, 按 TS 光晕 alpha(95/135)折算亮度(判断值, 契约无 TS 真源)
-                    visual.Light.intensity = 1.3f * (glowColor.A / (float)M02RenderContract.FrozenGlowColor.A);
+                    // 点光按光晕 alpha 折算亮度(判断值, 契约无 TS 真源)。峰值/外扩与主盘 M02StarWebProbe
+                    // 同参(0.47 / 2.2×): 07-18 调暗星光后两侧必须一起走, 否则序章余烬比主盘星亮一截(codex 审出)。
+                    visual.Light.intensity = 0.47f * (glowColor.A / (float)M02RenderContract.FrozenGlowColor.A);
                     visual.Light.pointLightInnerRadius = (float)M02RenderContract.EmberCoreRadiusPx / Ppu;
-                    visual.Light.pointLightOuterRadius = glowRadius / Ppu * 4f;
+                    visual.Light.pointLightOuterRadius = glowRadius / Ppu * 2.2f;
                 }
             }
             else
