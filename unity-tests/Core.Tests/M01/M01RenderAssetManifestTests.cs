@@ -70,7 +70,9 @@ namespace StarGuardian.M01.Tests
                 .Select(item => $"{Sha256File(item.Path)}  {item.Relative}\n");
             var aggregate = Sha256Text(string.Concat(lines));
 
-            Assert.Equal("df9b9e6e69440e103b890d95d9350e9bbd00b3f4a90c9f44e23a73b48d7b4349", aggregate);
+            // 2026-07-18 重冻结: 6b848e8 双引擎副本一并压缩(512²→384²+pngquant+oxipng)后重算;
+            // 压缩会话漏更此清单(红了一轮)。抽查 idle/walk/celebrate 双引擎副本仍字节一致。
+            Assert.Equal("14eaab6b621572c9e7e0d822208655f042cf4b5207cc762fe6ba123981519f36", aggregate);
         }
 
         [Fact]
