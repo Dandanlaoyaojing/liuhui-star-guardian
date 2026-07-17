@@ -109,12 +109,14 @@ namespace StarGuardian.M02.Rendering
         public static readonly Point2 CompletionCrystalIconPositionPx = new(-170, 72); // SWV:407 (panel 局部)
 
         // ── 主视图色板 SWV:38-57 ──
-        public static readonly M01Color32 EdgeColor = new(110, 116, 138, 150);            // SWV:43
+        // ⚠️ 2026-07-17 起视觉自主演进(引擎已全面切 Unity): 边色/点亮星色按用户反馈调暗调暖,
+        // 不再等于 Cocos 原值; SWV 标注保留为出处记录, 原值写在行尾注释。
+        public static readonly M01Color32 EdgeColor = new(196, 166, 118, 132);            // SWV:43 原(110,116,138,150) 灰蓝→暖蜜金(用户: 灰线丑)
         public static readonly M01Color32 ChargeColor = new(248, 214, 150, 255);          // SWV:44
         public static readonly M01Color32 ChargeEmptyColor = new(92, 98, 116, 120);       // SWV:45
-        public static readonly M01Color32 DecayingGlowColor = new(214, 170, 104, 95);     // SWV:46 / PV:35
-        public static readonly M01Color32 FrozenGlowColor = new(248, 214, 150, 135);      // SWV:47 / PV:36
-        public static readonly M01Color32 StarStrokeLitColor = new(255, 244, 202, 180);   // SWV:48
+        public static readonly M01Color32 DecayingGlowColor = new(214, 170, 104, 78);     // SWV:46 / PV:35 原 alpha 95(用户: 星太亮)
+        public static readonly M01Color32 FrozenGlowColor = new(248, 214, 150, 104);      // SWV:47 / PV:36 原 alpha 135(用户: 星太亮)
+        public static readonly M01Color32 StarStrokeLitColor = new(246, 228, 178, 122);   // SWV:48 原(255,244,202,180)
         public static readonly M01Color32 StarStrokeDarkColor = new(126, 132, 150, 150);  // SWV:49
         public static readonly M01Color32 FailureOverlayColor = new(24, 26, 34, 118);     // SWV:50
         public static readonly M01Color32 FailureLeakColor = new(214, 170, 104, 125);     // SWV:51
@@ -125,12 +127,13 @@ namespace StarGuardian.M02.Rendering
         public static readonly M01Color32 CompletionTextColor = new(45, 42, 36, 255);     // SWV:56
         public static readonly M01Color32 CompletionAccentColor = new(248, 214, 150, 255); // SWV:57
 
-        /// <summary>星体填充色(呈现态→色) SWV:38-42; 序章余烬同 palette 按值复用 PV:30-34</summary>
+        /// <summary>星体填充色(呈现态→色) SWV:38-42; 序章余烬同 palette 按值复用 PV:30-34。
+        /// 2026-07-17 点亮两态调暗压饱和(用户: 星太亮), 原值见行尾。</summary>
         public static M01Color32 StarFillColor(string status) => status switch
         {
-            StarNodeStatus.Dark => new M01Color32(92, 98, 116, 255),      // SWV:39
-            StarNodeStatus.Decaying => new M01Color32(214, 170, 104, 255), // SWV:40
-            StarNodeStatus.Frozen => new M01Color32(248, 214, 150, 255),   // SWV:41
+            StarNodeStatus.Dark => new M01Color32(92, 98, 116, 255),       // SWV:39
+            StarNodeStatus.Decaying => new M01Color32(198, 156, 96, 255),  // SWV:40 原(214,170,104)
+            StarNodeStatus.Frozen => new M01Color32(228, 188, 122, 255),   // SWV:41 原(248,214,150)
             _ => throw new ArgumentException($"Unsupported star status: {status}", nameof(status))
         };
 
@@ -217,6 +220,39 @@ namespace StarGuardian.M02.Rendering
         /// <summary>光晕色: 冻结暖金 / 衰减琥珀。SWV:576</summary>
         public static M01Color32 StarGlowColor(string status) =>
             status == StarNodeStatus.Frozen ? FrozenGlowColor : DecayingGlowColor;
+
+        // ── 星光呼吸/闪烁(2026-07-17 Unity 侧新增, 无 Cocos 真源; 用户: 点亮星要一闪一闪的呼吸感) ──
+        // 只作用于点亮星(decaying/frozen); 暗星不动。每星相位/周期由星 id 确定性派生 →
+        // 同一盘面每次进入闪烁节奏一致、各星错落, 且 xUnit 可钉金值。
+
+        public const double TwinkleBasePeriodSeconds = 2.2;
+        public const double TwinklePeriodJitterSeconds = 1.4;  // 周期 2.2~3.6s, 每星固定
+        public const double TwinkleScaleAmplitude = 0.045;     // 星体呼吸缩放 ±4.5%
+        public const double TwinkleGlowFloor = 0.55;           // 光晕/点光最暗压到基准的 55%
+        public const double TwinkleStarAlphaFloor = 0.84;      // 星体本体透明度微闪下限
+
+        /// <summary>每星固定相位(0..2π)。id 加后缀再哈希, 与顶点 rng 序列解耦。</summary>
+        public static double TwinklePhase(string id) => RngFromStarId(id + "#twinkle")() * Math.PI * 2;
+
+        /// <summary>每星固定周期(秒)。</summary>
+        public static double TwinklePeriodSeconds(string id) =>
+            TwinkleBasePeriodSeconds + RngFromStarId(id + "#period")() * TwinklePeriodJitterSeconds;
+
+        /// <summary>亮度水位 0..1(1=最亮), 正弦呼吸。</summary>
+        public static double TwinkleLevel(double timeSeconds, double phase, double periodSeconds) =>
+            0.5 + 0.5 * Math.Sin(phase + timeSeconds * Math.PI * 2 / Math.Max(0.001, periodSeconds));
+
+        /// <summary>星体缩放系数: level=1 → 1+amp, level=0 → 1-amp。</summary>
+        public static double TwinkleScaleFactor(double level) =>
+            1 + TwinkleScaleAmplitude * (level * 2 - 1);
+
+        /// <summary>光晕 alpha/点光强度系数: floor..1。</summary>
+        public static double TwinkleGlowFactor(double level) =>
+            TwinkleGlowFloor + (1 - TwinkleGlowFloor) * level;
+
+        /// <summary>星体本体 alpha 系数: floor..1。</summary>
+        public static double TwinkleStarAlphaFactor(double level) =>
+            TwinkleStarAlphaFloor + (1 - TwinkleStarAlphaFloor) * level;
 
         // ── 边弧(二次贝塞尔) SWV:270-290 ──
 

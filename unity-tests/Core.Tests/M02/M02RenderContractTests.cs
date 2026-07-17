@@ -182,28 +182,62 @@ namespace StarGuardian.M02.Tests
             Assert.Equal(3, M02RenderContract.StarGlowLineWidthPx(StarNodeStatus.Frozen), 12); // SWV:575
             Assert.Equal(2, M02RenderContract.StarGlowLineWidthPx(StarNodeStatus.Decaying), 12);
             // 字面字节(非常量比自己): 变异测试证明 routing-only 断言对错字节全绿(终审逮到)
+            // 2026-07-17 视觉调优: glow alpha 135→104 / 95→78(用户: 星太亮)
             var fg = M02RenderContract.StarGlowColor(StarNodeStatus.Frozen);
-            Assert.Equal((248, 214, 150, 135), (fg.R, fg.G, fg.B, fg.A)); // SWV:46
+            Assert.Equal((248, 214, 150, 104), (fg.R, fg.G, fg.B, fg.A)); // SWV:46 原 alpha 135
             var dg = M02RenderContract.StarGlowColor(StarNodeStatus.Decaying);
-            Assert.Equal((214, 170, 104, 95), (dg.R, dg.G, dg.B, dg.A));  // SWV:47
+            Assert.Equal((214, 170, 104, 78), (dg.R, dg.G, dg.B, dg.A));  // SWV:47 原 alpha 95
+        }
+
+        [Fact]
+        public void Twinkle_is_deterministic_per_star_and_bounded()
+        {
+            // 2026-07-17 星光呼吸(Unity 侧新增, 无 Cocos 真源): 相位/周期按 id 定值, 重复调用不变
+            Assert.Equal(M02RenderContract.TwinklePhase("warm-1"), M02RenderContract.TwinklePhase("warm-1"), 12);
+            Assert.Equal(M02RenderContract.TwinklePeriodSeconds("warm-1"), M02RenderContract.TwinklePeriodSeconds("warm-1"), 12);
+            Assert.NotEqual(M02RenderContract.TwinklePhase("warm-1"), M02RenderContract.TwinklePhase("warm-2")); // 各星错落
+            var phase = M02RenderContract.TwinklePhase("warm-1");
+            var period = M02RenderContract.TwinklePeriodSeconds("warm-1");
+            Assert.InRange(phase, 0.0, Math.PI * 2);
+            Assert.InRange(period,
+                M02RenderContract.TwinkleBasePeriodSeconds,
+                M02RenderContract.TwinkleBasePeriodSeconds + M02RenderContract.TwinklePeriodJitterSeconds);
+
+            // level ∈ [0,1]; 三个系数各自钉在 [floor, 1] / [1-amp, 1+amp]
+            for (var i = 0; i < 48; i++)
+            {
+                var level = M02RenderContract.TwinkleLevel(i * 0.137, phase, period);
+                Assert.InRange(level, 0.0, 1.0);
+                Assert.InRange(M02RenderContract.TwinkleGlowFactor(level), M02RenderContract.TwinkleGlowFloor, 1.0);
+                Assert.InRange(M02RenderContract.TwinkleStarAlphaFactor(level), M02RenderContract.TwinkleStarAlphaFloor, 1.0);
+                Assert.InRange(M02RenderContract.TwinkleScaleFactor(level),
+                    1 - M02RenderContract.TwinkleScaleAmplitude, 1 + M02RenderContract.TwinkleScaleAmplitude);
+            }
+
+            // 极值锚定: 最亮 → 系数回满
+            Assert.Equal(1.0, M02RenderContract.TwinkleGlowFactor(1.0), 12);
+            Assert.Equal(1.0, M02RenderContract.TwinkleStarAlphaFactor(1.0), 12);
+            Assert.Equal(1 + M02RenderContract.TwinkleScaleAmplitude, M02RenderContract.TwinkleScaleFactor(1.0), 12);
+            Assert.Equal(M02RenderContract.TwinkleGlowFloor, M02RenderContract.TwinkleGlowFactor(0.0), 12);
         }
 
         [Fact]
         public void Star_palette_matches_view_source_bytes()
         {
+            // 2026-07-17 视觉调优字节(用户: 星太亮/灰线丑): 点亮两态调暗、边换暖蜜金; dark 态保持 Cocos 原值
             var dark = M02RenderContract.StarFillColor(StarNodeStatus.Dark);
             Assert.Equal((92, 98, 116, 255), (dark.R, dark.G, dark.B, dark.A));           // SWV:39
             var decaying = M02RenderContract.StarFillColor(StarNodeStatus.Decaying);
-            Assert.Equal((214, 170, 104, 255), (decaying.R, decaying.G, decaying.B, decaying.A)); // SWV:40
+            Assert.Equal((198, 156, 96, 255), (decaying.R, decaying.G, decaying.B, decaying.A)); // SWV:40 原(214,170,104)
             var frozen = M02RenderContract.StarFillColor(StarNodeStatus.Frozen);
-            Assert.Equal((248, 214, 150, 255), (frozen.R, frozen.G, frozen.B, frozen.A)); // SWV:41
+            Assert.Equal((228, 188, 122, 255), (frozen.R, frozen.G, frozen.B, frozen.A)); // SWV:41 原(248,214,150)
             Assert.Throws<ArgumentException>(() => M02RenderContract.StarFillColor("nova"));
 
-            Assert.Equal((110, 116, 138, 150), (M02RenderContract.EdgeColor.R, M02RenderContract.EdgeColor.G, M02RenderContract.EdgeColor.B, M02RenderContract.EdgeColor.A)); // SWV:43
+            Assert.Equal((196, 166, 118, 132), (M02RenderContract.EdgeColor.R, M02RenderContract.EdgeColor.G, M02RenderContract.EdgeColor.B, M02RenderContract.EdgeColor.A)); // SWV:43 原(110,116,138,150)
             var sd = M02RenderContract.StarStrokeColor(StarNodeStatus.Dark);   // SWV:512 字面字节
             Assert.Equal((126, 132, 150, 150), (sd.R, sd.G, sd.B, sd.A)); // SWV:49 DARK_STAR_STROKE_COLOR
             var sl = M02RenderContract.StarStrokeColor(StarNodeStatus.Frozen);
-            Assert.Equal((255, 244, 202, 180), (sl.R, sl.G, sl.B, sl.A)); // SWV:48 STAR_STROKE_COLOR
+            Assert.Equal((246, 228, 178, 122), (sl.R, sl.G, sl.B, sl.A)); // SWV:48 原(255,244,202,180)
             Assert.Equal(new[] { 0, 2, 4, 1, 3, 0 }, M02RenderContract.StargazeStarDrawOrder);                             // SWV:29
         }
 

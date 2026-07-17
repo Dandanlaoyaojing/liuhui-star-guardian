@@ -49,6 +49,13 @@ public sealed class M02StarWebProbe : MonoBehaviour
         public SpriteRenderer GlowSprite = null!; // 加法光晕(半径随命数)
         public Light2D? Light;
         public SpriteRenderer StarSprite = null!;
+        // 星光呼吸(契约 Twinkle*): 相位/周期按 id 定值; Base* 是 RenderStarGlow 写下的基准,
+        // TickTwinkle 每帧在基准上乘闪烁系数(不叠乘、不漂移)。
+        public float TwinklePhase;
+        public float TwinklePeriod = 1f;
+        public float BaseGlowAlpha;
+        public float BaseLightIntensity;
+        public bool Lit;
     }
 
     private readonly List<StarVisual> starVisuals = new();
@@ -301,7 +308,9 @@ public sealed class M02StarWebProbe : MonoBehaviour
                 GlowNode = glowNode,
                 GlowSprite = glowSprite,
                 Light = light,
-                StarSprite = starSprite
+                StarSprite = starSprite,
+                TwinklePhase = (float)M02RenderContract.TwinklePhase(node.Id),
+                TwinklePeriod = (float)M02RenderContract.TwinklePeriodSeconds(node.Id)
             });
             index += 1;
         }
@@ -351,6 +360,7 @@ public sealed class M02StarWebProbe : MonoBehaviour
         if (!Application.isPlaying) return;
         TickRepairFlow();
         TickPulse();
+        TickTwinkle();
         HealCompletionText();
 
         var pointer = Pointer.current; // iOS 触屏无 Mouse; M01DragProbe 同款 Pointer 路径
@@ -530,6 +540,29 @@ public sealed class M02StarWebProbe : MonoBehaviour
         pulseRunning = false;
     }
 
+    private void TickTwinkle()
+    {
+        // 星光呼吸/闪烁(契约 Twinkle*, 2026-07-17 新增): 只动点亮星。
+        // 在 RenderStarGlow 写下的 Base* 基准上乘系数 —— 不读回自身值, 无累积漂移;
+        // 修复流只碰 GlowNode 缩放, 这里只碰 StarSprite 缩放/alpha 与 glow alpha/光强, 互不打架。
+        var t = Time.time;
+        foreach (var visual in starVisuals)
+        {
+            if (!visual.Lit || visual.StarSprite == null) continue;
+            var level = (float)M02RenderContract.TwinkleLevel(t, visual.TwinklePhase, visual.TwinklePeriod);
+            var starScale = (float)M02RenderContract.TwinkleScaleFactor(level);
+            visual.StarSprite.transform.localScale = new Vector3(starScale, starScale, 1f);
+            var starColor = visual.StarSprite.color;
+            starColor.a = (float)M02RenderContract.TwinkleStarAlphaFactor(level);
+            visual.StarSprite.color = starColor;
+            var glowFactor = (float)M02RenderContract.TwinkleGlowFactor(level);
+            var glowColor = visual.GlowSprite.color;
+            glowColor.a = visual.BaseGlowAlpha * glowFactor;
+            visual.GlowSprite.color = glowColor;
+            if (visual.Light != null) visual.Light.intensity = visual.BaseLightIntensity * glowFactor;
+        }
+    }
+
     // ── 着色渲染(SWV renderStars:488-503) ──
 
     private void RenderStars()
@@ -557,23 +590,30 @@ public sealed class M02StarWebProbe : MonoBehaviour
         {
             visual.GlowSprite.enabled = false;
             if (visual.Light != null) visual.Light.intensity = 0f;
+            visual.Lit = false;
+            visual.StarSprite.color = Color.white;
+            visual.StarSprite.transform.localScale = Vector3.one;
             return;
         }
         var glowRadius = (float)M02RenderContract.StarGlowRadiusPx(node.Status, node.Life, lifeMax);
         var color = M02RenderContract.StarGlowColor(node.Status);
         visual.GlowSprite.enabled = true;
-        // 径向精灵直径 1 unit → 缩放到 2×半径; alpha 用 Cocos 圆环 alpha(95/135)
+        // 径向精灵直径 1 unit → 缩放到 2×半径; alpha 用 Cocos 圆环 alpha(78/104, 2026-07-17 调暗)
         var scale = glowRadius * 2f / Ppu;
         visual.GlowSprite.transform.localScale = new Vector3(scale, scale, 1f);
         visual.GlowSprite.color = new Color(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+        visual.Lit = true;
+        visual.BaseGlowAlpha = color.A / 255f;
         if (visual.Light != null)
         {
             visual.Light.color = new Color(color.R / 255f, color.G / 255f, color.B / 255f, 1f);
             // 与序章同规则按 glow alpha 折算(终审逮到两侧不一致: 主盘常数 1.3 抹平了契约用
-            // alpha 95/135 编码的"命数将尽更暗"读盘线索); 分母取契约而非硬编码 135f。
-            visual.Light.intensity = 1.3f * (color.A / (float)M02RenderContract.FrozenGlowColor.A); // M2GlowProbe:82 验证值
+            // alpha 编码的"命数将尽更暗"读盘线索); 分母取契约而非硬编码。
+            // 2026-07-17 用户嫌星太亮: 峰值 1.3 → 1.05, 光池随 glow alpha 整体变柔。
+            visual.Light.intensity = 1.05f * (color.A / (float)M02RenderContract.FrozenGlowColor.A);
             visual.Light.pointLightInnerRadius = (float)M02RenderContract.NodeRadiusPx / Ppu;
             visual.Light.pointLightOuterRadius = glowRadius / Ppu * 4f; // 暖光池外扩(判断值, 契约无 TS 真源)
+            visual.BaseLightIntensity = visual.Light.intensity;
         }
     }
 
