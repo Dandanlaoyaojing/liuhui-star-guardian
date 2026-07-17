@@ -609,10 +609,11 @@ public sealed class M02StarWebProbe : MonoBehaviour
             visual.Light.color = new Color(color.R / 255f, color.G / 255f, color.B / 255f, 1f);
             // 与序章同规则按 glow alpha 折算(终审逮到两侧不一致: 主盘常数 1.3 抹平了契约用
             // alpha 编码的"命数将尽更暗"读盘线索); 分母取契约而非硬编码。
-            // 2026-07-17 用户嫌星太亮: 峰值 1.3 → 1.05, 光池随 glow alpha 整体变柔。
-            visual.Light.intensity = 1.05f * (color.A / (float)M02RenderContract.FrozenGlowColor.A);
+            // 2026-07-17 用户嫌星太亮: 峰值 1.3 → 0.47, 光池 4×→2.2×(07-18 Play 模式七星点亮实测:
+            // 原值下多星光池叠加把中央水彩刷成整片白; 此组合下底图纹理保持可见)。
+            visual.Light.intensity = 0.47f * (color.A / (float)M02RenderContract.FrozenGlowColor.A);
             visual.Light.pointLightInnerRadius = (float)M02RenderContract.NodeRadiusPx / Ppu;
-            visual.Light.pointLightOuterRadius = glowRadius / Ppu * 4f; // 暖光池外扩(判断值, 契约无 TS 真源)
+            visual.Light.pointLightOuterRadius = glowRadius / Ppu * 2.2f; // 暖光池外扩(判断值, 契约无 TS 真源)
             visual.BaseLightIntensity = visual.Light.intensity;
         }
     }

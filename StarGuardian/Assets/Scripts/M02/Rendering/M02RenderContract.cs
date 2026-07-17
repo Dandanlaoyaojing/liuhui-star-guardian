@@ -114,8 +114,8 @@ namespace StarGuardian.M02.Rendering
         public static readonly M01Color32 EdgeColor = new(196, 166, 118, 132);            // SWV:43 原(110,116,138,150) 灰蓝→暖蜜金(用户: 灰线丑)
         public static readonly M01Color32 ChargeColor = new(248, 214, 150, 255);          // SWV:44
         public static readonly M01Color32 ChargeEmptyColor = new(92, 98, 116, 120);       // SWV:45
-        public static readonly M01Color32 DecayingGlowColor = new(214, 170, 104, 78);     // SWV:46 / PV:35 原 alpha 95(用户: 星太亮)
-        public static readonly M01Color32 FrozenGlowColor = new(248, 214, 150, 104);      // SWV:47 / PV:36 原 alpha 135(用户: 星太亮)
+        public static readonly M01Color32 DecayingGlowColor = new(214, 170, 104, 58);     // SWV:46 / PV:35 原 alpha 95(用户: 星太亮; 07-18 Play 实测再压)
+        public static readonly M01Color32 FrozenGlowColor = new(248, 214, 150, 78);       // SWV:47 / PV:36 原 alpha 135(用户: 星太亮; 07-18 Play 实测再压)
         public static readonly M01Color32 StarStrokeLitColor = new(246, 228, 178, 122);   // SWV:48 原(255,244,202,180)
         public static readonly M01Color32 StarStrokeDarkColor = new(126, 132, 150, 150);  // SWV:49
         public static readonly M01Color32 FailureOverlayColor = new(24, 26, 34, 118);     // SWV:50

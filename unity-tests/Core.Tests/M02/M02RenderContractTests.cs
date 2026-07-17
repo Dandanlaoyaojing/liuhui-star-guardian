@@ -182,11 +182,11 @@ namespace StarGuardian.M02.Tests
             Assert.Equal(3, M02RenderContract.StarGlowLineWidthPx(StarNodeStatus.Frozen), 12); // SWV:575
             Assert.Equal(2, M02RenderContract.StarGlowLineWidthPx(StarNodeStatus.Decaying), 12);
             // 字面字节(非常量比自己): 变异测试证明 routing-only 断言对错字节全绿(终审逮到)
-            // 2026-07-17 视觉调优: glow alpha 135→104 / 95→78(用户: 星太亮)
+            // 2026-07-17 视觉调优: glow alpha 135→78 / 95→58(用户: 星太亮; Play 七星叠加实测定值)
             var fg = M02RenderContract.StarGlowColor(StarNodeStatus.Frozen);
-            Assert.Equal((248, 214, 150, 104), (fg.R, fg.G, fg.B, fg.A)); // SWV:46 原 alpha 135
+            Assert.Equal((248, 214, 150, 78), (fg.R, fg.G, fg.B, fg.A)); // SWV:46 原 alpha 135
             var dg = M02RenderContract.StarGlowColor(StarNodeStatus.Decaying);
-            Assert.Equal((214, 170, 104, 78), (dg.R, dg.G, dg.B, dg.A));  // SWV:47 原 alpha 95
+            Assert.Equal((214, 170, 104, 58), (dg.R, dg.G, dg.B, dg.A));  // SWV:47 原 alpha 95
         }
 
         [Fact]
