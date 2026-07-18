@@ -757,7 +757,7 @@ class LocalStorageSync implements ICloudSync {
 
 **胜利条件**：`{ type: "overlap_evidence_reconstructed", params: { candidateFragments: "config_defined", recommendedCandidateRange: [12, 16], requiredFragments: "solution_defined", evidenceCount: [4, 6], maxLayersPerEvidence: 2, validationLightSeconds: 3, baseColors: ["red", "yellow", "blue"], blendColors: ["orange", "green", "purple"] } }` — 目标交叠证据图上的全部证据均被正确复原才判成功。每个证据必须同时满足：固定形状组合能形成该目标交叠区域、相对位置匹配、提交的两片碎片正是该证据的 `solution.fragmentIds`、两片隐藏本色混合后等于目标融合色；不要求使用所有候选碎片，实际使用数量由配置中所有 `solution.fragmentIds` 的并集派生。未全对的候选结构触发约 3 秒底光稳定亮起(显交叠混合色)并随后熄灭掉片；全对时底光保持亮起并进入修复。
 
-**修复动画（通关成品过场 v2）**：全对进入修复后 → 莱米正脸蹦跳庆祝一遍 → 播成品过场动画（静态齿轮就地水彩漩涡在齿轮身流转 → 圆盘门开、露出星芒 → 星光溢出全屏、化为水彩星光路径云海 → 淡出泛白，约 14.35s 带音效）→ ToolCard。过场以成品动画替代早期 greybox 修复 tween（齿轮转/碎片漩涡喷出/星光脉冲）；greybox tween 仅作平台/加载兜底路径保留。
+**修复动画（通关成品过场 v2）**：全对进入修复后 → 莱米正脸蹦跳庆祝一遍 → 播成品过场动画（静态齿轮就地水彩漩涡在齿轮身流转 → 圆盘门开、露出星芒 → 星光溢出全屏、化为水彩星光路径云海 → 淡出泛白，约 14.35s 带音效）→ ToolCard → 回星图接"三道流星唤醒邻星"解锁演出（§6.2，2026-07-18 新增）——直通 M02 序章开场的三粒余烬，同一母题三现（云海全屏/星图宏观/场景近景），衔接细则见 `docs/design/m02-prologue-performance-script.md`；现有 mp4 不改。过场以成品动画替代早期 greybox 修复 tween（齿轮转/碎片漩涡喷出/星光脉冲）；greybox tween 仅作平台/加载兜底路径保留。
 平台实现（`completionVideo` 配置驱动，`replacesRepairAnimation=true`）：iOS 走 `VideoPlayer` 播 mp4（原生硬解、省内存）；Steam 桌面（Win/Mac）播等价的逐帧 Sprite 序列 + 独立音轨（`M01CutscenePlayer`）。（2026-07-18 口径校正：历史 Android/Web 渠道 2026-06-01 已放弃，删出本行）可点击跳过。
 
 **智慧结晶**："秩序，不在碎片本身，而在它们终于显现的关系里。"
@@ -1113,6 +1113,7 @@ Boot (加载) → Home (星图地图) → Puzzle (谜题) → Home (返回地图
 - 俯视星空视角，十颗正典星沿五幕散布（十星航线，§2.3；解锁顺序=正典表"序"列）
 - 已完成的星星发出明亮星光，连线形成星座雏形；**修复过的领土永远亮着**（雾对锁形免疫，§1.4 法则 3）——星图即成长地图
 - 未抵达的星被灰雾半掩（暗淡 + 雾的缓慢涌动即"锁定"的 diegetic 表达，可替代锁图标）
+- **解锁演出＝传灯（2026-07-18）**：通关回星图后，刚修复的星迸出星光、飞向下一颗暗星并唤醒之（暗星转入呼吸、周围灰雾退开一圈）——无文字、无弹窗，"被光唤醒"即解锁。首例 M01→M02 为三道流星（一长两短），与 M02 序章开场同母题同音色（细则见 `docs/design/m02-prologue-performance-script.md`）；十关通用语言，光的形态各关立项可变，"上一关的光唤醒下一颗星"不变
 - **流辉美慧号泊于星图**：每获一枚智慧结晶，船身多一缕流动光纹、航迹更亮一分（§1.4.6 安静原则：无文字、无提示、无奖励音）
 - 点击可用星星 → 进入谜题
 - 底部导航栏：日志本、设置、飞船信息
