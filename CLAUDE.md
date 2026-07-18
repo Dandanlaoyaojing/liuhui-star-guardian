@@ -52,10 +52,11 @@
 - Interaction components in `scripts/interaction/` are reusable across levels.
 - Shaders live in `shaders/`.
 
-## MVP Scope
+## Game Scope
 
-Phase 1: 10 puzzles (M01-M10, "秩序之基" stage)
+正典十关 = 全游戏（"十星航线"，2026-07-18 由 33 关收束；权威序列与雾之世界观见 spec §2.3 / §1.4）
 
+- 十席素材源: M01✅, M02✅, M06(传灯道,已设计), M08, M05, M03, M21(时序档案馆), M26, M20(悖论果园), M33；其余 33-关题材降级为题材库
 - Core framework + puzzle engine + 6 base shaders
 - Placeholder art for prototypes; final art must be regenerated or polished against the four active style references in `docs/design/style-references/`
 - Local storage for progress
